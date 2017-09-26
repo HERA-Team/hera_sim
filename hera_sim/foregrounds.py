@@ -57,7 +57,7 @@ def gen_pntsrc_vis(lsts, fqs, bl_len_ns, beam_width, ra=0., flux=1., index=-1, m
 
 def pntsrc_foreground(lsts, fqs, bl_len_ns, nsrcs=1000):
     beam_width = (40*60.) / aipy.const.sidereal_day * 2*np.pi # XXX hardcoded HERA
-    fqs.shape = (1,-1)
+    fqs = np.reshape(fqs, (1,-1))
     ras = np.random.uniform(0,2*np.pi,nsrcs)
     indices = np.random.normal(-1, .5, size=nsrcs)
     mfreq = .15

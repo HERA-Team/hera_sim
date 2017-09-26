@@ -23,7 +23,8 @@ class TestRFI(unittest.TestCase):
         np.testing.assert_allclose(r[:,3], 0, 4)
         np.testing.assert_allclose(r[:,5], s.strength/2, 4)
     def test_rfi_stations(self):
-        fqs = np.linspace(.1,.2,1024)
+        #fqs = np.linspace(.1,.2,1024)
+        fqs = np.linspace(.1,.2,100)
         lsts = np.linspace(0,2*np.pi,1000)
         r = rfi.rfi_stations(fqs, lsts)
         self.assertEqual(r.shape, (lsts.size, fqs.size))

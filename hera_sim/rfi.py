@@ -12,12 +12,13 @@ class RfiStation:
         self.timescale = timescale
     def gen_rfi(self, fqs, lsts, rfi=None):
         sdf = np.average(fqs[1:] - fqs[:-1])
-        ch1 = np.argwhere(np.abs(fqs - self.fq0) < sdf)[0,0]
+        if rfi is None: rfi = np.zeros((lsts.size,fqs.size), dtype=np.complex)
+        assert(rfi.shape == (lsts.size, fqs.size))
+        try: ch1 = np.argwhere(np.abs(fqs - self.fq0) < sdf)[0,0]
+        except(IndexError): return rfi
         if self.fq0 > fqs[ch1]: ch2 = ch1+1
         else: ch2 = ch1-1
         phs1,phs2 = np.random.uniform(0,2*np.pi,size=2)
-        if rfi is None: rfi = np.zeros((lsts.size,fqs.size), dtype=np.complex)
-        assert(rfi.shape == (lsts.size, fqs.size))
         signal = .999*np.cos(lsts*aipy.const.sidereal_day / self.timescale + phs1) + 2*(self.duty_cycle - .5)
         signal = np.where(signal > 0, np.random.normal(self.strength,self.std) * np.exp(1j*phs2), 0)
         rfi[:,ch1] += signal * (1 - np.abs(fqs[ch1] - self.fq0)/sdf).clip(0,1)
@@ -47,7 +48,7 @@ HERA_RFI_STATIONS = [
     (.1911, 1., 100., 30., 1000),
     (.1972, 1., 100., 30., 1000),
     # DC Offset from ADCs
-    (.2000, 1., 100., 0., 10000),
+    #(.2000, 1., 100., 0., 10000),
 ]
 
 def rfi_stations(fqs, lsts, stations=HERA_RFI_STATIONS, rfi=None):
@@ -62,7 +63,7 @@ def rfi_impulse(fqs, lsts, rfi=None, chance=.001, strength=20.):
     impulse_times = np.where(np.random.uniform(size=lsts.size) <= chance)[0]
     dlys = np.random.uniform(-300,300, size=impulse_times.size) # ns
     impulses = strength * np.array([np.exp(2j*np.pi*dly*fqs) for dly in dlys])
-    rfi[impulse_times] += impulses
+    if impulses.size > 0: rfi[impulse_times] += impulses
     return rfi
     
 def rfi_scatter(fqs, lsts, rfi=None, chance=.0001, strength=10, std=10):
