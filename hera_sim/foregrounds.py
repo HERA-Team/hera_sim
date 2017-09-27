@@ -27,7 +27,7 @@ def rough_fringe_filter(noise, lsts, fqs, bl_len_ns):
     fng_filter = np.where(np.abs(fringe_rates) < fr_max, 1., 0)
     return np.fft.ifft(_noise * fng_filter, axis=-2)
     
-def diffuse_foreground(Tsky, lsts, fqs, bl_len_ns, bm_poly=noise.HERA_BEAM_POLY, scalar=1.):
+def diffuse_foreground(Tsky, lsts, fqs, bl_len_ns, bm_poly=noise.HERA_BEAM_POLY, scalar=30.):
     fr_max = np.max(calc_max_fringe_rate(fqs, bl_len_ns))
     dt = 0.5/fr_max # over-resolve by factor of 2
     ntimes = int(np.around(aipy.const.sidereal_day / dt))
@@ -44,28 +44,27 @@ def compute_ha(lsts, ra):
     ha = lsts - ra
     ha = np.where(ha > np.pi, ha-2*np.pi, ha)
     ha = np.where(ha < -np.pi, ha+2*np.pi, ha)
-    ha.shape = (-1,1)
     return ha
 
-def gen_pntsrc_vis(lsts, fqs, bl_len_ns, beam_width, ra=0., flux=1., index=-1, mfreq=.15):
-    ha = compute_ha(lsts, ra)
-    bm = np.exp(-ha**2 / (2*beam_width**2))
-    bm = np.where(np.abs(ha) > np.pi/2, 0, bm)
-    w = bl_len_ns * np.sin(ha) * fqs # XXX all srcs hit 0 phs at zenith...
-    phs = np.exp(2j*np.pi*w)
-    return bm * phs * flux * (fqs/mfreq)**index
-
 def pntsrc_foreground(lsts, fqs, bl_len_ns, nsrcs=1000):
-    beam_width = (40*60.) / aipy.const.sidereal_day * 2*np.pi # XXX hardcoded HERA
-    fqs = np.reshape(fqs, (1,-1))
     ras = np.random.uniform(0,2*np.pi,nsrcs)
     indices = np.random.normal(-1, .5, size=nsrcs)
     mfreq = .15
-    x0,x1,n = 1, 1000, -1.5
+    beam_width = (40*60.) * (mfreq/fqs) / aipy.const.sidereal_day * 2*np.pi # XXX hardcoded HERA
+    x0,x1,n = .3, 300, -1.5
     # Draw flux densities from a power law between 1 and 1000 w/ index of -1.5
     flux_densities = ((x1**(n+1) - x0**(n+1))*np.random.uniform(size=nsrcs) + x0**(n+1))**(1./(n+1))
-    vis = 0
+    vis = np.zeros((lsts.size, fqs.size), dtype=np.complex)
     for ra,flux,index in zip(ras,flux_densities,indices):
-        #print ra, flux, index
-        vis += gen_pntsrc_vis(lsts, fqs, bl_len_ns, beam_width, ra=ra, flux=flux, index=index, mfreq=mfreq)
+        t = np.argmin(np.abs(compute_ha(lsts,ra)))
+        dtau = np.random.uniform(-.1*bl_len_ns,.1*bl_len_ns) # XXX adds a bit to total delay, increasing bl_len_ns
+        vis[t,:] += flux * (fqs/mfreq)**index * np.exp(2j*np.pi*fqs*dtau)
+    ha = compute_ha(lsts, 0)
+    for fi in xrange(fqs.size):
+        bm = np.exp(-ha**2 / (2*beam_width[fi]**2))
+        bm = np.where(np.abs(ha) > np.pi/2, 0, bm)
+        w = .9*bl_len_ns * np.sin(ha) * fqs[fi] # XXX .9 to offset increase from dtau above
+        phs = np.exp(2j*np.pi*w)
+        kernel = bm * phs
+        vis[:,fi] = np.fft.ifft(np.fft.fft(kernel) * np.fft.fft(vis[:,fi]))
     return vis
