@@ -3,8 +3,10 @@
 import numpy as np
 from scipy.interpolate import RectBivariateSpline
 import aipy
+import os
+HERA_TSKY_VS_LST_NPZ = os.join('data','HERA_Tsky_vs_LST.npz')
 
-npz = np.load('HERA_Tsky_vs_LST.npz') # Tsky vs fq/lst from Beardsley, beam v XXX, GSM v XXX
+npz = np.load(HERA_TSKY_VS_LST_NPZ) # Tsky vs fq/lst from Beardsley, beam v XXX, GSM v XXX
 fqs = npz['freqs'] / 1e3
 lsts = npz['lsts'] / 12. * np.pi
 lsts = np.concatenate([lsts[-10:]-2*np.pi, lsts, lsts[:10]+2*np.pi])
