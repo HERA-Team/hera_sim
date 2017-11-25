@@ -4,7 +4,8 @@ import numpy as np
 from scipy.interpolate import RectBivariateSpline
 import aipy
 import os
-HERA_TSKY_VS_LST_NPZ = os.join('data','HERA_Tsky_vs_LST.npz')
+this_dir, this_filename = os.path.split(__file__)
+HERA_TSKY_VS_LST_NPZ = os.path.join(this_dir, 'data','HERA_Tsky_vs_LST.npz')
 
 npz = np.load(HERA_TSKY_VS_LST_NPZ) # Tsky vs fq/lst from Beardsley, beam v XXX, GSM v XXX
 fqs = npz['freqs'] / 1e3

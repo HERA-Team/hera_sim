@@ -2,7 +2,7 @@ import numpy as np
 import hera_cal.omni
 import foregrounds, rfi, noise, sigchain
 
-DEFAULT_LST = np.linspace(0, 2*np.pi, 10000, endpoint=False)
+DEFAULT_LSTS = np.linspace(0, 2*np.pi, 10000, endpoint=False)
 DEFAULT_FQS = np.linspace(0.1, 0.2, 1024, endpoint=False)
 
 def make_hera_obs(aa, lsts=DEFAULT_LSTS, fqs=DEFAULT_FQS, pols=['xx','yy'], T_rx=150., inttime=10.7,
@@ -20,7 +20,6 @@ def make_hera_obs(aa, lsts=DEFAULT_LSTS, fqs=DEFAULT_FQS, pols=['xx','yy'], T_rx
         for (i,j,pol) in bls:
             data[(i,j,pol)] = true_vis[bls[0]] * gains[(i,pol[0])] * gains[(j,pol[1])].conj()
     return gains, true_vis, data
-~                                   
 
 
 # XXX from hera_cal.redcal
