@@ -1,6 +1,14 @@
 #!/usr/bin/env python3
-# mkgains: Create fake gains
-
+'''
+mkgains.py: Creates fake gains
+This takes some UVData-compatible data file/folder, and creates gains
+based on the shape of the data. It filters the gains in two ways:
+    1: Boxcar filter over # of integrations
+    2: Low pass filter over frequency
+The user must select the size of the boxcar, the size used for the
+low pass filter and the standard deviation of the distribution of the
+gains.
+'''
 from pyuvdata import UVData, UVCal
 import numpy as np
 import argparse as argp
@@ -8,52 +16,54 @@ import os
 import sys
 import subprocess as sub
 
+def timeboxcarFFT(data, conv, width):
+    datafft = np.fft.fft(data)
+    convfft = np.fft.fft(conv/uvc.Ntimes)
+    return np.fft.ifft(datafft * convfft)
+
+def timeboxcarREAL(data, conv, width):
+    datafft = np.fft.fft(data)
+    convfft = np.fft.fft(conv)
+    convfft /= np.max(convfft) * width
+    return np.fft.ifft(datafft * convfft)
+
+def freqlowpassFFT(data, conv):
+    datafft = np.fft.fft(data)
+    convfft = np.fft.fft(conv)
+    convfft /= np.max(convfft)
+    return np.fft.ifft(datafft * convfft)
+
+def freqlowpassREAL(data, conv):
+    return data * conv
+
 # Start parsing arguments
 parse = argp.ArgumentParser()
 parse.add_argument("path", help='Path to data file', type=str)
-parse.add_argument('-n', '--integrations',  help='Number of integrations used for boxcar smoothing', type=int)
-parse.add_argument('-f', '--frequency', help='Minimum frequency to start zeroing out (in Hz)', type=np.float64)
-parse.add_argument('-t', '--time', help='Amount of time (in seconds) used for boxcar smoothing', type=int)
-parse.add_argument('-a', '--amplitudephase', help='Use the Amplitude-Phase form for calculating fake gains',
-        action='store_true')
-parse.add_argument('-d', '--distribution', help='Select the type of random distribution used for finding the' + \
-        ' real and imaginary parts (or the amplitude and phase if -a is used) for the creation of the gains',
-        nargs=2, default=['normal', 'normal'], choices=['normal', 'uniform'])
-parse.add_argument('-r', '--realrange', help='If uniform distribution is selected for the real part' + \
-        ' (or the amplitude if -a is used), then this selects the minimum and maximum values for the' + \
-        ' distribution, in that order. Otherwise, it selects the mean and standard deviation of the' + \
-        ' normal distribution, in that order.', nargs=2, type=np.float64, default=[None, None])
-parse.add_argument('-i', '--imagrange', help='If uniform distribution is selected for the imaginary part' + \
-        ' (or the phase if -a is used), then this selects the minimum and maximum values for the' + \
-        ' distribution, in that order. Otherwise, it selects the mean and standard deviation of the' + \
-        ' normal distribution, in that order.', nargs=2, type=np.float64, default=[None, None])
+parse.add_argument('-f', '--frequency', help='Without -g (--freqfourier), this specifies the range of' + \
+        ' frequencies to zero out, starting from the last frequency (in Hertz). With -g (--freqfourier), this' + \
+        ' specifies the Full Width Half Maximum of the sinc used to create the boxcar in fourier space (in Hertz).'
+        , type=np.float64)
+parse.add_argument('-t', '--time', help='Amount of time (in seconds) used for the size of the boxcar' + \
+        ' for the boxcar smoothing.', type=int)
+parse.add_argument('-a', '--ampstdev', help='The standard deviation used to generate the amplitude' + \
+        ' of the gains', type=np.float64)
+parse.add_argument('-p', '--phasestdev', help='The standard deviation used to generate the phase of' + \
+        ' the gains', type=np.float64)
+parse.add_argument('-j', '--timefourier', help='Changes the filter done over time so that it is done in' + \
+        ' Fourier space instead', action='store_true', default=False)
+parse.add_argument('-g', '--freqfourier', help='Changes the filter done over frequency so that it is done' + \
+        ' in Fourier space instead', action='store_true', default=False)
 args = parse.parse_args()
 
-# Check and populate args
+# Check args
 fullpath = os.path.abspath(os.path.expanduser(args.path))
 if fullpath.endswith('/'):
     fullpath = fullpath[:-1]
 
-if bool(args.time) == bool(args.integrations):
-    raise ValueError('Either -i or -t must be used')
-
-if args.frequency == None:
-    raise ValueError('-f must be used')
-
-rand_input = []
-for count, check in enumerate([args.realrange, args.imagrange]):
-    if check == [None, None]:
-        if args.distribution[0] == 'normal':
-            rand_input += [count ^ 1, .01]
-        elif args.distribution[0] == 'uniform':
-            if count == 0:
-                rand_input += [1, 10]
-            elif count == 1:
-                rand_input += [-np.pi, np.pi]
-    elif args.distribution[count] == 'uniform':
-        if check[0] >= check[1]:
-            raise ValueError('The first value must be smaller than the second' + \
-                    'value if uniform distribution was chosen for that input')
+argsdict = vars(args)
+for imp in list(argsdict.keys())[1:]:
+    if argsdict[imp] == None:
+        raise ValueError('--' + imp + ' must be used')
 
 # Load data
 uvd = UVData()
@@ -70,9 +80,6 @@ for read in readfuncts:
 
 if numfailed == len(readfuncts):
     raise IOError('Data could not be read using any read function in UVData')
-
-if args.integrations > uvd.Ntimes and not bool(args.time):
-    raise ValueError('Number of integrations is too big (Must be <= Ntimes in your data)')
 
 # Prepare cal file
 uvc = UVCal()
@@ -112,56 +119,49 @@ if uvc.x_orientation == None:
 
 # Create random gains
 gain_shape = (uvc.Nants_data, uvc.Nspws, uvc.Nfreqs, uvc.Ntimes, uvc.Njones)
-
-if args.amplitudephase:
-    names = ['Amplitude', 'Phase']
-else:
-    names = ['Real', 'Imaginary']
-
-distfuncts = []
-for count, dist in enumerate(args.distribution):
-    if dist == 'normal':
-        distfuncts += [np.random.normal]
-        descriptions = ['Mean', 'Standard Deviation']
-    elif dist == 'uniform':
-        distfuncts += [np.random.uniform]
-        descriptions = ['Minimum', 'Maximum']
-    print('%s %s: %f' % (names[count], descriptions[0], rand_input[count * 2]))
-    print('%s %s: %f' % (names[count], descriptions[1], rand_input[count * 2 + 1]))
-
-if args.amplitudephase:
-    gains = distfuncts[0](rand_input[0], rand_input[1], gain_shape) * \
-            np.exp(distfuncts[1](rand_input[2], rand_input[3], gain_shape) * 1j)
-else:
-    gains = distfuncts[0](rand_input[0], rand_input[1], gain_shape) + \
-            distfuncts[1](rand_input[2], rand_input[3], gain_shape) * 1j
+gains = np.random.normal(1.0, args.ampstdev, gain_shape) * \
+        np.exp(np.random.normal(0.0, args.phasestdev, gain_shape) * 1j) 
 
 # Preparing variables for transformations
-if args.time:
-    lengthday = np.float64(args.time) / 86400
-    size = np.abs(uvc.time_array - (uvc.time_array.min() + lengthday)).argmin() + 1
-    print('boxcar size: %d integrations' % (size))
-    if lengthday + uvc.time_array[0] > uvc.time_range[1]:
-        print('Warning: The given time range is bigger than the time range of the data set')
+timesize = int(args.time / uvc.integration_time)
+if timesize == 0:
+    raise ValueError('--time is too small')
+
+if args.timefourier:
+    if timesize > gain_shape[3]:
+        raise ValueError('--time is too big')
+
+    sincran = np.linspace(-np.pi * args.time, np.pi * args.time, gain_shape[3])
+    timefilter = np.sinc(sincran * timesize)
+    timetransform = timeboxcarFFT
+    width = None
+
 else:
-    size = args.integrations
+    timefilter = np.zeros(uvc.Ntimes)
+    sizeodd = timesize & 1
+    radius = timesize >> 1
+    center = timefilter.size >> 1
+    timefilter[center - radius:center + radius + sizeodd] = 1
+    timefilter /= np.float64(timesize)
+    timetransform = timeboxcarREAL
+    width = (radius * 2) + sizeodd
 
-if size < 2:
-    raise ValueError('Specificed integraions or time value is too small')
+if args.freqfourier:
+    sincran = np.linspace(-args.frequency, args.frequency, gain_shape[2])
+    freqfilter = np.sinc(sincran * 3.79 / args.frequency)
+    freqtransform = freqlowpassFFT
 
-bc = np.zeros(uvc.Ntimes)
-sizeodd = size & 1
-radius = size >> 1
-center = bc.size >> 1
-bc[center - radius:center + radius + sizeodd] = 1
-bc /= np.float64(size)
-
-f0index = np.argmax(uvc.freq_array >= args.frequency)
-if f0index == 0:
-    if np.any(np.amin(uvc.freq_array, axis = 0) > args.f0):
-        raise ValueError('f0 is too small (f0 must be between freq_array[0] and freq_array[-1])')
-    if np.any(np.amax(uvc.freq_array, axis = 0) < args.f0):
-        raise ValueError('f0 is too big (f0 must be between freq_array[0] and freq_array[-1])')
+else:
+    if args.frequency > np.abs(uvc.freq_array[0, -1] - uvc.freq_array[0, 0]):
+        raise ValueError('--frequency is too big')
+    
+    freqsize = int(args.frequency / np.abs(uvc.freq_array[0, -1] - uvc.freq_array[0, -2])) + 1
+    freqfilter = np.ones(gain_shape[2], dtype=complex)
+    if uvc.freq_array[0, -1] > uvc.freq_array[0, -2]:
+        freqfilter[-freqsize:] = 0 + 0j
+    else:
+        freqfilter[:freqsize] = 0 + 0j
+    freqtransform = freqlowpassREAL
 
 # Transform random gains
 for ant in range(uvc.Nants_data):
@@ -169,25 +169,17 @@ for ant in range(uvc.Nants_data):
         for polar in range(uvc.Njones):
             # Boxcar smoothing
             for freq in range(uvc.Nfreqs):
-                timefft = np.fft.fft(gains[ant, spw, freq, :, polar], n = uvc.Nfreqs * 2 - 1)
-                bcfft = np.fft.fft(bc, n = uvc.Nfreqs * 2 - 1)
-                smoothed = np.fft.ifft(timefft * bcfft, n = uvc.Nfreqs * 2 - 1)
-                smoothed_center = smoothed.size >> 1
-                smoothed_radius = uvc.Ntimes >> 1
-                gains[ant, spw, freq, :, polar] = smoothed[smoothed_center - smoothed_radius:smoothed_center + smoothed_radius]
+                gains[ant, spw, freq, :, polar] = timetransform(gains[ant, spw, freq, :, polar], timefilter, width)
 
             # Fouier space low pass filter
             for time in range(uvc.Ntimes):
-                freqsfft = np.fft.fft(gains[ant, spw, :, time, polar])
-                freqsfft[f0index:] = 0 + 0j
-                gains[ant, spw, :, time, polar] = np.fft.ifft(freqsfft)
-
+                gains[ant, spw, :, time, polar] = freqtransform(gains[ant, spw, :, time, polar], freqfilter)
+          
 uvc.gain_array = gains
 
 # Write out calfits file in same directory as data file
 i = 0
 toappend = ''
-
 while toappend != 'stop':
     try:
         uvc.write_calfits(fullpath + toappend + '.cal')
