@@ -1,0 +1,263 @@
+from pyuvdata import UVData
+import numpy as np
+import copy
+import matplotlib.pyplot as plt
+import matplotlib
+import scipy.ndimage
+
+UV1 = UVData()
+filename = 'zen.2458107.33430.xx.HH.uvOCR/'
+UV1.read_miriad(filename)
+
+RFIdict = {
+
+    'narrowband' : {
+        'raw_packages' : [
+            #FM Stations:
+            {'frequency' : .1007, 'mu' : 1e0, 'sigma' : 1e1, 'period' : 10000., 'bleed' : 0},
+            {'frequency' : .1016, 'mu' : 1e1, 'sigma' : 1e2, 'period' : 10000., 'bleed' : 0},
+            {'frequency' : .1024, 'mu' : 1e2, 'sigma' : 1e3, 'period' : 10000., 'bleed' : 0},
+            {'frequency' : .1028, 'mu' : 1e2, 'sigma' : 1e3, 'period' : 10000., 'bleed' : 0},
+            {'frequency' : .1043, 'mu' : 1e2, 'sigma' : 1e3, 'period' : 10000., 'bleed' : 0},
+            {'frequency' : .1050, 'mu' : 1e2, 'sigma' : 1e3, 'period' : 10000., 'bleed' : 0},
+            {'frequency' : .1052, 'mu' : 1e2, 'sigma' : 1e3, 'period' : 10000., 'bleed' : 0},
+            {'frequency' : .1061, 'mu' : 1e2, 'sigma' : 1e3, 'period' : 10000., 'bleed' : 0},
+            {'frequency' : .1064, 'mu' : 1e2, 'sigma' : 1e3, 'period' : 10000., 'bleed' : 0},
+            #OrbCom:
+            {'frequency' : .1371, 'mu' : 1e2, 'sigma' : 1e3, 'period' : 10000., 'bleed' : 0},
+            {'frequency' : .1372, 'mu' : 1e2, 'sigma' : 1e3, 'period' : 10000., 'bleed' : 0},
+            {'frequency' : .1374, 'mu' : 1e2, 'sigma' : 1e3, 'period' : 10000., 'bleed' : 0},
+            {'frequency' : .1375, 'mu' : 1e2, 'sigma' : 1e3, 'period' : 10000., 'bleed' : 0},
+            {'frequency' : .1376, 'mu' : 1e2, 'sigma' : 1e3, 'period' : 10000., 'bleed' : 0},
+            {'frequency' : .1377, 'mu' : 1e2, 'sigma' : 1e3, 'period' : 1150., 'bleed' : 1},
+            #Misc:
+            {'frequency' : .1831, 'mu' : 1e2, 'sigma' : 1e3, 'period' : 200., 'bleed' : 0},
+            {'frequency' : .1891, 'mu' : 1e2, 'sigma' : 1e3, 'period' : 2000., 'bleed' : 0},
+            {'frequency' : .1911, 'mu' : 1e2, 'sigma' : 1e3, 'period' : 585., 'bleed' : 0},
+            {'frequency' : .1972, 'mu' : 1e2, 'sigma' : 1e3, 'period' : 200., 'bleed' : 0},
+            {'frequency' : .1999, 'mu' : 1e2, 'sigma' : 1e3, 'period' : 10000., 'bleed' : 0},
+            {'frequency' : .2, 'mu' : 1e2, 'sigma' : 1e3, 'period' : 10000., 'bleed' : 0},
+        ],
+        'max_times' : 60,
+        'delta_times' : 10.,
+
+    },
+
+    'scatter' : {
+
+        'mu' : 1e2,
+        'sigma' : 1e3,
+        'max_times' : 60,
+        'max_freqs' : 1024,
+        'points' : 200,
+        'delta_times' : 10.,
+        'period' : 10000.
+
+
+    },
+
+    'burst' : {
+        'raw_packages' : [
+            {'frequency' : .1470, 'mu' : 1e0, 'sigma' : 1e1, 'period' : 190., 'start_time' : 43,
+             'duration' : 25},
+            {'frequency' : .1250, 'mu' : 1e0, 'sigma' : 1e1, 'period' : 10000., 'start_time' : 8,
+             'duration' : 3},
+
+        ],
+        'max_times' : 60,
+        'delta_times' : 10.,
+
+
+    }
+}
+
+def scatterRFI(baseline_data, RFIdict):
+
+    #From RFIdict
+    max_times = RFIdict.get('scatter').get('max_times')
+    max_freq = RFIdict.get('scatter').get('max_freqs')
+    mu = RFIdict.get('scatter').get('mu')
+    sigma = RFIdict.get('scatter').get('sigma')
+    points = RFIdict.get('scatter').get('points')
+    delta_times = RFIdict.get('scatter').get('delta_times')
+    period = RFIdict.get('scatter').get('period')
+
+
+    #Defines range of times and frequencies. Defines phase
+    times = np.random.randint(0,max_times,size=points)
+    freq = np.random.randint(0,max_freq,size=points)
+    phase = np.random.normal(loc=0, scale=np.pi)
+
+    #Loops for each point to be adjusted
+    for i in range(points):
+
+        #Sinusoidal wave value
+        sinusoidal_noise = (np.cos((((2. * np.pi)/(period)) * delta_times) * i ))
+
+        amplitude = np.random.normal(loc=mu,scale=sigma)
+        complex_conjugate = amplitude * np.exp(1j*phase)
+
+        #Increases signal at a random point on baseline
+        baseline_data[times[i],freq[i]] += sinusoidal_noise * complex_conjugate
+
+    return baseline_data
+
+def narrowbandRFI(baseline_data, RFIdict):
+
+    #From RFIdict
+    raw_packages = RFIdict.get('narrowband').get('raw_packages')
+    delta_times = RFIdict.get('narrowband').get('delta_times')
+    max_times = RFIdict.get('narrowband').get('max_times')
+
+    #Defines times
+    times = range(max_times)
+
+
+    for package in raw_packages:
+
+        #Takes the frequency and gives the frequency channel
+        f = np.linspace(.1,.2,1024)
+        channel = np.argmin(np.abs(f - package.get('frequency')))
+
+        #From RFIdict, raw_packages
+        mu = package.get('mu')
+        sigma = package.get('sigma')
+        period = package.get('period')
+
+        #Sinusoidal wave value
+        sinusoidal_noise = (np.cos((((2. * np.pi)/(period)) * delta_times) * np.asarray(times, dtype = float)))
+
+        amplitude_canvas = np.zeros((60,1024))
+        amplitude_canvas[times,channel] = sinusoidal_noise * np.random.normal(loc=mu, scale=sigma, size=60)
+
+        phase_canvas = np.zeros((60,1024))
+        phase_canvas[times,channel] = np.random.normal(loc=0, scale=np.pi, size=60)
+
+
+        if(package.has_key('bleed')):
+
+            bleed = package.get('bleed')
+
+            #Apply Gaussian blur 54-63
+            phase_gaus = scipy.ndimage.gaussian_filter(phase_canvas, sigma=bleed)
+            amplitude_gaus = scipy.ndimage.gaussian_filter(amplitude_canvas, sigma=bleed)
+
+            complex_conjugate = amplitude_gaus * np.exp(1j*phase_gaus)
+
+        else:
+
+            complex_conjugate = amplitude_canvas * np.exp(1j*phase_canvas)
+
+        #Increases signal along entire frequency channel
+        baseline_data += complex_conjugate
+
+    return baseline_data
+
+
+def burstRFI(baseline_data, RFIdict):
+
+    #From RFIdict
+    raw_packages = RFIdict.get('burst').get('raw_packages')
+    max_times = RFIdict.get('burst').get('max_times')
+    delta_times = RFIdict.get('burst').get('delta_times')
+
+
+    #iterate through all raw_packages
+    for package in raw_packages:
+
+        #Takes the frequency of package and sets the frequency channel
+        f = np.linspace(.1,.2,1024)
+        channel = np.argmin(np.abs(f - package.get('frequency')))
+
+        #From RFIdict, for current package
+        mu = package.get('mu')
+        sigma = package.get('sigma')
+        period = package.get('period')
+        start_time = package.get('start_time')
+        duration = package.get('duration')
+
+        #Half the duration or 1 to avoid  division by zero
+        max_taper = (duration/2) if (duration >= 2) else (1)
+
+        #Randomizes the taper length without exceeding the full length of max taper
+        taper_length = np.random.randint(0,max_taper)
+
+        #Center frequency that tapers step up towards
+        center_strength = np.random.randint(1e0,1e2)
+
+        #Generates signal for time duration on specific frequency
+        for i in range(duration):
+
+            #Position amplitude is being applied to
+            time_coordinate = i + start_time + 1
+
+            #Sinusoidal wave value
+            sinusoidal_noise =  (np.cos((((2. * np.pi)/(period)) * delta_times) * i ))
+
+            #Phase of signal
+            phase = np.random.normal(loc=0, scale=np.pi)
+
+            #Amplitude of signal
+            amplitude = np.random.normal(loc=mu, scale=sigma)
+
+            #Combination of amplitude (real number) and phase (imaginary number)
+            complex_conjugate = amplitude*np.exp(1j*phase)
+
+            #Stops loop when time coordinate exceeds max time integrations
+            if(time_coordinate >= max_times):
+                break
+
+            #Applies starting taper
+            elif(i < taper_length):
+
+                #Value that amplitude is multiplied by to produces taper in linear symmetrical pattern
+                taper_multiplier =  (center_strength * ((i+1) / float(taper_length+1)))
+
+                #Increases specific point in baseline to combined signal
+                baseline_data[time_coordinate,channel] += sinusoidal_noise * taper_multiplier * complex_conjugate
+
+            #Applies ending taper
+            elif(duration - i <= taper_length):
+
+                #Value that intensity is multiplied by to produces taper in linear symmetrical pattern
+                taper_multiplier = (center_strength * ((duration - i+1) / float(taper_length+1)))
+
+                #Increases specific point in baseline to combined signal
+                baseline_data[time_coordinate,channel] += sinusoidal_noise * taper_multiplier * complex_conjugate
+
+            #Applies center strength signal
+            else:
+
+                #Increases specific point in baseline to combined signal
+                baseline_data[time_coordinate,channel] += sinusoidal_noise * center_strength * complex_conjugate
+
+    return baseline_data
+
+def applyRFI(uv_object, RFIdict):
+
+    #Looping through all antenna pairs
+    for cur_pair in uv_object.get_antpairs()[:3]:
+
+        #Getting baseline data for antenna pair
+        baseline_data = uv_object.get_data(cur_pair, force_copy = 'true')
+
+        #Zero
+        baseline_data = np.zeros_like(baseline_data)
+
+        #if RFIdict.has_key('scatter'):
+         #   baseline_data = scatterRFI(baseline_data, RFIdict)
+
+        if RFIdict.has_key('narrowband'):
+            baseline_data = narrowbandRFI(baseline_data, RFIdict)
+
+        #if RFIdict.has_key('burst'):
+         #   baseline_data = burstRFI(baseline_data, RFIdict)
+
+        antpair_indices = uv_object.antpair2ind(cur_pair[0],cur_pair[1])
+        uv_object.data_array[antpair_indices,0,:,0] = copy.copy(baseline_data)
+
+    return uv_object
+
+new_RFI1 = applyRFI(UV1, RFIdict)
+
+#new_RFI1.write_miriad('RFIrandom20')

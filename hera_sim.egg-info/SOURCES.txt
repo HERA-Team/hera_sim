@@ -1,0 +1,17 @@
+MANIFEST.in
+setup.py
+hera_sim/GIT_INFO
+hera_sim/VERSION
+hera_sim/__init__.py
+hera_sim/foregrounds.py
+hera_sim/noise.py
+hera_sim/rfi.py
+hera_sim/sigchain.py
+hera_sim/version.py
+hera_sim/vis.py
+hera_sim.egg-info/PKG-INFO
+hera_sim.egg-info/SOURCES.txt
+hera_sim.egg-info/dependency_links.txt
+hera_sim.egg-info/not-zip-safe
+hera_sim.egg-info/top_level.txt
+hera_sim/data/HERA_Tsky_vs_LST.npz
