@@ -1,0 +1,10 @@
+Metadata-Version: 1.0
+Name: hera-sim
+Version: 0.0.1
+Summary: collection of simulation routines describing the HERA instrument.
+Home-page: https://github.com/HERA-Team/hera_sim
+Author: HERA Team
+Author-email: UNKNOWN
+License: BSD
+Description: UNKNOWN
+Platform: UNKNOWN
