@@ -2,12 +2,9 @@
 '''
 mkgains.py: Creates fake gains
 This takes some UVData-compatible data file/folder, and creates gains
-based on the shape of the data. It filters the gains in two ways:
-    1: Boxcar filter over # of integrations
-    2: Low pass filter over frequency
-The user must select the size of the boxcar, the size used for the
-low pass filter and the standard deviation of the distribution of the
-gains.
+based on the shape of the data. It filters the gains using a boxcar
+filter over the entire dataset. The user must select the size of the
+boxcars and the standard deviation of the distribution of the gains.
 '''
 from pyuvdata import UVData, UVCal
 import numpy as np
@@ -16,35 +13,33 @@ import os
 import sys
 import subprocess as sub
 
-def timeboxcarFFT(data, conv, width):
-    datafft = np.fft.fft(data)
-    convfft = np.fft.fft(conv/uvc.Ntimes)
-    return np.fft.ifft(datafft * convfft)
+def bc(car_size, data_shape):
+    isOdd = car_size & 1
+    radius = car_size >> 1
+    center = data_shape >> 1
+    rect = np.zeros(data_shape)
+    rect[center - radius:center + radius + isOdd] = 1
+    return rect
 
-def timeboxcarREAL(data, conv, width):
-    datafft = np.fft.fft(data)
-    convfft = np.fft.fft(conv)
-    convfft /= np.max(convfft) * width
-    return np.fft.ifft(datafft * convfft)
+def sinc(fwhm, shape): #, outTuple = True):
+    k = 3.79 / (fwhm * np.pi)
 
-def freqlowpassFFT(data, conv):
-    datafft = np.fft.fft(data)
-    convfft = np.fft.fft(conv)
-    convfft /= np.max(convfft)
-    return np.fft.ifft(datafft * convfft)
+    sincran = np.linspace(-np.pi * fwhm, np.pi * fwhm, shape)
+    sincout = np.sinc(sincran * k)
 
-def freqlowpassREAL(data, conv):
-    return data * conv
+    #if outTuple:
+    #    return (sincout, sincran)
+    #else:
+    #    return sincout
+    return sincout
 
 # Start parsing arguments
 parse = argp.ArgumentParser()
 parse.add_argument("path", help='Path to data file', type=str)
-parse.add_argument('-f', '--frequency', help='Without -g (--freqfourier), this specifies the range of' + \
-        ' frequencies to zero out, starting from the last frequency (in Hertz). With -g (--freqfourier), this' + \
-        ' specifies the Full Width Half Maximum of the sinc used to create the boxcar in fourier space (in Hertz).'
-        , type=np.float64)
+parse.add_argument('-f', '--frequency', help='Amount of frequency (in Hertz) used for the size of the boxcar' + \
+        ' for the boxcar smoothing.', type=float)
 parse.add_argument('-t', '--time', help='Amount of time (in seconds) used for the size of the boxcar' + \
-        ' for the boxcar smoothing.', type=int)
+        ' for the boxcar smoothing.', type=float)
 parse.add_argument('-a', '--ampstdev', help='The standard deviation used to generate the amplitude' + \
         ' of the gains', type=np.float64)
 parse.add_argument('-p', '--phasestdev', help='The standard deviation used to generate the phase of' + \
@@ -103,12 +98,18 @@ command_given = sys.argv[1:]
 command_given = ["'" + x + "'" if ' ' in x else x for x in command_given]
 command_given = ' '.join(command_given)
 script_path = os.path.dirname(os.path.abspath(__file__))
-git_hash = sub.check_output(['git', '-C', script_path, 'rev-parse', 'HEAD']).strip().decode('UTF-8')
+try:
+    git_hash = sub.check_output(['git', '-C', script_path, 'rev-parse', 'HEAD']).strip().decode('UTF-8')
+except:
+    git_hash = ''
+    print('Error: Cannot get git hash')
+
 uvc.history = 'Created using mkgains.py\nCommand run: mkgains.py %s\nmkgains.py Git Hash: %s' % (command_given, git_hash)
 
 uvc.Njones = uvd.Npols
 uvc.jones_array = uvd.polarization_array
 uvc.ant_array = np.arange(uvc.Nants_data)
+uvc.integration_time = np.mean(uvc.integration_time)
 uvc.time_range = [uvc.time_array[0] - (uvc.integration_time / 172800.), 
                   uvc.time_array[-1] + (uvc.integration_time / 172800.)]
 uvc.quality_array = np.zeros((uvc.Nants_data, uvc.Nspws, uvc.Nfreqs, uvc.Ntimes, uvc.Njones), dtype='float64')
@@ -124,44 +125,35 @@ gains = np.random.normal(1.0, args.ampstdev, gain_shape) * \
 
 # Preparing variables for transformations
 timesize = int(args.time / uvc.integration_time)
+freqsize = int(args.frequency / np.abs(uvc.freq_array[0, -1] - uvc.freq_array[0, -2]))
 if timesize == 0:
-    raise ValueError('--time is too small')
+    raise ValueError('--time is too small (Needs to be bigger than %f)' % (uvc.integration_time))
+elif timesize > uvc.Ntimes:
+    raise ValueError('--time is too big (Needs to be smaller than %f)' % (uvc.Ntimes * uvc.integration_time))
+if freqsize == 0:
+    raise ValueError('--frequency is too small (Needs to be bigger than %f)' % (np.abs(uvc.freq_array[0, -1] - uvc.freq_array[0, -2])))
+elif freqsize > uvc.Nfreqs:
+    raise ValueError('--frequency is too big (Needs to be smaller than %f)' % (uvc.Nfreqs * np.abs(uvc.freq_array[0, -1] - uvc.freq_array[0, -2])))
 
 if args.timefourier:
-    if timesize > gain_shape[3]:
-        raise ValueError('--time is too big')
-
-    sincran = np.linspace(-np.pi * args.time, np.pi * args.time, gain_shape[3])
-    timefilter = np.sinc(sincran * timesize)
-    timetransform = timeboxcarFFT
-    width = None
+    mod_size = 3.79 / (timesize * np.pi)
+    timefilter = bc(mod_size, uvc.Ntimes) / timesize
+    timefilter = timefilter.astype('complex')
 
 else:
-    timefilter = np.zeros(uvc.Ntimes)
-    sizeodd = timesize & 1
-    radius = timesize >> 1
-    center = timefilter.size >> 1
-    timefilter[center - radius:center + radius + sizeodd] = 1
-    timefilter /= np.float64(timesize)
-    timetransform = timeboxcarREAL
-    width = (radius * 2) + sizeodd
+    mod_size = 3.79 / (timesize * np.pi)
+    timefilter = sinc(mod_size, uvc.Ntimes)
+    timefilter = timefilter.astype('complex')
 
 if args.freqfourier:
-    sincran = np.linspace(-args.frequency, args.frequency, gain_shape[2])
-    freqfilter = np.sinc(sincran * 3.79 / args.frequency)
-    freqtransform = freqlowpassFFT
+    mod_size = 3.79 / (freqsize * np.pi)
+    freqfilter = bc(mod_size, uvc.Nfreqs) / freqsize
+    freqfilter = freqfilter.astype('complex')
 
 else:
-    if args.frequency > np.abs(uvc.freq_array[0, -1] - uvc.freq_array[0, 0]):
-        raise ValueError('--frequency is too big')
-    
-    freqsize = int(args.frequency / np.abs(uvc.freq_array[0, -1] - uvc.freq_array[0, -2])) + 1
-    freqfilter = np.ones(gain_shape[2], dtype=complex)
-    if uvc.freq_array[0, -1] > uvc.freq_array[0, -2]:
-        freqfilter[-freqsize:] = 0 + 0j
-    else:
-        freqfilter[:freqsize] = 0 + 0j
-    freqtransform = freqlowpassREAL
+    mod_size = 3.79 / (freqsize * np.pi)
+    freqfilter = sinc(mod_size, uvc.Nfreqs)
+    freqfilter = freqfilter.astype('complex')
 
 # Transform random gains
 for ant in range(uvc.Nants_data):
@@ -169,11 +161,11 @@ for ant in range(uvc.Nants_data):
         for polar in range(uvc.Njones):
             # Boxcar smoothing
             for freq in range(uvc.Nfreqs):
-                gains[ant, spw, freq, :, polar] = timetransform(gains[ant, spw, freq, :, polar], timefilter, width)
+                gains[ant, spw, freq, :, polar] = np.fft.ifft(np.fft.fft(gains[ant, spw, freq, :, polar]) * timefilter)
 
             # Fouier space low pass filter
             for time in range(uvc.Ntimes):
-                gains[ant, spw, :, time, polar] = freqtransform(gains[ant, spw, :, time, polar], freqfilter)
+                gains[ant, spw, :, time, polar] = np.fft.ifft(np.fft.fft(gains[ant, spw, :, time, polar]) * freqfilter)
           
 uvc.gain_array = gains
 
