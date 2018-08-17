@@ -1,0 +1,56 @@
+language: python
+python:
+  # We don't actually use the Travis Python, but this keeps it organized.
+  - "2.7"
+
+# Cache pip-installed dependencies
+cache:
+    pip: true
+
+# Test against known version of pyuvdata and current version
+env:
+  - PYUVDATA_VERSION="@9c94be0366eb41692f5501caac99981026a7ffe6"
+  - PYUVDATA_VERSION=""
+
+allow_failures:
+  - env: PYUVDATA_VERSION=""
+
+install:
+  # ensure that we have the full tag information available for version.py
+  - git fetch --tags
+  - sudo apt-get update
+  # We do this conditionally because it saves us some downloading if the
+  # version is the same.
+  - if [[ "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then
+      wget https://repo.continuum.io/miniconda/Miniconda2-latest-Linux-x86_64.sh -O miniconda.sh;
+    else
+      wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh;
+    fi
+  - bash miniconda.sh -b -p $HOME/miniconda
+  - export PATH="$HOME/miniconda/bin:$PATH"
+  - hash -r
+  - conda config --set always_yes yes --set changeps1 no
+  - conda update -q conda
+  # Useful for debugging any issues with conda
+  - conda info -a
+
+  # create environment and install dependencies
+  - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION numpy scipy nose pip matplotlib coverage
+  - source activate test-environment
+  - conda install -c conda-forge aipy
+  - pip install coveralls
+  - pip install git+https://github.com/HERA-Team/pyuvdata.git$PYUVDATA_VERSION
+  - pip install git+https://github.com/HERA-Team/uvtools.git
+  - pip install h5py
+  - python setup.py install
+
+before_script:
+  - "export DISPLAY=:99.0"
+  - "sh -e /etc/init.d/xvfb start"
+  - "export MPLBACKEND=agg"
+  - sleep 3
+
+script: nosetests hera_sim --with-coverage --cover-package=hera_sim --verbose
+
+after_success:
+  - coveralls
