@@ -41,6 +41,7 @@ install:
   - pip install coveralls
   - pip install git+https://github.com/HERA-Team/pyuvdata.git$PYUVDATA_VERSION
   - pip install git+https://github.com/HERA-Team/uvtools.git
+  - pip install git+https://github.com/HERA-Team/hera_cal.git
   - pip install h5py
   - python setup.py install
 
