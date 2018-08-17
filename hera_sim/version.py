@@ -12,16 +12,20 @@ def construct_version_info():
         git_origin = subprocess.check_output(['git', '-C', hera_sim_dir, 'config',
                                               '--get', 'remote.origin.url'],
                                              stderr=subprocess.STDOUT).strip()
-        git_hash = subprocess.check_output(['git', '-C', hera_sim_dir, 'rev-parse', 'HEAD'],
+        git_hash = subprocess.check_output(['git', '-C', hera_sim_dir, 
+                                            'rev-parse', 'HEAD'],
                                            stderr=subprocess.STDOUT).strip()
         git_description = subprocess.check_output(['git', '-C', hera_sim_dir,
-                                                   'describe', '--dirty', '--tag', '--always']).strip()
-        git_branch = subprocess.check_output(['git', '-C', hera_sim_dir, 'rev-parse',
-                                              '--abbrev-ref', 'HEAD'],
+                                                   'describe', '--dirty', 
+                                                   '--tag', '--always']).strip()
+        git_branch = subprocess.check_output(['git', '-C', hera_sim_dir, 
+                                              'rev-parse', '--abbrev-ref', 
+                                              'HEAD'],
                                              stderr=subprocess.STDOUT).strip()
-        git_version = subprocess.check_output(['git', '-C', hera_sim_dir, 'describe',
+        git_version = subprocess.check_output(['git', '-C', hera_sim_dir, 
+                                               'describe', '--always', 
                                                '--tags', '--abbrev=0']).strip()
-    except:  # pragma: no cover  - can't figure out how to test exception.
+    except:  # pragma: no cover - can't figure out how to test exception.
         try:
             # Check if a GIT_INFO file was created when installing package
             git_file = os.path.join(hera_sim_dir, 'GIT_INFO')

@@ -1,5 +1,5 @@
 import unittest
-import noise
+from hera_sim import noise
 import numpy as np
 
 np.random.seed(0)

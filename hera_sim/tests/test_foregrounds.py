@@ -1,5 +1,5 @@
 import unittest
-import noise, foregrounds
+from hera_sim import noise, foregrounds
 import numpy as np
 import aipy
 

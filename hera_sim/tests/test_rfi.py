@@ -1,5 +1,5 @@
 import unittest
-import rfi
+from hera_sim import rfi
 import numpy as np
 
 np.random.seed(0)
