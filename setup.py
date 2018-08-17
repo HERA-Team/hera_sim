@@ -30,6 +30,7 @@ setup_args = {
     'package_dir': {'hera_sim': 'hera_sim'},
     'packages': ['hera_sim'],
     'include_package_data': True,
+    'install_requires': ['numpy>=1.14', 'aipy', 'hera_cal', 'pyuvdata'],
     #'scripts': ['scripts/firstcal_run.py', 'scripts/omni_apply.py',
     #            'scripts/omni_run.py', 'scripts/extract_hh.py'],
     'version': version.version,
