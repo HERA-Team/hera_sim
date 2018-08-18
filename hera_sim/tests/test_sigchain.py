@@ -1,5 +1,5 @@
 import unittest
-import sigchain
+from hera_sim import sigchain
 import numpy as np
 import aipy
 
