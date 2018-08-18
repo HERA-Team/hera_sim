@@ -1,5 +1,4 @@
 import numpy as np
-import hera_pspec as hp
 import pyuvdata as uv
 
 SEC_PER_SDAY = 86164.1 # sec per sidereal day

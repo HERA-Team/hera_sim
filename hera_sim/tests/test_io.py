@@ -1,5 +1,5 @@
 import unittest
-import io
+from hera_sim import io
 import numpy as np
 
 class TestIO(unittest.TestCase):
