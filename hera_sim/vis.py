@@ -14,25 +14,25 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube,
     
     Parameters
     ----------
-    antpos : array_like
-        Antenna position array, dimensions (nant, 3).
+    antpos : array_like, shape: (NANT, 3)
+        Antenna position array.
     
     freq : float
         Frequency to evaluate the visibilities at, in GHz.
     
-    eq2tops : array_like (FIXME)
+    eq2tops : array_like, shape: (NTIMES, 3, 3)
         Set of 3x3 transformation matrices converting equatorial coordinates 
         to topocentric at each hour angle (and declination) in the dataset.
     
-    crd_eq : array_like
+    crd_eq : array_like, shape: (3, NPIX)
         Equatorial coordinates of Healpix pixels.
     
-    I_sky : array_like
+    I_sky : array_like, shape: (NPIX,)
         Intensity distribution on the sky, stored as numpy array of Healpix 
         pixels.
     
-    bm_cube : array_like
-        Beam maps for each antenna. Array of shape (nant, beam_py, beam_px).
+    bm_cube : array_like, shape: (NANT, BM_PIX, BM_PIX)
+        Beam maps for each antenna.
     
     real_dtype, complex_dtype : dtype, optional
         Data type to use for real and complex-valued arrays. Defaults: 
@@ -40,23 +40,30 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube,
     
     Returns
     -------
-    vis : array_like
+    vis : array_like, shape: (NTIMES, NANTS, NANTS)
         Visibilities.
     """
-    nant = len(antpos)
-    ntimes = len(eq2tops)
-    npix = I_sky.size
+    nant, ncrd = antpos.shape
+    assert ncrd == 3, 'antpos must have shape (NANTS, 3)'
+    ntimes, ncrd1, ncrd2 = eq2tops.shape
+    assert ncrd1 == 3 and ncrd2 == 3, 'eq2tops must have shape (NTIMES, 3, 3)'
+    ncrd, npix = crd_eq.shape
+    assert ncrd == 3, 'crd_eq must have shape (3, NPIX)'
+    assert I_sky.ndim == 1 and I_sky.shape[0] == npix, 'I_sky must have shape (NPIX,)'
     bm_pix = bm_cube.shape[-1]
+    assert bm_cube.shape == (nant, bm_pix, bm_pix), 'bm_cube must have shape (NANTS, BM_PIX, BM_PIX)'
     
     # Intensity distribution (sqrt) and antenna positions
-    Isqrt = np.sqrt(I_sky).astype(real_dtype)
+    Isqrt = np.sqrt(I_sky).astype(real_dtype) # XXX does not support negative sky
     antpos = antpos.astype(real_dtype)
+    ang_freq = 2 * np.pi
     
     # Empty arrays: beam pattern, visibilities, delays, complex voltages
     A_s = np.empty((nant, npix), dtype=real_dtype)
     vis = np.empty((ntimes, nant, nant), dtype=complex_dtype)
     tau = np.empty((nant, npix), dtype=real_dtype)
     v = np.empty((nant, npix), dtype=complex_dtype)
+    crd_eq = crd_eq.astype(real_dtype)
     
     bm_pix_x = np.linspace(-1, 1, bm_pix)
     bm_pix_y = np.linspace(-1, 1, bm_pix)
@@ -73,7 +80,7 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube,
         
         # Calculate delays
         np.dot(antpos, crd_top, out=tau)
-        np.exp((1.j*freq)*tau, out=v)
+        np.exp((1.j*ang_freq)*tau, out=v)
         
         # Complex voltages
         v *= A_s * Isqrt
