@@ -5,5 +5,5 @@ import rfi
 import sigchain
 import vis
 import version
-import antpos
+#import antpos
 __version__ = version.version
