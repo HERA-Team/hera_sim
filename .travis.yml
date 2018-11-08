@@ -9,11 +9,9 @@ cache:
 
 # Test against known version of pyuvdata and current version
 env:
-  - PYUVDATA_VERSION="@9c94be0366eb41692f5501caac99981026a7ffe6"
   - PYUVDATA_VERSION=""
 
 allow_failures:
-  - env: PYUVDATA_VERSION=""
 
 install:
   # ensure that we have the full tag information available for version.py
@@ -40,7 +38,6 @@ install:
   - conda install -c conda-forge aipy
   - pip install coveralls
   - pip install git+https://github.com/HERA-Team/pyuvdata.git$PYUVDATA_VERSION
-  - pip install git+https://github.com/HERA-Team/omnical.git
   - pip install git+https://github.com/HERA-Team/linsolve.git
   - pip install git+https://github.com/HERA-Team/hera_qm.git
   - pip install git+https://github.com/HERA-Team/uvtools.git

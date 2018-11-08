@@ -1,5 +1,6 @@
 import numpy as np
 import pyuvdata as uv
+from pyuvdata.utils import get_lst_for_time, polstr2num
 
 SEC_PER_SDAY = 86164.1 # sec per sidereal day
 HERA_LOCATION = [5109342.82705015, 2005241.83929272, -3239939.40461961]
@@ -80,7 +81,7 @@ def empty_uvdata(nfreq, ntimes, ants, antpairs, pols=['xx',],
     sim_times = start_jd + np.arange(ntimes) * time_per_integ / SEC_PER_SDAY
     sim_pols = pols
     lat, lon, alt = telescope_lat_lon_alt
-    sim_lsts = uv.get_lst_for_time(sim_times, lat, lon, alt)
+    sim_lsts = get_lst_for_time(sim_times, lat, lon, alt)
     
     # Basic telescope metadata
     uvd.instrument = instrument
@@ -124,7 +125,7 @@ def empty_uvdata(nfreq, ntimes, ants, antpairs, pols=['xx',],
     # Add frequency and polarization arrays
     uvd.freq_array = sim_freq.reshape((1, sim_freq.size))
     uvd.polarization_array = np.array(
-                                [uv.polstr2num(_pol) for _pol in sim_pols], 
+                                [polstr2num(_pol) for _pol in sim_pols], 
                                 dtype=np.int )
     uvd.channel_width = sim_freq[1] - sim_freq[0]
     uvd.Nfreqs = sim_freq.size
