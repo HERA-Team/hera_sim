@@ -1,5 +1,4 @@
 import numpy as np
-import hera_cal.omni
 import foregrounds, rfi, noise, sigchain
 from scipy.interpolate import RectBivariateSpline
 
@@ -130,10 +129,8 @@ def hmap_to_I(h):
     return h[np.arange(h.npix())].astype(np.float32)
 
 
-def make_hera_obs(aa, lsts=DEFAULT_LSTS, fqs=DEFAULT_FQS, pols=['xx','yy'], T_rx=150., inttime=10.7,
+def make_hera_obs(reds, lsts=DEFAULT_LSTS, fqs=DEFAULT_FQS, pols=['xx','yy'], T_rx=150., inttime=10.7,
         rfi_impulse=.02, rfi_scatter=.001, nsrcs=200, gain_spread=.1, dly_rng=(-20,20), xtalk=3.):
-    info = hera_cal.omni.aa_to_info(aa)
-    reds = info.get_reds()
     ants = list(set([ant for bls in reds for bl in bls for ant in [(bl[0],bl[2][0]), (bl[1],bl[2][1])]]))
     data, true_vis = {}, {}
     if gains is None: gains = {}
