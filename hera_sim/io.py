@@ -1,6 +1,6 @@
 import numpy as np
 import pyuvdata as uv
-from pyuvdata.utils import get_lst_for_time
+from pyuvdata.utils import get_lst_for_time, polstr2num
 
 SEC_PER_SDAY = 86164.1 # sec per sidereal day
 HERA_LOCATION = [5109342.82705015, 2005241.83929272, -3239939.40461961]
@@ -125,7 +125,7 @@ def empty_uvdata(nfreq, ntimes, ants, antpairs, pols=['xx',],
     # Add frequency and polarization arrays
     uvd.freq_array = sim_freq.reshape((1, sim_freq.size))
     uvd.polarization_array = np.array(
-                                [uv.polstr2num(_pol) for _pol in sim_pols], 
+                                [polstr2num(_pol) for _pol in sim_pols], 
                                 dtype=np.int )
     uvd.channel_width = sim_freq[1] - sim_freq[0]
     uvd.Nfreqs = sim_freq.size
