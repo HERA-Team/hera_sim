@@ -1,3 +1,6 @@
+[![Build Status](https://travis-ci.org/HERA-Team/hera_sim.svg?branch=master)](https://travis-ci.org/HERA-Team/hera_sim)
+[![Coverage Status](https://coveralls.io/repos/github/HERA-Team/hera_sim/badge.svg?branch=master)](https://coveralls.io/github/HERA-Team/hera_sim?branch=master)
+
 `hera_sim`: Simple simulation package
 -------------------------------------
 

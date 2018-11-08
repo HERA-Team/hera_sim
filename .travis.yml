@@ -35,7 +35,7 @@ install:
   - conda info -a
 
   # create environment and install dependencies
-  - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION numpy scipy nose pip matplotlib coverage
+  - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION numpy scipy nose pip matplotlib coverage h5py
   - source activate test-environment
   - conda install -c conda-forge aipy
   - pip install coveralls
@@ -45,7 +45,6 @@ install:
   - pip install git+https://github.com/HERA-Team/hera_qm.git
   - pip install git+https://github.com/HERA-Team/uvtools.git
   - pip install git+https://github.com/HERA-Team/hera_cal.git
-  - pip install h5py
   - python setup.py install
 
 before_script:
