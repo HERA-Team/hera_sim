@@ -14,7 +14,7 @@ def linear_array(nants, sep=14.6):
     antpos = {i: np.array([sep * i, 0, 0]) for i in range(nants)}
     return antpos
 
-def hex_array(hexNum, sep=14.6, split_core=True, outriggers=3):
+def hex_array(hexNum, sep=14.6, split_core=True, outriggers=2):
     '''Build a hexagonal array configuration, nominally matching HERA's
     ideal configuration.
     Arguments:
