@@ -66,7 +66,9 @@ class TestHexArray(unittest.TestCase):
             np.testing.assert_allclose(bl1, [1, 0, 0], atol=1e-10)
             np.testing.assert_allclose(bl2, [-.5, -3**.5/2, 0], atol=1e-10)
         # Test split
-        # XXX todo
+        xyz = antpos.hex_array(3, sep=14.6, split_core=True, outriggers=0)
+        np.testing.assert_allclose(xyz[3] - xyz[7], np.array([0, 2 * 14.6 / 3**.5, 0]))
+        np.testing.assert_allclose(xyz[5] - xyz[10], np.array([-14.6, 14.6 / 3**.5, 0]))
         # Test outriggers
         # XXX todo
         
