@@ -65,12 +65,15 @@ class TestHexArray(unittest.TestCase):
             bl2 = xyz[N] - xyz[0]
             np.testing.assert_allclose(bl1, [1, 0, 0], atol=1e-10)
             np.testing.assert_allclose(bl2, [-.5, -3**.5/2, 0], atol=1e-10)
-        # Test split
+        # Test split (this is rather brittle and could be improved)
         xyz = antpos.hex_array(3, sep=14.6, split_core=True, outriggers=0)
         np.testing.assert_allclose(xyz[3] - xyz[7], np.array([0, 2 * 14.6 / 3**.5, 0]))
         np.testing.assert_allclose(xyz[5] - xyz[10], np.array([-14.6, 14.6 / 3**.5, 0]))
-        # Test outriggers
-        # XXX todo
+        # Test outriggers (this is rather brittle and could be improved)
+        xyz = antpos.hex_array(11, sep=14.6, split_core=True, outriggers=2)
+        np.testing.assert_allclose(xyz[348] - xyz[347], np.array([10 * 14.6, 0, 0]))
+        np.testing.assert_allclose(xyz[347] - xyz[346], np.array([10 * 14.6, 14.6 / 3**.5, 0]))
+        np.testing.assert_allclose(xyz[325] - xyz[324], np.array([10 * 14.6, -14.6 / 3**.5, 0]))
         
 
 if __name__ == '__main__':
