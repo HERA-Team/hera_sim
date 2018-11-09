@@ -20,15 +20,17 @@ def hex_array(hexNum, sep=14.7, split_core=True, outriggers=3):
     Arguments:
         hexNum: integer
             The hexagon (radial) number of the core configuration.  Number of 
-            core antennas returned antennas is 3N^2 - 3N + 1.
+            core antennas returned is 3N^2 - 3N + 1.
         sep: float, meters
             The separation between hexagonal grid points.
         split_core: bool
             Fractures the hexagonal core into tridrents that subdivide 
-            a hexagonal grid.
+            a hexagonal grid.  Loses N antennas, so the number of core antennas
+            returned is 3N^2 - 4N + 1.
         outriggers: integer
-            Adds N extra rings of outriggers around the core that tile with the
-            core to produce a fully-sampled UV plane.  Adds 3R^2 - 3R anntenas.
+            Adds R extra rings of outriggers around the core that tile with the
+            core to produce a fully-sampled UV plane.  The first ring correponds
+            to the exterior of a hexNum=3 hexagon.  Adds 3R^2 + 9R anntenas.
     Returns:
         antpos: dictionary
             A dictionary of antenna numbers and positions.  Positions are x,y,z
@@ -63,7 +65,7 @@ def hex_array(hexNum, sep=14.7, split_core=True, outriggers=3):
 
     # Add outriggers
     if outriggers:
-        exteriorHexNum = outriggers + 1
+        exteriorHexNum = outriggers + 2
         for row in range(exteriorHexNum - 1, -exteriorHexNum, -1):
             for col in range(2 * exteriorHexNum - abs(row) - 1):
                 xPos = ((-(2 * exteriorHexNum - abs(row)) + 2) / 2.0 + col) * sep * (hexNum - 1)
