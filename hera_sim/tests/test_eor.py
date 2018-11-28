@@ -33,6 +33,7 @@ class TestForegrounds(unittest.TestCase):
 
         # Introduce a spectral tilt: generally EoR is flat-ish in Delta^2 and therefore
         # follows a negative power-law in P(k)
+        lsts = np.linspace(0, 2*np.pi, 1000)
         vis = eor.noiselike_eor(lsts, fqs, bl_len_ns, eor_amp=1e-5, spec_tilt=-2, min_dly=200, max_dly=500)
 
         # take FFT and incoherently average over time to check spectral tilt
