@@ -43,6 +43,11 @@ class TestForegrounds(unittest.TestCase):
         fit = np.polyfit(np.log10(dlys[select]), np.log10(vfft[select]), 1)
         nt.assert_almost_equal(fit[0], -2, places=1)
 
+        # test amplitude scaling is correct
+        vis1 = eor.noiselike_eor(lsts, fqs, bl_len_ns, eor_amp=1e-5, spec_tilt=0, min_dly=200, max_dly=500)
+        vis2 = eor.noiselike_eor(lsts, fqs, bl_len_ns, eor_amp=1e-3, spec_tilt=0, min_dly=200, max_dly=500)
+        nt.assert_almost_equal(np.mean(np.abs(vis1 / vis2)) / np.sqrt(2), 1e-2, places=2)
+
 
 if __name__ == '__main__':
     unittest.main()

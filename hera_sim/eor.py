@@ -32,7 +32,7 @@ def noiselike_eor(lsts, fqs, bl_len_ns, eor_amp=1e-5, spec_tilt=0.0, min_dly=0, 
     lst_grid = np.linspace(0, 2*np.pi, ntimes, endpoint=False)
 
     # generate white noise
-    vis = noise.white_noise((ntimes, len(fqs)))
+    vis = noise.white_noise((ntimes, len(fqs))) * eor_amp
 
     # Fringe-Rate Filter given baseline
     vis = fg.rough_fringe_filter(vis, lst_grid, fqs, bl_len_ns)
