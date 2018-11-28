@@ -6,5 +6,7 @@ import rfi
 import sigchain
 import vis
 import version
+import eor
+
 #import antpos
 __version__ = version.version
