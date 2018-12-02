@@ -8,7 +8,7 @@ from . import utils
 
 
 def noiselike_eor(lsts, fqs, bl_len_ns, eor_amp=1e-5, spec_tilt=0.0,
-                  fr_width=None, min_dly=0, max_dly=3000):
+                  fr_width=None, min_dly=0, max_dly=3000, fr_max_mult=2.0):
     """
     Generate a noise-like EoR signal that tracks the sky.
     Modeled after foregrounds.diffuse_foreground().
@@ -23,13 +23,14 @@ def noiselike_eor(lsts, fqs, bl_len_ns, eor_amp=1e-5, spec_tilt=0.0,
         fr_width : float, width of FR filter in 2pi lambda / sec
         min_dly : float, minimum |delay| in nanosec of EoR signal
         max_dly : float, maximum |delay| in nanosec of EoR signal
+        fr_max_mult : float, multiplier of fr_max to get lst_grid resolution
 
     Returns: 
         vis : 2D ndarray holding simulated complex visibility
     """
     # get fringe rate and generate an LST grid
     fr_max = np.max(utils.calc_max_fringe_rate(fqs, bl_len_ns))
-    dt = 0.5/fr_max # over-resolve by factor of 2
+    dt = 1.0/(fr_max_mult * fr_max)  # over-resolve by fr_mult factor
     ntimes = int(np.around(aipy.const.sidereal_day / dt))
     lst_grid = np.linspace(0, 2*np.pi, ntimes, endpoint=False)
 

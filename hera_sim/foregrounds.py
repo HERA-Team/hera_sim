@@ -7,9 +7,10 @@ from . import noise
 from . import utils
 
 
-def diffuse_foreground(Tsky, lsts, fqs, bl_len_ns, bm_poly=noise.HERA_BEAM_POLY, scalar=30., fr_width=None):
+def diffuse_foreground(Tsky, lsts, fqs, bl_len_ns, bm_poly=noise.HERA_BEAM_POLY, scalar=30.,
+                       fr_width=None, fr_max_mult=2.0):
     fr_max = np.max(utils.calc_max_fringe_rate(fqs, bl_len_ns))
-    dt = 0.5/fr_max # over-resolve by factor of 2
+    dt = 1.0/(fr_max_mult * fr_max)  # over-resolve by fr_mult factor
     ntimes = int(np.around(aipy.const.sidereal_day / dt))
     lst_grid = np.linspace(0, 2*np.pi, ntimes, endpoint=False)
     nos = Tsky(lst_grid,fqs) * noise.white_noise((ntimes,fqs.size))
