@@ -7,13 +7,13 @@ from . import noise
 from . import utils
 
 
-def diffuse_foreground(Tsky, lsts, fqs, bl_len_ns, bm_poly=noise.HERA_BEAM_POLY, scalar=30.):
+def diffuse_foreground(Tsky, lsts, fqs, bl_len_ns, bm_poly=noise.HERA_BEAM_POLY, scalar=30., fr_width=None):
     fr_max = np.max(utils.calc_max_fringe_rate(fqs, bl_len_ns))
     dt = 0.5/fr_max # over-resolve by factor of 2
     ntimes = int(np.around(aipy.const.sidereal_day / dt))
     lst_grid = np.linspace(0, 2*np.pi, ntimes, endpoint=False)
     nos = Tsky(lst_grid,fqs) * noise.white_noise((ntimes,fqs.size))
-    nos = utils.rough_fringe_filter(nos, lst_grid, fqs, bl_len_ns)
+    nos = utils.rough_fringe_filter(nos, lst_grid, fqs, bl_len_ns, fr_width=fr_width)
     nos = utils.rough_delay_filter(nos, fqs, bl_len_ns)
     nos /= noise.jy2T(fqs, bm_poly=bm_poly)
     mdl_real = RectBivariateSpline(lst_grid, fqs, scalar*nos.real)

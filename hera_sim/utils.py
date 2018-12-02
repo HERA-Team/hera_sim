@@ -3,7 +3,7 @@
 import numpy as np
 from scipy.interpolate import RectBivariateSpline
 import aipy
-import noise
+from . import noise
 
 def rough_delay_filter(noise, fqs, bl_len_ns):
     dlys = np.fft.fftfreq(fqs.size, fqs[1]-fqs[0])
