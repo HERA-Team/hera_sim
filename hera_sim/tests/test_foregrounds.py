@@ -1,5 +1,5 @@
 import unittest
-from hera_sim import noise, foregrounds
+from hera_sim import noise, foregrounds, utils
 import numpy as np
 import aipy
 
@@ -11,7 +11,7 @@ class TestForegrounds(unittest.TestCase):
         n1 = noise.white_noise((100,fqs.size))
         bl_len_ns = 30.
         dlys = np.fft.fftfreq(fqs.size, fqs[1]-fqs[0])
-        n1_filt = foregrounds.rough_delay_filter(n1, fqs, bl_len_ns)
+        n1_filt = utils.rough_delay_filter(n1, fqs, bl_len_ns)
         _n1_filt = np.fft.ifft(n1_filt, axis=-1)
         np.testing.assert_array_less(np.mean(np.abs(_n1_filt), axis=0), 
             np.exp(-dlys**2 / (2*bl_len_ns**2)).clip(1e-15,1))
@@ -26,10 +26,10 @@ class TestForegrounds(unittest.TestCase):
         times = lsts / (2*np.pi) * aipy.const.sidereal_day
         n1 = noise.white_noise((lsts.size,fqs.size))
         bl_len_ns = 30.
-        n1_filt = foregrounds.rough_fringe_filter(n1, lsts, fqs, bl_len_ns)
+        n1_filt = utils.rough_fringe_filter(n1, lsts, fqs, bl_len_ns)
         _n1_filt = np.fft.fft(n1_filt, axis=-2)
-        fr_max1 = foregrounds.calc_max_fringe_rate(.1, bl_len_ns)
-        fr_max2 = foregrounds.calc_max_fringe_rate(.2, bl_len_ns)
+        fr_max1 = utils.calc_max_fringe_rate(.1, bl_len_ns)
+        fr_max2 = utils.calc_max_fringe_rate(.2, bl_len_ns)
         fringe_rates = np.fft.fftfreq(times.size, times[1]-times[0])
         inside_filter = np.where(np.abs(fringe_rates) < fr_max1)[0]
         outside_filter = np.where(np.abs(fringe_rates) > fr_max2, 1, 0)

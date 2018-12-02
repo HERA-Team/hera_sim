@@ -7,6 +7,7 @@ import sigchain
 import vis
 import version
 import eor
+import utils
 
 #import antpos
 __version__ = version.version
