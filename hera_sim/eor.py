@@ -10,8 +10,8 @@ from . import utils
 def noiselike_eor(lsts, fqs, bl_len_ns, eor_amp=1e-5, spec_tilt=0.0,
                   fr_width=None, min_dly=0, max_dly=3000, fr_max_mult=2.0):
     """
-    Generate a noise-like EoR signal that tracks the sky.
-    Modeled after foregrounds.diffuse_foreground().
+    Generate a noise-like EoR signal that is fringe-rate filtered
+    according to its projected East-West baseline length.
 
     Args:
         lsts : ndarray with LSTs [radians]
@@ -20,7 +20,7 @@ def noiselike_eor(lsts, fqs, bl_len_ns, eor_amp=1e-5, spec_tilt=0.0,
         eor_amp : float, amplitude of EoR signal [arbitrary]
         spec_tilt : float, spectral slope of EoR spectral amplitude
             as a function of delay in microseconds
-        fr_width : float, width of FR filter in 2pi lambda / sec
+        fr_width : float, width of Gaussian FR filter in 1 / sec
         min_dly : float, minimum |delay| in nanosec of EoR signal
         max_dly : float, maximum |delay| in nanosec of EoR signal
         fr_max_mult : float, multiplier of fr_max to get lst_grid resolution
@@ -38,7 +38,7 @@ def noiselike_eor(lsts, fqs, bl_len_ns, eor_amp=1e-5, spec_tilt=0.0,
     vis = noise.white_noise((ntimes, len(fqs))) * eor_amp
 
     # Fringe-Rate Filter given baseline
-    vis = utils.rough_fringe_filter(vis, lst_grid, fqs, bl_len_ns, fr_width=fr_width)
+    vis, ff, frs = utils.rough_fringe_filter(vis, lst_grid, fqs, bl_len_ns, fr_width=fr_width)
 
     # interpolate at fed LSTs
     mdl_real = RectBivariateSpline(lst_grid, fqs, vis.real)
@@ -54,6 +54,4 @@ def noiselike_eor(lsts, fqs, bl_len_ns, eor_amp=1e-5, spec_tilt=0.0,
     vis = np.fft.ifft(visFFT, axis=1)
 
     return vis
-
-
 

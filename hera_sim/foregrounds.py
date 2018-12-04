@@ -9,12 +9,15 @@ from . import utils
 
 def diffuse_foreground(Tsky, lsts, fqs, bl_len_ns, bm_poly=noise.HERA_BEAM_POLY, scalar=30.,
                        fr_width=None, fr_max_mult=2.0):
+    """
+    Need a doc string...
+    """
     fr_max = np.max(utils.calc_max_fringe_rate(fqs, bl_len_ns))
     dt = 1.0/(fr_max_mult * fr_max)  # over-resolve by fr_mult factor
     ntimes = int(np.around(aipy.const.sidereal_day / dt))
     lst_grid = np.linspace(0, 2*np.pi, ntimes, endpoint=False)
     nos = Tsky(lst_grid,fqs) * noise.white_noise((ntimes,fqs.size))
-    nos = utils.rough_fringe_filter(nos, lst_grid, fqs, bl_len_ns, fr_width=fr_width)
+    nos, ff, frs = utils.rough_fringe_filter(nos, lst_grid, fqs, bl_len_ns, fr_width=fr_width)
     nos = utils.rough_delay_filter(nos, fqs, bl_len_ns)
     nos /= noise.jy2T(fqs, bm_poly=bm_poly)
     mdl_real = RectBivariateSpline(lst_grid, fqs, scalar*nos.real)
@@ -23,6 +26,9 @@ def diffuse_foreground(Tsky, lsts, fqs, bl_len_ns, bm_poly=noise.HERA_BEAM_POLY,
     
 
 def pntsrc_foreground(lsts, fqs, bl_len_ns, nsrcs=1000):
+    """
+    Need a doc string...
+    """
     ras = np.random.uniform(0,2*np.pi,nsrcs)
     indices = np.random.normal(-1, .5, size=nsrcs)
     mfreq = .15
