@@ -26,7 +26,7 @@ class TestForegrounds(unittest.TestCase):
         times = lsts / (2*np.pi) * aipy.const.sidereal_day
         n1 = noise.white_noise((lsts.size,fqs.size))
         bl_len_ns = 30.
-        n1_filt = utils.rough_fringe_filter(n1, lsts, fqs, bl_len_ns)
+        n1_filt, ff, fr = utils.rough_fringe_filter(n1, lsts, fqs, bl_len_ns)
         _n1_filt = np.fft.fft(n1_filt, axis=-2)
         fr_max1 = utils.calc_max_fringe_rate(.1, bl_len_ns)
         fr_max2 = utils.calc_max_fringe_rate(.2, bl_len_ns)
