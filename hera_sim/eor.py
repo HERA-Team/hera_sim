@@ -8,7 +8,7 @@ from . import utils
 
 
 def noiselike_eor(lsts, fqs, bl_len_ns, eor_amp=1e-5, spec_tilt=0.0,
-                  fr_width=None, min_dly=0, max_dly=3000, fr_max_mult=2.0):
+                  fr_width=None, min_delay=0, max_delay=3000, fr_max_mult=2.0):
     """
     Generate a noise-like EoR signal that is fringe-rate filtered
     according to its projected East-West baseline length.
@@ -21,8 +21,8 @@ def noiselike_eor(lsts, fqs, bl_len_ns, eor_amp=1e-5, spec_tilt=0.0,
         spec_tilt : float, spectral slope of EoR spectral amplitude
             as a function of delay in microseconds
         fr_width : float, width of Gaussian FR filter in 1 / sec
-        min_dly : float, minimum |delay| in nanosec of EoR signal
-        max_dly : float, maximum |delay| in nanosec of EoR signal
+        min_delay : float, minimum |delay| in nanosec of EoR signal
+        max_delay : float, maximum |delay| in nanosec of EoR signal
         fr_max_mult : float, multiplier of fr_max to get lst_grid resolution
 
     Returns: 
@@ -47,10 +47,10 @@ def noiselike_eor(lsts, fqs, bl_len_ns, eor_amp=1e-5, spec_tilt=0.0,
 
     # introduce a spectral tilt and filter out certain modes
     visFFT = np.fft.fft(vis, axis=1)
-    dlys = np.abs(np.fft.fftfreq(len(fqs), d=np.median(np.diff(fqs))) / 1e3).clip(1e-3, np.inf)
-    visFFT *= dlys ** spec_tilt
-    visFFT[:, dlys < np.abs(min_dly) / 1e3] = 0.0
-    visFFT[:, dlys > np.abs(max_dly) / 1e3] = 0.0
+    delays = np.abs(np.fft.fftfreq(len(fqs), d=np.median(np.diff(fqs))) / 1e3).clip(1e-3, np.inf)
+    visFFT *= delays ** spec_tilt
+    visFFT[:, delays < np.abs(min_delay) / 1e3] = 0.0
+    visFFT[:, delays > np.abs(max_delay) / 1e3] = 0.0
     vis = np.fft.ifft(visFFT, axis=1)
 
     return vis

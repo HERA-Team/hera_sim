@@ -18,11 +18,11 @@ def rough_delay_filter(noise, fqs, bl_len_ns):
     Returns:
         filt_noise : delay-filtered noise
     """
-    dlys = np.fft.fftfreq(fqs.size, fqs[1]-fqs[0])
+    delays = np.fft.fftfreq(fqs.size, fqs[1]-fqs[0])
     _noise = np.fft.fft(noise)
-    dly_filter = np.exp(-dlys**2 / (2*bl_len_ns**2))
-    dly_filter.shape = (1,) * (_noise.ndim-1) + (-1,)
-    filt_noise = np.fft.ifft(_noise * dly_filter)
+    delay_filter = np.exp(-delays**2 / (2*bl_len_ns**2))
+    delay_filter.shape = (1,) * (_noise.ndim-1) + (-1,)
+    filt_noise = np.fft.ifft(_noise * delay_filter)
     return filt_noise
 
 def calc_max_fringe_rate(fqs, bl_len_ns):
