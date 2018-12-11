@@ -1,6 +1,6 @@
 '''A module for modeling HERA signal chains.'''
 
-import noise
+from . import noise
 import numpy as np
 import aipy
 

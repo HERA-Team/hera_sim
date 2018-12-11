@@ -1,5 +1,5 @@
 import numpy as np
-import foregrounds, rfi, noise, sigchain
+from . import foregrounds, rfi, noise, sigchain
 from scipy.interpolate import RectBivariateSpline
 
 DEFAULT_LSTS = np.linspace(0, 2*np.pi, 10000, endpoint=False)
