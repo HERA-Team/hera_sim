@@ -1,14 +1,15 @@
 '''A module for generating a rough eor-like signal.'''
 
 import numpy as np
-from scipy.interpolate import RectBivariateSpline
+from scipy import interpolate
 import aipy
 from . import noise
 from . import utils
 
 
 def noiselike_eor(lsts, fqs, bl_len_ns, eor_amp=1e-5, spec_tilt=0.0,
-                  fr_width=None, min_delay=0, max_delay=3000, fr_max_mult=2.0):
+                  fr_width=None, min_delay=0, max_delay=3000, fr_max_mult=2.0,
+                  interp_mode='nearest'):
     """
     Generate a noise-like EoR signal that is fringe-rate filtered
     according to its projected East-West baseline length.
@@ -24,6 +25,8 @@ def noiselike_eor(lsts, fqs, bl_len_ns, eor_amp=1e-5, spec_tilt=0.0,
         min_delay : float, minimum |delay| in nanosec of EoR signal
         max_delay : float, maximum |delay| in nanosec of EoR signal
         fr_max_mult : float, multiplier of fr_max to get lst_grid resolution
+        interp_mode : str, method of interpolating visibility from oversampled
+            LST grid to the desired LSTs. options=['nearest', 'linear', 'cubic']
 
     Returns: 
         vis : 2D ndarray holding simulated complex visibility
@@ -40,10 +43,10 @@ def noiselike_eor(lsts, fqs, bl_len_ns, eor_amp=1e-5, spec_tilt=0.0,
     # Fringe-Rate Filter given baseline
     vis, ff, frs = utils.rough_fringe_filter(vis, lst_grid, fqs, bl_len_ns, fr_width=fr_width)
 
-    # interpolate at fed LSTs
-    mdl_real = RectBivariateSpline(lst_grid, fqs, vis.real)
-    mdl_imag = RectBivariateSpline(lst_grid, fqs, vis.imag)
-    vis = mdl_real(lsts, fqs) + 1j * mdl_imag(lsts, fqs)
+    # interpolate visibility
+    mdl_real = interpolate.interp1d(lst_grid, vis.real.T, kind=interp_mode)
+    mdl_imag = interpolate.interp1d(lst_grid, vis.imag.T, kind=interp_mode)
+    vis = mdl_real(lsts).T + 1j * mdl_imag(lsts).T
 
     # introduce a spectral tilt and filter out certain modes
     visFFT = np.fft.fft(vis, axis=1)
