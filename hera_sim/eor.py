@@ -44,8 +44,8 @@ def noiselike_eor(lsts, fqs, bl_len_ns, eor_amp=1e-5, spec_tilt=0.0,
     vis, ff, frs = utils.rough_fringe_filter(vis, lst_grid, fqs, bl_len_ns, fr_width=fr_width)
 
     # interpolate visibility
-    mdl_real = interpolate.interp1d(lst_grid, vis.real.T, kind=interp_mode)
-    mdl_imag = interpolate.interp1d(lst_grid, vis.imag.T, kind=interp_mode)
+    mdl_real = interpolate.interp1d(lst_grid, vis.real.T, kind=interp_mode, fill_value='extrapolate')
+    mdl_imag = interpolate.interp1d(lst_grid, vis.imag.T, kind=interp_mode, fill_value='extrapolate')
     vis = mdl_real(lsts).T + 1j * mdl_imag(lsts).T
 
     # introduce a spectral tilt and filter out certain modes

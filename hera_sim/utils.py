@@ -76,27 +76,32 @@ def rough_fringe_filter(noise, lsts, fqs, bl_len_ns, fr_width=None):
     return filt_noise, fng_filter, fringe_rates
 
 
-def custom_fringe_filter(noise, lsts, fqs, FR_filter, filt_lsts, filt_fqs, interp_mode='linear'):
+def custom_fringe_filter(noise, lsts, fqs, FR_filter, filt_frates, filt_fqs,
+                         frate_deg=1, freq_deg=1):
     """
     Fringe-rate filter a noise array with a custom fringe-rate
     filter along the zeroth axis.
 
     Args:
-        noise : 2D ndarray, filtered along zeroth axis
+        noise : 2D ndarray, filtered along zeroth axis with shape (Ntimes, Nfreqs)
         lsts : 1D lst array for noise [radians]
         fqs : 1D frequency array for noise [GHz]
-        FR_filter : 2D ndarray, FR filter to apply to noise
-        filt_lsts : 1D lst array for FR_filter [radians]
+        FR_filter : 2D ndarray, FR filter to apply to noise with shape (Nfrates, Nfreqs)
+        filt_frates : monotonically increasing fringe rates for FR_filter [Hz]
         filt_fqs : 1D frequency array for FR_filter [GHz]
-        interp_mode : str, interpolation mode.
-            options=['nearest', 'linear', 'cubic']
+        frate_deg : int, spline interpolation DoF along fringe-rate axis
+        freq_deg : int, spline interpolation DoF along freq axis
 
     Returns:
         filt_noise : fringe-rate-filtered noise
     """
-    # interpolate FR_filter at lsts and fqs
-    mdl = interpolate.interp2d(filt_lsts, filt_fqs, FR_filter, kind=interp_mode)
-    FR_filter = mdl(lsts, fqs)
+    # get noise frates
+    times = lsts / (2*np.pi) * aipy.const.sidereal_day
+    frates = np.fft.fftshift(np.fft.fftfreq(times.size, times[1]-times[0]))
+
+    # interpolate FR_filter at frates and fqs
+    mdl = interpolate.RectBivariateSpline(filt_frates, filt_fqs, FR_filter, kx=frate_deg, ky=freq_deg)
+    FR_filter = np.fft.fftshift(mdl(frates, fqs), axes=0)
 
     # set things close to zero to zero
     FR_filter[np.isclose(FR_filter, 0.0)] = 0.0
@@ -109,7 +114,6 @@ def custom_fringe_filter(noise, lsts, fqs, FR_filter, filt_lsts, filt_fqs, inter
     filt_noise = np.fft.ifft(filt_noise * FR_filter, axis=0)
 
     return filt_noise, FR_filter
-
 
 def compute_ha(lsts, ra):
     ha = lsts - ra
