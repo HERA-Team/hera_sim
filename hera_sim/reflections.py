@@ -3,6 +3,7 @@
 import numpy as np
 import aipy
 
+
 def auto_reflection(vis, freqs, amp, dly, phs, conj=False):
     """
     Insert an auto reflection into vis data. An auto reflection
@@ -97,8 +98,3 @@ def cross_reflection(vis, freqs, autocorr, amp, dly, phs, conj=False):
     out_vis = vis + X
 
     return out_vis
-
-
-
-
-

@@ -1,4 +1,4 @@
-'''A module for generating a rough eor-like signal.'''
+"""A module for generating a rough eor-like signal."""
 
 import numpy as np
 from scipy.interpolate import RectBivariateSpline
@@ -30,15 +30,17 @@ def noiselike_eor(lsts, fqs, bl_len_ns, eor_amp=1e-5, spec_tilt=0.0,
     """
     # get fringe rate and generate an LST grid
     fr_max = np.max(utils.calc_max_fringe_rate(fqs, bl_len_ns))
-    dt = 1.0/(fr_max_mult * fr_max)  # over-resolve by fr_mult factor
+    dt = 1.0 / (fr_max_mult * fr_max)  # over-resolve by fr_mult factor
     ntimes = int(np.around(aipy.const.sidereal_day / dt))
-    lst_grid = np.linspace(0, 2*np.pi, ntimes, endpoint=False)
+    lst_grid = np.linspace(0, 2 * np.pi, ntimes, endpoint=False)
 
     # generate white noise
     vis = noise.white_noise((ntimes, len(fqs))) * eor_amp
 
     # Fringe-Rate Filter given baseline
-    vis, ff, frs = utils.rough_fringe_filter(vis, lst_grid, fqs, bl_len_ns, fr_width=fr_width)
+    vis, ff, frs = utils.rough_fringe_filter(
+        vis, lst_grid, fqs, bl_len_ns, fr_width=fr_width
+    )
 
     # interpolate at fed LSTs
     mdl_real = RectBivariateSpline(lst_grid, fqs, vis.real)
@@ -47,11 +49,12 @@ def noiselike_eor(lsts, fqs, bl_len_ns, eor_amp=1e-5, spec_tilt=0.0,
 
     # introduce a spectral tilt and filter out certain modes
     visFFT = np.fft.fft(vis, axis=1)
-    delays = np.abs(np.fft.fftfreq(len(fqs), d=np.median(np.diff(fqs))) / 1e3).clip(1e-3, np.inf)
+    delays = np.abs(np.fft.fftfreq(len(fqs), d=np.median(np.diff(fqs))) / 1e3).clip(
+        1e-3, np.inf
+    )
     visFFT *= delays ** spec_tilt
     visFFT[:, delays < np.abs(min_delay) / 1e3] = 0.0
     visFFT[:, delays > np.abs(max_delay) / 1e3] = 0.0
     vis = np.fft.ifft(visFFT, axis=1)
 
     return vis
-

@@ -2,17 +2,27 @@ import numpy as np
 import pyuvdata as uv
 from pyuvdata.utils import get_lst_for_time, polstr2num
 
-SEC_PER_SDAY = 86164.1 # sec per sidereal day
+SEC_PER_SDAY = 86164.1  # sec per sidereal day
 HERA_LOCATION = [5109342.82705015, 2005241.83929272, -3239939.40461961]
 HERA_LAT_LON_ALT = (-0.53619179912885, 0.3739944696510935, 1073.0000000074506)
 
 
-def empty_uvdata(nfreq, ntimes, ants, antpairs, pols=['xx',], 
-                 time_per_integ=10.7, min_freq=0.1, channel_bw=0.1/1024., 
-                 instrument='hera_sim', telescope_location=HERA_LOCATION, 
-                 telescope_lat_lon_alt=HERA_LAT_LON_ALT, 
-                 object_name='sim_data', start_jd=2458119.5, 
-                 vis_units='uncalib'):
+def empty_uvdata(
+    nfreq,
+    ntimes,
+    ants,
+    antpairs,
+    pols=["xx"],
+    time_per_integ=10.7,
+    min_freq=0.1,
+    channel_bw=0.1 / 1024.0,
+    instrument="hera_sim",
+    telescope_location=HERA_LOCATION,
+    telescope_lat_lon_alt=HERA_LAT_LON_ALT,
+    object_name="sim_data",
+    start_jd=2458119.5,
+    vis_units="uncalib",
+):
     """
     Create an empty UVData object with valid metadata and zeroed data arrays 
     with the correct dimensions.
@@ -75,14 +85,14 @@ def empty_uvdata(nfreq, ntimes, ants, antpairs, pols=['xx',],
     """
     # Generate empty UVData object
     uvd = uv.UVData()
-    
+
     # Basic time and freq. specs
-    sim_freq = min_freq + np.arange(nfreq) * channel_bw * 1e9 # Hz
+    sim_freq = min_freq + np.arange(nfreq) * channel_bw * 1e9  # Hz
     sim_times = start_jd + np.arange(ntimes) * time_per_integ / SEC_PER_SDAY
     sim_pols = pols
     lat, lon, alt = telescope_lat_lon_alt
     sim_lsts = get_lst_for_time(sim_times, lat, lon, alt)
-    
+
     # Basic telescope metadata
     uvd.instrument = instrument
     uvd.telescope_name = uvd.instrument
@@ -94,39 +104,41 @@ def empty_uvdata(nfreq, ntimes, ants, antpairs, pols=['xx',],
 
     # Fill-in array layout using dish positions
     nants = len(ants.keys())
-    uvd.antenna_numbers = np.array([int(antid) for antid in ants.keys()], 
-                                   dtype=np.int)
-    uvd.antenna_names = ['%d' % antid for antid in uvd.antenna_numbers]
+    uvd.antenna_numbers = np.array([int(antid) for antid in ants.keys()], dtype=np.int)
+    uvd.antenna_names = ["%d" % antid for antid in uvd.antenna_numbers]
     uvd.antenna_positions = np.zeros((nants, 3))
     uvd.Nants_data = nants
     uvd.Nants_telescope = nants
-    
+
     # Populate antenna position table
     for i, antid in enumerate(ants.keys()):
-        uvd.antenna_positions[i] = np.array( ants[antid] )
-    
+        uvd.antenna_positions[i] = np.array(ants[antid])
+
     # Check that baselines only involve antennas that have been defined
     ant1, ant2 = zip(*antpairs)
     defined_ants = ants.keys()
     ants_not_found = []
     for _ant in np.unique((ant1, ant2)):
-        if _ant not in defined_ants: ants_not_found.append(_ant)
+        if _ant not in defined_ants:
+            ants_not_found.append(_ant)
     if len(ants_not_found) > 0:
-        raise KeyError("Baseline list contains antennas that were not "
-                       "defined in the 'ants' dict: %s" % ants_not_found)
+        raise KeyError(
+            "Baseline list contains antennas that were not "
+            "defined in the 'ants' dict: %s" % ants_not_found
+        )
 
     # Convert to baseline integers
     bls = [uvd.antnums_to_baseline(*_antpair) for _antpair in antpairs]
     bls = np.unique(bls)
-    
+
     # Convert back to ant1 and ant2 lists
     ant1, ant2 = zip(*[uvd.baseline_to_antnums(_bl) for _bl in bls])
-    
+
     # Add frequency and polarization arrays
     uvd.freq_array = sim_freq.reshape((1, sim_freq.size))
     uvd.polarization_array = np.array(
-                                [polstr2num(_pol) for _pol in sim_pols], 
-                                dtype=np.int )
+        [polstr2num(_pol) for _pol in sim_pols], dtype=np.int
+    )
     uvd.channel_width = sim_freq[1] - sim_freq[0]
     uvd.Nfreqs = sim_freq.size
     uvd.Nspws = 1
@@ -157,16 +169,16 @@ def empty_uvdata(nfreq, ntimes, ants, antpairs, pols=['xx',],
     uvd.Nblts = bl_arr.size
 
     # Initialise data, flag, and integration arrays
-    uvd.data_array = np.zeros((uvd.Nblts, uvd.Nspws, uvd.Nfreqs, uvd.Npols), 
-                              dtype=np.complex64)
-    uvd.flag_array = np.zeros((uvd.Nblts, uvd.Nspws, uvd.Nfreqs, uvd.Npols), 
-                              dtype=bool)
-    uvd.nsample_array = np.ones((uvd.Nblts, uvd.Nspws, uvd.Nfreqs, uvd.Npols), 
-                                dtype=np.float32)
+    uvd.data_array = np.zeros(
+        (uvd.Nblts, uvd.Nspws, uvd.Nfreqs, uvd.Npols), dtype=np.complex64
+    )
+    uvd.flag_array = np.zeros((uvd.Nblts, uvd.Nspws, uvd.Nfreqs, uvd.Npols), dtype=bool)
+    uvd.nsample_array = np.ones(
+        (uvd.Nblts, uvd.Nspws, uvd.Nfreqs, uvd.Npols), dtype=np.float32
+    )
     uvd.spw_array = np.ones(1, dtype=np.int)
-    uvd.integration_time = time_per_integ * np.ones(uvd.Nblts) # per bl-time
-    
+    uvd.integration_time = time_per_integ * np.ones(uvd.Nblts)  # per bl-time
+
     # Check validity and return
     uvd.check()
     return uvd
-    
