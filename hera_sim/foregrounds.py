@@ -17,9 +17,8 @@ def diffuse_foreground(Tsky, lsts, fqs, bl_len_ns, bm_poly=noise.HERA_BEAM_POLY,
     ntimes = int(np.around(aipy.const.sidereal_day / dt))
     lst_grid = np.linspace(0, 2*np.pi, ntimes, endpoint=False)
     nos = Tsky(lst_grid,fqs) * noise.white_noise((ntimes,fqs.size))
-    nos, ff, frs = utils.rough_fringe_filter(nos, lst_grid, fqs, bl_len_ns, fr_width=fr_width,
-                                             standoff=standoff, filter_type=delay_filter_type)
-    nos = utils.rough_delay_filter(nos, fqs, bl_len_ns)
+    nos, ff, frs = utils.rough_fringe_filter(nos, lst_grid, fqs, bl_len_ns, fr_width=fr_width)
+    nos = utils.rough_delay_filter(nos, fqs, bl_len_ns, standoff=standoff, filter_type=delay_filter_type)
     nos /= noise.jy2T(fqs, bm_poly=bm_poly)
     mdl_real = RectBivariateSpline(lst_grid, fqs, scalar*nos.real)
     mdl_imag = RectBivariateSpline(lst_grid, fqs, scalar*nos.imag)
