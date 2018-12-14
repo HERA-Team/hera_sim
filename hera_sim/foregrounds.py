@@ -8,7 +8,7 @@ from . import utils
 
 
 def diffuse_foreground(Tsky, lsts, fqs, bl_len_ns, bm_poly=noise.HERA_BEAM_POLY, scalar=30.,
-                       fr_width=None, fr_max_mult=2.0):
+                       fr_width=None, fr_max_mult=2.0, standoff=0.0, delay_filter_type='gauss'):
     """
     Need a doc string...
     """
@@ -17,7 +17,8 @@ def diffuse_foreground(Tsky, lsts, fqs, bl_len_ns, bm_poly=noise.HERA_BEAM_POLY,
     ntimes = int(np.around(aipy.const.sidereal_day / dt))
     lst_grid = np.linspace(0, 2*np.pi, ntimes, endpoint=False)
     nos = Tsky(lst_grid,fqs) * noise.white_noise((ntimes,fqs.size))
-    nos, ff, frs = utils.rough_fringe_filter(nos, lst_grid, fqs, bl_len_ns, fr_width=fr_width)
+    nos, ff, frs = utils.rough_fringe_filter(nos, lst_grid, fqs, bl_len_ns, fr_width=fr_width,
+                                             standoff=standoff, filter_type=delay_filter_type)
     nos = utils.rough_delay_filter(nos, fqs, bl_len_ns)
     nos /= noise.jy2T(fqs, bm_poly=bm_poly)
     mdl_real = RectBivariateSpline(lst_grid, fqs, scalar*nos.real)
