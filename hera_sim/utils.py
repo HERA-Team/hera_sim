@@ -5,7 +5,7 @@ from scipy import interpolate
 import aipy
 from . import noise
 
-def rough_delay_filter(noise, fqs, bl_len_ns):
+def rough_delay_filter(noise, fqs, bl_len_ns, standoff=0.0, filter_type='gauss'):
     """
     A rough high-pass filtering of noise array
     across frequency.
@@ -14,13 +14,28 @@ def rough_delay_filter(noise, fqs, bl_len_ns):
         noise : 1D or 2D ndarray, filtered along last axis
         fqs : 1D frequency array, [GHz]
         bl_len_ns : baseline length, [nanosec]
+        standoff : supra-horizon buffer, [nanosec]
+        filter_type : str, options=['gauss', 'trunc_gauss']
+            This sets the filter profile. Gauss has a 1-sigma
+            as horizon (+ standoff) divided by two, trunc_gauss
+            is same but truncated above 2-sigma.
 
     Returns:
         filt_noise : delay-filtered noise
     """
+    # setup
     delays = np.fft.fftfreq(fqs.size, fqs[1]-fqs[0])
     _noise = np.fft.fft(noise)
-    delay_filter = np.exp(-delays**2 / (2*bl_len_ns**2))
+
+    # add standoff
+    one_sigma = (bl_len_ns + standoff) / 2.0
+
+    # set filter
+    if filter_type in ['gauss', 'trunc_gauss']:
+        delay_filter = np.exp(-0.5 * (delays / one_sigma)**2)
+        if filter_type == 'trunc_gauss':
+            delay_filter[np.abs(delays) > (one_sigma * 2)] = 0.0
+
     delay_filter.shape = (1,) * (_noise.ndim-1) + (-1,)
     filt_noise = np.fft.ifft(_noise * delay_filter)
     return filt_noise
