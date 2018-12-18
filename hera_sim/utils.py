@@ -92,7 +92,7 @@ def rough_fringe_filter(noise, lsts, fqs, bl_len_ns, fr_width=None):
 
 
 def custom_fringe_filter(noise, lsts, fqs, FR_filter, filt_frates, filt_fqs,
-                         frate_deg=1, freq_deg=1):
+                         frate_deg=1, freq_deg=1, ifft=True):
     """
     Fringe-rate filter a noise array with a custom fringe-rate
     filter along the zeroth axis.
@@ -106,6 +106,8 @@ def custom_fringe_filter(noise, lsts, fqs, FR_filter, filt_frates, filt_fqs,
         filt_fqs : 1D frequency array for FR_filter [GHz]
         frate_deg : int, spline interpolation DoF along fringe-rate axis
         freq_deg : int, spline interpolation DoF along freq axis
+        ifft : bool, If True, use ifft to transform from time to fringe rate
+            Else use fft
 
     Returns:
         filt_noise : fringe-rate-filtered noise
@@ -125,8 +127,12 @@ def custom_fringe_filter(noise, lsts, fqs, FR_filter, filt_frates, filt_fqs,
     FR_filter /= np.max(FR_filter, axis=0, keepdims=True)
 
     # FR noise, apply filter and FT back
-    filt_noise = np.fft.fft(noise, axis=0)
-    filt_noise = np.fft.ifft(filt_noise * FR_filter, axis=0)
+    if ifft:
+        filt_noise = np.fft.ifft(noise, axis=0)
+        filt_noise = np.fft.fft(filt_noise * FR_filter, axis=0)
+    else:
+        filt_noise = np.fft.fft(noise, axis=0)
+        filt_noise = np.fft.ifft(filt_noise * FR_filter, axis=0)
 
     return filt_noise, FR_filter
 

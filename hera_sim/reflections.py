@@ -3,7 +3,7 @@
 import numpy as np
 import aipy
 
-def auto_reflection(vis, freqs, amp, dly, phs, conj=False):
+def auto_reflection(vis, freqs, amp, dly, phs, conj=False, Norder=1):
     """
     Insert an auto reflection into vis data. An auto reflection
     is one that couples an antenna's voltage stream with itself.
@@ -13,12 +13,19 @@ def auto_reflection(vis, freqs, amp, dly, phs, conj=False):
     cross correlation visibility between antenna 1 and 2,
     then an auto reflection in the visibility can be written as
 
-        V_12 = v_1 (1 + eps_1) v_2^* (1 + eps_2)^*
+        V_12 = v_1 (1 + eps_1) v_2^*
 
     where eps_1 is antenna 1's reflection coefficient which
     can be constructed as
 
-        eps = amp * exp[2j pi dly nu + 1j phs]
+        eps = amp * exp(2j pi dly nu + 1j phs)
+
+    If Norder is set to larger than 1, the reflection term
+    becomes
+
+        (1 + eps_1 + eps_1^2 + eps_1^3 + ...)
+    
+    where the default Norder = 1 is just (1 + eps_1).
 
     Args:
         vis : 2D complex ndarray, shape=(Ntimes, Nfreqs)
@@ -27,6 +34,7 @@ def auto_reflection(vis, freqs, amp, dly, phs, conj=False):
         dly : float, reflection delay [nanosec]
         phs : float, reflection phase [radian]
         conj : bool, if True, conjugate reflection coefficient
+        Norder : int, number of harmonics to simulate: must be >= 1.
 
     Returns:
         out_vis : contains input vis with the auto reflection
@@ -36,13 +44,20 @@ def auto_reflection(vis, freqs, amp, dly, phs, conj=False):
     if conj:
         eps = eps.conj()
 
+    # get higher order terms
+    if Norder < 1:
+        raise ValueError("Norder must be >= 1")
+    reflection = 1
+    for i in np.arange(1., Norder + 1):
+        reflection += eps ** i
+
     # multiply into data
-    out_vis = vis * (1 + eps)
+    out_vis = vis * reflection
 
     return out_vis
 
 
-def cross_reflection(vis, freqs, autocorr, amp, dly, phs, conj=False):
+def cross_reflection(vis, freqs, autocorr, amp, dly, phs, conj=False, Norder=1):
     """
     Insert a cross reflection (e.g. crosstalk) into vis data,
     which is assumed to be a cross correlation visibility.
@@ -69,6 +84,7 @@ def cross_reflection(vis, freqs, autocorr, amp, dly, phs, conj=False):
         dly : float or 1D ndarray, reflection delay(s)
         phs : float or 1D ndarray, reflection phase(s)
         conj : bool, if True, conjugate reflection coefficient
+        Norder : int, number of harmonics to simulate: must be >= 1.
 
     Returns:
         out_vis : 2D complex ndarray, holding input vis data
@@ -90,9 +106,16 @@ def cross_reflection(vis, freqs, autocorr, amp, dly, phs, conj=False):
     if conj:
         eps = eps.conj()
 
-    # generate reflection term
-    X = eps * autocorr
+    # get higher order reflection terms
+    if Norder < 1:
+        raise ValueError("Norder must be >= 1")
+    reflection = 0
+    for i in np.arange(1., Norder + 1):
+        reflection += eps ** i
 
+    # generate xtalk term
+    X = autocorr * reflection
+    
     # add into vis
     out_vis = vis + X
 
