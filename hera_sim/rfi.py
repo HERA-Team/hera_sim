@@ -1,11 +1,27 @@
-"""A module for generating realistic HERA noise."""
+"""A module for generating realistic HERA RFI."""
 
 import numpy as np
 import aipy
 
 
 class RfiStation:
+    """
+    An object representing an RFI station (or source).
+
+    It is defined by attributes such `duty_cycle`, `strength` and `timescale`, and contains methods for producing
+    mock RFI.
+    """
     def __init__(self, fq0, duty_cycle=1.0, strength=100.0, std=10.0, timescale=100.0):
+        """
+        Initializer.
+
+        Args:
+            fq0 (float): reference frequency [GHz]
+            duty_cycle (float): affects how much of the day is plagued by RFI.
+            strength (float): mean strength of RFI [Jy]
+            std (float): std deviation of RFI strength [Jy]
+            timescale (float): timescale of recurring RFI [units?].
+        """
         self.fq0 = fq0
         self.duty_cycle = duty_cycle
         self.std = std
@@ -13,6 +29,17 @@ class RfiStation:
         self.timescale = timescale
 
     def gen_rfi(self, fqs, lsts, rfi=None):
+        """
+        Generate mock RFI over a given set of frequencies and times.
+
+        Args:
+            fqs (ndarray): frequencies [Ghz]
+            lsts (ndarray): LSTs [radians]
+            rfi (complex 2D ndarray, optional): an RFI array to which to add the generated RFI.
+
+        Returns:
+            complex 2D ndarray: RFI at each LST and frequency.
+        """
         sdf = np.average(fqs[1:] - fqs[:-1])
         if rfi is None:
             rfi = np.zeros((lsts.size, fqs.size), dtype=np.complex)
@@ -65,13 +92,44 @@ HERA_RFI_STATIONS = [
 
 
 def rfi_stations(fqs, lsts, stations=HERA_RFI_STATIONS, rfi=None):
+    """
+    Generate mock RFI for a list of stations.
+
+    Args:
+        fqs (ndarray): frequencies [Ghz]
+        lsts (ndarray): LSTs [radians]
+        stations (list of 5-tuples): a list of tuples used to initialize :class:`RfiStation` instances.
+            The tuple is of the form (fq0, duty_cycle, strength, std, timescale). Instead of a tuple, an instance
+            of :class:`RfiStation` may be given.
+        rfi (complex 2D ndarray, optional): an RFI array to which to add the generated RFI.
+
+    Returns:
+        complex 2D ndarray: RFI at each LST and frequency.
+    """
     for s in stations:
-        s = RfiStation(*s)
+        if not isinstance(s, RfiStation):
+            if len(s) != 5:
+                raise ValueError("Each station must be a 5-tuple")
+
+            s = RfiStation(*s)
         rfi = s.gen_rfi(fqs, lsts, rfi=rfi)
     return rfi
 
 
 def rfi_impulse(fqs, lsts, rfi=None, chance=0.001, strength=20.0):
+    """
+    Generate RFI impulses.
+
+    Args:
+        fqs (ndarray): frequencies [Ghz]
+        lsts (ndarray): LSTs [radians]
+        rfi (complex 2D ndarray, optional): an RFI array to which to add the generated RFI.
+        chance (float): probability of RFI occuring in a given time bin.
+        strength (float): mean strength of the resulting RFI [Jy]
+
+    Returns:
+        complex 2D ndarray: RFI at each LST and frequency.
+    """
     if rfi is None:
         rfi = np.zeros((lsts.size, fqs.size), dtype=np.complex)
     assert rfi.shape == (lsts.size, fqs.size)
@@ -84,6 +142,20 @@ def rfi_impulse(fqs, lsts, rfi=None, chance=0.001, strength=20.0):
 
 
 def rfi_scatter(fqs, lsts, rfi=None, chance=0.0001, strength=10, std=10):
+    """
+    Generate scattered RFI over times and frequencies.
+
+    Args:
+        fqs (ndarray): frequencies [Ghz]
+        lsts (ndarray): LSTs [radians]
+        rfi (complex 2D ndarray, optional): an RFI array to which to add the generated RFI.
+        chance (float): probability of RFI occuring in a given time/frequency bin.
+        strength (float): mean strength of the resulting RFI [Jy]
+        std (float): std deviation of the RFI srength.
+
+    Returns:
+        complex 2D ndarray: RFI at each LST and frequency.
+    """
     if rfi is None:
         rfi = np.zeros((lsts.size, fqs.size), dtype=np.complex)
     assert rfi.shape == (lsts.size, fqs.size)

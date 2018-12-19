@@ -1,42 +1,45 @@
+"""
+A module defining routines for creating antenna array configurations. Input arguments for each function are
+arbitrary, but the return value is always a dictionary with keys representing antenna numbers, and values
+giving the 3D position of each antenna.
+"""
+
 import numpy as np
 
 
 def linear_array(nants, sep=14.6):
-    """Build a linear (east-west) array configuration.
-    Arguments:
-        nants: integer
-            The number of antennas in the configuration.
-        sep: float, meters
-            The separation between linearly spaced antennas.
+    """
+    Build a linear (east-west) array configuration.
+
+    Args:
+        nants (int): the number of antennas in the configuration.
+        sep (float): the separation between linearly spaced antennas (meters).
+
     Returns:
-        antpos: dictionary
-            A dictionary of antenna numbers and positions.  Positions are x,y,z
-            in topocentric coordinates, in meters."""
+        dict: A dictionary of antenna numbers and positions.  Positions are x,y,z
+            in topocentric coordinates, in meters.
+    """
     antpos = {i: np.array([sep * i, 0, 0]) for i in range(nants)}
     return antpos
 
 
 def hex_array(hexNum, sep=14.6, split_core=True, outriggers=2):
-    """Build a hexagonal array configuration, nominally matching HERA's
-    ideal configuration.
-    Arguments:
-        hexNum: integer
-            The hexagon (radial) number of the core configuration.  Number of 
-            core antennas returned is 3N^2 - 3N + 1.
-        sep: float, meters
-            The separation between hexagonal grid points.
-        split_core: bool
-            Fractures the hexagonal core into tridrents that subdivide 
-            a hexagonal grid.  Loses N antennas, so the number of core antennas
-            returned is 3N^2 - 4N + 1.
-        outriggers: integer
-            Adds R extra rings of outriggers around the core that tile with the
-            core to produce a fully-sampled UV plane.  The first ring correponds
-            to the exterior of a hexNum=3 hexagon.  Adds 3R^2 + 9R anntenas.
+    """
+    Build a hexagonal array configuration, nominally matching HERA's ideal configuration.
+
+    Args:
+        hexNum (int): the hexagon (radial) number of the core configuration.
+            Number of core antennas returned is 3N^2 - 3N + 1.
+        sep (float): the separation between hexagonal grid points (meters).
+        split_core (bool): fractures the hexagonal core into tridrents that subdivide  a hexagonal grid.
+            Loses N antennas, so the number of core antennas returned is 3N^2 - 4N + 1.
+        outriggers (int): adds R extra rings of outriggers around the core that tile with the core to produce a
+            fully-sampled UV plane.  The first ring correponds to the exterior of a hexNum=3 hexagon.
+             Adds 3R^2 + 9R antennas.
     Returns:
-        antpos: dictionary
-            A dictionary of antenna numbers and positions.  Positions are x,y,z
-            in topocentric coordinates, in meters."""
+        dict: a dictionary of antenna numbers and positions.
+            Positions are x,y,z in topocentric coordinates, in meters.
+    """
     # Main Hex
     positions = []
     for row in range(

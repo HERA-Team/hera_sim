@@ -1,4 +1,9 @@
-"""A module for generating realistic foregrounds."""
+"""
+A module with functions for generating foregrounds signals.
+
+Each function may take arbitrary parameters, but should return a 2D array of visibilities for the requested baseline
+at the requested lsts and frequencies.
+"""
 
 import numpy as np
 from scipy.interpolate import RectBivariateSpline
@@ -9,8 +14,22 @@ from . import utils
 
 def diffuse_foreground(Tsky, lsts, fqs, bl_len_ns, bm_poly=noise.HERA_BEAM_POLY, scalar=30.,
                        fr_width=None, fr_max_mult=2.0):
+
     """
-    Need a doc string...
+    Produce visibilities containing diffuse foregrounds.
+
+    Args:
+        Tsky (float): sky temperature [in mK?]
+        lsts (ndarray): LSTs [radians]
+        fqs (ndarray): frequencies [GHz]
+        bl_len_ns (float): East-West baseline length [nanosec]
+        bm_poly (ndarray): a polynomial for beam size with frequency.
+        scalar (float): WHAT'S THIS?
+        fr_width (float): width of Gaussian FR filter in 1 / sec
+        fr_max_mult (float): multiplier of fr_max to get lst_grid resolution
+
+    Returns:
+        2D ndarray : visibilities at each lst, fq pair.
     """
     fr_max = np.max(utils.calc_max_fringe_rate(fqs, bl_len_ns))
     dt = 1.0 / (fr_max_mult * fr_max)  # over-resolve by fr_mult factor
@@ -29,7 +48,18 @@ def diffuse_foreground(Tsky, lsts, fqs, bl_len_ns, bm_poly=noise.HERA_BEAM_POLY,
 
 def pntsrc_foreground(lsts, fqs, bl_len_ns, nsrcs=1000):
     """
-    Need a doc string...
+    Generate visibilities from randomly placed point sources.
+
+    Point sources drawn from a power-law source count distribution from 0.3 to 300 Jy, with index -1.5
+
+    Args:
+        lsts (ndarray): LSTs [radians]
+        fqs (ndarray): frequencies [GHz]
+        bl_len_ns (float): East-West baseline length [nanosec]
+        nsrcs (int): number of sources to place in the sky
+
+    Returns:
+        2D ndarray : visibilities at each lst, fq pair.
     """
     ras = np.random.uniform(0, 2 * np.pi, nsrcs)
     indices = np.random.normal(-1, 0.5, size=nsrcs)

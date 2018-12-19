@@ -1,3 +1,6 @@
+"""
+A module containing routines for interfacing data produced by `hera_sim` with other codes, especially UVData.
+"""
 import numpy as np
 import pyuvdata as uv
 from pyuvdata.utils import get_lst_for_time, polstr2num
@@ -7,81 +10,37 @@ HERA_LOCATION = [5109342.82705015, 2005241.83929272, -3239939.40461961]
 HERA_LAT_LON_ALT = (-0.53619179912885, 0.3739944696510935, 1073.0000000074506)
 
 
-def empty_uvdata(
-    nfreq,
-    ntimes,
-    ants,
-    antpairs,
-    pols=["xx"],
-    time_per_integ=10.7,
-    min_freq=0.1,
-    channel_bw=0.1 / 1024.0,
-    instrument="hera_sim",
-    telescope_location=HERA_LOCATION,
-    telescope_lat_lon_alt=HERA_LAT_LON_ALT,
-    object_name="sim_data",
-    start_jd=2458119.5,
-    vis_units="uncalib",
-):
+def empty_uvdata(nfreq, ntimes, ants, antpairs, pols=["xx"], time_per_integ=10.7, min_freq=0.1, channel_bw=0.1 / 1024.0,
+                 instrument="hera_sim", telescope_location=HERA_LOCATION, telescope_lat_lon_alt=HERA_LAT_LON_ALT,
+                 object_name="sim_data", start_jd=2458119.5, vis_units="uncalib"):
     """
-    Create an empty UVData object with valid metadata and zeroed data arrays 
-    with the correct dimensions.
+    Create an empty UVData object with valid metadata and zeroed data arrays with the correct dimensions.
+
+    Args:
+        nfreq (int) : number of frequency channels.
+        ntimes (int): number of LST bins.
+        ant (dict): antenna positions.
+            The key should be an integer antenna ID, and the value should be a tuple of (x, y, z) positions in the units
+            required by UVData.antenna_positions (meters, position relative to telescope_location). Example::
+
+            ants = {0 : (20., 20., 0.)}
+        antpairs (list of len-2 tuples): List of baselines as antenna pair tuples, e.g. ``bls = [(1,2), (3,4)]``.
+            All antennas must be in the ants dict.
+        pols (list of str, optional): polarization strings.
+        time_per_integ (float, optional): Time per integration.
+        min_freq (float, optional): minimum frequency of the frequency array [GHz]
+        channel_bw (float, optional): frequency channel bandwidth [GHz].
+        instrument (str, optional): name of the instrument.
+        telescope_location (list of float, optional): location of the telescope, in default UVData coordinate system.
+            Expects a list of length 3.
+        telescope_lat_lon_alt (tuple of float, optional): Latitude, longitude, and altitude of telescope, corresponding
+            to the coordinates in telescope_location. Default: HERA_LAT_LON_ALT.
+        object_name (str, optional): name of UVData object
+        start_jd (float, optional): Julian date of the first time sample in the dataset.
+        vis_units (str, optional): assumed units of the visibility data.
     
-    Parameters
-    ----------
-    nfreq : int
-        Number of frequency channels.
-    
-    ntimes : int
-        Number of LST bins.
-    
-    ant : dict
-        Dict of antenna positions. The key should be an integer antenna ID, 
-        and the value should be a tuple of (x, y, z) positions in the units 
-        required by UVData.antenna_positions (meters, position relative to 
-        telescope_location). Example: ants = {0 : (20., 20., 0.)}
-    
-    antpairs : list of len-2 tuples
-        List of baselines as antenna pair tuples, e.g. bls = [(1,2), (3,4)]. 
-        All antennas must be in the ants dict.
-    
-    pols : list of str
-        List of polarization strings. Default: ['xx']
-    
-    time_per_integ : float, optional
-        Time per integration. Default: 10.7 sec.
-    
-    min_freq : float, optional
-        Minimum frequency of the frequency array, in GHz. Default: 0.1.
-    
-    channel_bw : float, optional
-        Frequency channel bandwidth, in GHz. Default: 0.1 GHz / 1024.
-    
-    instrument : str, optional
-        Name of the instrument. Default: 'hera_sim'.
-    
-    telescope_location : list of float, optional
-        Location of the telescope, in default UVData coordinate system. Expects 
-        a list of length 3. Default: HERA_LOCATION.
-    
-    telescope_lat_lon_alt : tuple of float, optional
-        Latitude, longitude, and altitude of telescope, corresponding to the 
-        coordinates in telescope_location. Default: HERA_LAT_LON_ALT.
-    
-    object_name : str, optional
-        Name of UVData object. Default: 'simdata'.
-    
-    start_jd : float, optional
-        Julian date of the first time sample in the dataset. Default: 
-        2458119.5 (2018-01-01Z00:00:00).
-    
-    vis_units : str, optional
-        Assumed units of the visibility data. Default: 'uncalib'.
-    
-    Returns
-    -------
-    uvd : UVData
-        A new UVData object containing valid metadata and blank (zeroed) arrays.
+    Returns:
+        :class:`pyuvdata.UVData`: A new UVData object containing valid metadata and blank (zeroed) arrays.
     """
     # Generate empty UVData object
     uvd = uv.UVData()
