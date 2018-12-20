@@ -12,7 +12,7 @@ data = [
     str(version.git_branch),
 ]
 
-if int(sys.version[0]) == '2':
+if sys.version[0] == '2':
     with open(os.path.join("hera_sim", "GIT_INFO"), "w") as outfile:
         json.dump(data, outfile)
 else:
