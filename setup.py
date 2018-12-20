@@ -6,12 +6,12 @@ from hera_sim import version
 import json
 
 data = [
-    version.git_origin,
-    version.git_hash,
-    version.git_description,
-    version.git_branch,
+    str(version.git_origin),
+    str(version.git_hash),
+    str(version.git_description),
+    str(version.git_branch),
 ]
-with open(os.path.join("hera_sim", "GIT_INFO"), "w") as outfile:
+with open(os.path.join("hera_sim", "GIT_INFO"), "w", encoding='utf8') as outfile:
     json.dump(data, outfile)
 
 
@@ -48,4 +48,4 @@ setup_args = {
 
 
 if __name__ == "__main__":
-    apply(setup, (), setup_args)
+    setup(*(), **setup_args)

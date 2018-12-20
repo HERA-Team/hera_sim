@@ -1,10 +1,12 @@
 `hera_sim`: A Simple Simulator
 ==============================
 
+`hera_sim` is a simple simulator that generates instrumental effects and applies them to visibilities.
+
 Contents
 ========
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    installation
    tutorials

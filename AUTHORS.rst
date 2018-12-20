@@ -2,4 +2,4 @@
 AUTHORS
 =======
 
-* HERA-Team - github.com/HERA-Team
+* HERA-Team - https://github.com/HERA-Team

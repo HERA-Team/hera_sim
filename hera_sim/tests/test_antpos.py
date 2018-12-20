@@ -11,7 +11,7 @@ class TestLinearArray(unittest.TestCase):
             xyz = antpos.linear_array(N)
             self.assertEqual(len(xyz), N)
         xyz = antpos.linear_array(300)
-        self.assertEqual(range(300), sorted(xyz.keys()))
+        self.assertEqual(list(range(300)), sorted(xyz.keys()))
 
     def test_positions(self):
         xyz = antpos.linear_array(20, sep=1.0)
@@ -33,7 +33,7 @@ class TestHexArray(unittest.TestCase):
             xyz = antpos.hex_array(N, split_core=False, outriggers=0)
             self.assertEqual(len(xyz), 3 * N ** 2 - 3 * N + 1)
         xyz = antpos.hex_array(15, split_core=False, outriggers=0)
-        self.assertEqual(range(3 * 15 ** 2 - 3 * 15 + 1), sorted(xyz.keys()))
+        self.assertEqual(list(range(3 * 15 ** 2 - 3 * 15 + 1)), sorted(xyz.keys()))
         # Test outrigger scaling
         N = 10
         Ncore = 3 * N ** 2 - 3 * N + 1
@@ -45,7 +45,7 @@ class TestHexArray(unittest.TestCase):
             xyz = antpos.hex_array(N, split_core=True, outriggers=0)
             self.assertEqual(len(xyz), 3 * N ** 2 - 4 * N + 1)
         xyz = antpos.hex_array(15, split_core=True, outriggers=0)
-        self.assertEqual(range(3 * 15 ** 2 - 4 * 15 + 1), sorted(xyz.keys()))
+        self.assertEqual(list(range(3 * 15 ** 2 - 4 * 15 + 1)), sorted(xyz.keys()))
 
     def test_positions(self):
         # Test one single answer

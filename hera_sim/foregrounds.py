@@ -80,7 +80,7 @@ def pntsrc_foreground(lsts, fqs, bl_len_ns, nsrcs=1000):
         )  # XXX adds a bit to total delay, increasing bl_len_ns
         vis[t, :] += flux * (fqs / mfreq) ** index * np.exp(2j * np.pi * fqs * dtau)
     ha = utils.compute_ha(lsts, 0)
-    for fi in xrange(fqs.size):
+    for fi in range(fqs.size):
         bm = np.exp(-ha ** 2 / (2 * beam_width[fi] ** 2))
         bm = np.where(np.abs(ha) > np.pi / 2, 0, bm)
         w = (

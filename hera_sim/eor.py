@@ -25,8 +25,8 @@ def noiselike_eor(lsts, fqs, bl_len_ns, eor_amp=1e-5, spec_tilt=0.0,
         eor_amp (float): amplitude of EoR signal [arbitrary]
         spec_tilt (float): spectral slope of EoR spectral amplitude as a function of delay in microseconds
         fr_width (float) : width of Gaussian FR filter in 1 / sec
-        min_delay (float): minimum |delay| in nanosec of EoR signal
-        max_delay (float): maximum |delay| in nanosec of EoR signal
+        min_delay (float): minimum absolute delay in nanosec of EoR signal
+        max_delay (float): maximum absolute delay in nanosec of EoR signal
         fr_max_mult (float): multiplier of fr_max to get lst_grid resolution
 
     Returns: 

@@ -56,7 +56,7 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube, real_dtype=np.float32
     # Loop over time samples
     for t, eq2top in enumerate(eq2tops.astype(real_dtype)):
         tx, ty, tz = crd_top = np.dot(eq2top, crd_eq)
-        for i in xrange(nant):
+        for i in range(nant):
             # Linear interpolation of primary beam pattern
             spline = RectBivariateSpline(bm_pix_y, bm_pix_x, bm_cube[i], kx=1, ky=1)
             A_s[i] = spline(ty, tx, grid=False)
@@ -70,14 +70,14 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube, real_dtype=np.float32
         v *= A_s * Isqrt
 
         # Compute visibilities (upper triangle only)
-        for i in xrange(len(antpos)):
+        for i in range(len(antpos)):
             np.dot(v[i : i + 1].conj(), v[i:].T, out=vis[t, i : i + 1, i:])
 
     # Conjugate visibilities
     np.conj(vis, out=vis)
 
     # Fill in whole visibility matrix from upper triangle
-    for i in xrange(nant):
+    for i in range(nant):
         vis[:, i + 1 :, i] = vis[:, i, i + 1 :].conj()
 
     return vis

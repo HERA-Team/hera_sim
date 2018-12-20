@@ -5,3 +5,7 @@ dist/*
 
 \.idea/
 docs/_build/*
+docs/reference/_autosummary/*
+docs/tutorials/\.ipynb_checkpoints/
+
+hera_sim/GIT_INFO

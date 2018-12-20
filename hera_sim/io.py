@@ -23,7 +23,8 @@ def empty_uvdata(nfreq, ntimes, ants, antpairs, pols=["xx"], time_per_integ=10.7
             The key should be an integer antenna ID, and the value should be a tuple of (x, y, z) positions in the units
             required by UVData.antenna_positions (meters, position relative to telescope_location). Example::
 
-            ants = {0 : (20., 20., 0.)}
+                ants = {0 : (20., 20., 0.)}
+
         antpairs (list of len-2 tuples): List of baselines as antenna pair tuples, e.g. ``bls = [(1,2), (3,4)]``.
             All antennas must be in the ants dict.
         pols (list of str, optional): polarization strings.
@@ -62,8 +63,8 @@ def empty_uvdata(nfreq, ntimes, ants, antpairs, pols=["xx"], time_per_integ=10.7
     uvd.vis_units = vis_units
 
     # Fill-in array layout using dish positions
-    nants = len(ants.keys())
-    uvd.antenna_numbers = np.array([int(antid) for antid in ants.keys()], dtype=np.int)
+    nants = len(list(ants.keys()))
+    uvd.antenna_numbers = np.array([int(antid) for antid in list(ants.keys())], dtype=np.int)
     uvd.antenna_names = ["%d" % antid for antid in uvd.antenna_numbers]
     uvd.antenna_positions = np.zeros((nants, 3))
     uvd.Nants_data = nants
@@ -74,8 +75,8 @@ def empty_uvdata(nfreq, ntimes, ants, antpairs, pols=["xx"], time_per_integ=10.7
         uvd.antenna_positions[i] = np.array(ants[antid])
 
     # Check that baselines only involve antennas that have been defined
-    ant1, ant2 = zip(*antpairs)
-    defined_ants = ants.keys()
+    ant1, ant2 = list(zip(*antpairs))
+    defined_ants = list(ants.keys())
     ants_not_found = []
     for _ant in np.unique((ant1, ant2)):
         if _ant not in defined_ants:
@@ -91,7 +92,7 @@ def empty_uvdata(nfreq, ntimes, ants, antpairs, pols=["xx"], time_per_integ=10.7
     bls = np.unique(bls)
 
     # Convert back to ant1 and ant2 lists
-    ant1, ant2 = zip(*[uvd.baseline_to_antnums(_bl) for _bl in bls])
+    ant1, ant2 = list(zip(*[uvd.baseline_to_antnums(_bl) for _bl in bls]))
 
     # Add frequency and polarization arrays
     uvd.freq_array = sim_freq.reshape((1, sim_freq.size))

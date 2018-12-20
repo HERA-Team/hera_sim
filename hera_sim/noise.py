@@ -99,7 +99,7 @@ def sky_noise_jy(Tsky, fqs, lsts, bm_poly=HERA_BEAM_POLY, inttime=10.7):
     Args:
         Tsky (2D ndarray): the temperature of the sky. This is expected to be an array of shape ``(n_lst, n_freq)``,
             however the routine will run without exception if it is a float or an nD array with last dimension of
-             size ``n_freq``.
+            size ``n_freq``.
         fqs (ndarray): frequencies of observation [GHz].
         lsts: unneeded.
         bm_poly (ndarray): array defining a numpy polynomial, which defines the beam width as a function of

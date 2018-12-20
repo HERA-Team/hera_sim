@@ -64,22 +64,22 @@ hera_sim_version_str = "hera_sim version: " + version + "."
 if git_hash is not "":
     hera_sim_version_str += (
         "  Git origin: "
-        + git_origin
+        + str(git_origin)
         + ".  Git hash: "
-        + git_hash
+        + str(git_hash)
         + ".  Git branch: "
-        + git_branch
+        + str(git_branch)
         + ".  Git description: "
-        + git_description
+        + str(git_description)
         + "."
     )
 
 
 def main():
-    print("Version = {0}".format(version))
-    print("git origin = {0}".format(git_origin))
-    print("git branch = {0}".format(git_branch))
-    print("git description = {0}".format(git_description))
+    print(("Version = {0}".format(version)))
+    print(("git origin = {0}".format(git_origin)))
+    print(("git branch = {0}".format(git_branch)))
+    print(("git description = {0}".format(git_description)))
 
 
 if __name__ == "__main__":

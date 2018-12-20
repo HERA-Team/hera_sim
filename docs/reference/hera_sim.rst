@@ -1,4 +1,4 @@
-py21cmmc
+hera_sim
 ========
 
 .. testsetup::
