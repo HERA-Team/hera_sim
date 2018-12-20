@@ -11,9 +11,13 @@ data = [
     str(version.git_description),
     str(version.git_branch),
 ]
-with open(os.path.join("hera_sim", "GIT_INFO"), "w", encoding='utf8') as outfile:
-    json.dump(data, outfile)
 
+if int(sys.version[0]) == '2':
+    with open(os.path.join("hera_sim", "GIT_INFO"), "w") as outfile:
+        json.dump(data, outfile)
+else:
+    with open(os.path.join("hera_sim", "GIT_INFO"), "w", encoding='utf8') as outfile:
+        json.dump(data, outfile)
 
 def package_files(package_dir, subdirectory):
     # walk the input package_dir/subdirectory
