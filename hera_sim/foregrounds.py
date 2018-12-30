@@ -1,29 +1,59 @@
 '''A module for generating realistic foregrounds.'''
 
 import numpy as np
-from scipy.interpolate import RectBivariateSpline
+from scipy import interpolate
 import aipy
 from . import noise
 from . import utils
 
 
-def diffuse_foreground(Tsky, lsts, fqs, bl_len_ns, bm_poly=noise.HERA_BEAM_POLY, scalar=30.,
-                       fr_width=None, fr_max_mult=2.0, standoff=0.0, delay_filter_type='gauss'):
+def diffuse_foreground(Tsky_mdl, lsts, fqs, bl_len_ns, bm_poly=noise.HERA_BEAM_POLY, scalar=30.,
+                       fr_max_mult=2.0, standoff=0.0, delay_filter_type='gauss',
+                       fringe_filter_type='gauss', **fringe_filter_kwargs):
     """
-    Need a doc string...
+    Model diffuse foreground visibility.
+
+    Args:
+        Tsky_mdl : RectBivariateSpline interpolator, see noise.HERA_Tsky_mdl
+            LST and freq dependent model of total autocorrelation power
+        lsts : 1d array of LST [radians]
+        fqs : 1d array of frequencies [GHz]
+        bl_len_ns : float, projected East-West baseline separation in nanosec
+        bm_poly : beam scalar polynomial object
+        scalar : float, beam scalar
+        fr_max_mult : float, maximum fringe-rate oversampling coefficient for lst_grid
+        standoff : float, baseline horizon buffer for modeling suprahorizon emission
+        delay_filter_type : str, type of delay filter to use, see utils.gen_delay_filter()
+        fringe_filter_type : str, type of fringe-rate filter, see utils.gen_fringe_filter()
+        fringe_filter_kwargs : kwargs given fringe_filter_type, see utils.gen_fringe_filter()
+    Returns:
+        vis : 2D array of diffuse foreground visibility
+        fringe_filter : fringe-rate filter applied to data
+        delay_filter : delay filter applied to data
     """
+    # get maximum fringe-rate of baseline and produce lst_grid
     fr_max = np.max(utils.calc_max_fringe_rate(fqs, bl_len_ns))
     dt = 1.0/(fr_max_mult * fr_max)  # over-resolve by fr_mult factor
     ntimes = int(np.around(aipy.const.sidereal_day / dt))
     lst_grid = np.linspace(0, 2*np.pi, ntimes, endpoint=False)
-    nos = Tsky(lst_grid,fqs) * noise.white_noise((ntimes,fqs.size))
-    nos, ff, frs = utils.rough_fringe_filter(nos, lst_grid, fqs, bl_len_ns, fr_width=fr_width)
-    nos = utils.rough_delay_filter(nos, fqs, bl_len_ns, standoff=standoff, filter_type=delay_filter_type)
-    nos /= noise.jy2T(fqs, bm_poly=bm_poly)
-    mdl_real = RectBivariateSpline(lst_grid, fqs, scalar*nos.real)
-    mdl_imag = RectBivariateSpline(lst_grid, fqs, scalar*nos.imag)
-    return mdl_real(lsts,fqs) + 1j*mdl_imag(lsts,fqs)
-    
+
+    # generate a noise-like visibility of Tsky model
+    data = Tsky_mdl(lst_grid, fqs) * noise.white_noise((ntimes, fqs.size))
+
+    # fringe rate filter it
+    data, fringe_filter = utils.rough_fringe_filter(data, lst_grid, fqs, bl_len_ns, filter_type=fringe_filter_type, **fringe_filter_kwargs)
+
+    # convert from Temp to Jy and interpolate onto lsts
+    data /= noise.jy2T(fqs, bm_poly=bm_poly)
+    data_real = interpolate.interp1d(lst_grid, scalar * data.real, kind='quadratic', fill_value='extrapolate', axis=0)
+    data_imag = interpolate.interp1d(lst_grid, scalar * data.imag, kind='quadratic', fill_value='extrapolate', axis=0)
+    data = data_real(lsts) + 1j * data_imag(lsts)
+
+    # delay filter it
+    data, delay_filter = utils.rough_delay_filter(data, fqs, bl_len_ns, standoff=standoff, filter_type=delay_filter_type)
+
+    return data, fringe_filter, delay_filter
+
 
 def pntsrc_foreground(lsts, fqs, bl_len_ns, nsrcs=1000):
     """
