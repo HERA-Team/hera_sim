@@ -6,7 +6,7 @@ import nose.tools as nt
 
 np.random.seed(0)
 
-class TestForegrounds(unittest.TestCase):
+class TestEoR(unittest.TestCase):
     def test_noiselike_eor(self):
         # setup simulation parameters
         fqs = np.linspace(.1, .2, 201, endpoint=False)
@@ -15,7 +15,7 @@ class TestForegrounds(unittest.TestCase):
         bl_len_ns = 50.
 
         # Simulate vanilla eor
-        vis = eor.noiselike_eor(lsts, fqs, bl_len_ns, eor_amp=1e-5, spec_tilt=0, min_delay=0, max_delay=1e5)
+        vis, ff = eor.noiselike_eor(lsts, fqs, bl_len_ns, eor_amp=1e-5, spec_tilt=0, min_delay=0, max_delay=1e5, fringe_filter_type='tophat')
 
         # assert covariance across freq is close to diagonal (i.e. frequency covariance is essentially noise-like)
         cov = np.cov(vis.T)
@@ -34,7 +34,7 @@ class TestForegrounds(unittest.TestCase):
         # Introduce a spectral tilt: generally EoR is flat-ish in Delta^2 and therefore
         # follows a negative power-law in P(k)
         lsts = np.linspace(0, 2*np.pi, 1000)
-        vis = eor.noiselike_eor(lsts, fqs, bl_len_ns, eor_amp=1e-5, spec_tilt=-2, min_delay=200, max_delay=500)
+        vis, ff = eor.noiselike_eor(lsts, fqs, bl_len_ns, eor_amp=1e-5, spec_tilt=-2, min_delay=0, max_delay=1e5, fringe_filter_type='tophat')
 
         # take FFT and incoherently average over time to check spectral tilt
         vfft = np.mean(np.abs(np.fft.fft(vis, axis=1)), axis=0)
@@ -44,8 +44,8 @@ class TestForegrounds(unittest.TestCase):
         nt.assert_almost_equal(fit[0], -2, places=1)
 
         # test amplitude scaling is correct
-        vis1 = eor.noiselike_eor(lsts, fqs, bl_len_ns, eor_amp=1e-5, spec_tilt=0, min_delay=200, max_delay=500)
-        vis2 = eor.noiselike_eor(lsts, fqs, bl_len_ns, eor_amp=1e-3, spec_tilt=0, min_delay=200, max_delay=500)
+        vis1, ff = eor.noiselike_eor(lsts, fqs, bl_len_ns, eor_amp=1e-5, spec_tilt=0, min_delay=0, max_delay=1e5, fringe_filter_type='tophat')
+        vis2, ff = eor.noiselike_eor(lsts, fqs, bl_len_ns, eor_amp=1e-3, spec_tilt=0, min_delay=0, max_delay=1e5, fringe_filter_type='tophat')
         nt.assert_almost_equal(np.mean(np.abs(vis1 / vis2)) / np.sqrt(2), 1e-2, places=2)
 
 

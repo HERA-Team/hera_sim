@@ -8,8 +8,8 @@ from . import utils
 
 
 def diffuse_foreground(Tsky_mdl, lsts, fqs, bl_len_ns, bm_poly=noise.HERA_BEAM_POLY, scalar=30.,
-                       fr_max_mult=2.0, standoff=0.0, delay_filter_type='gauss',
-                       fringe_filter_type='gauss', **fringe_filter_kwargs):
+                       fr_max_mult=4.0, standoff=0.0, interp_mode='nearest',
+                       delay_filter_type='tophat', fringe_filter_type='tophat',  **fringe_filter_kwargs):
     """
     Model diffuse foreground visibility.
 
@@ -26,6 +26,8 @@ def diffuse_foreground(Tsky_mdl, lsts, fqs, bl_len_ns, bm_poly=noise.HERA_BEAM_P
         delay_filter_type : str, type of delay filter to use, see utils.gen_delay_filter()
         fringe_filter_type : str, type of fringe-rate filter, see utils.gen_fringe_filter()
         fringe_filter_kwargs : kwargs given fringe_filter_type, see utils.gen_fringe_filter()
+        interp_mode : str, method of interpolating visibility from oversampled
+            LST grid to the desired LSTs. options=['nearest', 'linear', 'cubic']
     Returns:
         vis : 2D array of diffuse foreground visibility
         fringe_filter : fringe-rate filter applied to data
@@ -45,8 +47,8 @@ def diffuse_foreground(Tsky_mdl, lsts, fqs, bl_len_ns, bm_poly=noise.HERA_BEAM_P
 
     # convert from Temp to Jy and interpolate onto lsts
     data /= noise.jy2T(fqs, bm_poly=bm_poly)
-    data_real = interpolate.interp1d(lst_grid, scalar * data.real, kind='quadratic', fill_value='extrapolate', axis=0)
-    data_imag = interpolate.interp1d(lst_grid, scalar * data.imag, kind='quadratic', fill_value='extrapolate', axis=0)
+    data_real = interpolate.interp1d(lst_grid, scalar * data.real, kind=interp_mode, fill_value='extrapolate', axis=0)
+    data_imag = interpolate.interp1d(lst_grid, scalar * data.imag, kind=interp_mode, fill_value='extrapolate', axis=0)
     data = data_real(lsts) + 1j * data_imag(lsts)
 
     # delay filter it

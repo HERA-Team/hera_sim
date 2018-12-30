@@ -17,7 +17,7 @@ class TestReflections(unittest.TestCase):
         Tsky_mdl = noise.HERA_Tsky_mdl['xx']
         Tsky = Tsky_mdl(lsts, fqs)
         bl_len_ns = 50.
-        vis = foregrounds.diffuse_foreground(Tsky_mdl, lsts, fqs, bl_len_ns)
+        vis, ff, df = foregrounds.diffuse_foreground(Tsky_mdl, lsts, fqs, bl_len_ns, fr_width=1e-4)
 
         self.freqs = fqs
         self.lsts = lsts
