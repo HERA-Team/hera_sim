@@ -31,18 +31,15 @@ def diffuse_foreground(Tsky_mdl, lsts, fqs, bl_len_ns, bm_poly=noise.HERA_BEAM_P
         fringe_filter : fringe-rate filter applied to data
         delay_filter : delay filter applied to data
     """
-    # generate a Tsky noise-like visibility in time and freq space
+    # generate a Tsky noise-like visibility in time and freq space, convert from K to Jy
     Tsky = Tsky_mdl(lsts, fqs)
-    data = Tsky * noise.white_noise((len(lsts), len(fqs)))
+    data = Tsky * noise.white_noise((len(lsts), len(fqs))) * scalar / noise.jy2T(fqs, bm_poly=bm_poly)
 
     # fringe rate filter across time
     data, fringe_filter = utils.rough_fringe_filter(data, lsts, fqs, bl_len_ns, filter_type=fringe_filter_type, **fringe_filter_kwargs)
 
     # delay filter across freq
     data, delay_filter = utils.rough_delay_filter(data, fqs, bl_len_ns, standoff=standoff, filter_type=delay_filter_type)
-
-    # convert from T to Jy
-    data *= scalar / noise.jy2T(fqs, bm_poly=bm_poly)
 
     return data, fringe_filter, delay_filter
 
