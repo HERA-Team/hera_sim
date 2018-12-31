@@ -2,14 +2,15 @@
 
 import numpy as np
 from scipy import interpolate
+from scipy.signal import windows
 import aipy
 from . import noise
 from . import utils
 
 
 def diffuse_foreground(Tsky_mdl, lsts, fqs, bl_len_ns, bm_poly=noise.HERA_BEAM_POLY, scalar=30.,
-                       fr_max_mult=4.0, standoff=0.0, delay_filter_type='tophat',
-                       fringe_filter_type='tophat',  **fringe_filter_kwargs):
+                       standoff=0.0, delay_filter_type='tophat',
+                       fringe_filter_type='tophat', **fringe_filter_kwargs):
     """
     Model diffuse foreground visibility.
 
@@ -21,32 +22,29 @@ def diffuse_foreground(Tsky_mdl, lsts, fqs, bl_len_ns, bm_poly=noise.HERA_BEAM_P
         bl_len_ns : float, projected East-West baseline separation in nanosec
         bm_poly : beam scalar polynomial object
         scalar : float, beam scalar
-        fr_max_mult : float, maximum fringe-rate oversampling coefficient for lst_grid
         standoff : float, baseline horizon buffer for modeling suprahorizon emission
         delay_filter_type : str, type of delay filter to use, see utils.gen_delay_filter()
         fringe_filter_type : str, type of fringe-rate filter, see utils.gen_fringe_filter()
         fringe_filter_kwargs : kwargs given fringe_filter_type, see utils.gen_fringe_filter()
     Returns:
-        vis : 2D array of diffuse foreground visibility
+        data : 2D array of diffuse foreground visibility
         fringe_filter : fringe-rate filter applied to data
         delay_filter : delay filter applied to data
     """
-    # generate a Tsky noise-like visibility in fringe-rate and delay space in Jansky
+    # generate a Tsky noise-like visibility in time and freq space
     Tsky = Tsky_mdl(lsts, fqs)
-    data = Tsky * noise.white_noise((len(lsts), len(fqs))) / noise.jy2T(fqs, bm_poly=bm_poly)
-    data = np.fft.ifft2(data)
+    data = Tsky * noise.white_noise((len(lsts), len(fqs)))
 
-    # generate delay filter in delay space
-    delay_filter = utils.gen_delay_filter(fqs, bl_len_ns, standoff=standoff, filter_type=delay_filter_type)
+    # fringe rate filter across time
+    data, fringe_filter = utils.rough_fringe_filter(data, lsts, fqs, bl_len_ns, filter_type=fringe_filter_type, **fringe_filter_kwargs)
 
-    # generate fringe filter in frate & freq space, transform to delay space
-    fringe_filter = utils.gen_fringe_filter(lsts, fqs, bl_len_ns, filter_type=fringe_filter_type, **fringe_filter_kwargs)
-    fringe_filter_fft = np.fft.ifft(fringe_filter, axis=1)
+    # delay filter across freq
+    data, delay_filter = utils.rough_delay_filter(data, fqs, bl_len_ns, standoff=standoff, filter_type=delay_filter_type)
 
-    # apply filter and fft back
-    dfilt = np.fft.fft2(data * np.abs(fringe_filter_fft * delay_filter))
+    # convert from T to Jy
+    data *= scalar / noise.jy2T(fqs, bm_poly=bm_poly)
 
-    return dfilt, fringe_filter, delay_filter
+    return data, fringe_filter, delay_filter
 
 
 def pntsrc_foreground(lsts, fqs, bl_len_ns, nsrcs=1000):
