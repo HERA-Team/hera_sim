@@ -4,8 +4,8 @@ import numpy as np
 from scipy.interpolate import RectBivariateSpline
 import aipy
 import os
-this_dir, this_filename = os.path.split(__file__)
-HERA_TSKY_VS_LST_NPZ = os.path.join(this_dir, 'data','HERA_Tsky_vs_LST.npz')
+from .data import DATA_PATH
+HERA_TSKY_VS_LST_NPZ = os.path.join(DATA_PATH, 'HERA_Tsky_vs_LST.npz')
 
 npz = np.load(HERA_TSKY_VS_LST_NPZ) # Tsky vs fq/lst from Beardsley, beam v XXX, GSM v XXX
 fqs = npz['freqs'] / 1e3
@@ -16,8 +16,8 @@ HERA_Tsky_yy = npz['HERA_Tsky'][1].T
 HERA_Tsky_xx = np.concatenate([HERA_Tsky_xx[-10:], HERA_Tsky_xx, HERA_Tsky_xx[:10]])
 HERA_Tsky_yy = np.concatenate([HERA_Tsky_yy[-10:], HERA_Tsky_yy, HERA_Tsky_yy[:10]])
 HERA_Tsky_mdl = {}
-HERA_Tsky_mdl['xx'] = RectBivariateSpline(lsts, fqs, HERA_Tsky_xx)
-HERA_Tsky_mdl['yy'] = RectBivariateSpline(lsts, fqs, HERA_Tsky_yy)
+HERA_Tsky_mdl['xx'] = RectBivariateSpline(lsts, fqs, HERA_Tsky_xx, kx=2, ky=2)
+HERA_Tsky_mdl['yy'] = RectBivariateSpline(lsts, fqs, HERA_Tsky_yy, kx=2, ky=2)
 
 # XXX replicated from hera_pspec.pspec
 HERA_BEAM_POLY = np.array([  8.07774113e+08,  -1.02194430e+09,
