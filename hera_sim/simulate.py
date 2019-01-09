@@ -18,41 +18,50 @@ def _get_model(mod, name):
     return getattr(sys.modules["hera_sim." + mod], name)
 
 
-def _model(func):
-    """
-    A decorator which writes the correct history to a UVData object upon every call.
-    """
-    name = func.__name__
+class _model(object):
 
-    @functools.wraps(func)
-    def wrapper(self, *args, **kwargs):
-        if "model" in inspect.getargspec(func)[0]:
-            # Cases where there is a choice of model
-            model = args[0] if args else kwargs.pop("model")
+    def __init__(self, base_module=None):
+        self.base_module = base_module
 
-            func(self, model, **kwargs)
+    def __call__(self, func, *args, **kwargs):
+        name = func.__name__
 
-            if not isinstance(model, str):
-                method = model.__name__
+        @functools.wraps(func)
+        def new_func(obj, *args, **kwargs):
+            if "model" in inspect.getargspec(func)[0]:
+                # Cases where there is a choice of model
+                model = args[0] if args else kwargs.pop("model")
+
+                # If the model is a str, get its actual callable.
+                if isinstance(model, str):
+                    if self.base_module is None:
+                        self.base_module = name[4:]  # get the bit after the "add"
+
+                    model = _get_model(self.base_module, model)
+
+                func(obj, model, **kwargs)
+
+                if not isinstance(model, str):
+                    method = model.__name__
+                else:
+                    method = model
+
+                method = "using {} ".format(method)
             else:
-                method = model
+                # For cases where there is no choice of model.
+                method = ""
+                func(obj, **kwargs)
 
-            method = "using {} ".format(method)
-        else:
-            # For cases where there is no choice of model.
-            method = ""
-            func(self, **kwargs)
+            msg = "\nhera_sim v{version}: Added {component} {method_name}with kwargs: {kwargs}"
 
-        msg = "\nhera_sim v{version}: Added {component} {method_name}with kwargs: {kwargs}"
+            obj.data.history += msg.format(
+                version=version,
+                component="".join(name.split("_")[1:]),
+                method_name=method,
+                kwargs=kwargs,
+            )
 
-        self.data.history += msg.format(
-            version=version,
-            component="".join(name.split("_")[1:]),
-            method_name=method,
-            kwargs=kwargs,
-        )
-
-    return wrapper
+        return new_func
 
 
 class Simulator:
@@ -173,7 +182,7 @@ class Simulator:
                     ant1, ant2, ordered=not with_conj
                 )
 
-    @_model
+    @_model()
     def add_eor(self, model, **kwargs):
         """
         Add an EoR-like model to the visibilities.
@@ -183,10 +192,6 @@ class Simulator:
                 a callable which has the signature ``fnc(lsts, fqs, bl_len_ns, **kwargs)``.
             **kwargs: keyword arguments sent to the EoR model function, other than `lsts`, `fqs` and `bl_len_ns`.
         """
-        # If user passed a string model name, get the actual function.
-        if isinstance(model, str):
-            model = _get_model("eor", model)
-
         for ant1, ant2, ind in self._iterate_baselines():
             lsts = self.data.lst_array[ind]
             bl_len_m = self.data.uvw_array[ind][
@@ -205,7 +210,7 @@ class Simulator:
                 ind, 0, :, 0
             ] += vis  # TODO: not sure about only using first pol.
 
-    @_model
+    @_model()
     def add_foregrounds(self, model, **kwargs):
         """
         Add a foreground model to the visibilities.
@@ -215,10 +220,6 @@ class Simulator:
                 or a callable which has the signature ``fnc(lsts, fqs, bl_len_ns, **kwargs)``.
             **kwargs: keyword arguments sent to the foregournd model function, other than `lsts`, `fqs` and `bl_len_ns`.
         """
-        # If user passed a string model name, get the actual function.
-        if isinstance(model, str):
-            model = _get_model("foregrounds", model)
-
         for ant1, ant2, ind in self._iterate_baselines():
             lsts = self.data.lst_array[ind]
             bl_len_m = self.data.uvw_array[ind][
@@ -237,7 +238,7 @@ class Simulator:
                 ind, 0, :, 0
             ] += vis  # TODO: not sure about only using first pol.
 
-    @_model
+    @_model()
     def add_noise(self, model, **kwargs):
         """
         Add thermal noise to the visibilities.
@@ -247,10 +248,6 @@ class Simulator:
                 or a callable which has the signature ``fnc(lsts, fqs, bl_len_ns, **kwargs)``.
             **kwargs: keyword arguments sent to the noise model function, other than `lsts`, `fqs` and `bl_len_ns`.
         """
-        # If user passed a string model name, get the actual function.
-        if isinstance(model, str):
-            model = _get_model("noise", model)
-
         for ant1, ant2, ind in self._iterate_baselines():
             lsts = self.data.lst_array[ind]
 
@@ -258,7 +255,7 @@ class Simulator:
                 lsts=lsts, fqs=self.data.freq_array[0] * 1e-9, **kwargs
             )
 
-    @_model
+    @_model()
     def add_reflections(self, model, **kwargs):
         """
         Add auto- or cross-reflections to data visibilities.
@@ -269,11 +266,6 @@ class Simulator:
             **kwargs: keyword arguments sent to the reflections model function, other than `vis` and `fqs`. Common
                 parameters are `dly`, `phs` and `amp`.
         """
-
-        # If user passed a string model name, get the actual function.
-        if isinstance(model, str):
-            model = _get_model("reflections", model)
-
         for ant1, ant2, ind in self._iterate_baselines():
             # the following performs the modification in-place
             self.data.data_array[ind, 0, :, 0] = model(
@@ -285,7 +277,7 @@ class Simulator:
                 **kwargs
             )
 
-    @_model
+    @_model()
     def add_rfi(self, model, **kwargs):
         """
         Add RFI to the visibilities.
@@ -295,10 +287,6 @@ class Simulator:
                 or a callable which has the signature ``fnc(lsts, fqs, **kwargs)``.
             **kwargs: keyword arguments sent to the RFI model function, other than `lsts` or `fqs`.
         """
-        # If user passed a string model name, get the actual function.
-        if isinstance(model, str):
-            model = _get_model("rfi", model)
-
         for ant1, ant2, ind in self._iterate_baselines():
             lsts = self.data.lst_array[ind]
 
@@ -311,7 +299,7 @@ class Simulator:
                 **kwargs
             )
 
-    @_model
+    @_model()
     def add_gains(self, **kwargs):
         """
         Add gains to visibilities.
@@ -329,7 +317,7 @@ class Simulator:
                 vis=self.data.data_array[ind, 0, :, 0], gains=gains, bl=(ant1, ant2)
             )
 
-    @_model
+    @_model()
     def add_xtalk(self, **kwargs):
         """
         Add crosstalk to visibilities.

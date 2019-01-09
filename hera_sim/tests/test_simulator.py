@@ -12,7 +12,7 @@ from os import path
 import shutil
 import tempfile
 
-from nose.tools import raises
+from nose.tools import raises, assert_raises
 
 def create_sim():
     return Simulator(
@@ -73,6 +73,12 @@ def test_io():
 
     assert np.all(sim.data.data_array == sim2.data.data_array)
 
+    with assert_raises(ValueError):
+        sim.write_data(path.join(direc, 'tmp_data.bad_extension'))
+
+    with assert_raises(ValueError):
+        sim.write_data(path.join(direc, 'tmp_data_no_extension'))
+
     # delete the tmp
     shutil.rmtree(direc)
 
@@ -87,4 +93,16 @@ def test_wrong_func():
 def test_wrong_arguments():
     sim = create_sim()
     sim.add_foregrounds(diffuse_foreground, Tsky_mdl=HERA_Tsky_mdl['xx'])
+    assert not np.all(sim.data.data_array == 0)
+
+
+def test_other_components():
+    sim = create_sim()
+    sim.add_reflections("auto_reflection", amp=1, phs=1, dly=1)
+    sim.add_rfi("rfi_stations")
+
+    assert np.all(sim.data.data_array ==  0)
+
+    sim.add_xtalk()
+
     assert not np.all(sim.data.data_array == 0)
