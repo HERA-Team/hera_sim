@@ -9,3 +9,5 @@ docs/reference/_autosummary/*
 docs/tutorials/\.ipynb_checkpoints/
 
 hera_sim/GIT_INFO
+
+hera_sim/\.ipynb_checkpoints/
