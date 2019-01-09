@@ -27,8 +27,8 @@ class RfiStation:
 
 HERA_RFI_STATIONS = [
     # FM Stations
-    (.1007, 1., 1000 * 100., 10., 100.), 
-    (.1016, 1., 1000 * 100., 10., 100.), 
+    (.1007, 1., 1000 * 100., 10., 100.),
+    (.1016, 1., 1000 * 100., 10., 100.),
     (.1024, 1., 1000 * 100., 10., 100.),
     (.1028, 1., 1000 *   3.,  1., 100.),
     (.1043, 1., 1000 * 100., 10., 100.),
@@ -65,11 +65,11 @@ def rfi_impulse(fqs, lsts, rfi=None, chance=.001, strength=20.):
     impulses = strength * np.array([np.exp(2j*np.pi*dly*fqs) for dly in dlys])
     if impulses.size > 0: rfi[impulse_times] += impulses
     return rfi
-    
+
 def rfi_scatter(fqs, lsts, rfi=None, chance=.0001, strength=10, std=10):
     if rfi is None: rfi = np.zeros((lsts.size,fqs.size), dtype=np.complex)
     assert(rfi.shape == (lsts.size, fqs.size))
     rfis = np.where(np.random.uniform(size=rfi.size) <= chance)[0]
-    rfi.flat[rfis] += np.random.normal(strength,std) * np.exp(1j*np.random.uniform(size=rfis.size)) 
+    rfi.flat[rfis] += (np.random.normal(strength, std, size=rfis.size)
+                       * np.exp(1j * np.random.uniform(size=rfis.size)))
     return rfi
-    
