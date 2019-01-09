@@ -77,7 +77,7 @@ def empty_uvdata(nfreq, ntimes, ants, antpairs, pols=['xx',],
     uvd = uv.UVData()
     
     # Basic time and freq. specs
-    sim_freq = min_freq + np.arange(nfreq) * channel_bw * 1e9 # Hz
+    sim_freq = (min_freq + np.arange(nfreq) * channel_bw) * 1e9 # Hz
     sim_times = start_jd + np.arange(ntimes) * time_per_integ / SEC_PER_SDAY
     sim_pols = pols
     lat, lon, alt = telescope_lat_lon_alt
