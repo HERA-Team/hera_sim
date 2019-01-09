@@ -25,17 +25,19 @@ def diffuse_foreground(Tsky, lsts, fqs, bl_len_ns, bm_poly=noise.HERA_BEAM_POLY,
     return mdl_real(lsts,fqs) + 1j*mdl_imag(lsts,fqs)
     
 
-def pntsrc_foreground(lsts, fqs, bl_len_ns, nsrcs=1000):
+def pntsrc_foreground(lsts, fqs, bl_len_ns, nsrcs=1000, Smin=0.3, Smax=300,
+                      beta=-1.5, spectral_index_mean=-1, spectral_index_std=0.5,
+                      reference_freq=0.15):
     """
     Need a doc string...
     """
     ras = np.random.uniform(0,2*np.pi,nsrcs)
-    indices = np.random.normal(-1, .5, size=nsrcs)
-    mfreq = .15
+    indices = np.random.normal(spectral_index_mean, spectral_index_std, size=nsrcs)
+    mfreq = reference_freq
     beam_width = (40*60.) * (mfreq/fqs) / aipy.const.sidereal_day * 2*np.pi # XXX hardcoded HERA
-    x0,x1,n = .3, 300, -1.5
-    # Draw flux densities from a power law between 1 and 1000 w/ index of -1.5
-    flux_densities = ((x1**(n+1) - x0**(n+1))*np.random.uniform(size=nsrcs) + x0**(n+1))**(1./(n+1))
+
+    # Draw flux densities from a power law between Smin and Smax with a slope of beta.
+    flux_densities = ((Smax**(beta+1) - Smin**(beta+1))*np.random.uniform(size=nsrcs) + Smin**(beta+1))**(1./(beta+1))
     vis = np.zeros((lsts.size, fqs.size), dtype=np.complex)
     for ra,flux,index in zip(ras,flux_densities,indices):
         t = np.argmin(np.abs(utils.compute_ha(lsts,ra)))
