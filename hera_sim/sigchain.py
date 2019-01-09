@@ -36,10 +36,15 @@ def apply_gains(vis, gains, bl):
     return vis * gij
 
 def gen_xtalk(freqs, amplitude=3.):
-    xtalk = np.convolve(noise.white_noise(freqs.size), np.ones(50), 'same')
+    xtalk = np.convolve(
+        noise.white_noise(freqs.size),
+        np.ones(50 if freqs.size > 50 else int(freqs.size/2)),
+        'same'
+    )
+
     return amplitude * xtalk
 
 def apply_xtalk(vis, xtalk):
     xtalk = np.reshape(xtalk, (1,-1))
     return vis + xtalk
-    
+
