@@ -13,6 +13,9 @@ def diffuse_foreground(Tsky, lsts, fqs, bl_len_ns, bm_poly=noise.HERA_BEAM_POLY,
     """
     Need a doc string...
     """
+    # If bl_len_ns is a scalar, interpret as E-W baseline, otherwise if
+    # len(2) list/array, interpret as EW, NS lengths, otherwise if len(3), as
+    # [EW, NS, Z].
     fr_max = np.max(utils.calc_max_fringe_rate(fqs, bl_len_ns))
 
     # Fringe-rate max could be zero if bl_len = 0 (eg. auto-correlations)
