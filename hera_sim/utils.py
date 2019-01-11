@@ -25,7 +25,7 @@ def _get_bl_len_vec(bl_len_ns):
         bl_len_ns = np.pad(
             bl_len_ns, pad_width=3 - len(bl_len_ns),
             mode='constant'
-        )
+        )[-3:]
 
     return bl_len_ns
 
@@ -88,19 +88,8 @@ def calc_max_fringe_rate(fqs, bl_len_ns):
     Returns:
         fr_max : fringe rate [lambda / sec]
     """
-    # If bl_len_ns is a scalar, interpret as E-W baseline, otherwise if
-    # len(2) list/array, interpret as EW, NS lengths, otherwise if len(3), as
-    # [EW, NS, Z].
-
-    if np.isscalar(bl_len_ns):
-        bl_len_ns = np.array([bl_len_ns, 0, 0])
-    elif len(bl_len_ns) < 3:
-        # make a length-3 array
-        bl_len_ns = np.pad(
-            bl_len_ns, pad_width=3 - len(bl_len_ns),
-            mode='constant'
-        )
-
+    # Convert to 3-vector
+    bl_len_ns = _get_bl_len_vec(bl_len_ns)
     earth_rotation = np.array([0, 2 * np.pi / aipy.const.sidereal_day, 0])
 
     return fqs * np.cross(bl_len_ns, earth_rotation)[-1]
