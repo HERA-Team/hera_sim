@@ -15,7 +15,7 @@ def diffuse_foreground(Tsky, lsts, fqs, bl_len_ns, bm_poly=noise.HERA_BEAM_POLY,
     """
     # If an auto-correlation, return the beam-weighted integrated sky.
     if utils.get_bl_len_magnitude(bl_len_ns) == 0:
-        return Tsky(lsts, fqs)
+        return Tsky(lsts, fqs) / noise.jy2T(fqs, bm_poly=bm_poly)
 
     # Get the maximum fringe rate corresponding to a time scale over
     # which co-ordinates pass through the beam.
