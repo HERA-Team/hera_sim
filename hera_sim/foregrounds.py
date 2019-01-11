@@ -13,33 +13,32 @@ def diffuse_foreground(Tsky, lsts, fqs, bl_len_ns, bm_poly=noise.HERA_BEAM_POLY,
     """
     Need a doc string...
     """
-    # If bl_len_ns is a scalar, interpret as E-W baseline, otherwise if
-    # len(2) list/array, interpret as EW, NS lengths, otherwise if len(3), as
-    # [EW, NS, Z].
+    # If an auto-correlation, return the beam-weighted integrated sky.
+    if utils.get_bl_len_magnitude(bl_len_ns) == 0:
+        return Tsky(lsts, fqs)
+
+    # Get the maximum fringe rate corresponding to a time scale over
+    # which co-ordinates pass through the beam.
+    beam_widths = np.polyval(bm_poly, fqs)
+    fr_max_beam = np.max(2*np.pi/(aipy.const.sidereal_day * beam_widths))
     fr_max = np.max(utils.calc_max_fringe_rate(fqs, bl_len_ns))
 
-    # Fringe-rate max could be zero if bl_len = 0 (eg. auto-correlations)
-    if fr_max > 0:
-        # If not zero, do a fringe rate filter
-        dt = 1.0 / (fr_max_mult * fr_max)  # over-resolve by fr_mult factor
-        ntimes = int(np.around(aipy.const.sidereal_day / dt))
-        lst_grid = np.linspace(0, 2 * np.pi, ntimes, endpoint=False)
-        nos = Tsky(lst_grid, fqs) * noise.white_noise((ntimes, fqs.size))
+    fr_max = max(fr_max, fr_max_beam)
 
-        nos, ff, frs = utils.rough_fringe_filter(nos, lst_grid, fqs, bl_len_ns, fr_width=fr_width)
-    else:
-        # Otherwise, don't do any fringe rate filtering.
-        nos = Tsky(lsts, fqs) * noise.white_noise((lsts.size, fqs.size))
+    dt = 1.0 / (fr_max_mult * fr_max)  # over-resolve by fr_mult factor
+    ntimes = int(np.around(aipy.const.sidereal_day / dt))
+
+    lst_grid = np.linspace(0, 2 * np.pi, ntimes, endpoint=False)
+    nos = Tsky(lst_grid, fqs) * noise.white_noise((ntimes, fqs.size))
+
+    nos, ff, frs = utils.rough_fringe_filter(nos, lst_grid, fqs, bl_len_ns, fr_width=fr_width)
 
     nos = utils.rough_delay_filter(nos, fqs, bl_len_ns)
     nos /= noise.jy2T(fqs, bm_poly=bm_poly)
 
-    if fr_max > 0:
-        mdl_real = RectBivariateSpline(lst_grid, fqs, scalar * nos.real)
-        mdl_imag = RectBivariateSpline(lst_grid, fqs, scalar * nos.imag)
-        return mdl_real(lsts, fqs) + 1j * mdl_imag(lsts, fqs)
-    else:
-        return scalar * nos
+    mdl_real = RectBivariateSpline(lst_grid, fqs, scalar * nos.real)
+    mdl_imag = RectBivariateSpline(lst_grid, fqs, scalar * nos.imag)
+    return mdl_real(lsts, fqs) + 1j * mdl_imag(lsts, fqs)
 
 
 def pntsrc_foreground(lsts, fqs, bl_len_ns, nsrcs=1000, Smin=0.3, Smax=300,
