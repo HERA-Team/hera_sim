@@ -31,9 +31,10 @@ def diffuse_foreground(Tsky, lsts, fqs, bl_len_ns, bm_poly=noise.HERA_BEAM_POLY,
     lst_grid = np.linspace(0, 2 * np.pi, ntimes, endpoint=False)
     nos = Tsky(lst_grid, fqs) * noise.white_noise((ntimes, fqs.size))
 
-    nos, ff, frs = utils.rough_fringe_filter(nos, lst_grid, fqs, bl_len_ns, fr_width=fr_width)
+    nos, ff, frs = utils.rough_fringe_filter(nos, lst_grid, fqs, bl_len_ns,
+                                             fr_width=fr_width, normalise=1)
 
-    nos = utils.rough_delay_filter(nos, fqs, bl_len_ns)
+    nos = utils.rough_delay_filter(nos, fqs, bl_len_ns, normalise=1)
     nos /= noise.jy2T(fqs, bm_poly=bm_poly)
 
     mdl_real = RectBivariateSpline(lst_grid, fqs, scalar * nos.real)
