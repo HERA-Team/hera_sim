@@ -47,7 +47,7 @@ def get_bl_len_magnitude(bl_len_ns):
     return np.sqrt(np.sum(bl_len_ns ** 2))
 
 
-def rough_delay_filter(noise, fqs, bl_len_ns):
+def rough_delay_filter(noise, fqs, bl_len_ns, normalise=None):
     """
     A rough high-pass filtering of noise array
     across frequency.
@@ -59,6 +59,10 @@ def rough_delay_filter(noise, fqs, bl_len_ns):
             1e9 * metres / c). If scalar, interpreted as E-W length, if len(2),
             interpreted as EW and NS length, otherwise the full [EW, NS, Z]
             length. Unspecified dimensions are assumed to be zero.
+        normalise: float, optional
+            If set, will normalise the filter such that the power of the output
+            matches the power of the input times the normalisation factor.
+            If not set, the filter merely has a maximum of unity.
 
     Returns:
         filt_noise : delay-filtered noise
@@ -68,6 +72,11 @@ def rough_delay_filter(noise, fqs, bl_len_ns):
     delays = np.fft.fftfreq(fqs.size, fqs[1] - fqs[0])
     _noise = np.fft.fft(noise)
     delay_filter = np.exp(-delays ** 2 / (2 * bl_len_ns ** 2))
+
+    if normalise is not None:
+        norm = normalise /np.sqrt(np.sum(delay_filter**2))
+        delay_filter *= norm * np.sqrt(noise.shape[-1])
+
     delay_filter.shape = (1,) * (_noise.ndim - 1) + (-1,)
     filt_noise = np.fft.ifft(_noise * delay_filter)
     return filt_noise
@@ -98,7 +107,7 @@ def calc_max_fringe_rate(fqs, bl_len_ns):
     # return fr_max
 
 
-def rough_fringe_filter(noise, lsts, fqs, bl_len_ns, fr_width=None):
+def rough_fringe_filter(noise, lsts, fqs, bl_len_ns, fr_width=None, normalise=None):
     """
     Perform a rough fringe rate filter on noise array
     along second-to-last axis.
@@ -113,6 +122,10 @@ def rough_fringe_filter(noise, lsts, fqs, bl_len_ns, fr_width=None):
         fr_width : half-width of a Gaussian FR filter in [1/sec]
             to apply. If None filter is a flat-top FR filter.
             Can be a float or an array of size fqs.
+        normalise: float, optional
+            If set, will normalise the filter such that the power of the output
+            matches the power of the input times the normalisation factor.
+            If not set, the filter merely has a maximum of unity.
 
     Returns:
         filt_noise : fringe-rate-filtered noise
@@ -130,6 +143,10 @@ def rough_fringe_filter(noise, lsts, fqs, bl_len_ns, fr_width=None):
     else:
         # use a gaussian centered at max fr
         fng_filter = np.exp(-0.5 * ((fringe_rates - fr_max) / fr_width) ** 2)
+
+    if normalise is not None:
+        norm = normalise /np.sqrt(np.sum(fng_filter**2))
+        fng_filter *= norm * np.sqrt(noise.shape[-2])
 
     filt_noise = np.fft.ifft(_noise * fng_filter, axis=-2)
 
