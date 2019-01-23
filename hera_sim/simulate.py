@@ -13,6 +13,8 @@ from . import io
 from . import sigchain
 from .version import version
 
+class CompatibilityException(ValueError):
+    pass
 
 def _get_model(mod, name):
     return getattr(sys.modules["hera_sim." + mod], name)
@@ -104,6 +106,10 @@ class Simulator:
             :func:`~io.empty_uvdata` if not. These all have default values as defined in the documentation for those
             objects, and are therefore optional.
 
+        Raises:
+            :class:`CompatibilityException`: if the created/imported data has attributes which are in conflict
+                with the assumptions made in the models of this Simulator.
+
         """
 
         self.data_filename = data_filename
@@ -144,6 +150,10 @@ class Simulator:
                 self.data.flag_array[:] = False
                 self.data.nsample_array[:] = 1.0
 
+        # Check if the created/read data is compatible with the assumptions of
+        # this class.
+        self._check_compatibility()
+
     @staticmethod
     def _read_data(filename, **kwargs):
         uv = UVData()
@@ -177,6 +187,13 @@ class Simulator:
             raise ValueError("file_type must be one of 'miriad', 'uvfits' or 'uvh5'")
 
         getattr(self.data, "write_%s" % file_type)(filename, **kwargs)
+
+    def _check_compatibility(self):
+        """
+        Merely checks the compatibility of the data with the assumptions of the simulator class and its modules.
+        """
+        if self.data.phase_type != "drift":
+            raise CompatibilityException("The phase_type of the data must be 'drift'.")
 
     def _iterate_antpair_pols(self):
         """
