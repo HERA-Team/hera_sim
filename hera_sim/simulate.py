@@ -172,7 +172,7 @@ class Simulator:
         if file_type not in ["miriad", "uvfits", "uvh5"]:
             raise ValueError("file_type must be one of 'miriad', 'uvfits' or 'uvh5'")
 
-        getattr(self.data, "write_%s" % filename.split(".")[-1])(filename, **kwargs)
+        getattr(self.data, "write_%s" % file_type)(filename, **kwargs)
 
     def _iterate_baselines(self, with_conj=True):
         """
