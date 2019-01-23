@@ -13,8 +13,10 @@ from . import io
 from . import sigchain
 from .version import version
 
+
 class CompatibilityException(ValueError):
     pass
+
 
 def _get_model(mod, name):
     return getattr(sys.modules["hera_sim." + mod], name)
@@ -30,6 +32,19 @@ class _model(object):
 
         @functools.wraps(func)
         def new_func(obj, *args, **kwargs):
+
+            # If "ret_vis" is set, then we want to return the visibilities
+            # that are being added to the base. If add_vis is set to False,
+            # we need to
+            add_vis = kwargs.pop("add_vis", True)
+
+            ret_vis = kwargs.pop("ret_vis", False)
+            if not add_vis:
+                ret_vis = True
+
+            if ret_vis:
+                initial_vis = obj.data.data_array.copy()
+
             if "model" in inspect.getargspec(func)[0]:
                 # Cases where there is a choice of model
                 model = args[0] if args else kwargs.pop("model")
@@ -54,14 +69,25 @@ class _model(object):
                 method = ""
                 func(obj, **kwargs)
 
-            msg = "\nhera_sim v{version}: Added {component} {method_name}with kwargs: {kwargs}"
+            if add_vis:
+                msg = "\nhera_sim v{version}: Added {component} {method_name}with kwargs: {kwargs}"
+                obj.data.history += msg.format(
+                    version=version,
+                    component="".join(name.split("_")[1:]),
+                    method_name=method,
+                    kwargs=kwargs,
+                )
 
-            obj.data.history += msg.format(
-                version=version,
-                component="".join(name.split("_")[1:]),
-                method_name=method,
-                kwargs=kwargs,
-            )
+            # Here actually return something.
+            if ret_vis:
+                res = obj.data.data_array - initial_vis
+
+                # If we don't want to add the visibilities, set them back
+                # to the original before returning.
+                if not add_vis:
+                    obj.data.data_array[:] = initial_vis[:]
+
+                return res
 
         return new_func
 
@@ -71,7 +97,7 @@ class Simulator:
     Primary interface object for hera_sim.
 
     Produces visibility simulations with various independent sky- and instrumental-effects, and offers the resulting
-    visibilities in :class:`pyuvdata.UVData` format
+    visibilities in :class:`pyuvdata.UVData` format.
     """
 
     def __init__(
@@ -213,23 +239,26 @@ class Simulator:
         Args:
             model (str or callable): either a string name of a model function existing in :mod:`~hera_sim.eor`, or
                 a callable which has the signature ``fnc(lsts, fqs, bl_len_ns, **kwargs)``.
+            ret_vis (bool, optional): whether to return the visibilities that are being added to to the base
+                data as a new array. Default False.
+            add_vis (bool, optional): whether to add the calculated visibilities to the underlying data array.
+                Default True.
             **kwargs: keyword arguments sent to the EoR model function, other than `lsts`, `fqs` and `bl_len_ns`.
         """
+
         for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols():
             lsts = self.data.lst_array[blt_ind]
             bl_len_m = self.data.uvw_array[blt_ind][
                 0, 0
             ]  # just the E-W baseline length at this point.
 
-            vis = model(
+            self.data.data_array[blt_ind, 0, :, pol_ind] += model(
                 lsts=lsts,
                 # Axis 0 is spectral windows, of which at this point there are always 1.
-                fqs=self.data.freq_array[0]* 1e-9,
+                fqs=self.data.freq_array[0] * 1e-9,
                 bl_len_ns=bl_len_m * 1e9 / 3e8,
                 **kwargs
             )
-
-            self.data.data_array[blt_ind, 0, :, pol_ind] += vis
 
     @_model()
     def add_foregrounds(self, model, **kwargs):
@@ -239,6 +268,10 @@ class Simulator:
         Args:
             model (str or callable): either a string name of a model function existing in :mod:`~hera_sim.foregrounds`,
                 or a callable which has the signature ``fnc(lsts, fqs, bl_len_ns, **kwargs)``.
+            ret_vis (bool, optional): whether to return the visibilities that are being added to to the base
+                data as a new array. Default False.
+            add_vis (bool, optional): whether to add the calculated visibilities to the underlying data array.
+                Default True.
             **kwargs: keyword arguments sent to the foregournd model function, other than `lsts`, `fqs` and `bl_len_ns`.
         """
         for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols():
@@ -247,15 +280,13 @@ class Simulator:
                 0, 0
             ]  # just the E-W baseline length at this point.
 
-            vis = model(
+            self.data.data_array[blt_ind, 0, :, pol_ind] += model(
                 lsts=lsts,
                 # Axis 0 is spectral windows, of which at this point there are always 1.
-                fqs=self.data.freq_array[0]* 1e-9,
+                fqs=self.data.freq_array[0] * 1e-9,
                 bl_len_ns=bl_len_m * 1e9 / 3e8,
                 **kwargs
             )
-
-            self.data.data_array[blt_ind, 0, :, pol_ind] += vis
 
     @_model()
     def add_noise(self, model, **kwargs):
@@ -265,6 +296,10 @@ class Simulator:
         Args:
             model (str or callable): either a string name of a model function existing in :mod:`~hera_sim.noise`,
                 or a callable which has the signature ``fnc(lsts, fqs, bl_len_ns, **kwargs)``.
+            ret_vis (bool, optional): whether to return the visibilities that are being added to to the base
+                data as a new array. Default False.
+            add_vis (bool, optional): whether to add the calculated visibilities to the underlying data array.
+                Default True.
             **kwargs: keyword arguments sent to the noise model function, other than `lsts`, `fqs` and `bl_len_ns`.
         """
         for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols():
@@ -282,6 +317,10 @@ class Simulator:
         Args:
             model (str or callable): either a string name of a model function existing in :mod:`~hera_sim.reflections`,
                 or a callable which has the signature ``fnc(vis, fqs, **kwargs)``.
+            ret_vis (bool, optional): whether to return the visibilities that are being added to to the base
+                data as a new array. Default False.
+            add_vis (bool, optional): whether to add the calculated visibilities to the underlying data array.
+                Default True.
             **kwargs: keyword arguments sent to the reflections model function, other than `vis` and `fqs`. Common
                 parameters are `dly`, `phs` and `amp`.
         """
@@ -290,7 +329,7 @@ class Simulator:
             self.data.data_array[blt_ind, 0, :, pol_ind] = model(
                 vis=self.data.data_array[blt_ind, 0, :, pol_ind],
                 # Axis 0 is spectral windows, of which at this point there are always 1.
-                freqs=self.data.freq_array[0]* 1e-9,
+                freqs=self.data.freq_array[0] * 1e-9,
                 **kwargs
             )
 
@@ -302,6 +341,10 @@ class Simulator:
         Args:
             model (str or callable): either a string name of a model function existing in :mod:`~hera_sim.rfi`,
                 or a callable which has the signature ``fnc(lsts, fqs, **kwargs)``.
+            ret_vis (bool, optional): whether to return the visibilities that are being added to to the base
+                data as a new array. Default False.
+            add_vis (bool, optional): whether to add the calculated visibilities to the underlying data array.
+                Default True.
             **kwargs: keyword arguments sent to the RFI model function, other than `lsts` or `fqs`.
         """
         for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols():
@@ -311,7 +354,7 @@ class Simulator:
             model(
                 lsts=lsts,
                 # Axis 0 is spectral windows, of which at this point there are always 1.
-                fqs=self.data.freq_array[0]* 1e-9,
+                fqs=self.data.freq_array[0] * 1e-9,
                 rfi=self.data.data_array[blt_ind, 0, :, 0],
                 **kwargs
             )
@@ -322,6 +365,10 @@ class Simulator:
         Add gains to visibilities.
 
         Args:
+            ret_vis (bool, optional): whether to return the visibilities that are being added to to the base
+                data as a new array. Default False.
+            add_vis (bool, optional): whether to add the calculated visibilities to the underlying data array.
+                Default True.
             **kwargs: keyword arguments sent to the gen_gains method in :mod:~`hera_sim.sigchain`.
         """
 
@@ -342,6 +389,10 @@ class Simulator:
         Add crosstalk to visibilities.
 
         Args:
+            ret_vis (bool, optional): whether to return the visibilities that are being added to to the base
+                data as a new array. Default False.
+            add_vis (bool, optional): whether to add the calculated visibilities to the underlying data array.
+                Default True.
             **kwargs: keyword arguments sent to the gen_xtalk method in :mod:~`hera_sim.sigchain`.
         """
 
