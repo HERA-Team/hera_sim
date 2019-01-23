@@ -75,6 +75,7 @@ HERA_RFI_STATIONS = [
     (0.1052, 1.0, 1000 * 100.0, 10.0, 100.0),
     (0.1061, 1.0, 1000 * 100.0, 10.0, 100.0),
     (0.1064, 1.0, 1000 * 10.0, 3.0, 100.0),
+
     # Orbcomm
     (0.1371, 0.2, 1000 * 100.0, 3.0, 600.0),
     (0.1372, 0.2, 1000 * 100.0, 3.0, 600.0),
@@ -139,7 +140,6 @@ def rfi_impulse(fqs, lsts, rfi=None, chance=0.001, strength=20.0):
     if impulses.size > 0:
         rfi[impulse_times] += impulses
     return rfi
-
 
 def rfi_scatter(fqs, lsts, rfi=None, chance=0.0001, strength=10, std=10):
     """
