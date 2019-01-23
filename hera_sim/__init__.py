@@ -1,14 +1,14 @@
-import antpos
-import foregrounds
-import io
-import noise
-import rfi
-import sigchain
-import vis
-import reflections
-import version
-import eor
-import utils
+from . import antpos
+from . import foregrounds
+from . import io
+from . import noise
+from . import rfi
+from . import sigchain
+from . import vis
+from . import reflections
+from . import version
+from . import eor
+from . import utils
 
-#import antpos
+# import antpos
 __version__ = version.version
