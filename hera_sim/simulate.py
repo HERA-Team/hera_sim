@@ -178,18 +178,15 @@ class Simulator:
 
         getattr(self.data, "write_%s" % file_type)(filename, **kwargs)
 
-    def _iterate_baselines(self, with_conj=True):
+    def _iterate_antpair_pols(self):
         """
-        Iterate through baselines in the data object
+        Iterate through antenna pairs and polarizations in the data object
         """
-        for i, ant1 in enumerate(self.data.antenna_numbers):
-            for j, ant2 in enumerate(
-                    self.data.antenna_numbers[(i + 1 if with_conj else 0):]
-            ):
-                # Get the Nblts indices of this baseline (and its conjugate)
-                yield ant1, ant2, self.data.antpair2ind(
-                    ant1, ant2, ordered=not with_conj
-                )
+
+        for ant1, ant2, pol in self.data.get_antpairpols():
+            blt_inds = self.data.antpair2ind((ant1, ant2))
+            pol_ind = self.data.get_pols().index(pol)
+            yield ant1, ant2, pol, blt_inds, pol_ind
 
     @_model()
     def add_eor(self, model, **kwargs):
@@ -201,23 +198,21 @@ class Simulator:
                 a callable which has the signature ``fnc(lsts, fqs, bl_len_ns, **kwargs)``.
             **kwargs: keyword arguments sent to the EoR model function, other than `lsts`, `fqs` and `bl_len_ns`.
         """
-        for ant1, ant2, ind in self._iterate_baselines():
-            lsts = self.data.lst_array[ind]
-            bl_len_m = self.data.uvw_array[ind][
+        for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols():
+            lsts = self.data.lst_array[blt_ind]
+            bl_len_m = self.data.uvw_array[blt_ind][
                 0, 0
             ]  # just the E-W baseline length at this point.
 
             vis = model(
                 lsts=lsts,
-                fqs=self.data.freq_array[0]
-                    * 1e-9,  # Axis 0 is spectral windows, of which at this point there are always 1.
+                # Axis 0 is spectral windows, of which at this point there are always 1.
+                fqs=self.data.freq_array[0]* 1e-9,
                 bl_len_ns=bl_len_m * 1e9 / 3e8,
                 **kwargs
             )
 
-            self.data.data_array[
-            ind, 0, :, 0
-            ] += vis  # TODO: not sure about only using first pol.
+            self.data.data_array[blt_ind, 0, :, pol_ind] += vis
 
     @_model()
     def add_foregrounds(self, model, **kwargs):
@@ -229,23 +224,21 @@ class Simulator:
                 or a callable which has the signature ``fnc(lsts, fqs, bl_len_ns, **kwargs)``.
             **kwargs: keyword arguments sent to the foregournd model function, other than `lsts`, `fqs` and `bl_len_ns`.
         """
-        for ant1, ant2, ind in self._iterate_baselines():
-            lsts = self.data.lst_array[ind]
-            bl_len_m = self.data.uvw_array[ind][
+        for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols():
+            lsts = self.data.lst_array[blt_ind]
+            bl_len_m = self.data.uvw_array[blt_ind][
                 0, 0
             ]  # just the E-W baseline length at this point.
 
             vis = model(
                 lsts=lsts,
-                fqs=self.data.freq_array[0]
-                    * 1e-9,  # Axis 0 is spectral windows, of which at this point there are always 1.
+                # Axis 0 is spectral windows, of which at this point there are always 1.
+                fqs=self.data.freq_array[0]* 1e-9,
                 bl_len_ns=bl_len_m * 1e9 / 3e8,
                 **kwargs
             )
 
-            self.data.data_array[
-            ind, 0, :, 0
-            ] += vis  # TODO: not sure about only using first pol.
+            self.data.data_array[blt_ind, 0, :, pol_ind] += vis
 
     @_model()
     def add_noise(self, model, **kwargs):
@@ -257,10 +250,10 @@ class Simulator:
                 or a callable which has the signature ``fnc(lsts, fqs, bl_len_ns, **kwargs)``.
             **kwargs: keyword arguments sent to the noise model function, other than `lsts`, `fqs` and `bl_len_ns`.
         """
-        for ant1, ant2, ind in self._iterate_baselines():
-            lsts = self.data.lst_array[ind]
+        for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols():
+            lsts = self.data.lst_array[blt_ind]
 
-            self.data.data_array[ind, 0, :, 0] += model(
+            self.data.data_array[blt_ind, 0, :, pol_ind] += model(
                 lsts=lsts, fqs=self.data.freq_array[0] * 1e-9, **kwargs
             )
 
@@ -275,14 +268,12 @@ class Simulator:
             **kwargs: keyword arguments sent to the reflections model function, other than `vis` and `fqs`. Common
                 parameters are `dly`, `phs` and `amp`.
         """
-        for ant1, ant2, ind in self._iterate_baselines():
+        for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols():
             # the following performs the modification in-place
-            self.data.data_array[ind, 0, :, 0] = model(
-                vis=self.data.data_array[
-                    ind, 0, :, 0
-                    ],  # pass the ntimes x nfreqs part of the visibilities.
-                freqs=self.data.freq_array[0]
-                      * 1e-9,  # Axis 0 is spectral windows, of which at this point there are always 1.
+            self.data.data_array[blt_ind, 0, :, pol_ind] = model(
+                vis=self.data.data_array[blt_ind, 0, :, pol_ind],
+                # Axis 0 is spectral windows, of which at this point there are always 1.
+                freqs=self.data.freq_array[0]* 1e-9,
                 **kwargs
             )
 
@@ -296,15 +287,15 @@ class Simulator:
                 or a callable which has the signature ``fnc(lsts, fqs, **kwargs)``.
             **kwargs: keyword arguments sent to the RFI model function, other than `lsts` or `fqs`.
         """
-        for ant1, ant2, ind in self._iterate_baselines():
-            lsts = self.data.lst_array[ind]
+        for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols():
+            lsts = self.data.lst_array[blt_ind]
 
             # RFI added in-place
             model(
                 lsts=lsts,
-                fqs=self.data.freq_array[0]
-                    * 1e-9,  # Axis 0 is spectral windows, of which at this point there are always 1.
-                rfi=self.data.data_array[ind, 0, :, 0],
+                # Axis 0 is spectral windows, of which at this point there are always 1.
+                fqs=self.data.freq_array[0]* 1e-9,
+                rfi=self.data.data_array[blt_ind, 0, :, 0],
                 **kwargs
             )
 
@@ -321,9 +312,11 @@ class Simulator:
             freqs=self.data.freq_array[0] * 1e-9, ants=self.data.get_ants(), **kwargs
         )
 
-        for ant1, ant2, ind in self._iterate_baselines(with_conj=False):
-            self.data.data_array[ind, 0, :, 0] = sigchain.apply_gains(
-                vis=self.data.data_array[ind, 0, :, 0], gains=gains, bl=(ant1, ant2)
+        for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols():
+            self.data.data_array[blt_ind, 0, :, pol_ind] = sigchain.apply_gains(
+                vis=self.data.data_array[blt_ind, 0, :, pol_ind],
+                gains=gains,
+                bl=(ant1, ant2)
             )
 
     @_model()
@@ -339,6 +332,7 @@ class Simulator:
 
         # At the moment, the cross-talk function applies the same cross talk to every baseline/time.
         # Not sure if this is good or not.
-        self.data.data_array[:, 0, :, 0] = sigchain.apply_xtalk(
-            vis=self.data.data_array[:, 0, :, 0], xtalk=xtalk
-        )
+        for i in range(len(self.data.get_pols())):
+            self.data.data_array[:, 0, :, i] = sigchain.apply_xtalk(
+                vis=self.data.data_array[:, 0, :, i], xtalk=xtalk
+            )
