@@ -69,28 +69,42 @@ class Simulator:
     Primary interface object for hera_sim.
 
     Produces visibility simulations with various independent sky- and instrumental-effects, and offers the resulting
-    visibilities in :class:`UVData` format
+    visibilities in :class:`pyuvdata.UVData` format
     """
 
     def __init__(
-        self,
-        data_filename=None,
-        n_freq=None,
-        n_times=None,
-        antennas=None,
-        ant_pairs=None,
-        pols=None,
-        time_per_integ=10.7,
-        min_freq=0.1,
-        channel_bw=0.1 / 1024.0,
-        instrument="hera_sim",
-        telescope_location=None,
-        telescope_lat_lon_alt=None,
-        object_name="sim_data",
-        start_jd=2458119.5,
-        vis_units="uncalib",
-        **kwargs
+            self,
+            data_filename=None,
+            refresh_data=False,
+            n_freq=None,
+            n_times=None,
+            antennas=None,
+            ant_pairs=None,
+            **kwargs
     ):
+        """
+        Initialise the object either from file or by creating an empty object.
+
+        Args:
+            data_filename (str, optional): filename of data to be read, in ``pyuvdata``-compatible format. If not
+                given, an empty :class:`pyuvdata.UVdata` object will be created from scratch.
+            refresh_data (bool, optional): if reading data from file, this can be used to manually set the data to zero,
+                and remove flags. This is useful for using an existing file as a template, but not using its data.
+            n_freq (int, optional): if `data_filename` not given, this is required and sets the number of frequency
+                channels.
+            n_times (int, optional): if `data_filename` is not given, this is required and sets the number of obs
+                times.
+            antennas (dict, optional): if `data_filename` not given, this is required. See docs of
+                :func:`~io.empty_uvdata` for more details.
+            ant_pairs (list of 2-tuples, optional): if `data_filename` not given, this is required. See docs of
+                :func:`~io.empty_uvdata` for more details.
+
+        Other Args:
+            All other arguments are sent either to :func:`~UVData.read` (if `data_filename` is given) or
+            :func:`~io.empty_uvdata` if not. These all have default values as defined in the documentation for those
+            objects, and are therefore optional.
+
+        """
 
         self.data_filename = data_filename
 
@@ -99,25 +113,17 @@ class Simulator:
 
             # Ensure required parameters have been set.
             assert (
-                n_freq is not None
+                    n_freq is not None
             ), "if data_filename not given, n_freq must be given"
             assert (
-                n_times is not None
+                    n_times is not None
             ), "if data_filename not given, n_times must be given"
             assert (
-                antennas is not None
+                    antennas is not None
             ), "if data_filename not given, antennas must be given"
             assert (
-                ant_pairs is not None
+                    ant_pairs is not None
             ), "if data_filename not given, ant_pairs must be given"
-
-            # Default values for mutable parameters
-            if pols is None:
-                pols = ["xx"]
-            if telescope_location is None:
-                telescope_location = io.HERA_LOCATION
-            if telescope_lat_lon_alt is None:
-                telescope_lat_lon_alt = io.HERA_LAT_LON_ALT
 
             # Actually create it
             self.data = io.empty_uvdata(
@@ -125,24 +131,23 @@ class Simulator:
                 ntimes=n_times,
                 ants=antennas,
                 antpairs=ant_pairs,
-                pols=pols,
-                time_per_integ=time_per_integ,
-                min_freq=min_freq,
-                channel_bw=channel_bw,
-                instrument=instrument,
-                telescope_location=telescope_location,
-                telescope_lat_lon_alt=telescope_lat_lon_alt,
-                object_name=object_name,
-                start_jd=start_jd,
-                vis_units=vis_units,
+                **kwargs
             )
 
         else:
-            self.data = self._read_data(self.data_filename, pols, **kwargs)
+            # Read data from file.
+            self.data = self._read_data(self.data_filename, **kwargs)
 
-    def _read_data(self, filename, polarizations, **kwargs):
+            # Reset data to zero if user desires.
+            if refresh_data:
+                self.data.data_array[:] = 0.0
+                self.data.flag_array[:] = 0.0
+                self.data.nsample_array[:] = 1.0
+
+    @staticmethod
+    def _read_data(filename, **kwargs):
         uv = UVData()
-        uv.read(filename, polarizations=polarizations, read_data=True, **kwargs)
+        uv.read(filename, read_data=True, **kwargs)
         return uv
 
     def write_data(self, filename, file_type=None, **kwargs):
@@ -175,7 +180,7 @@ class Simulator:
         """
         for i, ant1 in enumerate(self.data.antenna_numbers):
             for j, ant2 in enumerate(
-                self.data.antenna_numbers[(i + 1 if with_conj else 0) :]
+                    self.data.antenna_numbers[(i + 1 if with_conj else 0):]
             ):
                 # Get the Nblts indices of this baseline (and its conjugate)
                 yield ant1, ant2, self.data.antpair2ind(
@@ -201,13 +206,13 @@ class Simulator:
             vis = model(
                 lsts=lsts,
                 fqs=self.data.freq_array[0]
-                * 1e-9,  # Axis 0 is spectral windows, of which at this point there are always 1.
+                    * 1e-9,  # Axis 0 is spectral windows, of which at this point there are always 1.
                 bl_len_ns=bl_len_m * 1e9 / 3e8,
                 **kwargs
             )
 
             self.data.data_array[
-                ind, 0, :, 0
+            ind, 0, :, 0
             ] += vis  # TODO: not sure about only using first pol.
 
     @_model()
@@ -229,13 +234,13 @@ class Simulator:
             vis = model(
                 lsts=lsts,
                 fqs=self.data.freq_array[0]
-                * 1e-9,  # Axis 0 is spectral windows, of which at this point there are always 1.
+                    * 1e-9,  # Axis 0 is spectral windows, of which at this point there are always 1.
                 bl_len_ns=bl_len_m * 1e9 / 3e8,
                 **kwargs
             )
 
             self.data.data_array[
-                ind, 0, :, 0
+            ind, 0, :, 0
             ] += vis  # TODO: not sure about only using first pol.
 
     @_model()
@@ -271,9 +276,9 @@ class Simulator:
             self.data.data_array[ind, 0, :, 0] = model(
                 vis=self.data.data_array[
                     ind, 0, :, 0
-                ],  # pass the ntimes x nfreqs part of the visibilities.
+                    ],  # pass the ntimes x nfreqs part of the visibilities.
                 freqs=self.data.freq_array[0]
-                * 1e-9,  # Axis 0 is spectral windows, of which at this point there are always 1.
+                      * 1e-9,  # Axis 0 is spectral windows, of which at this point there are always 1.
                 **kwargs
             )
 
@@ -294,7 +299,7 @@ class Simulator:
             model(
                 lsts=lsts,
                 fqs=self.data.freq_array[0]
-                * 1e-9,  # Axis 0 is spectral windows, of which at this point there are always 1.
+                    * 1e-9,  # Axis 0 is spectral windows, of which at this point there are always 1.
                 rfi=self.data.data_array[ind, 0, :, 0],
                 **kwargs
             )
