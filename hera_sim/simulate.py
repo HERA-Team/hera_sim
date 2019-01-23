@@ -164,6 +164,10 @@ class Simulator:
         if file_type is None:
             try:
                 file_type = filename.split(".")[-1]
+
+                if file_type == 'uv':
+                    file_type = "miriad"
+
             except IndexError:
                 raise ValueError(
                     "if no file_type is given, the filename must be suffixed with either .miriad, .uvfits or .uvh5"
