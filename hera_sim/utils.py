@@ -1,9 +1,7 @@
 """ Utility module """
 
 import numpy as np
-from scipy.interpolate import RectBivariateSpline
 import aipy
-from . import noise
 
 def rough_delay_filter(noise, fqs, bl_len_ns):
     """

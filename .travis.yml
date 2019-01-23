@@ -38,10 +38,6 @@ install:
   - conda install -c conda-forge aipy
   - pip install coveralls
   - pip install git+https://github.com/HERA-Team/pyuvdata.git$PYUVDATA_VERSION
-  - pip install git+https://github.com/HERA-Team/linsolve.git
-  - pip install git+https://github.com/HERA-Team/hera_qm.git
-  - pip install git+https://github.com/HERA-Team/uvtools.git
-  - pip install git+https://github.com/HERA-Team/hera_cal.git
   - python setup.py install
 
 before_script:
