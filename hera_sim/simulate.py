@@ -141,7 +141,7 @@ class Simulator:
             # Reset data to zero if user desires.
             if refresh_data:
                 self.data.data_array[:] = 0.0
-                self.data.flag_array[:] = 0.0
+                self.data.flag_array[:] = False
                 self.data.nsample_array[:] = 1.0
 
     @staticmethod
