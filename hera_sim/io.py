@@ -167,7 +167,7 @@ def empty_uvdata(nfreq, ntimes, ants, antpairs, pols=['xx',],
     uvd.integration_time = time_per_integ * np.ones(uvd.Nblts) # per bl-time
 
     uvd.phase_type = 'drift'
-    
+
     # Check validity and return
     uvd.check()
     return uvd
