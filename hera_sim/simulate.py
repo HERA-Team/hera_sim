@@ -186,34 +186,21 @@ class Simulator:
         uv.read(filename, read_data=True, **kwargs)
         return uv
 
-    def write_data(self, filename, file_type=None, **kwargs):
+    def write_data(self, filename, file_type="uvh5", **kwargs):
         """
         Write current UVData object to file.
 
         Args:
-            filename (str): filename to write to. Suffix of filename will determine the type of file to be written,
-                unless `file_type` is set.
+            filename (str): filename to write to.
             file_type: (str): one of "miriad", "uvfits" or "uvh5" (i.e. any of the supported write methods of
                 :class:`pyuvdata.UVData`) which determines which write method to call.
             **kwargs: keyword arguments sent directly to the write method chosen.
         """
-        if file_type is None:
-            try:
-                file_type = filename.split(".")[-1]
-
-                if file_type == 'uv':
-                    file_type = "miriad"
-
-            except IndexError:
-                raise ValueError(
-                    "if no file_type is given, the filename must be suffixed with either .miriad, .uvfits or .uvh5"
-                )
-
-        if file_type not in ["miriad", "uvfits", "uvh5"]:
-            raise ValueError("file_type must be one of 'miriad', 'uvfits' or 'uvh5'")
-
-        getattr(self.data, "write_%s" % file_type)(filename, **kwargs)
-
+        try:
+            getattr(self.data, "write_%s" % file_type)(filename, **kwargs)
+        except AttributeError:
+            raise ValueError("The file_type must correspond to a write method in UVData.")
+        
     def _check_compatibility(self):
         """
         Merely checks the compatibility of the data with the assumptions of the simulator class and its modules.
