@@ -76,10 +76,7 @@ def test_io():
     assert np.all(sim.data.data_array == sim2.data.data_array)
 
     with assert_raises(ValueError):
-        sim.write_data(path.join(direc, 'tmp_data.bad_extension'))
-
-    with assert_raises(ValueError):
-        sim.write_data(path.join(direc, 'tmp_data_no_extension'))
+        sim.write_data(path.join(direc, 'tmp_data.bad_extension'), file_type="bad_type")
 
     # delete the tmp
     shutil.rmtree(direc)

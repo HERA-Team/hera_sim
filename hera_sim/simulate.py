@@ -200,7 +200,7 @@ class Simulator:
             getattr(self.data, "write_%s" % file_type)(filename, **kwargs)
         except AttributeError:
             raise ValueError("The file_type must correspond to a write method in UVData.")
-        
+
     def _check_compatibility(self):
         """
         Merely checks the compatibility of the data with the assumptions of the simulator class and its modules.
