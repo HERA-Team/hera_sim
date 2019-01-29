@@ -8,3 +8,5 @@ dist/*
 hera_sim/\.ipynb_checkpoints/
 
 hera_sim/GIT_INFO
+
+\.ipynb_checkpoints/

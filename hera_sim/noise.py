@@ -51,3 +51,14 @@ def sky_noise_jy(Tsky, fqs, lsts, bm_poly=HERA_BEAM_POLY, inttime=10.7):
     Vnoise_jy = T2jy * Tsky / np.sqrt(inttime * B) # see noise_study.py for discussion of why no facItor of 2 here
     return white_noise(Vnoise_jy.shape) * Vnoise_jy # generate white noise with amplitude set by Vnoise_jy
 
+
+def get_noise(fqs, lsts, Tsky_mdl=None, Trx=0, bm_poly=HERA_BEAM_POLY, inttime=10.7, **kwargs):
+    B = np.average(fqs[1:] - fqs[:-1]) * 1e9 # bandwidth in Hz
+    T2jy = 1e3 / jy2T(fqs, bm_poly=bm_poly) # K to Jy conversion
+    T2jy.shape = (1,-1)
+
+    Tsky = resample_Tsky(fqs, lsts, Tsky_mdl=Tsky_mdl, **kwargs)
+    Tsky += Trx
+
+    Vnoise_jy = T2jy * Tsky / np.sqrt(inttime * B)
+    return white_noise(Vnoise_jy.shape) * Vnoise_jy
