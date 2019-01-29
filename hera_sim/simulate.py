@@ -23,6 +23,20 @@ def _get_model(mod, name):
 
 
 class _model(object):
+    """
+    A decorator that defines a "model" addition for the Simulator class.
+
+    The basic functionality of the model is to:
+
+    1. Provide keywords "add_vis" and "ret_vis" to enable adding the resulting
+       visibilities to the underlying dataset or returning the added visibilities.
+    2. Automatically locate a callable model provided either that callable
+       or a string function name (the module from which the callable is imported
+       can be passed to the decorator, but is by default intepreted as the last
+       part of the model name).
+    3. Add a comment to the `history` of the UVData object concerning what
+       exactly has ben added.
+    """
 
     def __init__(self, base_module=None):
         self.base_module = base_module
