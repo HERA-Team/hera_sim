@@ -7,7 +7,8 @@ import functools
 import inspect
 import sys
 
-import cached_property
+import numpy as np
+from cached_property import cached_property
 from pyuvdata import UVData
 
 from . import io
@@ -254,7 +255,7 @@ class Simulator:
 
         for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols():
             lsts = self.data.lst_array[blt_ind]
-            bl_len_m = self.antpos[ant1][0] - self.antpos[ant2][0] # E-W baseline length
+            bl_len_m = np.abs(self.antpos[ant1][0] - self.antpos[ant2][0])  # E-W baseline length
 
             self.data.data_array[blt_ind, 0, :, pol_ind] += model(
                 lsts=lsts,
@@ -280,7 +281,7 @@ class Simulator:
         """
         for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols():
             lsts = self.data.lst_array[blt_ind]
-            bl_len_m = self.antpos[ant1][0] - self.antpos[ant2][0]  # E-W baseline length
+            bl_len_m = np.abs(self.antpos[ant1][0] - self.antpos[ant2][0])  # E-W baseline length
 
             self.data.data_array[blt_ind, 0, :, pol_ind] += model(
                 lsts=lsts,
@@ -311,10 +312,10 @@ class Simulator:
                 lsts=lsts, fqs=self.data.freq_array[0] * 1e-9, **kwargs
             )
 
-    @_model()
-    def add_reflections(self, model, **kwargs):
+    @_model("reflections")
+    def add_auto_reflections(self, model, **kwargs):
         """
-        Add auto- or cross-reflections to data visibilities.
+        Add auto-reflections to data visibilities.
 
         Args:
             model (str or callable): either a string name of a model function existing in :mod:`~hera_sim.reflections`,
@@ -327,11 +328,44 @@ class Simulator:
                 parameters are `dly`, `phs` and `amp`.
         """
         for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols():
-            # the following performs the modification in-place
             self.data.data_array[blt_ind, 0, :, pol_ind] = model(
                 vis=self.data.data_array[blt_ind, 0, :, pol_ind],
                 # Axis 0 is spectral windows, of which at this point there are always 1.
                 freqs=self.data.freq_array[0] * 1e-9,
+                **kwargs
+            )
+
+    @_model("reflections")
+    def add_cross_reflections(self, model, **kwargs):
+        """
+        Add cross-reflections to data visibilities.
+
+        Args:
+            model (str or callable): either a string name of a model function existing in :mod:`~hera_sim.reflections`,
+                or a callable which has the signature ``fnc(vis, fqs, **kwargs)``.
+            ret_vis (bool, optional): whether to return the visibilities that are being added to to the base
+                data as a new array. Default False.
+            add_vis (bool, optional): whether to add the calculated visibilities to the underlying data array.
+                Default True.
+            **kwargs: keyword arguments sent to the reflections model function, other than `vis` and `fqs`. Common
+                parameters are `dly`, `phs` and `amp`.
+        """
+        for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols():
+            # The cross-correlation requires the autocorrelated visibilities.
+            # At this point, it doesn't distinguish between antenna 1 or 2,
+            # so we just use ant1.
+            try:
+                autocorr = self.data.get_data(ant1, ant1, pol)
+            except KeyError:
+                try:
+                    autocorr = self.data.get_data(ant2, ant2, pol)
+                except KeyError:
+                    raise KeyError("No auto-correlations found in data for either antenna {} or {}".format(ant1, ant2))
+
+            self.data.data_array[blt_ind, 0, :, pol_ind] = model(
+                vis=self.data.data_array[blt_ind, 0, :, pol_ind],
+                freqs=self.data.freq_array[0] * 1e-9,
+                autocorr=autocorr,
                 **kwargs
             )
 
