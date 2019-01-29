@@ -6,6 +6,7 @@ effects produced by this package.
 import functools
 import inspect
 import sys
+import warnings
 
 import numpy as np
 from cached_property import cached_property
@@ -40,8 +41,9 @@ class _model(object):
        exactly has ben added.
     """
 
-    def __init__(self, base_module=None):
+    def __init__(self, base_module=None, multiplicative=False):
         self.base_module = base_module
+        self.multiplicative = multiplicative
 
     def __call__(self, func, *args, **kwargs):
         name = func.__name__
@@ -60,6 +62,14 @@ class _model(object):
 
             if ret_vis:
                 initial_vis = obj.data.data_array.copy()
+
+            # If this is a multiplicative model, and *no* additive models
+            # have been called, raise a warning.
+            if self.multiplicative and np.all(obj.data.data_array == 0):
+                warnings.warn("You are trying to determine visibilities that depend on preceding visibilities, but no previous vis have been created.")
+            elif not self.multiplicative and (hasattr(obj, "_added_models") and any([x[1] for x in obj._added_models])):
+                # some of the previous models were multiplicative, and now we're trying to add.
+                warnings.warn("You are adding absolute visibilities _after_ determining visibilities that should depend on these. Please re-consider.")
 
             if "model" in inspect.getargspec(func)[0]:
                 # Cases where there is a choice of model
@@ -93,6 +103,13 @@ class _model(object):
                     method_name=method,
                     kwargs=kwargs,
                 )
+
+                # Add this particular model to a cache of "added models" for this sim.
+                # This can be gotten from history, but easier just to keep it here.
+                if not hasattr(obj, "_added_models"):
+                    obj._added_models = [(name, self.multiplicative)]
+                else:
+                    obj._added_models += [(name, self.multiplicative)]
 
             # Here actually return something.
             if ret_vis:
@@ -306,7 +323,7 @@ class Simulator:
                 lsts=lsts, fqs=self.data.freq_array[0] * 1e-9, **kwargs
             )
 
-    @_model("reflections")
+    @_model("reflections", multiplicative=True)
     def add_auto_reflections(self, model, **kwargs):
         """
         Add auto-reflections to data visibilities.
@@ -329,7 +346,7 @@ class Simulator:
                 **kwargs
             )
 
-    @_model("reflections")
+    @_model("reflections", multiplicative=True)
     def add_cross_reflections(self, model, **kwargs):
         """
         Add cross-reflections to data visibilities.
@@ -389,7 +406,7 @@ class Simulator:
                 **kwargs
             )
 
-    @_model()
+    @_model(multiplicative=True)
     def add_gains(self, **kwargs):
         """
         Add gains to visibilities.
@@ -413,7 +430,7 @@ class Simulator:
                 bl=(ant1, ant2)
             )
 
-    @_model()
+    @_model(multiplicative=True)
     def add_xtalk(self, **kwargs):
         """
         Add crosstalk to visibilities.
