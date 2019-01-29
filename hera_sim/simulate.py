@@ -7,6 +7,7 @@ import functools
 import inspect
 import sys
 
+import cached_property
 from pyuvdata import UVData
 
 from . import io
@@ -166,7 +167,7 @@ class Simulator:
                 raise ValueError("if data_filename not given, antennas must be given")
             if ant_pairs is None:
                 raise ValueError("if data_filename not given, ant_pairs must be given")
-            
+
             # Actually create it
             self.data = io.empty_uvdata(
                 nfreq=n_freq,
@@ -189,6 +190,14 @@ class Simulator:
         # Check if the created/read data is compatible with the assumptions of
         # this class.
         self._check_compatibility()
+
+    @cached_property
+    def antpos(self):
+        """
+        Dictionary of {antenna: antenna_position} for all antennas in the data.
+        """
+        antpos, ants = self.data.get_ENU_antpos(pick_data_ants=True)
+        return dict(zip(ants, antpos))
 
     @staticmethod
     def _read_data(filename, **kwargs):
@@ -245,9 +254,7 @@ class Simulator:
 
         for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols():
             lsts = self.data.lst_array[blt_ind]
-            bl_len_m = self.data.uvw_array[blt_ind][
-                0, 0
-            ]  # just the E-W baseline length at this point.
+            bl_len_m = self.antpos[ant1][0] - self.antpos[ant2][0] # E-W baseline length
 
             self.data.data_array[blt_ind, 0, :, pol_ind] += model(
                 lsts=lsts,
@@ -273,9 +280,7 @@ class Simulator:
         """
         for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols():
             lsts = self.data.lst_array[blt_ind]
-            bl_len_m = self.data.uvw_array[blt_ind][
-                0, 0
-            ]  # just the E-W baseline length at this point.
+            bl_len_m = self.antpos[ant1][0] - self.antpos[ant2][0]  # E-W baseline length
 
             self.data.data_array[blt_ind, 0, :, pol_ind] += model(
                 lsts=lsts,

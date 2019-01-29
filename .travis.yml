@@ -37,6 +37,7 @@ install:
   - source activate test-environment
   - conda install -c conda-forge aipy
   - pip install coveralls
+  - pip install cached_property
   - pip install git+https://github.com/HERA-Team/pyuvdata.git$PYUVDATA_VERSION
   - python setup.py install
 
