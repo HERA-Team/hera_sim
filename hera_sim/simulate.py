@@ -158,19 +158,15 @@ class Simulator:
             # Create an empty UVData object.
 
             # Ensure required parameters have been set.
-            assert (
-                    n_freq is not None
-            ), "if data_filename not given, n_freq must be given"
-            assert (
-                    n_times is not None
-            ), "if data_filename not given, n_times must be given"
-            assert (
-                    antennas is not None
-            ), "if data_filename not given, antennas must be given"
-            assert (
-                    ant_pairs is not None
-            ), "if data_filename not given, ant_pairs must be given"
-
+            if n_freq is None:
+                raise ValueError("if data_filename not given, n_freq must be given")
+            if n_times is None:
+                raise ValueError("if data_filename not given, n_times must be given")
+            if antennas is None:
+                raise ValueError("if data_filename not given, antennas must be given")
+            if ant_pairs is None:
+                raise ValueError("if data_filename not given, ant_pairs must be given")
+            
             # Actually create it
             self.data = io.empty_uvdata(
                 nfreq=n_freq,
