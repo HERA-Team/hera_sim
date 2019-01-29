@@ -123,7 +123,6 @@ class Simulator:
             n_freq=None,
             n_times=None,
             antennas=None,
-            ant_pairs=None,
             **kwargs
     ):
         """
@@ -139,8 +138,6 @@ class Simulator:
             n_times (int, optional): if `data_filename` is not given, this is required and sets the number of obs
                 times.
             antennas (dict, optional): if `data_filename` not given, this is required. See docs of
-                :func:`~io.empty_uvdata` for more details.
-            ant_pairs (list of 2-tuples, optional): if `data_filename` not given, this is required. See docs of
                 :func:`~io.empty_uvdata` for more details.
 
         Other Args:
@@ -166,15 +163,12 @@ class Simulator:
                 raise ValueError("if data_filename not given, n_times must be given")
             if antennas is None:
                 raise ValueError("if data_filename not given, antennas must be given")
-            if ant_pairs is None:
-                raise ValueError("if data_filename not given, ant_pairs must be given")
 
             # Actually create it
             self.data = io.empty_uvdata(
                 nfreq=n_freq,
                 ntimes=n_times,
                 ants=antennas,
-                antpairs=ant_pairs,
                 **kwargs
             )
 

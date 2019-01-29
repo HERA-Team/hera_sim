@@ -24,7 +24,7 @@ def create_sim(autos=False):
             0: (20.0, 20.0, 0),
             1: (50.0, 50.0, 0)
         },
-        ant_pairs=[(0,0), (0,1), (1,1)] if autos else [(0, 1)]
+        antpairs=None if autos else "cross"
     )
 
 
