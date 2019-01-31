@@ -12,7 +12,7 @@ import numpy as np
 from nose.tools import raises, assert_raises
 
 from hera_sim.foregrounds import diffuse_foreground
-from hera_sim.noise import resample_Tsky, HERA_Tsky_mdl
+from hera_sim.noise import thermal_noise, HERA_Tsky_mdl
 from hera_sim.simulate import Simulator
 
 
@@ -25,6 +25,32 @@ def create_sim(autos=False):
             1: (50.0, 50.0, 0)
         },
         antpairs=None if autos else "cross"
+    )
+
+
+@raises(ValueError)
+def test_wrong_antpairs():
+    Simulator(
+        n_freq=10,
+        n_times=20,
+        antennas={
+            0: (20.0, 20.0, 0),
+            1: (50.0, 50.0, 0)
+        },
+        antpairs="bad_specifier"
+    )
+
+
+@raises(KeyError)
+def test_bad_antpairs():
+    Simulator(
+        n_freq=10,
+        n_times=20,
+        antennas={
+            0: (20.0, 20.0, 0),
+            1: (50.0, 50.0, 0)
+        },
+        antpairs=[(2, 2)]
     )
 
 
@@ -51,7 +77,7 @@ def test_add_with_custom():
     sim = create_sim()
 
     def custom_noise(**kwargs):
-        vis = resample_Tsky(**kwargs)
+        vis = thermal_noise(**kwargs)
         return 2 * vis
 
     sim.add_noise(custom_noise)

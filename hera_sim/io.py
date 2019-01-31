@@ -200,7 +200,8 @@ def _get_antpairs(ants, antpairs):
             antpairs = []
             baseline_types = {}
             for i, (ant1, pos1) in enumerate(ants.items()):
-                for ant2, pos2 in ants.items()[1:]:
+                for ant2, pos2 in ants.items()[i:]:
+                    print(ant1, ant2)
                     if ant1 == ant2:
                         antpairs += [(ant1, ant2)]
                     else:
