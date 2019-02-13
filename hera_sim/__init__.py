@@ -6,7 +6,8 @@ from . import io
 from . import noise
 from . import rfi
 from . import sigchain
-from . import vis
+from hera_sim.visibilities import vis_cpu
+from . import reflections
 from . import version
 from . import eor
 from . import utils
