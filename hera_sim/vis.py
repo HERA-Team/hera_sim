@@ -41,7 +41,7 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube, real_dtype=np.float32
     # Intensity distribution (sqrt) and antenna positions
     Isqrt = np.sqrt(I_sky).astype(real_dtype)  # XXX does not support negative sky
     antpos = antpos.astype(real_dtype)
-    ang_freq = 2 * np.pi
+    ang_freq = 2 * np.pi * freq
 
     # Empty arrays: beam pattern, visibilities, delays, complex voltages
     A_s = np.empty((nant, npix), dtype=real_dtype)
