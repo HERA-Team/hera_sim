@@ -1,7 +1,6 @@
 """A module for generating reflections"""
 
 import numpy as np
-import aipy
 
 
 def auto_reflection(vis, freqs, amp, dly, phs, conj=False):

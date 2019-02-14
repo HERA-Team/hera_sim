@@ -4,15 +4,19 @@ A module containing routines for interfacing data produced by `hera_sim` with ot
 import numpy as np
 import pyuvdata as uv
 from pyuvdata.utils import get_lst_for_time, polstr2num
+import itertools
 
 SEC_PER_SDAY = 86164.1  # sec per sidereal day
 HERA_LOCATION = [5109342.82705015, 2005241.83929272, -3239939.40461961]
 HERA_LAT_LON_ALT = (-0.53619179912885, 0.3739944696510935, 1073.0000000074506)
 
 
-def empty_uvdata(nfreq, ntimes, ants, antpairs, pols=["xx"], time_per_integ=10.7, min_freq=0.1, channel_bw=0.1 / 1024.0,
-                 instrument="hera_sim", telescope_location=HERA_LOCATION, telescope_lat_lon_alt=HERA_LAT_LON_ALT,
-                 object_name="sim_data", start_jd=2458119.5, vis_units="uncalib"):
+def empty_uvdata(nfreq, ntimes, ants, antpairs=None, pols=['xx',],
+                 time_per_integ=10.7, min_freq=0.1, channel_bw=0.1/1024., 
+                 instrument='hera_sim', telescope_location=HERA_LOCATION, 
+                 telescope_lat_lon_alt=HERA_LAT_LON_ALT, 
+                 object_name='sim_data', start_jd=2458119.5, 
+                 vis_units='uncalib'):
     """
     Create an empty UVData object with valid metadata and zeroed data arrays with the correct dimensions.
 
@@ -47,7 +51,7 @@ def empty_uvdata(nfreq, ntimes, ants, antpairs, pols=["xx"], time_per_integ=10.7
     uvd = uv.UVData()
 
     # Basic time and freq. specs
-    sim_freq = min_freq + np.arange(nfreq) * channel_bw * 1e9  # Hz
+    sim_freq = (min_freq + np.arange(nfreq) * channel_bw) * 1e9 # Hz
     sim_times = start_jd + np.arange(ntimes) * time_per_integ / SEC_PER_SDAY
     sim_pols = pols
     lat, lon, alt = telescope_lat_lon_alt
@@ -63,20 +67,22 @@ def empty_uvdata(nfreq, ntimes, ants, antpairs, pols=["xx"], time_per_integ=10.7
     uvd.vis_units = vis_units
 
     # Fill-in array layout using dish positions
-    nants = len(list(ants.keys()))
-    uvd.antenna_numbers = np.array([int(antid) for antid in list(ants.keys())], dtype=np.int)
-    uvd.antenna_names = ["%d" % antid for antid in uvd.antenna_numbers]
+    nants = len(ants.keys())
+    uvd.antenna_numbers = np.array([int(antid) for antid in ants.keys()], 
+                                   dtype=np.int)
+    uvd.antenna_names = [str(antid) for antid in uvd.antenna_numbers]
     uvd.antenna_positions = np.zeros((nants, 3))
     uvd.Nants_data = nants
     uvd.Nants_telescope = nants
 
     # Populate antenna position table
     for i, antid in enumerate(ants.keys()):
-        uvd.antenna_positions[i] = np.array(ants[antid])
+        uvd.antenna_positions[i] = np.array( ants[antid] )
 
-    # Check that baselines only involve antennas that have been defined
-    ant1, ant2 = list(zip(*antpairs))
-    defined_ants = list(ants.keys())
+    # Generate the antpairs if they are not given explicitly.
+    antpairs, ant1, ant2 = _get_antpairs(ants, antpairs)
+
+    defined_ants = ants.keys()
     ants_not_found = []
     for _ant in np.unique((ant1, ant2)):
         if _ant not in defined_ants:
@@ -137,8 +143,55 @@ def empty_uvdata(nfreq, ntimes, ants, antpairs, pols=["xx"], time_per_integ=10.7
         (uvd.Nblts, uvd.Nspws, uvd.Nfreqs, uvd.Npols), dtype=np.float32
     )
     uvd.spw_array = np.ones(1, dtype=np.int)
-    uvd.integration_time = time_per_integ * np.ones(uvd.Nblts)  # per bl-time
+    uvd.integration_time = time_per_integ * np.ones(uvd.Nblts) # per bl-time
+
+    uvd.phase_type = 'drift'
 
     # Check validity and return
     uvd.check()
     return uvd
+
+def _get_antpairs(ants, antpairs):
+    # Generate antpairs
+    if antpairs is None:
+        # Use all pairs (including auto-correlations)
+        antpairs = [(ant, ant) for ant in ants] + list(itertools.combinations(ants.keys(), 2))
+    elif isinstance(antpairs, str):
+        if antpairs == "cross":
+            # Use all cross-pairs but no autos
+            antpairs = list(itertools.combinations(ants.keys(), 2))
+        elif antpairs == 'autos':
+            antpairs = [(ant, ant) for ant in ants]
+        elif antpairs == "EW":
+            # Use only baselines that are close to EW-oriented (< 10% NS)
+            antpairs = []
+            for i, (ant1, pos1) in enumerate(ants.items()):
+                for ant2, pos2 in ants.items()[i:]:
+                    if ant1 == ant2 or np.abs(pos1[1] - pos2[1]) / np.abs(pos1[0] - pos2[0]) < 0.1:
+                        antpairs += [(ant1, ant2)]
+
+        elif antpairs == 'redundant':
+            # Use only a single baseline from all redundant "types", with redundancy within
+            # 0.1m ?
+            antpairs = []
+            baseline_types = {}
+            for i, (ant1, pos1) in enumerate(ants.items()):
+                for ant2, pos2 in ants.items()[i:]:
+                    print(ant1, ant2)
+                    if ant1 == ant2:
+                        antpairs += [(ant1, ant2)]
+                    else:
+                        id = str(list(np.round([p1 - p2 for p1, p2 in zip(pos1, pos2)], decimals=1)))
+                        if id not in baseline_types:
+                            antpairs += [(ant1, ant2)]
+                            baseline_types[id] = (ant1, ant2)
+        else:
+            raise ValueError("if antpairs is a string, it must be one of 'cross', 'autos', 'EW' or 'redundant'.")
+
+    # Check that baselines only involve antennas that have been defined
+    try:
+        ant1, ant2 = zip(*antpairs)
+    except (TypeError, ValueError):
+        raise TypeError("antpairs must be a list of 2-tuples")
+
+    return antpairs, ant1, ant2

@@ -106,12 +106,24 @@ def sky_noise_jy(Tsky, fqs, lsts, bm_poly=HERA_BEAM_POLY, inttime=10.7):
             frequency. Defau;t is a poly fit to the PAPER primary beam.
         inttime (float): integration time [sec].
 
-    Returns:
-        complex ndarray: either the same shape as `Tsky`, or if `Tsky` is scalar, same shape as `fqs`. Complex white
-            noise.
+def thermal_noise(fqs, lsts, Tsky_mdl=None, Trx=0, bm_poly=HERA_BEAM_POLY, inttime=10.7, **kwargs):
     """
-    B = np.average(fqs[1:] - fqs[:-1]) * 1e9  # bandwidth in Hz
-    T2jy = 1e3 / jy2T(fqs, bm_poly=bm_poly)  # K to Jy conversion
-    T2jy.shape = (1, -1)
-    Vnoise_jy = T2jy * Tsky / np.sqrt(inttime * B)
-    return white_noise(Vnoise_jy.shape) * Vnoise_jy
+    Create thermal noise visibilities.
+
+    Args:
+        fqs (1d array): frequencies, in GHz.
+        lsts (1d array): times, in rad.
+        Tsky_mdl (callable, optional): a callable model, with signature ``Tsky_mdl(lsts, fqs)``, which returns a 2D
+            array of global beam-averaged sky temperatures (in K) as a function of LST and frequency.
+        Trx (float, optional): receiver temperature, in K.
+        bm_poly (np.poly1d, optional): a polynomial defining the frequency-dependence of the beam size.
+        inttime (float, optional): the integration time, in sec.
+        **kwargs: passed to :func:`resample_Tsky`.
+
+    Returns:
+        2d array size(lsts, fqs): the thermal visibilities [Jy].
+
+    """
+    Tsky = resample_Tsky(fqs, lsts, Tsky_mdl=Tsky_mdl, **kwargs)
+    Tsky += Trx
+    return sky_noise_jy(Tsky, fqs, lsts, bm_poly=bm_poly, inttime=inttime)

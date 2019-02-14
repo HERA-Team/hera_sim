@@ -3,9 +3,7 @@
 # TODO: this module seems to be really more about different filters than the broad "utils" moniker implies.
 
 import numpy as np
-from scipy.interpolate import RectBivariateSpline
 import aipy
-from . import noise
 
 
 def rough_delay_filter(noise, fqs, bl_len_ns):

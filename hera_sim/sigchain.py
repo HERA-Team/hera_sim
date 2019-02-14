@@ -101,7 +101,6 @@ def apply_gains(vis, gains, bl):
     gij.shape = (1, -1)
     return vis * gij
 
-
 def gen_xtalk(freqs, amplitude=3.0):
     """
     Generate cross-talk for a range of frequencies.
@@ -116,8 +115,11 @@ def gen_xtalk(freqs, amplitude=3.0):
     See Also:
         :meth:`~apply_xtalk`: apply the output of this function to a visibility.
     """
-    # TODO: freqs really should just be n_freqs.
-    xtalk = np.convolve(noise.white_noise(freqs.size), np.ones(50), "same")
+    xtalk = np.convolve(
+        noise.white_noise(freqs.size),
+        np.ones(50 if freqs.size > 50 else int(freqs.size/2)),
+        'same'
+    )
     return amplitude * xtalk
 
 
@@ -134,3 +136,7 @@ def apply_xtalk(vis, xtalk):
     """
     xtalk = np.reshape(xtalk, (1, -1))
     return vis + xtalk
+<<<<<<< HEAD
+=======
+
+>>>>>>> simulator
