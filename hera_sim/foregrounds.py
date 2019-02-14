@@ -1,4 +1,9 @@
-'''A module for generating realistic foregrounds.'''
+"""
+A module with functions for generating foregrounds signals.
+
+Each function may take arbitrary parameters, but should return a 2D array of visibilities for the requested baseline
+at the requested lsts and frequencies.
+"""
 
 import aipy
 import numpy as np
@@ -10,8 +15,22 @@ from . import utils
 
 def diffuse_foreground(Tsky, lsts, fqs, bl_len_ns, bm_poly=noise.HERA_BEAM_POLY, scalar=30.,
                        fr_width=None, fr_max_mult=2.0):
+
     """
-    Need a doc string...
+    Produce visibilities containing diffuse foregrounds.
+
+    Args:
+        Tsky (float): sky temperature [in mK?]
+        lsts (ndarray): LSTs [radians]
+        fqs (ndarray): frequencies [GHz]
+        bl_len_ns (float): East-West baseline length [nanosec]
+        bm_poly (ndarray): a polynomial for beam size with frequency.
+        scalar (float): WHAT'S THIS?
+        fr_width (float): width of Gaussian FR filter in 1 / sec
+        fr_max_mult (float): multiplier of fr_max to get lst_grid resolution
+
+    Returns:
+        2D ndarray : visibilities at each lst, fq pair.
     """
     # If an auto-correlation, return the beam-weighted integrated sky.
     if utils.get_bl_len_magnitude(bl_len_ns) == 0:
@@ -46,7 +65,18 @@ def pntsrc_foreground(lsts, fqs, bl_len_ns, nsrcs=1000, Smin=0.3, Smax=300,
                       beta=-1.5, spectral_index_mean=-1, spectral_index_std=0.5,
                       reference_freq=0.15):
     """
-    Need a doc string...
+    Generate visibilities from randomly placed point sources.
+
+    Point sources drawn from a power-law source count distribution from 0.3 to 300 Jy, with index -1.5
+
+    Args:
+        lsts (ndarray): LSTs [radians]
+        fqs (ndarray): frequencies [GHz]
+        bl_len_ns (float): East-West baseline length [nanosec]
+        nsrcs (int): number of sources to place in the sky
+
+    Returns:
+        2D ndarray : visibilities at each lst, fq pair.
     """
     ras = np.random.uniform(0, 2 * np.pi, nsrcs)
     indices = np.random.normal(spectral_index_mean, spectral_index_std, size=nsrcs)
@@ -67,6 +97,7 @@ def pntsrc_foreground(lsts, fqs, bl_len_ns, nsrcs=1000, Smin=0.3, Smax=300,
         bm = np.exp(-ha ** 2 / (2 * beam_width[fi] ** 2))
         bm = np.where(np.abs(ha) > np.pi / 2, 0, bm)
         w = .9 * bl_len_ns * np.sin(ha) * fqs[fi]  # XXX .9 to offset increase from dtau above
+
         phs = np.exp(2j * np.pi * w)
         kernel = bm * phs
         vis[:, fi] = np.fft.ifft(np.fft.fft(kernel) * np.fft.fft(vis[:, fi]))

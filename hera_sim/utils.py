@@ -1,8 +1,9 @@
 """ Utility module """
 
-import aipy
-import numpy as np
+# TODO: this module seems to be really more about different filters than the broad "utils" moniker implies.
 
+import numpy as np
+import aipy
 
 def _get_bl_len_vec(bl_len_ns):
     """
@@ -49,8 +50,7 @@ def get_bl_len_magnitude(bl_len_ns):
 
 def rough_delay_filter(noise, fqs, bl_len_ns, normalise=None):
     """
-    A rough high-pass filtering of noise array
-    across frequency.
+    A rough high-pass filtering of noise array across frequency.
 
     Args:
         noise : 1D or 2D ndarray, filtered along last axis
@@ -64,8 +64,9 @@ def rough_delay_filter(noise, fqs, bl_len_ns, normalise=None):
             matches the power of the input times the normalisation factor.
             If not set, the filter merely has a maximum of unity.
 
+
     Returns:
-        filt_noise : delay-filtered noise
+        ndarray: delay-filtered noise, same shape as `noise`.
     """
     bl_len_ns = get_bl_len_magnitude(bl_len_ns)
 
@@ -84,8 +85,7 @@ def rough_delay_filter(noise, fqs, bl_len_ns, normalise=None):
 
 def calc_max_fringe_rate(fqs, bl_len_ns):
     """
-    Calculate the fringe-rate at zenith of
-    a E-W baseline length
+    Calculate the fringe-rate at zenith of a E-W baseline length.
 
     Args:
         fqs : frequency array [GHz]
@@ -94,8 +94,9 @@ def calc_max_fringe_rate(fqs, bl_len_ns):
             interpreted as EW and NS length, otherwise the full [EW, NS, Z]
             length. Unspecified dimensions are assumed to be zero.
 
+
     Returns:
-        fr_max : fringe rate [lambda / sec]
+        fr_max (ndarray): fringe rate [lambda / sec], same shape as `fqs`.
     """
     # Convert to 3-vector
     bl_len_ns = _get_bl_len_vec(bl_len_ns)
@@ -108,9 +109,9 @@ def calc_max_fringe_rate(fqs, bl_len_ns):
 
 
 def rough_fringe_filter(noise, lsts, fqs, bl_len_ns, fr_width=None, normalise=None):
+
     """
-    Perform a rough fringe rate filter on noise array
-    along second-to-last axis.
+    Perform a rough fringe rate filter on noise array along second-to-last axis.
 
     Args:
         noise : 1D or 2D ndarray, filtered along last axis
@@ -127,9 +128,12 @@ def rough_fringe_filter(noise, lsts, fqs, bl_len_ns, fr_width=None, normalise=No
             matches the power of the input times the normalisation factor.
             If not set, the filter merely has a maximum of unity.
 
+
     Returns:
-        filt_noise : fringe-rate-filtered noise
+        ndarray : fringe-rate-filtered noise, same shape as `noise`
     """
+
+    # TODO: it is not clear what "rough" means here... should be more descriptive.
     times = lsts / (2 * np.pi) * aipy.const.sidereal_day
     fringe_rates = np.fft.fftfreq(times.size, times[1] - times[0])
     fringe_rates.shape = (-1,) + (1,) * (noise.ndim - 1)
@@ -139,7 +143,7 @@ def rough_fringe_filter(noise, lsts, fqs, bl_len_ns, fr_width=None, normalise=No
 
     if fr_width is None:
         # use a top-hat filter with width set by maximum fr
-        fng_filter = np.where(np.abs(fringe_rates) < fr_max, 1., 0)
+        fng_filter = np.where(np.abs(fringe_rates) < fr_max, 1.0, 0)
     else:
         # use a gaussian centered at max fr
         fng_filter = np.exp(-0.5 * ((fringe_rates - fr_max) / fr_width) ** 2)
@@ -148,12 +152,24 @@ def rough_fringe_filter(noise, lsts, fqs, bl_len_ns, fr_width=None, normalise=No
         norm = normalise /np.sqrt(np.sum(fng_filter**2))
         fng_filter *= norm * np.sqrt(noise.shape[-2])
 
+
     filt_noise = np.fft.ifft(_noise * fng_filter, axis=-2)
 
     return filt_noise, fng_filter, fringe_rates
 
 
 def compute_ha(lsts, ra):
+    """
+    Compute hour-angle from LST.
+
+    Args:
+        lsts (array): LSTs to convert [radians]
+        ra (float): right-ascension [radians]
+
+    Returns:
+        array: hour-angles, same shape as `lsts`.
+
+    """
     ha = lsts - ra
     ha = np.where(ha > np.pi, ha - 2 * np.pi, ha)
     ha = np.where(ha < -np.pi, ha + 2 * np.pi, ha)
