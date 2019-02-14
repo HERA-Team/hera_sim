@@ -27,14 +27,17 @@ def test_delay_filter_norm():
 
     tsky = np.ones(N)
 
+    np.random.seed(1234) # set the seed for reproducibility.
+
     out = 0
-    for i in range(1000):
+    nreal = 5000
+    for i in range(nreal):
         _noise = tsky * noise.white_noise(N)
         outnoise = utils.rough_delay_filter(_noise, fqs, 30, normalise=1)
 
         out += np.sum(np.abs(outnoise)**2)
 
-    out /= 1000
+    out /= nreal
 
     print(out, np.sum(tsky**2))
-    assert np.isclose(out, np.sum(tsky**2), rtol=1e-2)
+    assert np.isclose(out, np.sum(tsky**2), atol=0, rtol=1e-2)
