@@ -136,7 +136,3 @@ def apply_xtalk(vis, xtalk):
     """
     xtalk = np.reshape(xtalk, (1, -1))
     return vis + xtalk
-<<<<<<< HEAD
-=======
-
->>>>>>> simulator

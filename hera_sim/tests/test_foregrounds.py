@@ -74,6 +74,14 @@ class TestForegrounds(unittest.TestCase):
         # import uvtools, pylab as plt
         # uvtools.plot.waterfall(vis, mode='phs'); plt.colorbar(); plt.show()
 
+    def test_diffuse_foreground_orientation(self):
+        fqs = np.linspace(.1, .2, 100, endpoint=False)
+        lsts = np.linspace(0, 2 * np.pi, 1000)
+        Tsky_mdl = noise.HERA_Tsky_mdl['xx']
+
+        bl_len_ns = (0, 30.0)
+        vis = foregrounds.diffuse_foreground(Tsky_mdl, lsts, fqs, bl_len_ns)
+        self.assertEqual(vis.shape, (lsts.size, fqs.size))
 
 if __name__ == "__main__":
     unittest.main()

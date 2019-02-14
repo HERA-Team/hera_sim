@@ -95,7 +95,6 @@ def resample_Tsky(fqs, lsts, Tsky_mdl=None, Tsky=180.0, mfreq=0.18, index=-2.5):
 def sky_noise_jy(Tsky, fqs, lsts, bm_poly=HERA_BEAM_POLY, inttime=10.7):
     """
     Produce sky noise for a range of frequencies and LSTs.
-
     Args:
         Tsky (2D ndarray): the temperature of the sky. This is expected to be an array of shape ``(n_lst, n_freq)``,
             however the routine will run without exception if it is a float or an nD array with last dimension of
@@ -105,6 +104,16 @@ def sky_noise_jy(Tsky, fqs, lsts, bm_poly=HERA_BEAM_POLY, inttime=10.7):
         bm_poly (ndarray): array defining a numpy polynomial, which defines the beam width as a function of
             frequency. Defau;t is a poly fit to the PAPER primary beam.
         inttime (float): integration time [sec].
+    Returns:
+        complex ndarray: either the same shape as `Tsky`, or if `Tsky` is scalar, same shape as `fqs`. Complex white
+            noise.
+    """
+    B = np.average(fqs[1:] - fqs[:-1]) * 1e9  # bandwidth in Hz
+    T2jy = 1e3 / jy2T(fqs, bm_poly=bm_poly)  # K to Jy conversion
+    T2jy.shape = (1, -1)
+    Vnoise_jy = T2jy * Tsky / np.sqrt(inttime * B)
+    return white_noise(Vnoise_jy.shape) * Vnoise_jy
+
 
 def thermal_noise(fqs, lsts, Tsky_mdl=None, Trx=0, bm_poly=HERA_BEAM_POLY, inttime=10.7, **kwargs):
     """
