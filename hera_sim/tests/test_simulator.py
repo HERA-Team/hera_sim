@@ -124,24 +124,16 @@ def test_wrong_arguments():
 
 def test_other_components():
     sim = create_sim()
-    sim.add_auto_reflections("auto_reflection", amp=1, phs=1, dly=1)
-
-    with assert_raises(KeyError):
-        # This should fail because there are no autos to use
-        sim.add_cross_reflections("cross_reflection", amp=1, phs=1, dly=1)
-
-    # But this will work.
-    sim2 = create_sim(autos=True)
-    sim2.add_cross_reflections("cross_reflection", amp=1, phs=1, dly=1)
 
     sim.add_rfi("rfi_stations")
 
     assert np.all(sim.data.data_array == 0)
 
-    sim.add_xtalk()
+    sim.add_xtalk([(0, 1, 'xx')], mode='whitenoise')
+    sim.add_sigchain_reflections([0])
 
     assert not np.all(sim.data.data_array == 0)
-
+    
 
 def test_not_add_vis():
     sim = create_sim()

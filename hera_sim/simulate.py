@@ -323,63 +323,6 @@ class Simulator:
                 lsts=lsts, fqs=self.data.freq_array[0] * 1e-9, **kwargs
             )
 
-    @_model("reflections", multiplicative=True)
-    def add_auto_reflections(self, model, **kwargs):
-        """
-        Add auto-reflections to data visibilities.
-
-        Args:
-            model (str or callable): either a string name of a model function existing in :mod:`~hera_sim.reflections`,
-                or a callable which has the signature ``fnc(vis, fqs, **kwargs)``.
-            ret_vis (bool, optional): whether to return the visibilities that are being added to to the base
-                data as a new array. Default False.
-            add_vis (bool, optional): whether to add the calculated visibilities to the underlying data array.
-                Default True.
-            **kwargs: keyword arguments sent to the reflections model function, other than `vis` and `fqs`. Common
-                parameters are `dly`, `phs` and `amp`.
-        """
-        for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols():
-            self.data.data_array[blt_ind, 0, :, pol_ind] = model(
-                vis=self.data.data_array[blt_ind, 0, :, pol_ind],
-                # Axis 0 is spectral windows, of which at this point there are always 1.
-                freqs=self.data.freq_array[0] * 1e-9,
-                **kwargs
-            )
-
-    @_model("reflections", multiplicative=True)
-    def add_cross_reflections(self, model, **kwargs):
-        """
-        Add cross-reflections to data visibilities.
-
-        Args:
-            model (str or callable): either a string name of a model function existing in :mod:`~hera_sim.reflections`,
-                or a callable which has the signature ``fnc(vis, fqs, **kwargs)``.
-            ret_vis (bool, optional): whether to return the visibilities that are being added to to the base
-                data as a new array. Default False.
-            add_vis (bool, optional): whether to add the calculated visibilities to the underlying data array.
-                Default True.
-            **kwargs: keyword arguments sent to the reflections model function, other than `vis` and `fqs`. Common
-                parameters are `dly`, `phs` and `amp`.
-        """
-        for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols():
-            # The cross-correlation requires the autocorrelated visibilities.
-            # At this point, it doesn't distinguish between antenna 1 or 2,
-            # so we just use ant1.
-            try:
-                autocorr = self.data.get_data(ant1, ant1, pol)
-            except KeyError:
-                try:
-                    autocorr = self.data.get_data(ant2, ant2, pol)
-                except KeyError:
-                    raise KeyError("No auto-correlations found in data for either antenna {} or {}".format(ant1, ant2))
-
-            self.data.data_array[blt_ind, 0, :, pol_ind] = model(
-                vis=self.data.data_array[blt_ind, 0, :, pol_ind],
-                freqs=self.data.freq_array[0] * 1e-9,
-                autocorr=autocorr,
-                **kwargs
-            )
-
     @_model()
     def add_rfi(self, model, **kwargs):
         """
@@ -409,7 +352,9 @@ class Simulator:
     @_model(multiplicative=True)
     def add_gains(self, **kwargs):
         """
-        Add gains to visibilities.
+        Apply mock gains to visibilities.
+
+        Currently this consists of a bandpass, and cable delays & phases.
 
         Args:
             ret_vis (bool, optional): whether to return the visibilities that are being added to to the base
@@ -430,24 +375,47 @@ class Simulator:
                 bl=(ant1, ant2)
             )
 
-    @_model(multiplicative=True)
-    def add_xtalk(self, **kwargs):
+    #@_model(multiplicative=True)
+    def add_sigchain_reflections(self, ants, **kwargs):
+        """
+        Apply signal chain reflections to visibilities.
+
+        Args:
+            ants: list of antenna numbers to add reflections to
+            **kwargs: keyword arguments sent to the gen_reflection_gains method in :mod:~`hera_sim.sigchain`.
+        """
+
+        gains = sigchain.gen_reflection_gains(self.data.freq_array[0], self.data.get_ants(), **kwargs)
+
+        for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols():
+            self.data.data_array[blt_ind, 0, :, pol_ind] = sigchain.apply_gains(
+                vis=self.data.data_array[blt_ind, 0, :, pol_ind],
+                gains=gains,
+                bl=(ant1, ant2)
+            )
+
+    #@_model(multiplicative=True)
+    def add_xtalk(self, bls, mode='whitenoise', **kwargs):
         """
         Add crosstalk to visibilities.
 
         Args:
-            ret_vis (bool, optional): whether to return the visibilities that are being added to to the base
-                data as a new array. Default False.
-            add_vis (bool, optional): whether to add the calculated visibilities to the underlying data array.
-                Default True.
-            **kwargs: keyword arguments sent to the gen_xtalk method in :mod:~`hera_sim.sigchain`.
+            bls: list of 3-tuple ant-pair-pols to add xtalk to.
+            mode: str, xtalk model. Options=['whitenoise', 'cross_coupling']
+            **kwargs: keyword arguments sent to the :meth:~`hera_sim.sigchain.gen_{mode}_xtalk`.
         """
-
-        xtalk = sigchain.gen_xtalk(freqs=self.data.freq_array[0] * 1e-9, **kwargs)
-
-        # At the moment, the cross-talk function applies the same cross talk to every baseline/time.
-        # Not sure if this is good or not.
-        for i in range(len(self.data.get_pols())):
-            self.data.data_array[:, 0, :, i] = sigchain.apply_xtalk(
-                vis=self.data.data_array[:, 0, :, i], xtalk=xtalk
+        freqs = self.data.freq_array[0]
+        for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols():
+            if (ant1, ant2, pol) not in bls:
+                continue
+            if mode == 'whitenoise':
+                xtalk = sigchain.gen_whitenoise_xtalk(freqs, **kwargs)
+            elif mode == 'cross_coupling':
+                # for now uses ant1 ant1 for auto correlation vis
+                autovis = self.data.get_data(ant1, ant1, pol)
+                xtalk = sigchain.gen_cross_coupling_xtalk(freqs, autovis, **kwargs)
+            self.data.data_array[blt_ind, 0, :, pol_ind] = sigchain.apply_xtalk(
+                vis=self.data.data_array[blt_ind, 0, :, pol_ind],
+                xtalk=xtalk
             )
+
