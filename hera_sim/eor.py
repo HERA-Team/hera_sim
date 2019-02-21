@@ -1,4 +1,9 @@
-'''A module for generating a rough eor-like signal.'''
+"""
+A module containing functions for generating EoR-like signals.
+
+Each model may take arbitrary parameters, but must return a 2D complex array containing the visibilities at the
+requested baseline, for the requested lsts and frequencies.
+"""
 
 import numpy as np
 from scipy import interpolate
@@ -14,19 +19,19 @@ def noiselike_eor(lsts, fqs, bl_vec, eor_amp=1e-5, min_delay=None, max_delay=Non
     Generate a noise-like, fringe-filtered EoR visibility.
 
     Args:
-        lsts : ndarray with LSTs [radians]
-        fqs : ndarray with frequencies [GHz]
-        bl_vec : 1d array, East-North-Up (i.e. Topocentric) baseline vector in nanoseconds [East, North, Up]
-        eor_amp : float, amplitude of EoR signal [arbitrary]
-        min_delay : float, min delay to keep in nanosec (i.e. filter out below this delay)
-        max_delay : float, max delay to keep in nanosec (i.e. filter out above this delay)
-        fringe_filter_type : str, type of fringe-rate filter, see utils.gen_fringe_filter()
-        fringe_filter_kwargs : kwargs given fringe_filter_type, see utils.gen_fringe_filter()
+        lsts (ndarray): LSTs [radians]
+        fqs (ndarray): frequencies [GHz]
+        bl_vec (ndarray): East-North-Up (i.e. Topocentric) baseline vector in nanoseconds [East, North, Up]
+        eor_amp (float): amplitude of EoR signal [arbitrary units]
+        min_delay (float): minimum delay of signal to keep in nanosec (i.e. filter out below this delay)
+        max_delay (float): maximum delay of signal to keep in nanosec (i.e. filter out above this delay)
+        fringe_filter_type (str): type of fringe-rate filter, see utils.gen_fringe_filter()
+        fringe_filter_kwargs: kwargs given fringe_filter_type, see utils.gen_fringe_filter()
 
     Returns: 
-        vis : 2D ndarray holding simulated complex visibility
-        delay_filter : delay filter applied to data (None if no filtering)
-        fringe_filter : fringe-rate filter applied to data
+        vis (ndarray): simulated complex visibility
+        delay_filter (ndarray): delay filter applied to data (None if no filtering)
+        fringe_filter (ndarray): fringe-rate filter applied to data
 
     Notes:
         Based on the order of operations (delay filter then fringe-rate filter),
@@ -52,4 +57,3 @@ def noiselike_eor(lsts, fqs, bl_vec, eor_amp=1e-5, min_delay=None, max_delay=Non
     data = np.fft.fft(np.fft.ifft(data, axis=0) * fringe_filter, axis=0)
 
     return data, delay_filter, fringe_filter
-

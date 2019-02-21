@@ -6,6 +6,7 @@ import nose.tools as nt
 
 np.random.seed(0)
 
+
 class TestForegrounds(unittest.TestCase):
     def test_diffuse_foreground(self):
         fqs = np.linspace(.1, .2, 100, endpoint=False)
@@ -21,19 +22,24 @@ class TestForegrounds(unittest.TestCase):
         #uvtools.plot.waterfall(vis, mode='log'); plt.colorbar(); plt.show()
 
     def test_pntsrc_foreground(self):
-        fqs = np.linspace(.1,.2,100,endpoint=False)
-        lsts = np.linspace(0,2*np.pi,1000)
-        times = lsts / (2*np.pi) * aipy.const.sidereal_day
-        bl_len_ns = 300.
+        fqs = np.linspace(0.1, 0.2, 100, endpoint=False)
+        lsts = np.linspace(0, 2 * np.pi, 1000)
+        times = lsts / (2 * np.pi) * aipy.const.sidereal_day
+        bl_len_ns = 300.0
         vis = foregrounds.pntsrc_foreground(lsts, fqs, bl_len_ns, nsrcs=200)
-        self.assertEqual(vis.shape, (lsts.size,fqs.size))
+        self.assertEqual(vis.shape, (lsts.size, fqs.size))
         # XXX check more substantial things
-        #import uvtools, pylab as plt
-        #uvtools.plot.waterfall(vis, mode='phs'); plt.colorbar(); plt.show()
-    
+        # import uvtools, pylab as plt
+        # uvtools.plot.waterfall(vis, mode='phs'); plt.colorbar(); plt.show()
 
-        
-        
+    def test_diffuse_foreground_orientation(self):
+        fqs = np.linspace(.1, .2, 100, endpoint=False)
+        lsts = np.linspace(0, 2 * np.pi, 1000)
+        Tsky_mdl = noise.HERA_Tsky_mdl['xx']
 
-if __name__ == '__main__':
+        bl_len_ns = (0, 30.0)
+        vis = foregrounds.diffuse_foreground(Tsky_mdl, lsts, fqs, bl_len_ns)
+        self.assertEqual(vis.shape, (lsts.size, fqs.size))
+
+if __name__ == "__main__":
     unittest.main()

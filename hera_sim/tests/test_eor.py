@@ -37,5 +37,5 @@ class TestEoR(unittest.TestCase):
         nt.assert_almost_equal(np.mean(np.abs(vis1 / vis2)) / np.sqrt(2), 1e-2, places=2)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

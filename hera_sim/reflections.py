@@ -1,43 +1,34 @@
 """A module for generating reflections"""
 
 import numpy as np
-import aipy
+
 
 def auto_reflection(vis, freqs, amp, dly, phs, conj=False, Norder=1):
     """
-    Insert an auto reflection into vis data. An auto reflection
-    is one that couples an antenna's voltage stream with itself.
+    Insert an auto reflection into vis data.
+
+    An auto reflection is one that couples an antenna's voltage stream with itself.
     Examples include cable reflections and dish-to-feed reflections.
     
-    If v_1 is antenna 1's voltage spectrum, and V_12 is the
-    cross correlation visibility between antenna 1 and 2,
+    If v_1 is antenna 1's voltage spectrum, and V_12 is the cross correlation visibility between antenna 1 and 2,
     then an auto reflection in the visibility can be written as
 
-        V_12 = v_1 (1 + eps_1) v_2^*
+    .. math::   V_{12} = v_1 (1 + \epsilon_1) v_2^* (1 + \epsilon_2)^*
 
-    where eps_1 is antenna 1's reflection coefficient which
-    can be constructed as
+    where :math:`\epsilon_1` is antenna 1's reflection coefficient which can be constructed as::
 
-        eps = amp * exp(2j pi dly nu + 1j phs)
-
-    If Norder is set to larger than 1, the reflection term
-    becomes
-
-        (1 + eps_1 + eps_1^2 + eps_1^3 + ...)
-    
-    where the default Norder = 1 is just (1 + eps_1).
+        eps = amp * exp(2j*pi*dly*nu + 1j*phs)
 
     Args:
-        vis : 2D complex ndarray, shape=(Ntimes, Nfreqs)
-        freqs : 1D ndarray, holds frequencies in GHz
-        amp : float, reflection amplitude
-        dly : float, reflection delay [nanosec]
-        phs : float, reflection phase [radian]
-        conj : bool, if True, conjugate reflection coefficient
-        Norder : int, number of harmonics to simulate: must be >= 1.
+        vis (2D complex ndarray): input visibilities, shape=(Ntimes, Nfreqs)
+        freqs (1D ndarray): frequencies [GHz]
+        amp (float): reflection amplitude
+        dly (float): reflection delay [nanosec]
+        phs (float): reflection phase [radian]
+        conj (bool, optional): if True, conjugate the reflection coefficient
 
     Returns:
-        out_vis : contains input vis with the auto reflection
+        2D complex ndarray : a copy of `vis` with reflections added.
     """
     # form reflection coefficient
     eps = amp * np.exp(2j * np.pi * freqs * dly + 1j * phs)
@@ -59,36 +50,31 @@ def auto_reflection(vis, freqs, amp, dly, phs, conj=False, Norder=1):
 
 def cross_reflection(vis, freqs, autocorr, amp, dly, phs, conj=False, Norder=1):
     """
-    Insert a cross reflection (e.g. crosstalk) into vis data,
-    which is assumed to be a cross correlation visibility.
-    A cross reflection introduces an autocorrelation term into the
-    crosscorrelation at a specific delay with suppressed amplitude.
+    Insert a cross reflection (e.g. crosstalk) into vis data, which is assumed to be a cross correlation visibility.
 
-    If v_1 is antenna 1's voltage spectrum, and V_12 is the 
-    cross-correlation visibility between antenna 1 and 2,
+    A cross reflection introduces an auto-correlation term into the cross-correlation at a specific delay with
+    suppressed amplitude.
+
+    If v_1 is antenna 1's voltage spectrum, and V_12 is the cross-correlation visibility between antenna 1 and 2,
     then a cross reflection in the visibility can be written as
 
-        V_12 = v_1 (v_2 + eps_12 v_1)^*
-             = v_1 v_2^* + v_1 v_1^* eps_12^*
+     .. math::   V_{12} = v_1 (v_2 + eps_{12} v_1)^*
+                        = v_1 v_2^* + v_1 v_1^* eps_{12}^*,
 
-    where eps_12 is the coupling of antenna 1's voltage into
-    antenna 2's signal chain, and is a standard reflection
-    coefficient as described in auto_reflection().
+    where eps_12 is the coupling of antenna 1's voltage into antenna 2's signal chain, and is a standard reflection
+    coefficient as described in :meth:`auto_reflection`.
 
-    Args:
-        vis : 2D complex ndarray, with shape=(Ntimes, Nfreqs)
-        freqs : 1D ndarray, holding frequenices [GHz]
-        autocorr : 2D float ndarray, autocorrelation waterfall
-            matching vis in shape and units
-        amp : float or 1D ndarray, reflection amplitude(s)
-        dly : float or 1D ndarray, reflection delay(s)
-        phs : float or 1D ndarray, reflection phase(s)
-        conj : bool, if True, conjugate reflection coefficient
-        Norder : int, number of harmonics to simulate: must be >= 1.
+     Args:
+        vis (2D complex ndarray): input visibilities, shape=(Ntimes, Nfreqs)
+        freqs (1D ndarray): frequencies [GHz]
+        autocorr (2D float ndarray): autocorrelation waterfall matching vis in shape and units
+        amp (float): reflection amplitude
+        dly (float): reflection delay [nanosec]
+        phs (float): reflection phase [radian]
+        conj (bool, optional): if True, conjugate the reflection coefficient
 
     Returns:
-        out_vis : 2D complex ndarray, holding input vis data
-            with cross reflections added in.
+        2D complex ndarray : a copy of `vis` with cross=reflections added.
     """
     # generate empty reflection coefficient across freq
     eps = np.zeros(len(freqs), dtype=np.complex)
@@ -120,8 +106,3 @@ def cross_reflection(vis, freqs, autocorr, amp, dly, phs, conj=False, Norder=1):
     out_vis = vis + X
 
     return out_vis
-
-
-
-
-

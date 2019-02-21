@@ -1,9 +1,53 @@
 """ Utility module """
 
+# TODO: this module seems to be really more about different filters than the broad "utils" moniker implies.
+
 import numpy as np
 from scipy import interpolate
 import aipy
-from . import noise
+
+
+def _get_bl_len_vec(bl_len_ns):
+    """
+    Converts a baseline length in a variety of formats to a standard
+    length-3 vector.
+
+    Args:
+        bl_len_ns (scalar or array_like): the baseline length in nanosec (i.e.
+            1e9 * metres / c). If scalar, interpreted as E-W length, if len(2),
+            interpreted as EW and NS length, otherwise the full [EW, NS, Z]
+            length. Unspecified dimensions are assumed to be zero.
+
+    Returns:
+        length-3 array: The full [EW, NS, Z] baseline vector.
+    """
+    if np.isscalar(bl_len_ns):
+        bl_len_ns = np.array([bl_len_ns, 0, 0])
+    elif len(bl_len_ns) < 3:
+        # make a length-3 array
+        bl_len_ns = np.pad(
+            bl_len_ns, pad_width=3 - len(bl_len_ns),
+            mode='constant'
+        )[-3:]
+
+    return bl_len_ns
+
+
+def get_bl_len_magnitude(bl_len_ns):
+    """
+    Get the magnitude of the length of the given baseline.
+
+    Args:
+        bl_len_ns (scalar or array_like): the baseline length in nanosec (i.e.
+            1e9 * metres / c). If scalar, interpreted as E-W length, if len(2),
+            interpreted as EW and NS length, otherwise the full [EW, NS, Z]
+            length. Unspecified dimensions are assumed to be zero.
+
+    Returns:
+        float: The magnitude of the baseline length.
+    """
+    bl_len_ns = _get_bl_len_vec(bl_len_ns)
+    return np.sqrt(np.sum(bl_len_ns ** 2))
 
 
 def gen_delay_filter(fqs, bl_len_ns, standoff=0.0, filter_type='gauss'):
@@ -11,20 +55,22 @@ def gen_delay_filter(fqs, bl_len_ns, standoff=0.0, filter_type='gauss'):
     Generate a delay filter in delay space.
 
     Args:
-        fqs : 1D frequency array, [GHz]
-        bl_len_ns : total baseline length, [nanosec]
-        standoff : supra-horizon buffer, [nanosec]
-        filter_type : str, options=['gauss', 'trunc_gauss', 'tophat', 'none']
+        fqs (ndarray): frequency array [GHz]
+        bl_len_ns (float or array): total baseline length or baseline vector in [ns]
+        standoff (float): supra-horizon buffer [nanosec]
+        filter_type (str): options=['gauss', 'trunc_gauss', 'tophat', 'none']
             This sets the filter profile. Gauss has a 1-sigma
             as horizon (+ standoff) divided by four, trunc_gauss
-            is same but truncated above 4-sigma. 'none' means
+            is same but truncated above 1-sigma. 'none' means
             filter is identically one.
 
     Returns:
-        delay_filter : 1D array of delay filter in delay space
+        delay_filter (ndarray): delay filter in delay space
     """
     # setup
     delays = np.fft.fftfreq(fqs.size, fqs[1]-fqs[0])
+    if isinstance(bl_len_ns, np.ndarray):
+        bl_len_ns = np.linalg.norm(bl_len_ns)
 
     # add standoff: four sigma is horizon
     one_sigma = (bl_len_ns + standoff) / 4.0
@@ -53,19 +99,19 @@ def rough_delay_filter(data, fqs, bl_len_ns, standoff=0.0, filter_type='gauss'):
     A rough low-pass delay filter of data array along last axis.
 
     Args:
-        data : 1D or 2D ndarray, filtered along last axis
-        fqs : 1D frequency array, [GHz]
-        bl_len_ns : total baseline length, [nanosec]
-        standoff : supra-horizon buffer, [nanosec]
-        filter_type : str, options=['gauss', 'trunc_gauss', 'tophat', 'none']
+        data (ndarray): data to be filtered along last axis
+        fqs (ndarray) : frequency array [GHz]
+        bl_len_ns (float or array): total baseline length or baseline vector [nanosec]
+        standoff (float): supra-horizon buffer [nanosec]
+        filter_type (str): options=['gauss', 'trunc_gauss', 'tophat', 'none']
             This sets the filter profile. Gauss has a 1-sigma
-            as horizon (+ standoff) divided by two, trunc_gauss
-            is same but truncated above 2-sigma. 'none' means
+            as horizon (+ standoff) divided by four, trunc_gauss
+            is same but truncated above 1-sigma. 'none' means
             filter is identically one.
 
     Returns:
-        filt_data : filtered data array
-        delay_filter : delay filter applied to data
+        filt_data (ndarray): filtered data array
+        delay_filter (ndarray): delay filter applied to data
     """
     # fft data across last axis
     dfft = np.fft.ifft(data, axis=-1)
@@ -84,18 +130,20 @@ def gen_fringe_filter(lsts, fqs, ew_bl_len_ns, filter_type='tophat', **filter_kw
     Generate a fringe rate filter in fringe-rate & freq space.
 
     Args:
-        lsts : 1D lst array [radians]
-        fqs : 1D frequency array [GHz]
-        ew_bl_len_ns : projected East-West baseline length, [nanosec]
-        filter_type : str, options=['tophat', 'gauss', 'custom', 'none']
-        filter_kwargs : kwargs for different filter types
-            fr_width : ('gauss') float or 1D array of len(fqs), sets gaussian width
-            FR_filter : ('custom') 2D array (Nfrates, Nfreqs) with custom filter (must be fftshifted, see below)
-            FR_frates : ('custom') 1D array of FR_filter fringe rates [Hz] (must be monotonically increasing)
-            FR_freqs : ('custom') 1D array of FR_filter freqs [GHz]
+        lsts (ndarray): lst array [radians]
+        fqs (ndarray): frequency array [GHz]
+        ew_bl_len_ns (float): projected East-West baseline length [nanosec]
+        filter_type (str): options=['tophat', 'gauss', 'custom', 'none']
+        filter_kwargs: kwargs for different filter types
+            filter_type == 'gauss'
+                fr_width (float or array): Sets gaussian width in fringe-rate [Hz]
+            filter_type == 'custom'
+                FR_filter (ndarray): shape (Nfrates, Nfreqs) with custom filter (must be fftshifted, see below)
+                FR_frates (ndarray): array of FR_filter fringe rates [Hz] (must be monotonically increasing)
+                FR_freqs (ndarray): array of FR_filter freqs [GHz]
 
     Returns:
-        fringe_filter : 2D array of fringe filter in fringe-rate & freq space
+        fringe_filter (ndarray): 2D ndarray in fringe-rate & freq space
 
     Notes:
         If filter_type == 'tophat'
@@ -113,8 +161,8 @@ def gen_fringe_filter(lsts, fqs, ew_bl_len_ns, filter_type='tophat', **filter_kw
             fringe filter is identically one.
     """
     # setup
-    times = lsts / (2*np.pi) * aipy.const.sidereal_day
-    frates = np.fft.fftfreq(times.size, times[1]-times[0])
+    times = lsts / (2 * np.pi) * aipy.const.sidereal_day
+    frates = np.fft.fftfreq(times.size, times[1] - times[0])
 
     if filter_type in [None, 'none', 'None']:
         fringe_filter = np.ones((len(times), len(fqs)), dtype=np.float)
@@ -148,20 +196,22 @@ def rough_fringe_filter(data, lsts, fqs, ew_bl_len_ns, filter_type='tophat', **f
     A rough fringe rate filter of data along zeroth axis.
 
     Args:
-        data : 1D or 2D array to filter along zeroth axis
-        lsts : 1D lst array [radians]
-        fqs : 1D frequency array [GHz]
-        ew_bl_len_ns : projected East-West baseline length, [nanosec]
-        filter_type : str, options=['tophat', 'gauss', 'custom', 'none']
-        filter_kwargs : kwargs for different filter types
-            fr_width : ('gauss') float or 1D array of len(fqs), sets gaussian width
-            FR_filter : ('custom') 2D array (Nfrates, Nfreqs) with custom filter
-            FR_frates : ('custom') 1D array of FR_filter fringe rates [Hz]
-            FR_freqs : ('custom') 1D array of FR_filter freqs [GHz]
+        data (ndarray): data to filter along zeroth axis
+        lsts (ndarray): LST array [radians]
+        fqs (ndarray): frequency array [GHz]
+        ew_bl_len_ns (float): projected East-West baseline length [nanosec]
+        filter_type (str): options=['tophat', 'gauss', 'custom', 'none']
+        filter_kwargs: kwargs for different filter types
+            filter_type == 'gauss'
+                fr_width (float or array): Sets gaussian width in fringe-rate [Hz]
+            filter_type == 'custom'
+                FR_filter (ndarray): shape (Nfrates, Nfreqs) with custom filter (must be fftshifted, see below)
+                FR_frates (ndarray): array of FR_filter fringe rates [Hz] (must be monotonically increasing)
+                FR_freqs (ndarray): array of FR_filter freqs [GHz]
 
     Returns:
-        filt_data : filtered data
-        fringe_filter : 2D array of fringe filter in fringe-rate & freq space
+        filt_data (ndarray): filtered data
+        fringe_filter (ndarray): 2D array in fringe-rate & freq space
 
     Notes:
         If filter_type == 'tophat'
@@ -190,23 +240,33 @@ def rough_fringe_filter(data, lsts, fqs, ew_bl_len_ns, filter_type='tophat', **f
 
 def calc_max_fringe_rate(fqs, ew_bl_len_ns):
     """
-    Calculate the max fringe-rate
-    seen by an East-West baseline.
+    Calculate the max fringe-rate seen by an East-West baseline.
 
     Args:
-        fqs : frequency array [GHz]
-        ew_bl_len_ns : projected East-West baseline length [ns]
+        fqs (ndarray) : frequency array [GHz]
+        ew_bl_len_ns (float): projected East-West baseline length [ns]
+
     Returns:
-        fr_max : fringe rate [Hz]
+        fr_max (float): fringe rate [Hz]
     """
     bl_wavelen = fqs * ew_bl_len_ns
-    fr_max = 2*np.pi/aipy.const.sidereal_day * bl_wavelen
+    fr_max = 2 * np.pi / aipy.const.sidereal_day * bl_wavelen
     return fr_max
 
 
 def compute_ha(lsts, ra):
-    ha = lsts - ra
-    ha = np.where(ha > np.pi, ha-2*np.pi, ha)
-    ha = np.where(ha < -np.pi, ha+2*np.pi, ha)
-    return ha
+    """
+    Compute hour-angle from LST.
 
+    Args:
+        lsts (array): LSTs to convert [radians]
+        ra (float): right-ascension [radians]
+
+    Returns:
+        array: hour-angles, same shape as `lsts`.
+
+    """
+    ha = lsts - ra
+    ha = np.where(ha > np.pi, ha - 2 * np.pi, ha)
+    ha = np.where(ha < -np.pi, ha + 2 * np.pi, ha)
+    return ha
