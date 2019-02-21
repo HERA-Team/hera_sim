@@ -3,7 +3,7 @@
 # TODO: this module seems to be really more about different filters than the broad "utils" moniker implies.
 
 import numpy as np
-import aipy
+from aipy.const import sidereal_day
 
 def _get_bl_len_vec(bl_len_ns):
     """
@@ -50,12 +50,16 @@ def get_bl_len_magnitude(bl_len_ns):
 
 def rough_delay_filter(noise, fqs, bl_len_ns, normalise=None):
     """
-    A rough high-pass filtering of noise array across frequency.
+    Perform a rough low-pass delay-domain filtering of a white-noise
+    spectrum at the scale of the geometric delay of a baseline.
 
     Args:
-        noise : 1D or 2D ndarray, filtered along last axis
-        fqs : 1D frequency array, [GHz]
-        bl_len_ns (scalar or array_like): the baseline length in nanosec (i.e.
+        noise: array-like, shape=(..., NFREQS)
+            the array to be filtered (along the final axis)
+        fqs: array-like, shape=(NFREQS,), GHz
+            the spectral frequencies for the final dimension of noise
+        bl_len_ns (scalar or array_like): [ns]
+            the baseline length in nanosec (i.e.
             1e9 * metres / c). If scalar, interpreted as E-W length, if len(2),
             interpreted as EW and NS length, otherwise the full [EW, NS, Z]
             length. Unspecified dimensions are assumed to be zero.
@@ -66,7 +70,8 @@ def rough_delay_filter(noise, fqs, bl_len_ns, normalise=None):
 
 
     Returns:
-        ndarray: delay-filtered noise, same shape as `noise`.
+        filtered_noise: array-like, shape=(...,NFREQS)
+            a copy of noise, filtered in delay along the final dimension.
     """
     bl_len_ns = get_bl_len_magnitude(bl_len_ns)
 
@@ -85,22 +90,23 @@ def rough_delay_filter(noise, fqs, bl_len_ns, normalise=None):
 
 def calc_max_fringe_rate(fqs, bl_len_ns):
     """
-    Calculate the fringe-rate at zenith of a E-W baseline length.
+    Roughly calculate the maximum fringe rate for provided a baseline
+    length.  Assumes baseline is east-west.
 
     Args:
-        fqs : frequency array [GHz]
+        fqs: array-like, shape=(NFREQS,), GHz
+            the spectral frequencies for the final dimension of noise
         bl_len_ns (scalar or array_like): the baseline length in nanosec (i.e.
             1e9 * metres / c). If scalar, interpreted as E-W length, if len(2),
             interpreted as EW and NS length, otherwise the full [EW, NS, Z]
             length. Unspecified dimensions are assumed to be zero.
-
-
     Returns:
-        fr_max (ndarray): fringe rate [lambda / sec], same shape as `fqs`.
+        fr_max: array-like, shape=(NFREQS,), Hz
+            the maximum fringe rate [lambda / sec] for each frequency, in Hz'''
     """
     # Convert to 3-vector
     bl_len_ns = _get_bl_len_vec(bl_len_ns)
-    earth_rotation = np.array([0, 2 * np.pi / aipy.const.sidereal_day, 0])
+    earth_rotation = np.array([0, 2 * np.pi / sidereal_day, 0])
 
     return fqs * np.cross(bl_len_ns, earth_rotation)[-1]
     # bl_wavelen = fqs * bl_len_ns
@@ -109,13 +115,17 @@ def calc_max_fringe_rate(fqs, bl_len_ns):
 
 
 def rough_fringe_filter(noise, lsts, fqs, bl_len_ns, fr_width=None, normalise=None):
-
     """
-    Perform a rough fringe rate filter on noise array along second-to-last axis.
+    Perform a low-pass fringe-rate filtering of a white-noise
+    spectrum at the scale of the geometric fringe rate of a baseline.
 
     Args:
-        noise : 1D or 2D ndarray, filtered along last axis
-        fqs : 1D frequency array, [GHz]
+        noise: array-like, shape=(..., NTIMES, NFREQS)
+            the array to be filtered (along the final axis)
+        lsts: array-li,e, shape=(NTIMES,), radians
+            the local sidereal times for the -2 dimension of noise
+        fqs: array-like, shape=(NFREQS,), GHz
+            the spectral frequencies for the -1 (final) dimension of noise
         bl_len_ns (scalar or array_like): the baseline length in nanosec (i.e.
             1e9 * metres / c). If scalar, interpreted as E-W length, if len(2),
             interpreted as EW and NS length, otherwise the full [EW, NS, Z]
@@ -127,14 +137,13 @@ def rough_fringe_filter(noise, lsts, fqs, bl_len_ns, fr_width=None, normalise=No
             If set, will normalise the filter such that the power of the output
             matches the power of the input times the normalisation factor.
             If not set, the filter merely has a maximum of unity.
-
-
     Returns:
-        ndarray : fringe-rate-filtered noise, same shape as `noise`
+        filtered_noise: array-like, shape=(..., NTIMES, NFREQS)
+            a copy of noise, filtered in time along the -2 dimension.'''
     """
 
     # TODO: it is not clear what "rough" means here... should be more descriptive.
-    times = lsts / (2 * np.pi) * aipy.const.sidereal_day
+    times = lsts / (2 * np.pi) * sidereal_day
     fringe_rates = np.fft.fftfreq(times.size, times[1] - times[0])
     fringe_rates.shape = (-1,) + (1,) * (noise.ndim - 1)
     _noise = np.fft.fft(noise, axis=-2)
@@ -160,15 +169,16 @@ def rough_fringe_filter(noise, lsts, fqs, bl_len_ns, fr_width=None, normalise=No
 
 def compute_ha(lsts, ra):
     """
-    Compute hour-angle from LST.
+    Compute hour angle from local sidereal time and right ascension.
 
-    Args:
-        lsts (array): LSTs to convert [radians]
-        ra (float): right-ascension [radians]
-
+    Arg:
+        lsts: array-like, shape=(NTIMES,), radians
+            local sidereal times of the observation to be generated.
+        ra: float, radians
+            the right ascension of a point source.
     Returns:
-        array: hour-angles, same shape as `lsts`.
-
+        ha: array-like, shape=(NTIMES,)
+            hour angle corresponding to the provide ra and times'''
     """
     ha = lsts - ra
     ha = np.where(ha > np.pi, ha - 2 * np.pi, ha)
