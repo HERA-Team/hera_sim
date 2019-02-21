@@ -12,12 +12,12 @@ def gen_delay_filter(fqs, bl_len_ns, standoff=0.0, filter_type='gauss'):
 
     Args:
         fqs : 1D frequency array, [GHz]
-        bl_len_ns : baseline length, [nanosec]
+        bl_len_ns : total baseline length, [nanosec]
         standoff : supra-horizon buffer, [nanosec]
         filter_type : str, options=['gauss', 'trunc_gauss', 'tophat', 'none']
             This sets the filter profile. Gauss has a 1-sigma
-            as horizon (+ standoff) divided by two, trunc_gauss
-            is same but truncated above 2-sigma. 'none' means
+            as horizon (+ standoff) divided by four, trunc_gauss
+            is same but truncated above 4-sigma. 'none' means
             filter is identically one.
 
     Returns:
@@ -26,8 +26,8 @@ def gen_delay_filter(fqs, bl_len_ns, standoff=0.0, filter_type='gauss'):
     # setup
     delays = np.fft.fftfreq(fqs.size, fqs[1]-fqs[0])
 
-    # add standoff: two_sigma is horizon
-    one_sigma = (bl_len_ns + standoff) / 2.0
+    # add standoff: four sigma is horizon
+    one_sigma = (bl_len_ns + standoff) / 4.0
 
     # create filter
     if filter_type in [None, 'none', 'None']:
@@ -35,12 +35,15 @@ def gen_delay_filter(fqs, bl_len_ns, standoff=0.0, filter_type='gauss'):
     elif filter_type in ['gauss', 'trunc_gauss']:
         delay_filter = np.exp(-0.5 * (delays / one_sigma)**2)
         if filter_type == 'trunc_gauss':
-            delay_filter[np.abs(delays) > (one_sigma * 2)] = 0.0
+            delay_filter[np.abs(delays) > (one_sigma * 4)] = 0.0
     elif filter_type == 'tophat':
         delay_filter = np.ones_like(delays)
-        delay_filter[np.abs(delays) > (one_sigma * 2)] = 0.0
+        delay_filter[np.abs(delays) > (one_sigma * 4)] = 0.0
     else:
         raise ValueError("Didn't recognize filter_type {}".format(filter_type))
+
+    # normalize filter by area
+    delay_filter /= np.sum(delay_filter)
 
     return delay_filter
 
@@ -52,7 +55,7 @@ def rough_delay_filter(data, fqs, bl_len_ns, standoff=0.0, filter_type='gauss'):
     Args:
         data : 1D or 2D ndarray, filtered along last axis
         fqs : 1D frequency array, [GHz]
-        bl_len_ns : baseline length, [nanosec]
+        bl_len_ns : total baseline length, [nanosec]
         standoff : supra-horizon buffer, [nanosec]
         filter_type : str, options=['gauss', 'trunc_gauss', 'tophat', 'none']
             This sets the filter profile. Gauss has a 1-sigma
@@ -76,14 +79,14 @@ def rough_delay_filter(data, fqs, bl_len_ns, standoff=0.0, filter_type='gauss'):
     return filt_data, delay_filter
 
 
-def gen_fringe_filter(lsts, fqs, bl_len_ns, filter_type='tophat', **filter_kwargs):
+def gen_fringe_filter(lsts, fqs, ew_bl_len_ns, filter_type='tophat', **filter_kwargs):
     """
     Generate a fringe rate filter in fringe-rate & freq space.
 
     Args:
         lsts : 1D lst array [radians]
         fqs : 1D frequency array [GHz]
-        bl_len_ns : baseline length, [nanosec]
+        ew_bl_len_ns : projected East-West baseline length, [nanosec]
         filter_type : str, options=['tophat', 'gauss', 'custom', 'none']
         filter_kwargs : kwargs for different filter types
             fr_width : ('gauss') float or 1D array of len(fqs), sets gaussian width
@@ -96,7 +99,7 @@ def gen_fringe_filter(lsts, fqs, bl_len_ns, filter_type='tophat', **filter_kwarg
 
     Notes:
         If filter_type == 'tophat'
-            filter is a tophat out to max fringe-rate set by bl_len_ns
+            filter is a tophat out to max fringe-rate set by ew_bl_len_ns
         If filter_type == 'gauss':
             filter is a Gaussian centered on max fringe-rate
             with width set by kwarg fr_width in Hz
@@ -116,12 +119,12 @@ def gen_fringe_filter(lsts, fqs, bl_len_ns, filter_type='tophat', **filter_kwarg
     if filter_type in [None, 'none', 'None']:
         fringe_filter = np.ones((len(times), len(fqs)), dtype=np.float)
     elif filter_type == 'tophat':
-        fr_max = np.repeat(calc_max_fringe_rate(fqs, bl_len_ns)[None, :], len(lsts), axis=0)
+        fr_max = np.repeat(calc_max_fringe_rate(fqs, ew_bl_len_ns)[None, :], len(lsts), axis=0)
         frates = np.repeat(frates[:, None], len(fqs), axis=1)
         fringe_filter = np.where(np.abs(frates) < fr_max, 1., 0)
     elif filter_type == 'gauss':
         assert 'fr_width' in filter_kwargs, "If filter_type=='gauss' must feed fr_width kwarg"
-        fr_max = np.repeat(calc_max_fringe_rate(fqs, bl_len_ns)[None, :], len(lsts), axis=0)
+        fr_max = np.repeat(calc_max_fringe_rate(fqs, ew_bl_len_ns)[None, :], len(lsts), axis=0)
         frates = np.repeat(frates[:, None], len(fqs), axis=1)
         fringe_filter = np.exp(-0.5 * ((frates - fr_max) / filter_kwargs['fr_width'])**2)
     elif filter_type == 'custom':
@@ -140,7 +143,7 @@ def gen_fringe_filter(lsts, fqs, bl_len_ns, filter_type='tophat', **filter_kwarg
     return fringe_filter
 
 
-def rough_fringe_filter(data, lsts, fqs, bl_len_ns, filter_type='tophat', **filter_kwargs):
+def rough_fringe_filter(data, lsts, fqs, ew_bl_len_ns, filter_type='tophat', **filter_kwargs):
     """
     A rough fringe rate filter of data along zeroth axis.
 
@@ -148,21 +151,21 @@ def rough_fringe_filter(data, lsts, fqs, bl_len_ns, filter_type='tophat', **filt
         data : 1D or 2D array to filter along zeroth axis
         lsts : 1D lst array [radians]
         fqs : 1D frequency array [GHz]
-        bl_len_ns : baseline length, [nanosec]
+        ew_bl_len_ns : projected East-West baseline length, [nanosec]
         filter_type : str, options=['tophat', 'gauss', 'custom', 'none']
         filter_kwargs : kwargs for different filter types
             fr_width : ('gauss') float or 1D array of len(fqs), sets gaussian width
             FR_filter : ('custom') 2D array (Nfrates, Nfreqs) with custom filter
             FR_frates : ('custom') 1D array of FR_filter fringe rates [Hz]
             FR_freqs : ('custom') 1D array of FR_filter freqs [GHz]
-        
+
     Returns:
         filt_data : filtered data
         fringe_filter : 2D array of fringe filter in fringe-rate & freq space
 
     Notes:
         If filter_type == 'tophat'
-            filter is a tophat out to max fringe-rate set by bl_len_ns
+            filter is a tophat out to max fringe-rate set by ew_bl_len_ns
         If filter_type == 'gauss':
             filter is a Gaussian centered on max fringe-rate
             with width set by kwarg fr_width in Hz
@@ -177,7 +180,7 @@ def rough_fringe_filter(data, lsts, fqs, bl_len_ns, filter_type='tophat', **filt
     dfft = np.fft.ifft(data, axis=0)
 
     # get filter
-    fringe_filter = gen_fringe_filter(lsts, fqs, bl_len_ns, filter_type=filter_type, **filter_kwargs)
+    fringe_filter = gen_fringe_filter(lsts, fqs, ew_bl_len_ns, filter_type=filter_type, **filter_kwargs)
 
     # apply filter
     filt_data = np.fft.fft(dfft * fringe_filter, axis=0)
@@ -185,18 +188,18 @@ def rough_fringe_filter(data, lsts, fqs, bl_len_ns, filter_type='tophat', **filt
     return filt_data, fringe_filter
 
 
-def calc_max_fringe_rate(fqs, bl_len_ns):
+def calc_max_fringe_rate(fqs, ew_bl_len_ns):
     """
-    Calculate the fringe-rate max fringe-rate
+    Calculate the max fringe-rate
     seen by an East-West baseline.
 
     Args:
         fqs : frequency array [GHz]
-        bl_len_ns : East-West baseline length [ns]
+        ew_bl_len_ns : projected East-West baseline length [ns]
     Returns:
         fr_max : fringe rate [Hz]
     """
-    bl_wavelen = fqs * bl_len_ns
+    bl_wavelen = fqs * ew_bl_len_ns
     fr_max = 2*np.pi/aipy.const.sidereal_day * bl_wavelen
     return fr_max
 

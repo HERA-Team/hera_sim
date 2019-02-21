@@ -16,8 +16,8 @@ HERA_Tsky_yy = npz['HERA_Tsky'][1].T
 HERA_Tsky_xx = np.concatenate([HERA_Tsky_xx[-10:], HERA_Tsky_xx, HERA_Tsky_xx[:10]])
 HERA_Tsky_yy = np.concatenate([HERA_Tsky_yy[-10:], HERA_Tsky_yy, HERA_Tsky_yy[:10]])
 HERA_Tsky_mdl = {}
-HERA_Tsky_mdl['xx'] = RectBivariateSpline(lsts, fqs, HERA_Tsky_xx, kx=2, ky=2)
-HERA_Tsky_mdl['yy'] = RectBivariateSpline(lsts, fqs, HERA_Tsky_yy, kx=2, ky=2)
+HERA_Tsky_mdl['xx'] = RectBivariateSpline(lsts, fqs, HERA_Tsky_xx, kx=4, ky=4)
+HERA_Tsky_mdl['yy'] = RectBivariateSpline(lsts, fqs, HERA_Tsky_yy, kx=4, ky=4)
 
 # XXX replicated from hera_pspec.pspec
 HERA_BEAM_POLY = np.array([  8.07774113e+08,  -1.02194430e+09,
