@@ -129,9 +129,9 @@ def test_other_components():
 
     assert np.all(np.isclose(sim.data.data_array,  0))
 
-    sim.add_xtalk([(0, 1, 'xx')], mode='whitenoise')
-    sim.add_xtalk([(0, 1, 'xx')], mode='cross_coupling')
-    sim.add_sigchain_reflections([0])
+    sim.add_xtalk('gen_whitenoise_xtalk', bls=[(0, 1, 'xx')])
+    sim.add_xtalk('gen_cross_coupling_xtalk', bls=[(0, 1, 'xx')])
+    sim.add_sigchain_reflections(ants=[0])
 
     assert not np.all(np.isclose(sim.data.data_array,  0))
     assert np.all(np.isclose(sim.data.get_data(0, 0),  0))

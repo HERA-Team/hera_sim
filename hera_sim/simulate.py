@@ -378,7 +378,7 @@ class Simulator:
             )
 
     @_model(multiplicative=True)
-    def add_sigchain_reflections(self, ants, **kwargs):
+    def add_sigchain_reflections(self, ants=None, **kwargs):
         """
         Apply signal chain reflections to visibilities.
 
@@ -386,6 +386,9 @@ class Simulator:
             ants: list of antenna numbers to add reflections to
             **kwargs: keyword arguments sent to the gen_reflection_gains method in :mod:~`hera_sim.sigchain`.
         """
+        if ants is None:
+            ants = self.data.get_ants()
+            
         # generate gains
         gains = sigchain.gen_reflection_gains(self.data.freq_array[0], ants, **kwargs)
 
@@ -396,26 +399,26 @@ class Simulator:
                 bl=(ant1, ant2)
             )
 
-    #@_model(multiplicative=True)
-    def add_xtalk(self, bls=None, mode='whitenoise', **kwargs):
+    @_model('sigchain', multiplicative=True)
+    def add_xtalk(self, model='gen_whitenoise_xtalk', bls=None, **kwargs):
         """
         Add crosstalk to visibilities.
 
         Args:
-            bls: list of 3-tuple ant-pair-pols to add xtalk to.
-            mode: str, xtalk model. Options=['whitenoise', 'cross_coupling']
+            bls (list of 3-tuples, optional): ant-pair-pols to add xtalk to.
             **kwargs: keyword arguments sent to the :meth:~`hera_sim.sigchain.gen_{mode}_xtalk`.
         """
         freqs = self.data.freq_array[0]
         for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols():
             if bls is not None and (ant1, ant2, pol) not in bls:
                 continue
-            if mode == 'whitenoise':
-                xtalk = sigchain.gen_whitenoise_xtalk(freqs, **kwargs)
-            elif mode == 'cross_coupling':
+            if model.__name__ == 'gen_whitenoise_xtalk':
+                xtalk = model(freqs, **kwargs)
+            elif model.__name__ == 'gen_cross_coupling_xtalk':
                 # for now uses ant1 ant1 for auto correlation vis
                 autovis = self.data.get_data(ant1, ant1, pol)
-                xtalk = sigchain.gen_cross_coupling_xtalk(freqs, autovis, **kwargs)
+                xtalk = model(freqs, autovis, **kwargs)
+
             self.data.data_array[blt_ind, 0, :, pol_ind] = sigchain.apply_xtalk(
                 vis=self.data.data_array[blt_ind, 0, :, pol_ind],
                 xtalk=xtalk
