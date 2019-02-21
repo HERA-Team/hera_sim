@@ -66,10 +66,12 @@ class _model(object):
             # If this is a multiplicative model, and *no* additive models
             # have been called, raise a warning.
             if self.multiplicative and np.all(obj.data.data_array == 0):
-                warnings.warn("You are trying to determine visibilities that depend on preceding visibilities, but no previous vis have been created.")
+                warnings.warn("You are trying to determine visibilities that depend on preceding visibilities, but " +
+                              "no previous vis have been created.")
             elif not self.multiplicative and (hasattr(obj, "_added_models") and any([x[1] for x in obj._added_models])):
                 # some of the previous models were multiplicative, and now we're trying to add.
-                warnings.warn("You are adding absolute visibilities _after_ determining visibilities that should depend on these. Please re-consider.")
+                warnings.warn("You are adding absolute visibilities _after_ determining visibilities that should " +
+                              "depend on these. Please re-consider.")
 
             if "model" in inspect.getargspec(func)[0]:
                 # Cases where there is a choice of model
@@ -394,8 +396,8 @@ class Simulator:
                 bl=(ant1, ant2)
             )
 
-    @_model(multiplicative=True)
-    def add_xtalk(self, bls, mode='whitenoise', **kwargs):
+    #@_model(multiplicative=True)
+    def add_xtalk(self, bls=None, mode='whitenoise', **kwargs):
         """
         Add crosstalk to visibilities.
 
@@ -406,7 +408,7 @@ class Simulator:
         """
         freqs = self.data.freq_array[0]
         for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols():
-            if (ant1, ant2, pol) not in bls:
+            if bls is not None and (ant1, ant2, pol) not in bls:
                 continue
             if mode == 'whitenoise':
                 xtalk = sigchain.gen_whitenoise_xtalk(freqs, **kwargs)
