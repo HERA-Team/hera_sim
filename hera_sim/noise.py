@@ -30,7 +30,7 @@ HERA_BEAM_POLY = np.array([8.07774113e+08, -1.02194430e+09,
                            2.97189690e+05, -1.24980700e+04, 2.27220000e+02])  # See HERA Memo #27
 
 
-def jy2T(fq, bm_poly=HERA_BEAM_POLY):
+def jy2T(fqs, bm_poly=HERA_BEAM_POLY):
     """
     Return [mK] / [Jy] for a beam size vs. frequency.
 
@@ -45,8 +45,8 @@ def jy2T(fq, bm_poly=HERA_BEAM_POLY):
             a frequency-dependent scalar converting Jy to mK for the provided
             beam size.'''
     """
-    lam = aipy.const.c / (fq * 1e9)
-    bm = np.polyval(bm_poly, fq)
+    lam = aipy.const.c / (fqs * 1e9)
+    bm = np.polyval(bm_poly, fqs)
     return 1e-23 * lam ** 2 / (2 * aipy.const.k * bm) * 1e3 # XXX make Kelvin in future
 
 
