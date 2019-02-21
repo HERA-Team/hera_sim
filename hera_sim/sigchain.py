@@ -152,7 +152,7 @@ def gen_reflection_gains(freqs, ants, amp=None, dly=None, phs=None, conj=False):
     """
     # fill in missing kwargs
     if amp is None:
-        amp = [1.0 for ai in ants]
+        amp = [0.0 for ai in ants]
     if dly is None:
         dly = [0.0 for ai in ants]
     if phs is None:
@@ -254,6 +254,14 @@ def gen_cross_coupling_xtalk(freqs, autovis, amp=None, dly=None, phs=None, conj=
     Returns:
         2D ndarray: xtalk model of shape (Ntimes, Nfreqs)
     """
+    # fill in missing kwargs
+    if amp is None:
+        amp = 0.0
+    if dly is None:
+        dly = 0.0
+    if phs is None:
+        phs = 0.0
+
     # generate coupling coefficient
     eps = gen_reflection_coefficient(freqs, amp, dly, phs, conj=conj)
     if eps.ndim == 1:

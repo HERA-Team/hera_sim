@@ -58,19 +58,19 @@ def test_from_empty():
     sim = create_sim()
 
     assert sim.data.data_array.shape == (20, 1, 10, 1)
-    assert np.all(sim.data.data_array == 0)
+    assert np.all(np.isclose(sim.data.data_array, 0))
 
 
 def test_add_with_str():
     sim = create_sim()
     sim.add_eor("noiselike_eor")
-    assert not np.all(sim.data.data_array == 0)
+    assert not np.all(np.isclose(sim.data.data_array, 0))
 
 
 def test_add_with_builtin():
     sim = create_sim()
     sim.add_foregrounds(diffuse_foreground, Tsky=HERA_Tsky_mdl['xx'])
-    assert not np.all(sim.data.data_array == 0)
+    assert not np.all(np.isclose(sim.data.data_array, 0))
 
 
 def test_add_with_custom():
@@ -81,7 +81,7 @@ def test_add_with_custom():
         return 2 * vis
 
     sim.add_noise(custom_noise)
-    assert not np.all(sim.data.data_array == 0)
+    assert not np.all(np.isclose(sim.data.data_array, 0))
 
 
 def test_io():
@@ -119,29 +119,31 @@ def test_wrong_func():
 def test_wrong_arguments():
     sim = create_sim()
     sim.add_foregrounds(diffuse_foreground, Tsky_mdl=HERA_Tsky_mdl['xx'])
-    assert not np.all(sim.data.data_array == 0)
+    assert not np.all(np.isclose(sim.data.data_array,  0))
 
 
 def test_other_components():
-    sim = create_sim()
+    sim = create_sim(autos=True)
 
     sim.add_rfi("rfi_stations")
 
-    assert np.all(sim.data.data_array == 0)
+    assert np.all(np.isclose(sim.data.data_array,  0))
 
     sim.add_xtalk([(0, 1, 'xx')], mode='whitenoise')
+    sim.add_xtalk([(0, 1, 'xx')], mode='cross_coupling')
     sim.add_sigchain_reflections([0])
 
-    assert not np.all(sim.data.data_array == 0)
-    
+    assert not np.all(np.isclose(sim.data.data_array,  0))
+    assert np.all(np.isclose(sim.data.get_data(0, 0),  0))
+
 
 def test_not_add_vis():
     sim = create_sim()
     vis = sim.add_eor("noiselike_eor", add_vis=False)
 
-    assert np.all(sim.data.data_array == 0)
+    assert np.all(np.isclose(sim.data.data_array,  0))
 
-    assert not np.all(vis == 0)
+    assert not np.all(np.isclose(vis, 0))
 
     assert "noiselike_eor" not in sim.data.history
 
@@ -150,7 +152,7 @@ def test_adding_vis_but_also_returning():
     sim = create_sim()
     vis = sim.add_eor("noiselike_eor", ret_vis=True)
 
-    assert not np.all(vis == 0)
+    assert not np.all(np.isclose(vis, 0))
     assert np.all(vis == sim.data.data_array)
 
     vis = sim.add_foregrounds("diffuse_foreground", Tsky=HERA_Tsky_mdl['xx'], ret_vis=True)

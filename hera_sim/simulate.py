@@ -93,7 +93,7 @@ class _model(object):
             else:
                 # For cases where there is no choice of model.
                 method = ""
-                func(obj, **kwargs)
+                func(obj, *args, **kwargs)
 
             if add_vis:
                 msg = "\nhera_sim v{version}: Added {component} {method_name}with kwargs: {kwargs}"
@@ -375,7 +375,7 @@ class Simulator:
                 bl=(ant1, ant2)
             )
 
-    #@_model(multiplicative=True)
+    @_model(multiplicative=True)
     def add_sigchain_reflections(self, ants, **kwargs):
         """
         Apply signal chain reflections to visibilities.
@@ -384,8 +384,8 @@ class Simulator:
             ants: list of antenna numbers to add reflections to
             **kwargs: keyword arguments sent to the gen_reflection_gains method in :mod:~`hera_sim.sigchain`.
         """
-
-        gains = sigchain.gen_reflection_gains(self.data.freq_array[0], self.data.get_ants(), **kwargs)
+        # generate gains
+        gains = sigchain.gen_reflection_gains(self.data.freq_array[0], ants, **kwargs)
 
         for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols():
             self.data.data_array[blt_ind, 0, :, pol_ind] = sigchain.apply_gains(
@@ -394,7 +394,7 @@ class Simulator:
                 bl=(ant1, ant2)
             )
 
-    #@_model(multiplicative=True)
+    @_model(multiplicative=True)
     def add_xtalk(self, bls, mode='whitenoise', **kwargs):
         """
         Add crosstalk to visibilities.
