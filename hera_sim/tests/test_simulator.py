@@ -69,7 +69,7 @@ def test_add_with_str():
 
 def test_add_with_builtin():
     sim = create_sim()
-    sim.add_foregrounds(diffuse_foreground, Tsky=HERA_Tsky_mdl['xx'])
+    sim.add_foregrounds(diffuse_foreground, Tsky_mdl=HERA_Tsky_mdl['xx'])
     assert not np.all(sim.data.data_array == 0)
 
 
@@ -115,11 +115,10 @@ def test_wrong_func():
     sim.add_eor("noiselike_EOR")  # wrong function name
 
 
-@raises(TypeError)
+@raises(AssertionError)
 def test_wrong_arguments():
     sim = create_sim()
-    sim.add_foregrounds(diffuse_foreground, Tsky_mdl=HERA_Tsky_mdl['xx'])
-    assert not np.all(sim.data.data_array == 0)
+    sim.add_foregrounds(diffuse_foreground, what=HERA_Tsky_mdl['xx'])
 
 
 def test_other_components():
@@ -161,5 +160,5 @@ def test_adding_vis_but_also_returning():
     assert not np.all(vis == 0)
     assert np.all(vis == sim.data.data_array)
 
-    vis = sim.add_foregrounds("diffuse_foreground", Tsky=HERA_Tsky_mdl['xx'], ret_vis=True)
-    assert not np.all(vis == sim.data.data_array)
+    vis = sim.add_foregrounds("diffuse_foreground", Tsky_mdl=HERA_Tsky_mdl['xx'], ret_vis=True)
+    assert np.all(vis == sim.data.data_array)

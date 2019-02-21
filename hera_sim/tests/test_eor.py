@@ -12,10 +12,10 @@ class TestEoR(unittest.TestCase):
         fqs = np.linspace(.1, .2, 201, endpoint=False)
         lsts = np.linspace(0, 1, 500)
         times = lsts / (2*np.pi) * aipy.const.sidereal_day
-        bl_len_ns = 50.
+        bl_vec = np.array([50.0, 0, 0])
 
         # Simulate vanilla eor
-        vis, ff = eor.noiselike_eor(lsts, fqs, bl_len_ns, eor_amp=1e-5, fringe_filter_type='tophat')
+        vis = eor.noiselike_eor(lsts, fqs, bl_vec, eor_amp=1e-5, fringe_filter_type='tophat')
 
         # assert covariance across freq is close to diagonal (i.e. frequency covariance is essentially noise-like)
         cov = np.cov(vis.T)
@@ -32,8 +32,8 @@ class TestEoR(unittest.TestCase):
         # Look at it manually to check: plt.matshow(np.abs(cov))
 
         # test amplitude scaling is correct
-        vis1, ff = eor.noiselike_eor(lsts, fqs, bl_len_ns, eor_amp=1e-5, spec_tilt=0, min_delay=0, max_delay=1e5, fringe_filter_type='tophat')
-        vis2, ff = eor.noiselike_eor(lsts, fqs, bl_len_ns, eor_amp=1e-3, spec_tilt=0, min_delay=0, max_delay=1e5, fringe_filter_type='tophat')
+        vis1 = eor.noiselike_eor(lsts, fqs, bl_vec, eor_amp=1e-5, fringe_filter_type='tophat')
+        vis2 = eor.noiselike_eor(lsts, fqs, bl_vec, eor_amp=1e-3, fringe_filter_type='tophat')
         nt.assert_almost_equal(np.mean(np.abs(vis1 / vis2)) / np.sqrt(2), 1e-2, places=2)
 
 

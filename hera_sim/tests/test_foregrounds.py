@@ -15,7 +15,7 @@ class TestForegrounds(unittest.TestCase):
         Tsky_mdl = noise.HERA_Tsky_mdl['xx']
         #Tsky = Tsky_mdl(lsts,fqs)
         bl_len_ns = 30.
-        vis, ff, df = foregrounds.diffuse_foreground(Tsky_mdl, lsts, fqs, bl_len_ns, delay_filter_type='tophat', fringe_filter_type='tophat')
+        vis = foregrounds.diffuse_foreground(Tsky_mdl, lsts, fqs, [bl_len_ns, 0, 0], delay_filter_type='tophat', fringe_filter_type='tophat')
         self.assertEqual(vis.shape, (lsts.size,fqs.size))
         # XXX check more substantial things
         #import uvtools, pylab as plt
@@ -25,8 +25,8 @@ class TestForegrounds(unittest.TestCase):
         fqs = np.linspace(0.1, 0.2, 100, endpoint=False)
         lsts = np.linspace(0, 2 * np.pi, 1000)
         times = lsts / (2 * np.pi) * aipy.const.sidereal_day
-        bl_len_ns = 300.0
-        vis = foregrounds.pntsrc_foreground(lsts, fqs, bl_len_ns, nsrcs=200)
+        bl_vec = [300.0, 0]
+        vis = foregrounds.pntsrc_foreground(lsts, fqs, bl_vec, nsrcs=200)
         self.assertEqual(vis.shape, (lsts.size, fqs.size))
         # XXX check more substantial things
         # import uvtools, pylab as plt
@@ -37,8 +37,8 @@ class TestForegrounds(unittest.TestCase):
         lsts = np.linspace(0, 2 * np.pi, 1000)
         Tsky_mdl = noise.HERA_Tsky_mdl['xx']
 
-        bl_len_ns = (0, 30.0)
-        vis = foregrounds.diffuse_foreground(Tsky_mdl, lsts, fqs, bl_len_ns)
+        bl_vec = (0, 30.0)
+        vis = foregrounds.diffuse_foreground(Tsky_mdl, lsts, fqs, bl_vec)
         self.assertEqual(vis.shape, (lsts.size, fqs.size))
 
 if __name__ == "__main__":

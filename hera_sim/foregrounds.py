@@ -31,12 +31,13 @@ def diffuse_foreground(Tsky_mdl, lsts, fqs, bl_vec, bm_poly=noise.HERA_BEAM_POLY
 
     Returns:
         data (ndarray): diffuse foreground visibility
-        fringe_filter (ndarray): fringe-rate filter applied to data
-        delay_filter (ndarray): delay filter applied to data
     """
-    # generate a Tsky noise-like visibility in time and freq space, convert from K to Jy
+    # generate a Tsky visibility in time and freq space, convert from K to Jy
     Tsky = Tsky_mdl(lsts, fqs)
-    data = Tsky * noise.white_noise((len(lsts), len(fqs))) * 1e3 / noise.jy2T(fqs, bm_poly=bm_poly)
+    data = np.asarray(Tsky * 1e3 / noise.jy2T(fqs, bm_poly=bm_poly), np.complex)
+
+    # multiply by white noise
+    data *= noise.white_noise((len(lsts), len(fqs)))
 
     # fringe rate filter across time using projected East-West distance
     data, fringe_filter = utils.rough_fringe_filter(data, lsts, fqs, np.abs(bl_vec[0]), filter_type=fringe_filter_type, **fringe_filter_kwargs)
@@ -44,10 +45,10 @@ def diffuse_foreground(Tsky_mdl, lsts, fqs, bl_vec, bm_poly=noise.HERA_BEAM_POLY
     # delay filter across freq
     data, delay_filter = utils.rough_delay_filter(data, fqs, np.linalg.norm(bl_vec), standoff=standoff, filter_type=delay_filter_type)
 
-    return data, fringe_filter, delay_filter
+    return data
 
 
-def pntsrc_foreground(lsts, fqs, bl_len_ns, nsrcs=1000, Smin=0.3, Smax=300,
+def pntsrc_foreground(lsts, fqs, bl_vec, nsrcs=1000, Smin=0.3, Smax=300,
                       beta=-1.5, spectral_index_mean=-1, spectral_index_std=0.5,
                       reference_freq=0.15):
     """
@@ -58,12 +59,13 @@ def pntsrc_foreground(lsts, fqs, bl_len_ns, nsrcs=1000, Smin=0.3, Smax=300,
     Args:
         lsts (ndarray): LSTs [radians]
         fqs (ndarray): frequencies [GHz]
-        bl_len_ns (float): East-West baseline length [nanosec]
+        bl_vec (ndarray): East-North-Up (i.e. Topocentric) baseline vector in nanoseconds [East, North, Up]
         nsrcs (int): number of sources to place in the sky
 
     Returns:
         2D ndarray : visibilities at each lst, fq pair.
     """
+    bl_len_ns = bl_vec[0]
     ras = np.random.uniform(0, 2 * np.pi, nsrcs)
     indices = np.random.normal(spectral_index_mean, spectral_index_std, size=nsrcs)
     mfreq = reference_freq
@@ -87,4 +89,5 @@ def pntsrc_foreground(lsts, fqs, bl_len_ns, nsrcs=1000, Smin=0.3, Smax=300,
         phs = np.exp(2j * np.pi * w)
         kernel = bm * phs
         vis[:, fi] = np.fft.ifft(np.fft.fft(kernel) * np.fft.fft(vis[:, fi]))
+
     return vis

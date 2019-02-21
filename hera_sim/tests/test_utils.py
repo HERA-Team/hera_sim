@@ -19,10 +19,10 @@ class TestUtils(unittest.TestCase):
         nt.assert_almost_equal(np.sum(df), 11)
 
         df = utils.gen_delay_filter(fqs, bl_len_ns, standoff=standoff, filter_type='gauss')
-        nt.assert_almost_equal(np.sum(df), 6.266570686577507)
+        nt.assert_almost_equal(np.sum(df), 3.133285343289006)
 
         df = utils.gen_delay_filter(fqs, bl_len_ns, standoff=standoff, filter_type='trunc_gauss')
-        nt.assert_almost_equal(np.sum(df), 6.09878044622021)
+        nt.assert_almost_equal(np.sum(df), 3.1332651717678575)
 
         df = utils.gen_delay_filter(fqs, bl_len_ns, standoff=standoff, filter_type='none')
         nt.assert_almost_equal(np.sum(df), 100)
@@ -107,7 +107,7 @@ def test_delay_filter_norm():
     nreal = 5000
     for i in range(nreal):
         _noise = tsky * noise.white_noise(N)
-        outnoise = utils.rough_delay_filter(_noise, fqs, 30, normalise=1)
+        outnoise, df = utils.rough_delay_filter(_noise, fqs, 30, normalize=1)
 
         out += np.sum(np.abs(outnoise)**2)
 

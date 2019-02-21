@@ -30,8 +30,6 @@ def noiselike_eor(lsts, fqs, bl_vec, eor_amp=1e-5, min_delay=None, max_delay=Non
 
     Returns: 
         vis (ndarray): simulated complex visibility
-        delay_filter (ndarray): delay filter applied to data (None if no filtering)
-        fringe_filter (ndarray): fringe-rate filter applied to data
 
     Notes:
         Based on the order of operations (delay filter then fringe-rate filter),
@@ -56,4 +54,4 @@ def noiselike_eor(lsts, fqs, bl_vec, eor_amp=1e-5, min_delay=None, max_delay=Non
     # apply to data
     data = np.fft.fft(np.fft.ifft(data, axis=0) * fringe_filter, axis=0)
 
-    return data, delay_filter, fringe_filter
+    return data

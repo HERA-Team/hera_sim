@@ -1,7 +1,5 @@
 """ Utility module """
 
-# TODO: this module seems to be really more about different filters than the broad "utils" moniker implies.
-
 import numpy as np
 from scipy import interpolate
 import aipy
@@ -50,7 +48,7 @@ def get_bl_len_magnitude(bl_len_ns):
     return np.sqrt(np.sum(bl_len_ns ** 2))
 
 
-def gen_delay_filter(fqs, bl_len_ns, standoff=0.0, filter_type='gauss'):
+def gen_delay_filter(fqs, bl_len_ns, standoff=0.0, filter_type='gauss', normalize=None):
     """
     Generate a delay filter in delay space.
 
@@ -63,6 +61,10 @@ def gen_delay_filter(fqs, bl_len_ns, standoff=0.0, filter_type='gauss'):
             as horizon (+ standoff) divided by four, trunc_gauss
             is same but truncated above 1-sigma. 'none' means
             filter is identically one.
+        normalize: float, optional
+            If set, will normalize the filter such that the power of the output
+            matches the power of the input times the normalization factor.
+            If not set, the filter merely has a maximum of unity.
 
     Returns:
         delay_filter (ndarray): delay filter in delay space
@@ -88,13 +90,15 @@ def gen_delay_filter(fqs, bl_len_ns, standoff=0.0, filter_type='gauss'):
     else:
         raise ValueError("Didn't recognize filter_type {}".format(filter_type))
 
-    # normalize filter by area
-    delay_filter /= np.sum(delay_filter)
+    # normalize
+    if normalize is not None:
+        norm = normalize /np.sqrt(np.sum(delay_filter**2))
+        delay_filter *= norm * np.sqrt(len(delay_filter))
 
     return delay_filter
 
 
-def rough_delay_filter(data, fqs, bl_len_ns, standoff=0.0, filter_type='gauss'):
+def rough_delay_filter(data, fqs, bl_len_ns, standoff=0.0, filter_type='gauss', normalize=None):
     """
     A rough low-pass delay filter of data array along last axis.
 
@@ -108,6 +112,10 @@ def rough_delay_filter(data, fqs, bl_len_ns, standoff=0.0, filter_type='gauss'):
             as horizon (+ standoff) divided by four, trunc_gauss
             is same but truncated above 1-sigma. 'none' means
             filter is identically one.
+        normalize: float, optional
+            If set, will normalize the filter such that the power of the output
+            matches the power of the input times the normalization factor.
+            If not set, the filter merely has a maximum of unity.
 
     Returns:
         filt_data (ndarray): filtered data array
@@ -117,7 +125,7 @@ def rough_delay_filter(data, fqs, bl_len_ns, standoff=0.0, filter_type='gauss'):
     dfft = np.fft.ifft(data, axis=-1)
 
     # get delay filter
-    delay_filter = gen_delay_filter(fqs, bl_len_ns, standoff=standoff, filter_type=filter_type)
+    delay_filter = gen_delay_filter(fqs, bl_len_ns, standoff=standoff, filter_type=filter_type, normalize=normalize)
 
     # apply filtering and fft back
     filt_data = np.fft.fft(dfft * delay_filter, axis=-1)

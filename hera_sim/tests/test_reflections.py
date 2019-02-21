@@ -16,13 +16,13 @@ class TestReflections(unittest.TestCase):
         times = lsts / (2 * np.pi) * aipy.const.sidereal_day
         Tsky_mdl = noise.HERA_Tsky_mdl["xx"]
         Tsky = Tsky_mdl(lsts, fqs)
-        bl_len_ns = 50.
-        vis, ff, df = foregrounds.diffuse_foreground(Tsky_mdl, lsts, fqs, bl_len_ns, fr_width=1e-4)
+        bl_vec = np.array([50., 0, 0])
+        vis, ff, df = foregrounds.diffuse_foreground(Tsky_mdl, lsts, fqs, bl_vec, fr_width=1e-4)
 
         self.freqs = fqs
         self.lsts = lsts
         self.Tsky = Tsky
-        self.bl_len_ns = bl_len_ns
+        self.bl_vec = bl_vec
         self.vis = vis
         self.vfft = np.fft.fft(vis, axis=1)
         self.dlys = np.fft.fftfreq(len(fqs), d=np.median(np.diff(fqs)))
@@ -93,5 +93,5 @@ class TestReflections(unittest.TestCase):
         # assert its phase stable across time
         select = np.argmin(np.abs(self.dlys - -300))
         nt.assert_true(
-            np.isclose(np.angle(ovfft[:, select]), -1, atol=1e-4, rtol=1e-4).all()
+            np.isclose(np.angle(ovfft[:, select]), -1, atol=1e-3, rtol=1e-3).all()
         )
