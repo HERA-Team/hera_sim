@@ -136,7 +136,7 @@ def sky_noise_jy(Tsky, fqs, lsts, bm_poly=HERA_BEAM_POLY, B=None, inttime=10.7):
     # XXX fix below when jy2T changed to Jy/K
     T2jy = 1e3 / jy2T(fqs, bm_poly=bm_poly)  # K to Jy conversion
     T2jy.shape = (1, -1)
-    Vnoise_jy = T2jy * Tsky / np.sqrt(inttime * B) # see noise_study.py for discussion of why no factor of 2 here
+    Vnoise_jy = T2jy * Tsky / np.sqrt(inttime * B_Hz) # see noise_study.py for discussion of why no factor of 2 here
     return white_noise(Vnoise_jy.shape) * Vnoise_jy
 
 
