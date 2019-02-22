@@ -21,28 +21,28 @@ def diffuse_foreground(Tsky, lsts, fqs, bl_len_ns, bm_poly=noise.HERA_BEAM_POLY,
     like on a baseline of a provided geometric length.
 
     Args:
-        Tsky: interpolation object [mK, matching units of noise.jy2T]
+        Tsky (callable): interpolation object [mK, matching units of noise.jy2T]
             an interpolation object that returns the sky temperature as a
             function of (lst, freqs).  Called as Tsky(lsts,fqs).
-        lsts: array-like, shape=(NTIMES,), radians
+        lsts (array-like): shape=(NTIMES,), radians
             local sidereal times of the observation to be generated.
-        fqs: array-like, shape=(NFREQS,), GHz
+        fqs (array-like): shape=(NFREQS,), GHz
             the spectral frequencies of the observation to be generated.
-        bl_len_ns: float, nanoseconds
+        bl_len_ns (float): nanoseconds
             the length in nanoseconds of the baseline in the observation.
             Nominally, the baseline length divided by the speed of light.
-        bm_poly: polynomial, default=noise.HERA_BEAM_POLY
+        bm_poly (polynomial): default=noise.HERA_BEAM_POLY
             a polynomial fit to the solid-angle beam size of the observation
             as a function of frequency.  Used to convert temperatures to Jy.
-        scalar: float, default=30.
+        scalar (float): default=30.
             a multiplicative scalar controlling the amplitude of the
             foregrounds.  Default value tuned to match HERA amplitudes.
-        fr_width: float, optional
+        fr_width (float): optional
             width of Gaussian FR filter in 1 / sec
-        fr_max_mult: float, default=2.0
+        fr_max_mult (float): default=2.0
             multiplier of fr_max to get lst_grid resolution
     Returns:
-        mdl: array-like, shape=(NTIMES,NFREQS)
+        mdl (array-like): shape=(NTIMES,NFREQS)
             mock diffuse foreground visibility spectra vs. time'''
     """
     # If an auto-correlation, return the beam-weighted integrated sky.
@@ -84,30 +84,30 @@ def pntsrc_foreground(lsts, fqs, bl_len_ns, nsrcs=1000, Smin=0.3, Smax=300,
     calls of this function (i.e. no phase coherence between baselines).
     Beam width is currently hardcoded for HERA.
     Args:
-        lsts: array-like, shape=(NTIMES,), radians
+        lsts (array-like): shape=(NTIMES,), radians
             local sidereal times of the observation to be generated.
-        fqs: array-like, shape=(NFREQS,), GHz
+        fqs (array-like): shape=(NFREQS,), GHz
             the spectral frequencies of the observation to be generated.
-        bl_len_ns: float, nanoseconds
+        bl_len_ns (float): nanoseconds
             the length in nanoseconds of the baseline in the observation.
             Nominally, the baseline length divided by the speed of light.
-        nsrcs: float, default=1000.
+        nsrcs (float): default=1000.
             the number of mock sources to put on the sky, drawn from a power-law
             of flux-densities with an index of beta. between Smin and Smax
-        Smin: float, [Jy], default=0.3
+        Smin (float): [Jy], default=0.3
             the minimum flux density to sample
-        Smax: float, [Jy], default=300
+        Smax (float): [Jy], default=300
             the maximum flux density to sample
-        beta: float, default=-1.5
+        beta (float): default=-1.5
             the power-law index of point-source counts versus flux density
-        spectral_index_mean: float, default=-1
+        spectral_index_mean (float): default=-1
             the mean spectral index of point sources drawn
-        spectral_index_std: float, default=0.5
+        spectral_index_std (float): default=0.5
             the standard deviation of the spectral index of point sources drawn
-        reference_freq: float, [GHz], default=0.15
+        reference_freq (float): [GHz], default=0.15
             the frequency from which spectral indices extrapolate
     Returns:
-        vis: array-like, shape=(NTIMES,NFREQS)
+        vis (array-like): shape=(NTIMES,NFREQS)
             mock point-source foreground visibility spectra vs. time'''
     """
     ras = np.random.uniform(0, 2 * np.pi, nsrcs)

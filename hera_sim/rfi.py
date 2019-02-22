@@ -9,15 +9,15 @@ class RfiStation:
     Class for representing an RFI transmitter.
 
     Args:
-        fq0: float, GHz
+        fq0 (float): GHz
             center frequency of the RFI transmitter
-        duty_cycle: float, default=1.
+        duty_cycle (float): default=1.
             fraction of times that RFI transmitter is on
-        strength: float, Jy, default=100
+        strength (float): Jy, default=100
             amplitude of RFI transmitter
-        std: float, default=10.
+        std (float): default=10.
             standard deviation of transmission amplitude
-        timescale: scalar, seconds, default=100.
+        timescale (scalar): seconds, default=100.
             timescale for sinusoidal variation in transmission amplitude'''
     """
     def __init__(self, fq0, duty_cycle=1.0, strength=100.0, std=10.0, timescale=100.0):
@@ -32,15 +32,15 @@ class RfiStation:
         Generate an (NTIMES,NFREQS) waterfall containing RFI.
 
         Args:
-            lsts: array-like, shape=(NTIMES,), radians
+            lsts (array-like): shape=(NTIMES,), radians
                 local sidereal times of the waterfall to be generated.
-            fqs: array-like, shape=(NFREQS,), GHz
+            fqs (array-like): shape=(NFREQS,), GHz
                 the spectral frequencies of the waterfall to be generated.
-            rfi: array-like, shape=(NTIMES,NFREQS), default=None
+            rfi (array-like): shape=(NTIMES,NFREQS), default=None
                 an array to which the RFI will be added.  If None, a new array
                 is generated.
         Returns:
-            rfi: array-like, shape=(NTIMES,NFREQS)
+            rfi (array-like): shape=(NTIMES,NFREQS)
                 a waterfall containing RFI
         """
         sdf = np.average(fqs[1:] - fqs[:-1])
@@ -101,19 +101,19 @@ def rfi_stations(fqs, lsts, stations=HERA_RFI_STATIONS, rfi=None):
     are localized in frequency.
 
     Args:
-        lsts: array-like, shape=(NTIMES,), radians
+        lsts (array-like): shape=(NTIMES,), radians
             local sidereal times of the waterfall to be generated.
-        fqs: array-like, shape=(NFREQS,), GHz
+        fqs (array-like): shape=(NFREQS,), GHz
             the spectral frequencies of the waterfall to be generated.
-        stations: list of 5-tuples, default=HERA_RFI_STATIONS
+        stations (iterable): list of 5-tuples, default=HERA_RFI_STATIONS
             a list of (FREQ, DUTY_CYCLE, STRENGTH, STD, TIMESCALE) tuples
             for RfiStations that will be injected into waterfall. Instead
             of a tuple, an instance of :class:`RfiStation` may be given.
-        rfi: array-like, shape=(NTIMES,NFREQS), default=None
+        rfi (array-like): shape=(NTIMES,NFREQS), default=None
             an array to which the RFI will be added.  If None, a new array
             is generated.
     Returns:
-        rfi: array-like, shape=(NTIMES,NFREQS)
+        rfi (array-like): shape=(NTIMES,NFREQS)
             a waterfall containing RFI
     """
     for s in stations:
@@ -133,19 +133,19 @@ def rfi_impulse(fqs, lsts, rfi=None, chance=0.001, strength=20.0):
     are localized in time but span the frequency band.
 
     Args:
-        fqs: array-like, shape=(NFREQS,), GHz
+        fqs (array-like): shape=(NFREQS,), GHz
             the spectral frequencies of the waterfall to be generated.
-        lsts: array-like, shape=(NTIMES,), radians
+        lsts (array-like): shape=(NTIMES,), radians
             local sidereal times of the waterfall to be generated.
-        rfi: array-like, shape=(NTIMES,NFREQS), default=None
+        rfi (array-like): shape=(NTIMES,NFREQS), default=None
             an array to which the RFI will be added.  If None, a new array
             is generated.
-        chance: float
+        chance (float):
             the probability that a time bin will be assigned an RFI impulse
-        strength: float, Jy
+        strength (float): Jy
             the strength of the impulse generated in each time/freq bin
     Returns:
-        rfi: array-like, shape=(NTIMES,NFREQS)
+        rfi (array-like): shape=(NTIMES,NFREQS)
             a waterfall containing RFI'''
     """
     if rfi is None:
@@ -165,21 +165,21 @@ def rfi_scatter(fqs, lsts, rfi=None, chance=0.0001, strength=10, std=10):
     are localized in time but span the frequency band.
 
     Args:
-        fqs: array-like, shape=(NFREQS,), GHz
+        fqs (array-like): shape=(NFREQS,), GHz
             the spectral frequencies of the waterfall to be generated.
-        lsts: array-like, shape=(NTIMES,), radians
+        lsts (array-like): shape=(NTIMES,), radians
             local sidereal times of the waterfall to be generated.
-        rfi: array-like, shape=(NTIMES,NFREQS), default=None
+        rfi (array-like): shape=(NTIMES,NFREQS), default=None
             an array to which the RFI will be added.  If None, a new array
             is generated.
-        chance: float
+        chance (float): default=0.0001
             the probability that a time/freq bin will be assigned an RFI impulse
-        strength: float, Jy
+        strength (float): Jy, default=10
             the average amplitude of the spike generated in each time/freq bin
-        std: float, Jy
+        std (float): Jy, default = 10
             the standard deviation of the amplitudes drawn for each time/freq bin
     Returns:
-        rfi: array-like, shape=(NTIMES,NFREQS)
+        rfi (array-like): shape=(NTIMES,NFREQS)
             a waterfall containing RFI
     """
     if rfi is None:

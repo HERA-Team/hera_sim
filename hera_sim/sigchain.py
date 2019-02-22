@@ -23,14 +23,14 @@ def gen_bandpass(fqs, ants, gain_spread=0.1):
     HERA_NRAO_BANDPASS model.
 
     Args:
-        fqs: array-like, shape=(NFREQS,), GHz
+        fqs (array-like): shape=(NFREQS,), GHz
             the spectral frequencies of the bandpasses
-        ants: list
+        ants (iterable):
             the indices/names of the antennas
-        gain_spread: float
+        gain_spread (float): default=0.1
             the fractional variation in gain harmonics
     Returns:
-        g: dictionary
+        g (dictionary): 
             a dictionary of ant:bandpass pairs where keys are elements
             of ants and bandpasses are complex arrays with shape (NFREQS,)
 
@@ -52,14 +52,14 @@ def gen_delay_phs(fqs, ants, dly_rng=(-20, 20)):
     Produce a set of mock complex phasors corresponding to cables delays.
 
     Args:
-        fqs: array-like, shape=(NFREQS,), GHz
+        fqs (array-like): shape=(NFREQS,), GHz
             the spectral frequencies of the bandpasses
-        ants: list
+        ants (iterable):
             the indices/names of the antennas
-        dly_range: 2-tuple, ns
+        dly_range (2-tuple): ns
             the range of the delay
     Returns:
-        g: dictionary
+        g (dictionary):
             a dictionary of ant:exp(2pi*i*tau*fqs) pairs where keys are elements
             of ants and values are complex arrays with shape (NFREQS,)
 
@@ -79,16 +79,16 @@ def gen_gains(fqs, ants, gain_spread=0.1, dly_rng=(-20, 20)):
     and complex phasors corresponding to cables delays.
 
     Args:
-        fqs: array-like, shape=(NFREQS,), GHz
+        fqs (array-like): shape=(NFREQS,), GHz
             the spectral frequencies of the bandpasses
-        ants: list
+        ants (iterable): 
             the indices/names of the antennas
-        gain_spread: float
+        gain_spread (float): default=0.1
             the fractional variation in gain harmonics
-        dly_range: 2-tuple, ns
+        dly_range (2-tuple): ns
             the range of the delay
     Returns:
-        g: dictionary
+        g (dictionary):
             a dictionary of ant:bandpass * exp(2pi*i*tau*fqs) pairs where
             keys are elements of ants and bandpasses are complex arrays
             with shape (NFREQS,)
@@ -107,17 +107,17 @@ def apply_gains(vis, gains, bl):
     for its constituent antennas.
 
     Args:
-        vis: array-like, shape=(NTIMES,NFREQS), Jy
+        vis (array-like): shape=(NTIMES,NFREQS), Jy
             the visibility waterfall to which gains will be applied
-        gains: dictionary
+        gains (dictionary):
             a dictionary of ant:bandpass * exp(2pi*i*tau*fqs) pairs where
             keys are ants and bandpasses are complex arrays
             with shape (NFREQS,) (e.g. output of :meth:`~gen_gains`)
-        bl: 2-tuple
+        bl (2-tuple):
             a (i, j) tuple representing the baseline corresponding to
             this visibility.  g_i * g_j.conj() will be multiplied into vis.
     Returns:
-        vis: array-like, shape=(NTIMES,NFREQS)
+        vis (array-like): shape=(NTIMES,NFREQS)
             the visibility waterfall with gains applied
     """
     gij = gains[bl[0]] * gains[bl[1]].conj()
@@ -129,12 +129,12 @@ def gen_xtalk(fqs, amplitude=3.0):
     Generate a random, crosstalk-like signal as a function of frequency.
 
     Args:
-        fqs: array-like, shape=(NFREQS,), GHz
+        fqs (array-like): shape=(NFREQS,), GHz
             the spectral frequencies of the bandpasses
-        amplitude: float, default=3.
+        amplitude (float): default=3.
             a multiplicative scalar to the xtalk amplitude
     Returns:
-        xtalk: array-like, shape=(NFREQS,)
+        xtalk (array-like): shape=(NFREQS,)
             the crosstalk signal
 
     See Also:
@@ -153,12 +153,12 @@ def apply_xtalk(vis, xtalk):
     Apply to a (NTIMES,NFREQS) visibility waterfall a crosstalk signal
 
     Args:
-        vis: array-like, shape=(NTIMES,NFREQS), Jy
+        vis (array-like): shape=(NTIMES,NFREQS), Jy
             the visibility waterfall to which gains will be applied
-        xtalk: array-like, shape=(NFREQS,), Jy
+        xtalk (array-like): shape=(NFREQS,), Jy
             the crosstalk signal to be applied.
     Returns:
-        vis: array-like, shape=(NTIMES,NFREQS)
+        vis (array-like): shape=(NTIMES,NFREQS)
             the visibility waterfall with crosstalk injected'''
     """
     xtalk = np.reshape(xtalk, (1, -1))
