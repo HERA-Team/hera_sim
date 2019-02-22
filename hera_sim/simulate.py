@@ -420,7 +420,7 @@ class Simulator:
         """
 
         gains = sigchain.gen_gains(
-            freqs=self.data.freq_array[0] * 1e-9, ants=self.data.get_ants(), **kwargs
+            fqs=self.data.freq_array[0] * 1e-9, ants=self.data.get_ants(), **kwargs
         )
 
         for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols():
@@ -443,7 +443,7 @@ class Simulator:
             **kwargs: keyword arguments sent to the gen_xtalk method in :mod:~`hera_sim.sigchain`.
         """
 
-        xtalk = sigchain.gen_xtalk(freqs=self.data.freq_array[0] * 1e-9, **kwargs)
+        xtalk = sigchain.gen_xtalk(fqs=self.data.freq_array[0] * 1e-9, **kwargs)
 
         # At the moment, the cross-talk function applies the same cross talk to every baseline/time.
         # Not sure if this is good or not.
