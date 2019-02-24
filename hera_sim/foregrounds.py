@@ -13,7 +13,7 @@ from . import utils
 
 
 def diffuse_foreground(Tsky_mdl, lsts, fqs, bl_vec, bm_poly=noise.HERA_BEAM_POLY,
-                       standoff=0.0, delay_filter_type='tophat',
+                       standoff=0.0, delay_filter_type='tophat', delay_filter_normalize=None,
                        fringe_filter_type='tophat', **fringe_filter_kwargs):
     """
     Model diffuse foreground visibility.
@@ -25,9 +25,10 @@ def diffuse_foreground(Tsky_mdl, lsts, fqs, bl_vec, bm_poly=noise.HERA_BEAM_POLY
         bl_vec (ndarray): East-North-Up (i.e. Topocentric) baseline vector in nanoseconds [East, North, Up]
         bm_poly (ndarray): beam scalar polynomial object, see noise.HERA_BEAM_POLY
         standoff (float): baseline horizon buffer [ns] for modeling suprahorizon emission
-        delay_filter_type (str): type of delay filter to use, see utils.gen_delay_filter()
-        fringe_filter_type (str): type of fringe-rate filter, see utils.gen_fringe_filter()
-        fringe_filter_kwargs: kwargs given fringe_filter_type, see utils.gen_fringe_filter()
+        delay_filter_type (str): type of delay filter to use, see utils.gen_delay_filter
+        delay_filter_normalize (float): delay filter normalization, see utils.gen_delay_filter
+        fringe_filter_type (str): type of fringe-rate filter, see utils.gen_fringe_filter
+        fringe_filter_kwargs: kwargs given fringe_filter_type, see utils.gen_fringe_filter
 
     Returns:
         data (ndarray): diffuse foreground visibility
@@ -43,7 +44,7 @@ def diffuse_foreground(Tsky_mdl, lsts, fqs, bl_vec, bm_poly=noise.HERA_BEAM_POLY
     data, fringe_filter = utils.rough_fringe_filter(data, lsts, fqs, np.abs(bl_vec[0]), filter_type=fringe_filter_type, **fringe_filter_kwargs)
 
     # delay filter across freq
-    data, delay_filter = utils.rough_delay_filter(data, fqs, np.linalg.norm(bl_vec), standoff=standoff, filter_type=delay_filter_type)
+    data, delay_filter = utils.rough_delay_filter(data, fqs, np.linalg.norm(bl_vec), standoff=standoff, filter_type=delay_filter_type, normalize=delay_filter_normalize)
 
     return data
 

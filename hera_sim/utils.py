@@ -92,7 +92,7 @@ def gen_delay_filter(fqs, bl_len_ns, standoff=0.0, filter_type='gauss', normaliz
 
     # normalize
     if normalize is not None:
-        norm = normalize /np.sqrt(np.sum(delay_filter**2))
+        norm = normalize / np.sqrt(np.sum(delay_filter**2))
         delay_filter *= norm * np.sqrt(len(delay_filter))
 
     return delay_filter
