@@ -101,41 +101,143 @@ def gen_gains(fqs, ants, gain_spread=0.1, dly_rng=(-20, 20)):
     return {ai: bp[ai] * phs[ai] for ai in ants}
 
 
+def gen_reflection_coefficient(fqs, amp, dly, phs, conj=False):
+    """
+    Generate a reflection coefficient.
+
+    The reflection coefficient is described as
+
+    .. math:: \epsilon = A * \exp(2i\pi\tau\nu + i\phi)
+
+    Args:
+        fqs (1D ndarray): frequencies [GHz]
+        amp (float or ndarray): reflection amplitude
+        dly (float or ndarray): reflection delay [nanosec]
+        phs (float or ndarray): reflection phase [radian]
+        conj (bool, optional): if True, conjugate the reflection coefficient
+
+    Returns:
+        complex ndarray: complex reflection gain
+
+    Notes:
+        Reflection terms can be fed as floats, in which case output coefficient
+        is a 1D array of shape (Nfreqs,) or they can be fed as (Ntimes, 1) ndarrays,
+        in which case output coefficient is a 2D narray of shape (Ntimes, Nfreqs)
+    """
+    # form reflection coefficient
+    eps = amp * np.exp(2j * np.pi * fqs * dly + 1j * phs)
+
+    # conjugate
+    if conj:
+        eps = eps.conj()
+
+    return eps
+
+
+def gen_reflection_gains(fqs, ants, amp=None, dly=None, phs=None, conj=False):
+    """
+    Generate a signal chain reflection as an antenna gain.
+
+    A signal chain reflection is a copy of an antenna
+    voltage stream at a boosted delay, and can be incorporated
+    via a gain term
+
+    .. math::   g_1 = (1 + \epsilon_{11})
+
+    where :math:`\epsilon_{11}` is antenna 1's reflection coefficient
+    which can be constructed as
+
+    .. math:: \epsilon_{11} = A_{11} * \exp(2i\pi\tau_{11}\nu + i\phi_{11})
+
+    Args:
+        fqs (1D ndarray): frequencies [GHz]
+        ants (list of integers): antenna numbers
+        amp (list, optional): antenna reflection amplitudes for each antenna. Default is 1.0
+        dly (list, optional): antenna reflection delays [nanosec]. Default is 0.0
+        phs (lists, optional): antenna reflection phases [radian]. Default is 0.0
+        conj (bool, optional): if True, conjugate the reflection coefficients
+
+    Returns:
+        dictionary: keys are antenna numbers and values are complex reflection gains
+
+    Notes:
+        Reflection terms for each antenna can be fed as a list of floats, in which case 
+        the output coefficients are 1D arrays of shape (Nfreqs,) or they can be fed as
+        a list of ndarrays of shape (Ntimes, 1), in which case output coefficients are
+        2D narrays of shape (Ntimes, Nfreqs)
+    """
+    # fill in missing kwargs
+    if amp is None:
+        amp = [0.0 for ai in ants]
+    if dly is None:
+        dly = [0.0 for ai in ants]
+    if phs is None:
+        phs = [0.0 for ai in ants]
+
+    # iterate over antennas
+    gains = {}
+    for i, ai in enumerate(ants):
+        # form reflection coefficient
+        eps = gen_reflection_coefficient(fqs, amp[i], dly[i], phs[i], conj=conj)
+        gains[ai] = (1 + eps)
+
+    return gains
+
+
 def apply_gains(vis, gains, bl):
     """
     Apply to a (NTIMES,NFREQS) visibility waterfall the bandpass functions
     for its constituent antennas.
 
     Args:
-        vis (array-like): shape=(NTIMES,NFREQS), Jy
+        vis (array-like): shape=(NTIMES,NFREQS)
             the visibility waterfall to which gains will be applied
         gains (dictionary):
-            a dictionary of ant:bandpass * exp(2pi*i*tau*fqs) pairs where
-            keys are ants and bandpasses are complex arrays
-            with shape (NFREQS,) (e.g. output of :meth:`~gen_gains`)
+            a dictionary of antenna numbers as keys and
+            complex gain ndarrays as values (e.g. output of :meth:`~gen_gains`)
+            with shape as either (NTIMES,NFREQS) or (NFREQS,)
         bl (2-tuple):
             a (i, j) tuple representing the baseline corresponding to
             this visibility.  g_i * g_j.conj() will be multiplied into vis.
     Returns:
         vis (array-like): shape=(NTIMES,NFREQS)
-            the visibility waterfall with gains applied
+            the visibility waterfall with gains applied, unless antennas in bl
+            don't exist in gains, then input vis is returned
     """
-    gij = gains[bl[0]] * gains[bl[1]].conj()
-    gij.shape = (1, -1)
+    # if an antenna doesn't exist, set to one
+    if bl[0] not in gains:
+        gi = 1.0
+    else:
+        gi = gains[bl[0]]
+    if bl[1] not in gains:
+        gj = 1.0
+    else:
+        gj = gains[bl[1]]
+
+    # return vis if both antennas don't exist in gains
+    if (bl[0] not in gains) and (bl[1] not in gains):
+        return vis
+
+    # form gain term for bl
+    gij = gi * np.conj(gj)
+
+    # reshape if necessary    
+    if gij.ndim == 1:
+        gij.shape = (1, -1)
+
     return vis * gij
 
-def gen_xtalk(fqs, amplitude=3.0):
+
+def gen_whitenoise_xtalk(fqs, amplitude=3.0):
     """
-    Generate a random, crosstalk-like signal as a function of frequency.
+    Generate a white-noise cross-talk model for specified bls.
 
     Args:
-        fqs (array-like): shape=(NFREQS,), GHz
-            the spectral frequencies of the bandpasses
-        amplitude (float): default=3.
-            a multiplicative scalar to the xtalk amplitude
+        fqs (ndarray): frequencies of observation [GHz]
+        amplitude (float): amplitude of cross-talk in visibility units
+
     Returns:
-        xtalk (array-like): shape=(NFREQS,)
-            the crosstalk signal
+        1D ndarray: xtalk model across frequencies
 
     See Also:
         :meth:`~apply_xtalk`: apply the output of this function to a visibility.
@@ -145,7 +247,49 @@ def gen_xtalk(fqs, amplitude=3.0):
         np.ones(50 if fqs.size > 50 else int(fqs.size/2)),
         'same'
     )
-    return amplitude * xtalk
+
+    return xtalk * amplitude
+
+
+def gen_cross_coupling_xtalk(fqs, autovis, amp=None, dly=None, phs=None, conj=False):
+    """
+    Generate a cross coupling systematic (e.g. crosstalk).
+
+    A cross coupling systematic is the auto-correlation visibility multiplied by a coupling coefficient.
+    If :math:`V_{11}` is the auto-correlation visibility of antenna 1, and :math:`\epsilon_{12}`
+    is the coupling coefficient, then cross correlation visibility takes the form
+
+    .. math::   V_{12} = v_1 v_2^\ast + V_{11}\epsilon_{12}^\ast
+
+    where :math:`\epsilon_{12}` is modeled as a reflection coefficient constructed as
+
+    .. math::   \epsilon_{12} = A_{12} * \exp(2i\pi\tau_{12}\nu + i\phi_{12})
+
+     Args:
+        fqs (1D ndarray): frequencies [GHz]
+        autovis (2D ndarray): auto-correlation visibility ndarray of shape (Ntimes, Nfreqs)
+        amp (float): coupling amplitude
+        dly (float): coupling delay [nanosec]
+        phs (float): coupling phase [radian]
+        conj (bool, optional): if True, conjugate the coupling coefficient
+
+    Returns:
+        2D ndarray: xtalk model of shape (Ntimes, Nfreqs)
+    """
+    # fill in missing kwargs
+    if amp is None:
+        amp = 0.0
+    if dly is None:
+        dly = 0.0
+    if phs is None:
+        phs = 0.0
+
+    # generate coupling coefficient
+    eps = gen_reflection_coefficient(fqs, amp, dly, phs, conj=conj)
+    if eps.ndim == 1:
+        eps = np.reshape(eps, (1, -1))
+
+    return autovis * eps
 
 
 def apply_xtalk(vis, xtalk):
@@ -153,13 +297,18 @@ def apply_xtalk(vis, xtalk):
     Apply to a (NTIMES,NFREQS) visibility waterfall a crosstalk signal
 
     Args:
-        vis (array-like): shape=(NTIMES,NFREQS), Jy
+        vis (array-like): shape=(NTIMES,NFREQS)
             the visibility waterfall to which gains will be applied
-        xtalk (array-like): shape=(NFREQS,), Jy
+        xtalk (array-like): shape=(NTIMES,NFREQS) or (NFREQS,)
             the crosstalk signal to be applied.
+
     Returns:
         vis (array-like): shape=(NTIMES,NFREQS)
-            the visibility waterfall with crosstalk injected'''
+            the visibility waterfall with crosstalk injected
     """
-    xtalk = np.reshape(xtalk, (1, -1))
+    # if xtalk is a single spectrum, reshape it into 2D array
+    if xtalk.ndim == 1:
+        xtalk = np.reshape(xtalk, (1, -1))
+
     return vis + xtalk
+
