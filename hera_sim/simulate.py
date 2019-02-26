@@ -367,7 +367,7 @@ class Simulator:
         """
 
         gains = sigchain.gen_gains(
-            freqs=self.data.freq_array[0] * 1e-9, ants=self.data.get_ants(), **kwargs
+            fqs=self.data.freq_array[0] * 1e-9, ants=self.data.get_ants(), **kwargs
         )
 
         for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols():
