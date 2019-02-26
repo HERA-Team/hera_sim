@@ -406,7 +406,7 @@ class Simulator:
 
         Args:
             bls (list of 3-tuples, optional): ant-pair-pols to add xtalk to.
-            **kwargs: keyword arguments sent to the :meth:~`hera_sim.sigchain.gen_{mode}_xtalk`.
+            **kwargs: keyword arguments sent to the model :meth:~`hera_sim.sigchain.{model}`.
         """
         freqs = self.data.freq_array[0]
         for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols():

@@ -234,8 +234,7 @@ def gen_cross_coupling_xtalk(freqs, autovis, amp=None, dly=None, phs=None, conj=
 
     A cross coupling systematic is the auto-correlation visibility multiplied by a coupling coefficient.
     If :math:`V_{11}` is the auto-correlation visibility of antenna 1, and :math:`\epsilon_{12}`
-    is the coupling coefficient, then the cross coupling term in the cross correlation visibility
-    takes the form
+    is the coupling coefficient, then cross correlation visibility takes the form
 
     .. math::   V_{12} = v_1 v_2^\ast + V_{11}\epsilon_{12}^\ast
 
@@ -249,7 +248,7 @@ def gen_cross_coupling_xtalk(freqs, autovis, amp=None, dly=None, phs=None, conj=
         amp (float): coupling amplitude
         dly (float): coupling delay [nanosec]
         phs (float): coupling phase [radian]
-        conj (bool, optional): if True, conjugate the coupling coefficients
+        conj (bool, optional): if True, conjugate the coupling coefficient
 
     Returns:
         2D ndarray: xtalk model of shape (Ntimes, Nfreqs)
