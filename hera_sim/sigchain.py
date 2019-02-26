@@ -101,7 +101,7 @@ def gen_gains(fqs, ants, gain_spread=0.1, dly_rng=(-20, 20)):
     return {ai: bp[ai] * phs[ai] for ai in ants}
 
 
-def gen_reflection_coefficient(freqs, amp, dly, phs, conj=False):
+def gen_reflection_coefficient(fqs, amp, dly, phs, conj=False):
     """
     Generate a reflection coefficient.
 
@@ -110,7 +110,7 @@ def gen_reflection_coefficient(freqs, amp, dly, phs, conj=False):
     .. math:: \epsilon = A * \exp(2i\pi\tau\nu + i\phi)
 
     Args:
-        freqs (1D ndarray): frequencies [GHz]
+        fqs (1D ndarray): frequencies [GHz]
         amp (float or ndarray): reflection amplitude
         dly (float or ndarray): reflection delay [nanosec]
         phs (float or ndarray): reflection phase [radian]
@@ -125,7 +125,7 @@ def gen_reflection_coefficient(freqs, amp, dly, phs, conj=False):
         in which case output coefficient is a 2D narray of shape (Ntimes, Nfreqs)
     """
     # form reflection coefficient
-    eps = amp * np.exp(2j * np.pi * freqs * dly + 1j * phs)
+    eps = amp * np.exp(2j * np.pi * fqs * dly + 1j * phs)
 
     # conjugate
     if conj:
@@ -134,7 +134,7 @@ def gen_reflection_coefficient(freqs, amp, dly, phs, conj=False):
     return eps
 
 
-def gen_reflection_gains(freqs, ants, amp=None, dly=None, phs=None, conj=False):
+def gen_reflection_gains(fqs, ants, amp=None, dly=None, phs=None, conj=False):
     """
     Generate a signal chain reflection as an antenna gain.
 
@@ -150,7 +150,7 @@ def gen_reflection_gains(freqs, ants, amp=None, dly=None, phs=None, conj=False):
     .. math:: \epsilon_{11} = A_{11} * \exp(2i\pi\tau_{11}\nu + i\phi_{11})
 
     Args:
-        freqs (1D ndarray): frequencies [GHz]
+        fqs (1D ndarray): frequencies [GHz]
         ants (list of integers): antenna numbers
         amp (list, optional): antenna reflection amplitudes for each antenna. Default is 1.0
         dly (list, optional): antenna reflection delays [nanosec]. Default is 0.0
@@ -178,7 +178,7 @@ def gen_reflection_gains(freqs, ants, amp=None, dly=None, phs=None, conj=False):
     gains = {}
     for i, ai in enumerate(ants):
         # form reflection coefficient
-        eps = gen_reflection_coefficient(freqs, amp[i], dly[i], phs[i], conj=conj)
+        eps = gen_reflection_coefficient(fqs, amp[i], dly[i], phs[i], conj=conj)
         gains[ai] = (1 + eps)
 
     return gains
@@ -228,12 +228,12 @@ def apply_gains(vis, gains, bl):
     return vis * gij
 
 
-def gen_whitenoise_xtalk(freqs, amplitude=3.0):
+def gen_whitenoise_xtalk(fqs, amplitude=3.0):
     """
     Generate a white-noise cross-talk model for specified bls.
 
     Args:
-        freqs (ndarray): frequencies of observation [GHz]
+        fqs (ndarray): frequencies of observation [GHz]
         amplitude (float): amplitude of cross-talk in visibility units
 
     Returns:
@@ -251,7 +251,7 @@ def gen_whitenoise_xtalk(freqs, amplitude=3.0):
     return xtalk * amplitude
 
 
-def gen_cross_coupling_xtalk(freqs, autovis, amp=None, dly=None, phs=None, conj=False):
+def gen_cross_coupling_xtalk(fqs, autovis, amp=None, dly=None, phs=None, conj=False):
     """
     Generate a cross coupling systematic (e.g. crosstalk).
 
@@ -266,7 +266,7 @@ def gen_cross_coupling_xtalk(freqs, autovis, amp=None, dly=None, phs=None, conj=
     .. math::   \epsilon_{12} = A_{12} * \exp(2i\pi\tau_{12}\nu + i\phi_{12})
 
      Args:
-        freqs (1D ndarray): frequencies [GHz]
+        fqs (1D ndarray): frequencies [GHz]
         autovis (2D ndarray): auto-correlation visibility ndarray of shape (Ntimes, Nfreqs)
         amp (float): coupling amplitude
         dly (float): coupling delay [nanosec]
@@ -285,7 +285,7 @@ def gen_cross_coupling_xtalk(freqs, autovis, amp=None, dly=None, phs=None, conj=
         phs = 0.0
 
     # generate coupling coefficient
-    eps = gen_reflection_coefficient(freqs, amp, dly, phs, conj=conj)
+    eps = gen_reflection_coefficient(fqs, amp, dly, phs, conj=conj)
     if eps.ndim == 1:
         eps = np.reshape(eps, (1, -1))
 
