@@ -14,3 +14,7 @@ arrays. Requires:
 
 For a tutorial and overview of available features, check out the 
 Jupyter notebook: `docs/tutorials/hera_sim tour.ipynb`.
+
+Documentation
+-------------
+https://hera-sim.readthedocs.io/en/latest/

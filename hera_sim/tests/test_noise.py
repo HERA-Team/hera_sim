@@ -1,6 +1,7 @@
 import unittest
 from hera_sim import noise
 import numpy as np
+import aipy
 
 np.random.seed(0)
 
@@ -38,12 +39,22 @@ class TestNoise(unittest.TestCase):
         tsky = noise.resample_Tsky(fqs, lsts)
         jy2T = noise.jy2T(fqs) / 1e3
         jy2T.shape = (1, -1)
-        nos_jy = noise.sky_noise_jy(tsky, fqs, lsts)
+        nos_jy = noise.sky_noise_jy(tsky, fqs, lsts, inttime=10.7)
         self.assertEqual(nos_jy.shape, (200, 100))
         np.testing.assert_allclose(np.average(nos_jy, axis=0), 0, atol=0.7)
         scaling = np.average(tsky, axis=0) / jy2T
         np.testing.assert_allclose(
             np.std(nos_jy, axis=0) / scaling * np.sqrt(1e6 * 10.7), 1.0, atol=0.1
+        )
+        np.random.seed(0)
+        nos_jy = noise.sky_noise_jy(tsky, fqs, lsts, inttime=None)
+        np.testing.assert_allclose(
+            np.std(nos_jy, axis=0) / scaling * np.sqrt(1e6 * aipy.const.sidereal_day/200), 1.0, atol=0.1
+        )
+        np.random.seed(0)
+        nos_jy = noise.sky_noise_jy(tsky, fqs, lsts, B=.1, inttime=10.7)
+        np.testing.assert_allclose(
+            np.std(nos_jy, axis=0) / scaling * np.sqrt(1e8 * 10.7), 1.0, atol=0.1
         )
         # tsky = noise.resample_Tsky(fqs,lsts,noise.HERA_Tsky_mdl['xx'])
         # nos_jy = noise.sky_noise_jy(tsky, fqs, lsts)
