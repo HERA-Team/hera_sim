@@ -1,6 +1,9 @@
 import unittest
-from hera_sim.visibilities import vis_cpu
+
 import numpy as np
+
+from hera_sim import visibilities as vis
+import healpy
 
 np.random.seed(0)
 NANT = 16
@@ -12,87 +15,117 @@ NPIX = 12 * 16 ** 2
 class TestVisCpu(unittest.TestCase):
     def test_shapes(self):
         antpos = np.zeros((NANT, 3))
-        eq2tops = np.zeros((NTIMES, 3, 3))
-        crd_eq = np.zeros((3, NPIX))
         I_sky = np.zeros(NPIX)
-        bm_cube = np.zeros((NANT, BM_PIX, BM_PIX))
-        v = vis_cpu.vis_cpu(antpos, 0.15, eq2tops, crd_eq, I_sky, bm_cube)
-        self.assertEqual(v.shape, (NTIMES, NANT, NANT))
-        self.assertRaises(
-            AssertionError, vis_cpu.vis_cpu, antpos.T, 0.15, eq2tops, crd_eq, I_sky, bm_cube
+        lsts = np.linspace(0, 2 * np.pi, NTIMES)
+
+        v = vis.VisCPU(
+            freq=0.15,
+            antpos=antpos,
+            latitude=0,
+            lsts=lsts,
+            sky_intensity=I_sky
         )
-        self.assertRaises(
-            AssertionError, vis_cpu.vis_cpu, antpos, 0.15, eq2tops.T, crd_eq, I_sky, bm_cube
-        )
-        self.assertRaises(
-            AssertionError, vis_cpu.vis_cpu, antpos, 0.15, eq2tops, crd_eq.T, I_sky, bm_cube
-        )
-        self.assertRaises(
-            AssertionError, vis_cpu.vis_cpu, antpos, 0.15, eq2tops, crd_eq, I_sky, bm_cube.T
-        )
+
+        self.assertEqual(v.simulate().shape, (NTIMES, NANT, NANT))
+
+        # TODO: not sure how to do this in unittest properly
+        # self.assertRaises(
+        #     ValueError, vis.VisCPU, 0.15, antpos.T, 0, np.linspace(0, 2 * np.pi, NTIMES), I_sky
+        # )
 
     def test_dtypes(self):
         for dtype in (np.float32, np.float64):
-            antpos = np.zeros((NANT, 3), dtype=dtype)
-            eq2tops = np.zeros((NTIMES, 3, 3), dtype=dtype)
-            crd_eq = np.zeros((3, NPIX), dtype=dtype)
-            I_sky = np.zeros(NPIX, dtype=dtype)
-            bm_cube = np.zeros((NANT, BM_PIX, BM_PIX), dtype=dtype)
-            v = vis_cpu.vis_cpu(antpos, 0.15, eq2tops, crd_eq, I_sky, bm_cube)
-            self.assertEqual(v.dtype, np.complex64)
-            v = vis_cpu.vis_cpu(
-                antpos,
-                0.15,
-                eq2tops,
-                crd_eq,
-                I_sky,
-                bm_cube,
-                real_dtype=np.float64,
-                complex_dtype=np.complex128,
-            )
-            self.assertEqual(v.dtype, np.complex128)
+            for cdtype in (np.complex64, np.complex128):
+                antpos = np.zeros((NANT, 3), dtype=dtype)
+                I_sky = np.zeros(NPIX, dtype=dtype)
+                lsts = np.linspace(0, 2 * np.pi, NTIMES, dtype=dtype)
 
-    def test_values(self):
+                sim = vis.VisCPU(freq=0.15, antpos=antpos, latitude=0, lsts=lsts, sky_intensity=I_sky,
+                                 real_dtype=dtype, complex_dtype=cdtype)
+
+                v = sim.simulate()
+                self.assertEqual(v.dtype, cdtype)
+
+    def test_zero_sky(self):
         antpos = np.ones((NANT, 3))
-        eq2tops = np.array([np.identity(3)] * NTIMES)
+        lsts = np.linspace(0, 2 * np.pi, NTIMES)
         crd_eq = np.zeros((3, NPIX))
         crd_eq[2] = 1
         I_sky = np.ones(NPIX)
-        bm_cube = np.ones((NANT, BM_PIX, BM_PIX))
-        # Make sure that a zero in sky or beam gives zero output
-        v = vis_cpu.vis_cpu(antpos, 1.0, eq2tops, crd_eq, I_sky * 0, bm_cube)
+
+        v = vis.VisCPU(
+            freq=1,
+            antpos=antpos,
+            latitude=0,
+            lsts=lsts,
+            sky_intensity=0 * I_sky
+        ).simulate()
         np.testing.assert_equal(v, 0)
-        v = vis_cpu.vis_cpu(antpos, 1.0, eq2tops, crd_eq, I_sky, bm_cube * 0)
+
+    def test_zero_beam(self):
+        antpos = np.ones((NANT, 3))
+        lsts = np.linspace(0, 2 * np.pi, NTIMES)
+        I_sky = np.ones(NPIX)
+
+        v = vis.VisCPU(
+            freq=1,
+            antpos=antpos,
+            latitude=0,
+            lsts=lsts,
+            sky_intensity=I_sky,
+            beams=np.array([np.zeros(NPIX)]),
+            beam_ids=np.zeros(NANT, dtype=np.int)
+        ).simulate()
+
         np.testing.assert_equal(v, 0)
+
+    def test_colocation(self):
         # For co-located ants & sources on sky, answer should be sum of pixels
-        v = vis_cpu.vis_cpu(antpos, 1.0, eq2tops, crd_eq, I_sky, bm_cube)
-        np.testing.assert_almost_equal(v, NPIX, 2)
-        v = vis_cpu.vis_cpu(
-            antpos,
-            1.0,
-            eq2tops,
-            crd_eq,
-            I_sky,
-            bm_cube,
-            real_dtype=np.float64,
-            complex_dtype=np.complex128,
-        )
-        np.testing.assert_almost_equal(v, NPIX, 10)
+        # (over half the sky)
+        antpos = np.ones((NANT, 3))
+        lsts = np.linspace(0, 2 * np.pi, NTIMES)
+        I_sky = np.ones(NPIX)
+
+        for i, (dtype, ctype) in enumerate([(np.float32, np.complex64),
+                                            (np.float64, np.complex128)]):
+            v = vis.VisCPU(
+                freq=1,
+                antpos=antpos,
+                latitude=0,
+                lsts=lsts,
+                sky_intensity=I_sky,
+                real_dtype=dtype,
+                complex_dtype=ctype
+            ).simulate()
+
+            np.testing.assert_almost_equal(v, NPIX / 2, [2, 10][i])
+
+    def test_two_sources(self):
         # For co-located ants & two sources separated on sky, answer should still be sum
-        crd_eq = np.zeros((3, 2))
-        crd_eq[2, 0] = 1
-        crd_eq[1, 1] = np.sqrt(0.5)
-        crd_eq[2, 1] = np.sqrt(0.5)
-        I_sky = np.ones(2)
-        v = vis_cpu.vis_cpu(antpos, 1.0, eq2tops, crd_eq, I_sky, bm_cube)
-        np.testing.assert_almost_equal(v, 2, 2)
-        # For ant[0] at (0,0,1), ant[1] at (1,1,1), src[0] at (0,0,1) and src[1] at (0,.707,.707)
-        antpos[0, 0] = 0
-        antpos[0, 1] = 0
-        v = vis_cpu.vis_cpu(antpos, 1.0, eq2tops, crd_eq, I_sky, bm_cube)
-        np.testing.assert_almost_equal(
-            v[:, 0, 1], 1 + np.exp(-2j * np.pi * np.sqrt(0.5)), 7
-        )
+
+        antpos = np.ones((NANT, 3))
+
+        point_sources = np.array([[0, 0, 1], [0, 0.1, 1]])
+
+        v = vis.VisCPU(
+            freq=1,
+            antpos=antpos,
+            latitude=0,
+            lsts=np.array([0]),
+            point_sources=point_sources
+        ).simulate()
+
+        np.testing.assert_almost_equal(v, 2/healpy.nside2pixarea(16), 2)
+
+    # def test_exact_value_two_sources(self):
+    #
+    #     # For ant[0] at (0,0,1), ant[1] at (1,1,1), src[0] at (0,0,1) and src[1] at (0,.707,.707)
+    #     antpos[0, 0] = 0
+    #     antpos[0, 1] = 0
+    #     v = simulators.vis_cpu(antpos, 1.0, eq2tops, crd_eq, I_sky, bm_cube)
+    #     np.testing.assert_almost_equal(
+    #         v[:, 0, 1], 1 + np.exp(-2j * np.pi * np.sqrt(0.5)), 7
+    #     )
 
 
 if __name__ == "__main__":
