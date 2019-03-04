@@ -49,7 +49,8 @@ def get_bl_len_magnitude(bl_len_ns):
     return np.sqrt(np.sum(bl_len_ns ** 2))
 
 
-def gen_delay_filter(fqs, bl_len_ns, standoff=0.0, filter_type='gauss', normalize=None):
+def gen_delay_filter(fqs, bl_len_ns, standoff=0.0, filter_type='gauss', min_delay=None, max_delay=None,
+                     normalize=None):
     """
     Generate a delay filter in delay space.
 
@@ -62,6 +63,8 @@ def gen_delay_filter(fqs, bl_len_ns, standoff=0.0, filter_type='gauss', normaliz
             as horizon (+ standoff) divided by four, trunc_gauss
             is same but truncated above 1-sigma. 'none' means
             filter is identically one.
+        min_delay (float): minimum absolute delay of filter
+        max_delay (float): maximum absolute delay of filter
         normalize: float, optional
             If set, will normalize the filter such that the power of the output
             matches the power of the input times the normalization factor.
@@ -91,6 +94,12 @@ def gen_delay_filter(fqs, bl_len_ns, standoff=0.0, filter_type='gauss', normaliz
     else:
         raise ValueError("Didn't recognize filter_type {}".format(filter_type))
 
+    # set bounds
+    if min_delay is not None:
+        delay_filter[np.abs(delays) < min_delay] = 0.0
+    if max_delay is not None:
+        delay_fiter[np.abs(delays) > max_delay] = 0.0
+
     # normalize
     if normalize is not None:
         norm = normalize / np.sqrt(np.sum(delay_filter**2))
@@ -99,7 +108,8 @@ def gen_delay_filter(fqs, bl_len_ns, standoff=0.0, filter_type='gauss', normaliz
     return delay_filter
 
 
-def rough_delay_filter(data, fqs, bl_len_ns, standoff=0.0, filter_type='gauss', normalize=None):
+def rough_delay_filter(data, fqs, bl_len_ns, standoff=0.0, filter_type='gauss', min_delay=None,
+                       max_delay=None, normalize=None):
     """
     A rough low-pass delay filter of data array along last axis.
 
@@ -113,6 +123,8 @@ def rough_delay_filter(data, fqs, bl_len_ns, standoff=0.0, filter_type='gauss', 
             as horizon (+ standoff) divided by four, trunc_gauss
             is same but truncated above 1-sigma. 'none' means
             filter is identically one.
+        min_delay (float): minimum absolute delay of filter
+        max_delay (float): maximum absolute delay of filter
         normalize: float, optional
             If set, will normalize the filter such that the power of the output
             matches the power of the input times the normalization factor.
@@ -126,7 +138,8 @@ def rough_delay_filter(data, fqs, bl_len_ns, standoff=0.0, filter_type='gauss', 
     dfft = np.fft.ifft(data, axis=-1)
 
     # get delay filter
-    delay_filter = gen_delay_filter(fqs, bl_len_ns, standoff=standoff, filter_type=filter_type, normalize=normalize)
+    delay_filter = gen_delay_filter(fqs, bl_len_ns, standoff=standoff, filter_type=filter_type, min_delay=min_delay,
+                                    max_delay=max_delay, normalize=normalize)
 
     # apply filtering and fft back
     filt_data = np.fft.fft(dfft * delay_filter, axis=-1)

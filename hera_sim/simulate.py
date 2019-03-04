@@ -11,6 +11,7 @@ import warnings
 import numpy as np
 from cached_property import cached_property
 from pyuvdata import UVData
+from astropy import constants as const
 
 from . import io
 from . import sigchain
@@ -270,7 +271,7 @@ class Simulator:
 
         for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols():
             lsts = self.data.lst_array[blt_ind]
-            bl_vec = (self.antpos[ant1] - self.antpos[ant2]) * 1e9 / 2.99e8
+            bl_vec = (self.antpos[ant1] - self.antpos[ant2]) * 1e9 / const.c.value
             vis = model(lsts=lsts, fqs=fqs, bl_vec=bl_vec, **kwargs)
             self.data.data_array[blt_ind, 0, :, pol_ind] += vis
 
@@ -298,7 +299,7 @@ class Simulator:
 
         for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols():
             lsts = self.data.lst_array[blt_ind]
-            bl_vec = (self.antpos[ant1] - self.antpos[ant2]) * 1e9 / 2.99e8
+            bl_vec = (self.antpos[ant1] - self.antpos[ant2]) * 1e9 / const.c.value
             if model.__name__ == 'diffuse_foreground':
                 vis = model(Tsky_mdl, lsts, fqs, bl_vec, **kwargs)
             else:
