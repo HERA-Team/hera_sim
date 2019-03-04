@@ -42,10 +42,7 @@ def noiselike_eor(lsts, fqs, bl_vec, eor_amp=1e-5, min_delay=None, max_delay=Non
     # filter across frequency if desired
     data = utils.rough_delay_filter(data, fqs, 1e10, filter_type='tophat', min_delay=min_delay, max_delay=max_delay)
 
-    # generate fringe filter in frate & freq space
-    fringe_filter = utils.gen_fringe_filter(lsts, fqs, np.abs(bl_vec[0]), filter_type=fringe_filter_type, **fringe_filter_kwargs)
+    # fringe filter in frate & freq space
+    data = utils.rough_fringe_filter(data, lsts, fqs, bl_vec[0], filter_type=fringe_filter_type, **fringe_filter_kwargs)
  
-    # apply to data
-    data = np.fft.fft(np.fft.ifft(data, axis=0) * fringe_filter, axis=0)
-
     return data

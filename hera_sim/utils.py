@@ -98,7 +98,7 @@ def gen_delay_filter(fqs, bl_len_ns, standoff=0.0, filter_type='gauss', min_dela
     if min_delay is not None:
         delay_filter[np.abs(delays) < min_delay] = 0.0
     if max_delay is not None:
-        delay_fiter[np.abs(delays) > max_delay] = 0.0
+        delay_filter[np.abs(delays) > max_delay] = 0.0
 
     # normalize
     if normalize is not None:
@@ -132,7 +132,6 @@ def rough_delay_filter(data, fqs, bl_len_ns, standoff=0.0, filter_type='gauss', 
 
     Returns:
         filt_data (ndarray): filtered data array
-        delay_filter (ndarray): delay filter applied to data
     """
     # fft data across last axis
     dfft = np.fft.ifft(data, axis=-1)
@@ -144,7 +143,7 @@ def rough_delay_filter(data, fqs, bl_len_ns, standoff=0.0, filter_type='gauss', 
     # apply filtering and fft back
     filt_data = np.fft.fft(dfft * delay_filter, axis=-1)
 
-    return filt_data, delay_filter
+    return filt_data
 
 
 def gen_fringe_filter(lsts, fqs, ew_bl_len_ns, filter_type='tophat', **filter_kwargs):
@@ -191,7 +190,7 @@ def gen_fringe_filter(lsts, fqs, ew_bl_len_ns, filter_type='tophat', **filter_kw
     elif filter_type == 'tophat':
         fr_max = np.repeat(calc_max_fringe_rate(fqs, ew_bl_len_ns)[None, :], len(lsts), axis=0)
         frates = np.repeat(frates[:, None], len(fqs), axis=1)
-        fringe_filter = np.where(np.abs(frates) < fr_max, 1., 0)
+        fringe_filter = np.where(np.abs(frates) < np.abs(fr_max), 1., 0)
     elif filter_type == 'gauss':
         assert 'fr_width' in filter_kwargs, "If filter_type=='gauss' must feed fr_width kwarg"
         fr_max = np.repeat(calc_max_fringe_rate(fqs, ew_bl_len_ns)[None, :], len(lsts), axis=0)
@@ -234,7 +233,6 @@ def rough_fringe_filter(data, lsts, fqs, ew_bl_len_ns, filter_type='tophat', **f
 
     Returns:
         filt_data (ndarray): filtered data
-        fringe_filter (ndarray): 2D array in fringe-rate & freq space
 
     Notes:
         If filter_type == 'tophat'
@@ -258,7 +256,7 @@ def rough_fringe_filter(data, lsts, fqs, ew_bl_len_ns, filter_type='tophat', **f
     # apply filter
     filt_data = np.fft.fft(dfft * fringe_filter, axis=0)
 
-    return filt_data, fringe_filter
+    return filt_data
 
 
 def calc_max_fringe_rate(fqs, ew_bl_len_ns):

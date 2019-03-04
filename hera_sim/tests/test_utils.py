@@ -27,6 +27,15 @@ class TestUtils(unittest.TestCase):
         df = utils.gen_delay_filter(fqs, bl_len_ns, standoff=standoff, filter_type='none')
         nt.assert_almost_equal(np.sum(df), 100)
 
+        df = utils.gen_delay_filter(fqs, bl_len_ns, standoff=standoff, filter_type='tophat',
+                                    min_delay=100.0)
+        nt.assert_almost_equal(np.sum(df), 0)
+
+        df = utils.gen_delay_filter(fqs, bl_len_ns, standoff=standoff, filter_type='tophat',
+                                    max_delay=50.0)
+        nt.assert_almost_equal(np.sum(df), 11)
+
+
     def test_rough_delay_filter(self):
         np.random.seed(0)
         lsts = np.linspace(0, 2*np.pi, 200)
