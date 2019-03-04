@@ -3,6 +3,7 @@
 import numpy as np
 from scipy import interpolate
 import aipy
+from aipy.const import sidereal_day
 
 
 def _get_bl_len_vec(bl_len_ns):
@@ -193,6 +194,7 @@ def gen_fringe_filter(lsts, fqs, ew_bl_len_ns, filter_type='tophat', **filter_kw
         fringe_filter = np.fft.ifftshift(mdl(np.fft.fftshift(frates), fqs), axes=0)
         # set things close to zero to zero
         fringe_filter[np.isclose(fringe_filter, 0.0)] = 0.0
+
     else:
         raise ValueError("filter_type {} not recognized".format(filter_type))
 
@@ -264,15 +266,16 @@ def calc_max_fringe_rate(fqs, ew_bl_len_ns):
 
 def compute_ha(lsts, ra):
     """
-    Compute hour-angle from LST.
+    Compute hour angle from local sidereal time and right ascension.
 
-    Args:
-        lsts (array): LSTs to convert [radians]
-        ra (float): right-ascension [radians]
-
+    Arg:
+        lsts: array-like, shape=(NTIMES,), radians
+            local sidereal times of the observation to be generated.
+        ra: float, radians
+            the right ascension of a point source.
     Returns:
-        array: hour-angles, same shape as `lsts`.
-
+        ha: array-like, shape=(NTIMES,)
+            hour angle corresponding to the provide ra and times'''
     """
     ha = lsts - ra
     ha = np.where(ha > np.pi, ha - 2 * np.pi, ha)
