@@ -3,6 +3,7 @@ from hera_sim import noise, foregrounds, utils
 import numpy as np
 import aipy
 import nose.tools as nt
+from uvtools import dspec
 
 np.random.seed(0)
 
@@ -38,8 +39,23 @@ class TestForegrounds(unittest.TestCase):
         Tsky_mdl = noise.HERA_Tsky_mdl['xx']
 
         bl_vec = (0, 30.0)
-        vis = foregrounds.diffuse_foreground(Tsky_mdl, lsts, fqs, bl_vec)
+        vis = foregrounds.diffuse_foreground(Tsky_mdl, lsts, fqs, bl_vec, fringe_filter_type='tophat')
         self.assertEqual(vis.shape, (lsts.size, fqs.size))
+
+        # assert foregrounds show up at positive fringe-rates for FFT
+        bl_vec = (100.0, 0.0)
+        vis = foregrounds.diffuse_foreground(Tsky_mdl, lsts, fqs, bl_vec, fringe_filter_type='gauss', fr_width=1e-5)
+        dfft = np.fft.fftshift(np.fft.fft(vis * dspec.gen_window('blackmanharris', len(vis))[:, None], axis=0), axes=0)
+        frates = np.fft.fftshift(np.fft.fftfreq(len(lsts), np.diff(lsts)[0]*12*3600/np.pi))
+        max_frate = frates[np.argmax(np.abs(dfft[:, 0]))]
+        nt.assert_true(max_frate > 0)
+
+        bl_vec = (-100.0, 0.0)
+        vis = foregrounds.diffuse_foreground(Tsky_mdl, lsts, fqs, bl_vec, fringe_filter_type='gauss', fr_width=1e-5)
+        dfft = np.fft.fftshift(np.fft.fft(vis * dspec.gen_window('blackmanharris', len(vis))[:, None], axis=0), axes=0)
+        max_frate = frates[np.argmax(np.abs(dfft[:, 0]))]
+        nt.assert_true(max_frate < 0)
+
 
 if __name__ == "__main__":
     unittest.main()

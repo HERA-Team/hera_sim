@@ -55,7 +55,7 @@ def diffuse_foreground(Tsky_mdl, lsts, fqs, bl_vec, bm_poly=noise.HERA_BEAM_POLY
     mdl *= noise.white_noise((len(lsts), len(fqs)))
 
     # fringe rate filter across time using projected East-West distance
-    mdl = utils.rough_fringe_filter(mdl, lsts, fqs, np.abs(bl_vec[0]), filter_type=fringe_filter_type, **fringe_filter_kwargs)
+    mdl = utils.rough_fringe_filter(mdl, lsts, fqs, bl_vec[0], filter_type=fringe_filter_type, **fringe_filter_kwargs)
 
     # delay filter across freq
     mdl = utils.rough_delay_filter(mdl, fqs, np.linalg.norm(bl_vec), standoff=standoff, filter_type=delay_filter_type, normalize=delay_filter_normalize)

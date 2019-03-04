@@ -83,7 +83,7 @@ class TestUtils(unittest.TestCase):
         data = noise.white_noise((len(lsts), len(fqs)))
         dfilt = utils.rough_fringe_filter(data, lsts, fqs, bl_len_ns, filter_type='gauss', fr_width=1e-4)
         dfft = np.mean(np.abs(np.fft.ifft(dfilt, axis=0)), axis=1)
-        nt.assert_true(np.isclose(dfft[150:-50], 0.0).all())
+        nt.assert_true(np.isclose(dfft[50:150], 0.0).all())
 
 
 def test_bl_vec():

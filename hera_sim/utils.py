@@ -134,14 +134,14 @@ def rough_delay_filter(data, fqs, bl_len_ns, standoff=0.0, filter_type='gauss', 
         filt_data (ndarray): filtered data array
     """
     # fft data across last axis
-    dfft = np.fft.ifft(data, axis=-1)
+    dfft = np.fft.fft(data, axis=-1)
 
     # get delay filter
     delay_filter = gen_delay_filter(fqs, bl_len_ns, standoff=standoff, filter_type=filter_type, min_delay=min_delay,
                                     max_delay=max_delay, normalize=normalize)
 
     # apply filtering and fft back
-    filt_data = np.fft.fft(dfft * delay_filter, axis=-1)
+    filt_data = np.fft.ifft(dfft * delay_filter, axis=-1)
 
     return filt_data
 
@@ -190,7 +190,7 @@ def gen_fringe_filter(lsts, fqs, ew_bl_len_ns, filter_type='tophat', **filter_kw
     elif filter_type == 'tophat':
         fr_max = np.repeat(calc_max_fringe_rate(fqs, ew_bl_len_ns)[None, :], len(lsts), axis=0)
         frates = np.repeat(frates[:, None], len(fqs), axis=1)
-        fringe_filter = np.where(np.abs(frates) < np.abs(fr_max), 1., 0)
+        fringe_filter = np.where(np.abs(frates) <= np.abs(fr_max), 1., 0)
     elif filter_type == 'gauss':
         assert 'fr_width' in filter_kwargs, "If filter_type=='gauss' must feed fr_width kwarg"
         fr_max = np.repeat(calc_max_fringe_rate(fqs, ew_bl_len_ns)[None, :], len(lsts), axis=0)
@@ -248,13 +248,13 @@ def rough_fringe_filter(data, lsts, fqs, ew_bl_len_ns, filter_type='tophat', **f
             fringe filter is identically one.
     """
     # fft data along zeroth axis
-    dfft = np.fft.ifft(data, axis=0)
+    dfft = np.fft.fft(data, axis=0)
 
     # get filter
     fringe_filter = gen_fringe_filter(lsts, fqs, ew_bl_len_ns, filter_type=filter_type, **filter_kwargs)
 
     # apply filter
-    filt_data = np.fft.fft(dfft * fringe_filter, axis=0)
+    filt_data = np.fft.ifft(dfft * fringe_filter, axis=0)
 
     return filt_data
 
