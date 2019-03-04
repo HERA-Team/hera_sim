@@ -152,7 +152,7 @@ def test_adding_vis_but_also_returning():
     vis = sim.add_eor("noiselike_eor", ret_vis=True)
 
     assert not np.all(np.isclose(vis, 0))
-    assert np.all(vis == sim.data.data_array)
+    np.testing.assert_array_almost_equal(vis, sim.data.data_array)
 
     vis = sim.add_foregrounds("diffuse_foreground", Tsky_mdl=HERA_Tsky_mdl['xx'], ret_vis=True)
-    assert np.all(vis == sim.data.data_array)
+    np.testing.assert_array_almost_equal(vis, sim.data.data_array)
