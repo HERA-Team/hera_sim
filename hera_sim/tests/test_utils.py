@@ -44,7 +44,7 @@ class TestUtils(unittest.TestCase):
         standoff = 0.0
 
         data = noise.white_noise((len(lsts), len(fqs)))
-        dfilt, df = utils.rough_delay_filter(data, fqs, bl_len_ns, standoff=standoff, filter_type='gauss')
+        dfilt = utils.rough_delay_filter(data, fqs, bl_len_ns, standoff=standoff, filter_type='gauss')
         dfft = np.mean(np.abs(np.fft.ifft(dfilt, axis=1)), axis=0)
         nt.assert_true(np.isclose(dfft[20:-20], 0.0).all())
 
@@ -81,7 +81,7 @@ class TestUtils(unittest.TestCase):
         fr_freqs = FRF['freqs'] / 1e9
 
         data = noise.white_noise((len(lsts), len(fqs)))
-        dfilt, ff = utils.rough_fringe_filter(data, lsts, fqs, bl_len_ns, filter_type='gauss', fr_width=1e-4)
+        dfilt = utils.rough_fringe_filter(data, lsts, fqs, bl_len_ns, filter_type='gauss', fr_width=1e-4)
         dfft = np.mean(np.abs(np.fft.ifft(dfilt, axis=0)), axis=1)
         nt.assert_true(np.isclose(dfft[150:-50], 0.0).all())
 
@@ -116,7 +116,7 @@ def test_delay_filter_norm():
     nreal = 5000
     for i in range(nreal):
         _noise = tsky * noise.white_noise(N)
-        outnoise, df = utils.rough_delay_filter(_noise, fqs, 30, normalize=1)
+        outnoise = utils.rough_delay_filter(_noise, fqs, 30, normalize=1)
 
         out += np.sum(np.abs(outnoise)**2)
 
