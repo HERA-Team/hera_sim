@@ -11,6 +11,7 @@ import warnings
 import numpy as np
 from cached_property import cached_property
 from pyuvdata import UVData
+from astropy import constants as const
 
 from . import io
 from . import sigchain
@@ -258,25 +259,21 @@ class Simulator:
 
         Args:
             model (str or callable): either a string name of a model function existing in :mod:`~hera_sim.eor`, or
-                a callable which has the signature ``fnc(lsts, fqs, bl_len_ns, **kwargs)``.
+                a callable which has the signature ``fnc(lsts, fqs, bl_vec, **kwargs)``.
             ret_vis (bool, optional): whether to return the visibilities that are being added to to the base
                 data as a new array. Default False.
             add_vis (bool, optional): whether to add the calculated visibilities to the underlying data array.
                 Default True.
-            **kwargs: keyword arguments sent to the EoR model function, other than `lsts`, `fqs` and `bl_len_ns`.
+            **kwargs: keyword arguments sent to the EoR model function, other than `lsts`, `fqs` and `bl_vec`.
         """
+        # frequencies come from zeroths spectral window
+        fqs = self.data.freq_array[0] * 1e-9
 
         for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols():
             lsts = self.data.lst_array[blt_ind]
-            bl_len_m = np.abs(self.antpos[ant1][0] - self.antpos[ant2][0])  # E-W baseline length
-
-            self.data.data_array[blt_ind, 0, :, pol_ind] += model(
-                lsts=lsts,
-                # Axis 0 is spectral windows, of which at this point there are always 1.
-                fqs=self.data.freq_array[0] * 1e-9,
-                bl_len_ns=bl_len_m * 1e9 / 3e8,
-                **kwargs
-            )
+            bl_vec = (self.antpos[ant1] - self.antpos[ant2]) * 1e9 / const.c.value
+            vis = model(lsts=lsts, fqs=fqs, bl_vec=bl_vec, **kwargs)
+            self.data.data_array[blt_ind, 0, :, pol_ind] += vis
 
     @_model()
     def add_foregrounds(self, model, **kwargs):
@@ -285,24 +282,21 @@ class Simulator:
 
         Args:
             model (str or callable): either a string name of a model function existing in :mod:`~hera_sim.foregrounds`,
-                or a callable which has the signature ``fnc(lsts, fqs, bl_len_ns, **kwargs)``.
+                or a callable which has the signature ``fnc(lsts, fqs, bl_vec, **kwargs)``.
             ret_vis (bool, optional): whether to return the visibilities that are being added to to the base
                 data as a new array. Default False.
             add_vis (bool, optional): whether to add the calculated visibilities to the underlying data array.
                 Default True.
-            **kwargs: keyword arguments sent to the foregournd model function, other than `lsts`, `fqs` and `bl_len_ns`.
+            **kwargs: keyword arguments sent to the foregournd model function, other than `lsts`, `fqs` and `bl_vec`.
         """
+        # frequencies come from zeroth spectral window
+        fqs = self.data.freq_array[0] * 1e-9
+
         for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols():
             lsts = self.data.lst_array[blt_ind]
-            bl_len_m = np.abs(self.antpos[ant1][0] - self.antpos[ant2][0])  # E-W baseline length
-
-            self.data.data_array[blt_ind, 0, :, pol_ind] += model(
-                lsts=lsts,
-                # Axis 0 is spectral windows, of which at this point there are always 1.
-                fqs=self.data.freq_array[0] * 1e-9,
-                bl_len_ns=bl_len_m * 1e9 / 3e8,
-                **kwargs
-            )
+            bl_vec = (self.antpos[ant1] - self.antpos[ant2]) * 1e9 / const.c.value
+            vis = model(lsts, fqs, bl_vec, **kwargs)
+            self.data.data_array[blt_ind, 0, :, pol_ind] += vis
 
     @_model()
     def add_noise(self, model, **kwargs):
