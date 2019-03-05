@@ -115,7 +115,7 @@ def test_wrong_func():
     sim.add_eor("noiselike_EOR")  # wrong function name
 
 
-@raises(AssertionError)
+@raises(TypeError)
 def test_wrong_arguments():
     sim = create_sim()
     sim.add_foregrounds(diffuse_foreground, what=HERA_Tsky_mdl['xx'])

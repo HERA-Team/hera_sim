@@ -60,7 +60,7 @@ class TestSigchainReflections(unittest.TestCase):
         Tsky = Tsky_mdl(lsts, fqs)
         bl_vec = np.array([50.0, 0, 0])
         # + 20 is to boost k=0 mode
-        vis = foregrounds.diffuse_foreground(Tsky_mdl, lsts, fqs, bl_vec, delay_filter_type='gauss') + 20
+        vis = foregrounds.diffuse_foreground(lsts, fqs, bl_vec, Tsky_mdl=Tsky_mdl, delay_filter_type='gauss') + 20
 
         self.freqs = fqs
         self.lsts = lsts

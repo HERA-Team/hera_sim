@@ -289,21 +289,13 @@ class Simulator:
                 Default True.
             **kwargs: keyword arguments sent to the foregournd model function, other than `lsts`, `fqs` and `bl_vec`.
         """
-        # frequencies come from zeroths spectral window
+        # frequencies come from zeroth spectral window
         fqs = self.data.freq_array[0] * 1e-9
-
-        # prep kwargs
-        if model.__name__ == 'diffuse_foreground':
-            assert 'Tsky_mdl' in kwargs, "Tsky_mdl must be fed as kwarg"
-            Tsky_mdl = kwargs.pop("Tsky_mdl")
 
         for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols():
             lsts = self.data.lst_array[blt_ind]
             bl_vec = (self.antpos[ant1] - self.antpos[ant2]) * 1e9 / const.c.value
-            if model.__name__ == 'diffuse_foreground':
-                vis = model(Tsky_mdl, lsts, fqs, bl_vec, **kwargs)
-            else:
-                vis = model(lsts, fqs, bl_vec, **kwargs)
+            vis = model(lsts, fqs, bl_vec, **kwargs)
             self.data.data_array[blt_ind, 0, :, pol_ind] += vis
 
     @_model()
