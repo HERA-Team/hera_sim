@@ -139,6 +139,7 @@ class Simulator:
     def __init__(
             self,
             data_filename=None,
+            data = None,
             refresh_data=False,
             n_freq=None,
             n_times=None,
@@ -150,7 +151,10 @@ class Simulator:
 
         Args:
             data_filename (str, optional): filename of data to be read, in ``pyuvdata``-compatible format. If not
-                given, an empty :class:`pyuvdata.UVdata` object will be created from scratch.
+                given, an empty :class:`pyuvdata.UVdata` object will be created from scratch. *Deprecated since
+                v0.0.1, will be removed in v0.1.0. Use `data` instead*.
+            data (str or :class:`UVData`): either a string pointing to data to be read (i.e. the same as
+                `data_filename`), or a UVData object.
             refresh_data (bool, optional): if reading data from file, this can be used to manually set the data to zero,
                 and remove flags. This is useful for using an existing file as a template, but not using its data.
             n_freq (int, optional): if `data_filename` not given, this is required and sets the number of frequency
@@ -173,16 +177,16 @@ class Simulator:
 
         self.data_filename = data_filename
 
-        if self.data_filename is None:
+        if self.data_filename is None and data is None:
             # Create an empty UVData object.
 
             # Ensure required parameters have been set.
             if n_freq is None:
-                raise ValueError("if data_filename not given, n_freq must be given")
+                raise ValueError("if data_filename and data not given, n_freq must be given")
             if n_times is None:
-                raise ValueError("if data_filename not given, n_times must be given")
+                raise ValueError("if data_filename and data not given, n_times must be given")
             if antennas is None:
-                raise ValueError("if data_filename not given, antennas must be given")
+                raise ValueError("if data_filename and data not given, antennas must be given")
 
             # Actually create it
             self.data = io.empty_uvdata(
@@ -193,14 +197,20 @@ class Simulator:
             )
 
         else:
-            # Read data from file.
-            self.data = self._read_data(self.data_filename, **kwargs)
+            if type(data) == str:
+                self.data_filename = data
 
-            # Reset data to zero if user desires.
-            if refresh_data:
-                self.data.data_array[:] = 0.0
-                self.data.flag_array[:] = False
-                self.data.nsample_array[:] = 1.0
+            if self.data_filename is not None:
+                # Read data from file.
+                self.data = self._read_data(self.data_filename, **kwargs)
+
+                # Reset data to zero if user desires.
+                if refresh_data:
+                    self.data.data_array[:] = 0.0
+                    self.data.flag_array[:] = False
+                    self.data.nsample_array[:] = 1.0
+            elif self.data is not None:
+                self.data = data
 
         # Check if the created/read data is compatible with the assumptions of
         # this class.
