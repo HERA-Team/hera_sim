@@ -36,7 +36,7 @@ class VisCPU(VisibilitySimulator):
         # Convert some of our arguments to forms more simple for vis_cpu
         self.antpos = self.antpos.astype(self._real_dtype)
 
-    def get_beam_lm(self):
+    def get_beam_lm(self, freq):
         """
         Obtain the beam pattern in (l,m) co-ordinates for each beam.
 
@@ -58,9 +58,13 @@ class VisCPU(VisibilitySimulator):
             for i in range(self.n_ant)
         ])
 
+    @property
+    def lsts(self):
+        return np.unique(self.uvdata.lst_array)
+
     def get_crd_eq(self):
         """Calculate the equatorial co-ordinates of the healpix sky pixels."""
-        return conversions.healpix_to_crd_eq(self.sky_intensity).astype(self._real_dtype)
+        return conversions.healpix_to_crd_eq(self.sky_intensity[0]).astype(self._real_dtype)
 
     def get_eq2tops(self):
         """
@@ -72,26 +76,32 @@ class VisCPU(VisibilitySimulator):
             (self.latitude * np.ones_like(self.lsts)).astype(self._real_dtype)
         ).astype(self._real_dtype)
 
-    def simulate(self):
+    def _simulate(self):
         """
         Runs the cpu_vis algorithm.
-
-        Returns:
-            array_like, shape(NTIMES, NANTS, NANTS): visibilities
 
         Notes:
             This routine does not support negative intensity values on the sky.
         """
-        return vis_cpu(
-            antpos=self.antpos.astype(self._real_dtype),
-            freq=self.freq,
-            eq2tops=self.get_eq2tops(),
-            crd_eq=self.get_crd_eq(),
-            I_sky=self.sky_intensity,
-            bm_cube=self.get_beam_lm(),
-            real_dtype=self._real_dtype,
-            complex_dtype=self._complex_dtype
-        )
+        eq2tops = self.get_eq2tops()
+        crd_eq = self.get_crd_eq()
+
+        for i, freq in enumerate(self.uvdata.freq_array):
+            vis = vis_cpu(
+                antpos=self.antpos.astype(self._real_dtype),
+                freq=freq,
+                eq2tops=eq2tops,
+                crd_eq=crd_eq,
+                I_sky=self.sky_intensity[i],
+                bm_cube=self.get_beam_lm(),
+                real_dtype=self._real_dtype,
+                complex_dtype=self._complex_dtype
+            )
+
+            self.uvdata.data_array[:, 0, i, 0] = vis.flatten()
+
+
+
 
 
 def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube, real_dtype=np.float32,

@@ -12,3 +12,4 @@ from .conversions import *
 
 # Registered Simulators
 from .vis_cpu import VisCPU
+from .healvis_wrapper import HealVis
