@@ -175,6 +175,9 @@ class Simulator:
 
         """
 
+        if data_filename is not None:
+            warnings.warn("`data_filename` is deprecated, please use `data` instead", DeprecationWarning)
+            
         self.data_filename = data_filename
 
         if self.data_filename is None and data is None:
