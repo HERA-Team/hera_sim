@@ -17,9 +17,8 @@ When `reporting a bug <https://github.com/HERA-Team/hera_sim/issues>`_ please in
 Documentation improvements
 ==========================
 
-`hera_sim` could always use more documentation, whether as part of the
-official py21cmmc docs, in docstrings, or even on the web in blog posts,
-articles, and such.
+``hera_sim`` could always use more documentation, whether as part of the
+official ``hera_sim`` docs or in docstrings.
 
 Feature requests and feedback
 =============================
