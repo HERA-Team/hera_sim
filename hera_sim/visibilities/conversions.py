@@ -39,6 +39,43 @@ def beam_healpix_to_lm(hmap, n_pix_lm=63, nest=False):
 
     return bm
 
+def lm_to_azza(l,m):
+
+def uvbeam_to_lm(uvbeam, n_pix_lm=63, nest=False):
+    """
+    Convert a beam contained in a healpix map to (l,m) co-ordinates,
+    assuming the zenith is where???
+
+    Args:
+        hmap (1D array): array representing a healpix map.
+            Must have length 12*N^2 for some N.
+        n_pix_lm (int): number of pixels on a size for the beam map cube.
+        nest (bool): whether the healpix scheme is NEST (default is RING).
+
+    Returns:
+        ndarray, shape[beam_px, beam_px]: the beam map cube.
+    """
+
+    l = np.linspace(-1, 1, n_pix_lm, dtype=np.float32)
+    l, m = np.meshgrid(l, l)
+    l = l.flatten()
+    m = m.flatten()
+
+    az, za = lm_to_azza(l,m)
+
+    lsqr = l ** 2 + m ** 2
+    n = np.where(lsqr < 1, np.sqrt(1 - lsqr), -1)
+
+    hp_pix = healpy.vec2pix(healpy.get_nside(hmap), l, m, n, nest=nest)
+
+    bm = np.where(n > 0, hmap[hp_pix], 0)
+    bm = np.reshape(bm, (n_pix_lm, n_pix_lm))
+
+    if np.max(hmap) > 0:
+        bm /= np.max(hmap)
+
+    return bm
+
 
 def eq2top_m(ha, dec):
     """
