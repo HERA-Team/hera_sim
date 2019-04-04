@@ -1,31 +1,125 @@
+"""
+``vis_cpu`` visibility simulator.
+
+This is a fast, simple visibility simulator that
+"""
 import numpy as np
-from hera_sim import noise
 from scipy.interpolate import RectBivariateSpline
-from copy import deepcopy
 
-DEFAULT_LSTS = np.linspace(0, 2 * np.pi, 10000, endpoint=False)
-DEFAULT_FQS = np.linspace(0.1, 0.2, 1024, endpoint=False)
+from . import conversions
+from .simulators import VisibilitySimulator
 
 
-def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube, real_dtype=np.float32, complex_dtype=np.complex64):
+class VisCPU(VisibilitySimulator):
+    _point_source_ability = False
+
+    def __init__(self, bm_pix=100, real_dtype=np.float32,
+                 complex_dtype=np.complex64, **kwargs):
+        """
+        Fast visibility simulator on the CPU.
+
+        Args:
+            bm_pix (int, optional): the number of pixels along a side in the
+                beam map when converted to (l,m).
+            real_dtype: a valid numpy dtype
+            complex_dtype: a valid numpy dtype
+            **kwargs:
+                All arguments of :class:`VisibilitySimulator`.
+
+        """
+        self._real_dtype = real_dtype
+        self._complex_dtype = complex_dtype
+        self.bm_pix = bm_pix
+
+        super(VisCPU, self).__init__(**kwargs)
+
+        # Convert some of our arguments to forms more simple for vis_cpu
+        self.antpos = self.antpos.astype(self._real_dtype)
+
+    def get_beam_lm(self):
+        """
+        Obtain the beam pattern in (l,m) co-ordinates for each beam.
+
+        Returns:
+              3D array, shape[NANT, BM_PIX, BM_PIX]: the beam pattern in (l,m)
+                  for each antenna.
+
+        Note:
+            Due to using the verbatim :func:`vis_cpu` function, the beam cube
+            must have an entry for each antenna, which is a bit of a waste of
+            memory in some cases. If this is changed in the future, this
+            method can be modified to only return one matrix for each beam.
+
+        """
+        return np.array([
+            conversions.beam_healpix_to_lm(
+                self.beams[self.beam_ids[i]], self.bm_pix
+            ) if self.beam_ids[i] >= 0 else np.ones((self.bm_pix, self.bm_pix))
+            for i in range(self.n_ant)
+        ])
+
+    def get_crd_eq(self):
+        """Calculate the equatorial co-ordinates of the healpix sky pixels."""
+        return conversions.healpix_to_crd_eq(self.sky_intensity).astype(self._real_dtype)
+
+    def get_eq2tops(self):
+        """
+        Calculate the set of 3x3 transformation matrices converting equatorial
+        coords to topocentric at each LST.
+        """
+        return conversions.eq2top_m(
+            self.lsts.astype(self._real_dtype),
+            (self.latitude * np.ones_like(self.lsts)).astype(self._real_dtype)
+        ).astype(self._real_dtype)
+
+    def simulate(self):
+        """
+        Runs the cpu_vis algorithm.
+
+        Returns:
+            array_like, shape(NTIMES, NANTS, NANTS): visibilities
+
+        Notes:
+            This routine does not support negative intensity values on the sky.
+        """
+        return vis_cpu(
+            antpos=self.antpos.astype(self._real_dtype),
+            freq=self.freq,
+            eq2tops=self.get_eq2tops(),
+            crd_eq=self.get_crd_eq(),
+            I_sky=self.sky_intensity,
+            bm_cube=self.get_beam_lm(),
+            real_dtype=self._real_dtype,
+            complex_dtype=self._complex_dtype
+        )
+
+
+def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube, real_dtype=np.float32,
+            complex_dtype=np.complex64):
     """
     Calculate visibility from an input intensity map and beam model.
-    
+
+    Provided as a standalone function
+
     Args:
         antpos (array_like, shape: (NANT, 3)): antenna position array.
         freq (float): frequency to evaluate the visibilities at [GHz].
-        eq2tops (array_like, shape: (NTIMES, 3, 3)): Set of 3x3 transformation matrices converting equatorial
-            coordinates to topocentric at each hour angle (and declination) in the dataset.
-        crd_eq (array_like, shape: (3, NPIX)): equatorial coordinates of Healpix pixels.
-        I_sky (array_like, shape: (NPIX,)): intensity distribution on the sky, stored as array of Healpix pixels.
-        bm_cube (array_like, shape: (NANT, BM_PIX, BM_PIX)): beam maps for each antenna.
-        real_dtype, complex_dtype (dtype, optional): data type to use for real and complex-valued arrays.
-    
+        eq2tops (array_like, shape: (NTIMES, 3, 3)): Set of 3x3 transformation
+            matrices converting equatorial coordinates to topocentric at each
+            hour angle (and declination) in the dataset.
+        crd_eq (array_like, shape: (3, NPIX)):
+            equatorial coordinates of Healpix pixels.
+        I_sky (array_like, shape: (NPIX,)): intensity distribution on the sky,
+            stored as array of Healpix pixels.
+        bm_cube (array_like, shape: (NANT, BM_PIX, BM_PIX)):
+            beam maps for each antenna.
+        real_dtype (dtype, optional):
+            data type to use for real-valued arrays.
+        complex_dtype (dtype, optional):
+            data type to use for complex-valued arrays.
+
     Returns:
         array_like, shape(NTIMES, NANTS, NANTS): visibilities
-
-    Notes:
-        This routine does not support negative intensity values on the sky.
     """
     nant, ncrd = antpos.shape
     assert ncrd == 3, "antpos must have shape (NANTS, 3)"
@@ -44,7 +138,7 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube, real_dtype=np.float32
     # Intensity distribution (sqrt) and antenna positions
     Isqrt = np.sqrt(I_sky).astype(real_dtype)  # XXX does not support negative sky
     antpos = antpos.astype(real_dtype)
-    ang_freq = 2 * np.pi
+    ang_freq = 2 * np.pi * freq
 
     # Empty arrays: beam pattern, visibilities, delays, complex voltages
     A_s = np.empty((nant, npix), dtype=real_dtype)
@@ -74,61 +168,13 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube, real_dtype=np.float32
 
         # Compute visibilities (upper triangle only)
         for i in range(len(antpos)):
-            np.dot(v[i : i + 1].conj(), v[i:].T, out=vis[t, i : i + 1, i:])
+            np.dot(v[i: i + 1].conj(), v[i:].T, out=vis[t, i: i + 1, i:])
 
     # Conjugate visibilities
     np.conj(vis, out=vis)
 
     # Fill in whole visibility matrix from upper triangle
     for i in range(nant):
-        vis[:, i + 1 :, i] = vis[:, i, i + 1 :].conj()
+        vis[:, i + 1:, i] = vis[:, i, i + 1:].conj()
 
     return vis
-
-
-def hmap_to_bm_cube(hmaps, beam_px=63):
-    """
-    Convert healpix map to beam map cube.
-
-    Args:
-        hmaps (list of 3D arrays): healpix maps for each antenna.
-        beam_px (int): number of pixels on a size for the beam map cube.
-
-    Returns:
-        ndarray, shape[nant, beam_px, beam_px]: the beam map cube.
-    """
-    nant = len(hmaps)
-    bm_cube = np.empty((nant, beam_px, beam_px), dtype=np.float32)
-    # X is 3rd dim, Y is 2nd dim
-    tx = np.linspace(-1, 1, beam_px, dtype=np.float32)
-    tx = np.resize(tx, (beam_px, beam_px))
-    ty = tx.T.copy()
-    tx = tx.flatten()
-    ty = ty.flatten()
-    txty_sqr = tx ** 2 + ty ** 2
-    tz = np.where(txty_sqr < 1, np.sqrt(1 - txty_sqr), -1)
-    for i, hi in enumerate(hmaps):
-        bmi = np.where(tz > 0, hi[tx, ty, tz], 0) / np.max(hi.map)
-        bm_cube[i] = np.reshape(bmi, (beam_px, beam_px))
-    return bm_cube
-
-
-def aa_to_eq2tops(aa, jds):
-    # TODO: docs
-    eq2tops = np.empty((len(jds), 3, 3), dtype=np.float32)
-    for i, jd in enumerate(jds):
-        aa.set_jultime(jd)
-        eq2tops[i] = aa.eq2top_m
-    return eq2tops
-
-
-def hmap_to_crd_eq(h):
-    # TODO: docs
-    px = np.arange(h.npix())
-    crd_eq = np.array(h.px2crd(px, 3), dtype=np.float32)
-    return crd_eq
-
-
-def hmap_to_I(h):
-    # TODO: docs
-    return h[np.arange(h.npix())].astype(np.float32)

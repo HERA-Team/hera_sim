@@ -7,5 +7,8 @@ temperature fields, rectilinear co-ordinates, spherical co-ordinates, healpix
 maps etc. This package intends to unify the interfaces of these various kinds
 of simulators.
 """
-from .simulators import *
+from .simulators import VisibilitySimulator
 from .conversions import *
+
+# Registered Simulators
+from .vis_cpu import VisCPU
