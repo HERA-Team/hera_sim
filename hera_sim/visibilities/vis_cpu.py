@@ -34,9 +34,28 @@ class VisCPU(VisibilitySimulator):
         super(VisCPU, self).__init__(**kwargs)
 
         # Convert some of our arguments to forms more simple for vis_cpu
-        self.antpos = self.antpos.astype(self._real_dtype)
+        self.antpos = self.uvdata.get_ENU_antpos()[0].astype(self._real_dtype)
+        self.freqs = self.uvdata.freq_array[0]
 
-    def get_beam_lm(self, freq):
+    @property
+    def lsts(self):
+        try:
+            return self.__lsts
+        except AttributeError:
+            self.__lsts = np.unique(self.uvdata.lst_array)
+            return self.__lsts
+
+    def validate(self):
+        super(VisCPU, self).validate()
+
+        # This one in particular requires that every baseline is used!
+        if len(self.uvdata.get_antpairs()) != len(self.uvdata.antenna_numbers)**2:
+            raise ValueError("VisCPU requires using every pair of antennas, but the UVData object does not comply")
+
+        if len(self.uvdata.data_array) != len(self.uvdata.get_antpairs()) * len(self.lsts):
+            raise ValueError("VisCPU requires that every baseline uses the same LSTS")
+
+    def get_beam_lm(self):
         """
         Obtain the beam pattern in (l,m) co-ordinates for each beam.
 
@@ -52,15 +71,10 @@ class VisCPU(VisibilitySimulator):
 
         """
         return np.array([
-            conversions.beam_healpix_to_lm(
-                self.beams[self.beam_ids[i]], self.bm_pix
-            ) if self.beam_ids[i] >= 0 else np.ones((self.bm_pix, self.bm_pix))
-            for i in range(self.n_ant)
+            conversions.uvbeam_to_lm(
+                self.beams[self.beam_ids[i]], self.freqs, self.bm_pix
+            ) for i in range(self.n_ant)
         ])
-
-    @property
-    def lsts(self):
-        return np.unique(self.uvdata.lst_array)
 
     def get_crd_eq(self):
         """Calculate the equatorial co-ordinates of the healpix sky pixels."""
@@ -71,9 +85,11 @@ class VisCPU(VisibilitySimulator):
         Calculate the set of 3x3 transformation matrices converting equatorial
         coords to topocentric at each LST.
         """
+        latitude = self.uvdata.telescope_location_lat_lon_alt[0]
+
         return conversions.eq2top_m(
             self.lsts.astype(self._real_dtype),
-            (self.latitude * np.ones_like(self.lsts)).astype(self._real_dtype)
+            (latitude * np.ones_like(self.lsts)).astype(self._real_dtype)
         ).astype(self._real_dtype)
 
     def _simulate(self):
@@ -85,23 +101,23 @@ class VisCPU(VisibilitySimulator):
         """
         eq2tops = self.get_eq2tops()
         crd_eq = self.get_crd_eq()
+        beam_lm = self.get_beam_lm()
 
-        for i, freq in enumerate(self.uvdata.freq_array):
+        for i, freq in enumerate(self.freqs):
             vis = vis_cpu(
-                antpos=self.antpos.astype(self._real_dtype),
+                antpos=self.antpos,
                 freq=freq,
                 eq2tops=eq2tops,
                 crd_eq=crd_eq,
                 I_sky=self.sky_intensity[i],
-                bm_cube=self.get_beam_lm(),
+                bm_cube=beam_lm[:, i],
                 real_dtype=self._real_dtype,
                 complex_dtype=self._complex_dtype
             )
 
-            self.uvdata.data_array[:, 0, i, 0] = vis.flatten()
+            self.uvdata.data_array[:, 0, i, 0] += vis.flatten()
 
-
-
+        return self.uvdata.data_array[:, 0, :, 0]
 
 
 def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube, real_dtype=np.float32,

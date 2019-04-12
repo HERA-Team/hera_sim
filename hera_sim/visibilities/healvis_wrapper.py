@@ -66,3 +66,5 @@ class HealVis(VisibilitySimulator):
 
         # Add the visibility to the uvdata object
         self.uvdata.data_array += visibility[:, 0][:, np.newaxis, :, :]
+
+        return visibility
