@@ -109,11 +109,12 @@ class VisibilitySimulator(object):
         if self.sky_intensity is not None and self.sky_intensity.ndim != 2:
             raise ValueError("sky_intensity must be a 2D array (a healpix map per frequency)")
 
-        if not self._point_source_ability and self.point_sources is not None:
+        if not self._point_source_ability and self.point_source_pos is not None:
             warnings.warn("This visibility simulator is unable to explicitly "
                           "simulate point sources. Adding point sources to "
                           "diffuse pixels")
-            if self.sky_intensity is None: self.sky_intensity = np.zeros(healpy.nside2npix(self.nside))
+            if self.sky_intensity is None:
+                self.sky_intensity = 0
             self.sky_intensity += self.convert_point_sources_to_healpix(
                 self.point_sources, self.nside
             )
@@ -122,26 +123,29 @@ class VisibilitySimulator(object):
             warnings.warn("This visibility simulator is unable to explicitly "
                           "simulate diffuse structure. Converting diffuse "
                           "intensity to approximate points")
-            if self.point_sources is None: self.point_sources = 0
-            self.point_sources += self.convert_healpix_to_point_sources(self.sky_intensity)
+            if self.point_sources is None:
+                self.point_source_pos = 0
+                self.point_source_flux = 0
+
+            pos, flux = self.convert_healpix_to_point_sources(self.sky_intensity)
 
     @staticmethod
-    def convert_point_sources_to_healpix(point_sources, nside=40):
+    def convert_point_sources_to_healpix(point_source_pos, point_source_flux, nside=40):
         """
         Convert a set of point sources to an approximate diffuse healpix model.
 
         The healpix map returned is in RING scheme.
 
         Returns:
-            1D array: the healpix diffuse model.
+            2D array, shape=[NFREQ, NPIX]: the healpix diffuse model.
         """
 
-        hmap = np.zeros(healpy.nside2npix(nside))
+        hmap = np.zeros((len(point_source_flux), healpy.nside2npix(nside)))
 
         # Get which pixel every point source lies in.
-        pix = healpy.ang2pix(nside, point_sources[:, 0], point_sources[:, 1])
+        pix = healpy.ang2pix(nside, point_source_pos[:, 0], point_source_pos[:, 1])
 
-        hmap[pix] += point_sources[:, 2] / healpy.nside2pixarea(nside)
+        hmap[:, pix] += point_source_flux / healpy.nside2pixarea(nside)
 
         return hmap
 
@@ -152,15 +156,15 @@ class VisibilitySimulator(object):
         of each pixel.
 
         Args:
-            hmap (1D array):
+            hmap (2D array, shape[NFREQ, NPIX]):
                 The healpix map.
         Returns:
             2D array: the point sources
         """
-        nside = healpy.get_nside(hmap)
-        ra, dec = healpy.pix2ang(nside, np.arange(len(hmap)))
+        nside = healpy.get_nside(hmap[0])
+        ra, dec = healpy.pix2ang(nside, np.arange(len(hmap[0])))
         flux = hmap * healpy.nside2pixarea(nside)
-        return np.array([ra, dec, flux])
+        return np.array([ra, dec]).T, flux
 
     def simulate(self):
         """Perform the visibility simulation"""

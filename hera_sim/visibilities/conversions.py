@@ -39,21 +39,22 @@ def beam_healpix_to_lm(hmap, n_pix_lm=63, nest=False):
 
     return bm
 
-def lm_to_azza(l,m):
 
-def uvbeam_to_lm(uvbeam, n_pix_lm=63, nest=False):
+def lm_to_azza(l,m):
+    return np.arcsin(np.sqrt(l**2 + m**2)), np.arctan2(l, m)
+
+
+def uvbeam_to_lm(uvbeam, freqs, n_pix_lm=63, **kwargs):
     """
-    Convert a beam contained in a healpix map to (l,m) co-ordinates,
-    assuming the zenith is where???
+    Convert a UVbeam to a uniform (l,m) grid
 
     Args:
-        hmap (1D array): array representing a healpix map.
-            Must have length 12*N^2 for some N.
-        n_pix_lm (int): number of pixels on a size for the beam map cube.
-        nest (bool): whether the healpix scheme is NEST (default is RING).
+        uvbeam (UVBeam): a UVBeam object
+        freqs (1D array, shape=(NFREQS,)): frequencies to interpolate to [Hz]
+        n_pix_lm (int, optional): number of pixels on a side for the beam grid.
 
     Returns:
-        ndarray, shape[beam_px, beam_px]: the beam map cube.
+        ndarray, shape[nfreq, beam_px, beam_px]: the beam map cube.
     """
 
     l = np.linspace(-1, 1, n_pix_lm, dtype=np.float32)
@@ -61,20 +62,22 @@ def uvbeam_to_lm(uvbeam, n_pix_lm=63, nest=False):
     l = l.flatten()
     m = m.flatten()
 
-    az, za = lm_to_azza(l,m)
-
     lsqr = l ** 2 + m ** 2
     n = np.where(lsqr < 1, np.sqrt(1 - lsqr), -1)
 
-    hp_pix = healpy.vec2pix(healpy.get_nside(hmap), l, m, n, nest=nest)
+    az, za = lm_to_azza(l[n >= 0],m[n >= 0])
 
-    bm = np.where(n > 0, hmap[hp_pix], 0)
-    bm = np.reshape(bm, (n_pix_lm, n_pix_lm))
+    res = uvbeam.interp(az, za, freqs, **kwargs)[0]
 
-    if np.max(hmap) > 0:
-        bm /= np.max(hmap)
+    # Get the relevant indices of res
+    bm = np.zeros((len(freqs), len(l)))
 
-    return bm
+    bm[:, n >= 0] = res[0, 0, 0]
+
+    if np.max(bm) > 0:
+        bm /= np.max(bm)
+
+    return bm.reshape((len(freqs), n_pix_lm, n_pix_lm))
 
 
 def eq2top_m(ha, dec):
