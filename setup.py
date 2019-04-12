@@ -19,6 +19,7 @@ else:
     with open(os.path.join("hera_sim", "GIT_INFO"), "w", encoding='utf8') as outfile:
         json.dump(data, outfile)
 
+
 def package_files(package_dir, subdirectory):
     # walk the input package_dir/subdirectory
     # return a package_data list
@@ -42,9 +43,7 @@ setup_args = {
     "package_dir": {"hera_sim": "hera_sim"},
     "packages": ["hera_sim"],
     "include_package_data": True,
-    #'install_requires': ['numpy>=1.14', 'aipy', 'hera_cal', 'pyuvdata'],
-    #'scripts': ['scripts/firstcal_run.py', 'scripts/omni_apply.py',
-    #            'scripts/omni_run.py', 'scripts/extract_hh.py'],
+    "install_requires": ['numpy>=1.14', 'scipy', 'cached_property', 'pyuvsim', 'pyuvdata', 'aipy'],
     "version": version.version,
     "package_data": {"hera_sim": data_files},
     "zip_safe": False,

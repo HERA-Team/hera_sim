@@ -5,15 +5,29 @@
 -------------------------------------
 
 Basic simulation package for HERA-like redundant interferometric 
-arrays. Requires:
- * `numpy`
- * `scipy`
- * `aipy`
- * `hera_cal`
- * `pyuvdata`
+arrays. 
 
 For a tutorial and overview of available features, check out the 
 Jupyter notebook: `docs/tutorials/hera_sim tour.ipynb`.
+
+Installation
+------------
+Before installing anything, you *must* manually install ``aipy`` using conda:
+
+```
+$ conda install -c conda-forge aipy
+```
+
+However, ``hera_sim`` depends on several packages which are conda-installable,
+and if you are using ``conda``, you may wish to install them using conda 
+instead of letting pip install them upon installation:
+
+``$ conda install -c conda-forge numpy scipy pyuvdata aipy``
+
+Then to install this repo, either download and run ``pip install -e .`` or
+run 
+
+``pip install git+git://github.com/HERA-Team/hera_sim``.
 
 Documentation
 -------------
