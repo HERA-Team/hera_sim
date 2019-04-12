@@ -49,7 +49,7 @@ class RfiStation:
         assert rfi.shape == (lsts.size, fqs.size)
         try:
             ch1 = np.argwhere(np.abs(fqs - self.fq0) < sdf)[0, 0]
-        except (IndexError):
+        except IndexError:
             return rfi
         if self.fq0 > fqs[ch1]:
             ch2 = ch1 + 1
@@ -189,4 +189,59 @@ def rfi_scatter(fqs, lsts, rfi=None, chance=0.0001, strength=10, std=10):
     rfi.flat[rfis] += np.random.normal(strength, std) * np.exp(
         1j * np.random.uniform(size=rfis.size)
     )
+    return rfi
+
+
+def rfi_dtv(fqs, lsts, rfi=None, freq_min=.174, freq_max=.214, width=0.008,
+            chance=0.0001, strength=10, strength_std=10):
+    """
+    Generate an (NTIMES, NFREQS) waterfall containing Digital TV RFI.
+
+    DTV RFI is expected to be of uniform bandwidth (eg. 8MHz), in contiguous
+    bands, in a nominal frequency range. Furthermore, it is expected to be
+    short-duration, and so is implemented as randomly affecting discrete LSTS.
+
+    There may be evidence that close times are correlated in having DTV RFI,
+    and this is *not currently implemented*.
+
+    Args:
+        fqs (array-like): shape=(NFREQS,), GHz
+            the spectral frequencies of the waterfall to be generated.
+        lsts (array-like): shape=(NTIMES,), radians
+            local sidereal times of the waterfall to be generated.
+        rfi (array-like): shape=(NTIMES,NFREQS), default=None
+            an array to which the RFI will be added.  If None, a new array
+            is generated.
+        freq_min, freq_max (float):
+            the min and max frequencies of the full DTV band [GHz]
+        width (float):
+            Width of individual DTV bands [GHz]
+        chance (float): default=0.0001
+            the probability that a time/freq bin will be assigned an RFI impulse
+        strength (float): Jy, default=10
+            the average amplitude of the spike generated in each time/freq bin
+        strength_std (float): Jy, default = 10
+            the standard deviation of the amplitudes drawn for each time/freq bin
+    Returns:
+        rfi (array-like): shape=(NTIMES,NFREQS)
+            a waterfall containing RFI
+    """
+    if rfi is None:
+        rfi = np.zeros((lsts.size, fqs.size), dtype=np.complex)
+    assert rfi.shape == (lsts.size, fqs.size)
+
+    bands = np.arange(freq_min, freq_max, width) # lower freq of each potential DTV band
+
+    delta_f = fqs[1] - fqs[0]
+
+    for band in bands:
+        fq_ind_min = np.argwhere(band >= fqs)[0][0]
+        fq_ind_max = fq_ind_min + int(width/delta_f)
+        this_rfi = rfi[:, fq_ind_min:fq_ind_max]
+
+        rfis = np.where(np.random.uniform(size=this_rfi) <= chance)[0]
+        this_rfi.flat[rfis] += np.random.normal(strength, strength_std, size=rfis.size)*np.exp(
+            1j*np.random.uniform(size=rfis.size)
+        )
+
     return rfi
