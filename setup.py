@@ -2,7 +2,10 @@ from setuptools import setup
 import glob
 import os
 import sys
-from hera_sim import version
+
+sys.path.append("hera_sim")
+import version
+
 import json
 
 data = [
