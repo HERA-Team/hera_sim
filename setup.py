@@ -3,6 +3,8 @@ import glob
 import os
 import sys
 
+# Import version this way so as not to import the entire hera_sim package.
+# Importing all of hera_sim creates problems when requirements aren't installed.
 sys.path.append("hera_sim")
 import version
 
