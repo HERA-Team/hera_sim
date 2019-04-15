@@ -240,13 +240,31 @@ def rfi_dtv(fqs, lsts, rfi=None, freq_min=.174, freq_max=.214, width=0.008,
 
     delta_f = fqs[1] - fqs[0]
 
-    for band in bands:
+    chance = list(change)
+    strength_std = list(strength_std)
+    strength = list(strength)
+
+    if len(chance) == 1:
+        chance *= len(bands)
+    if len(strength) == 1:
+        strength *= len(bands)
+    if len(strength_std) == 1:
+        strength_std *= len(bands)
+
+    if len(chance) != len(bands):
+        raise ValueError("chance must be float or list with len equal to number of bands")
+    if len(strength) != len(bands):
+        raise ValueError("strength must be float or list with len equal to number of bands")
+    if len(strength_std) != len(bands):
+        raise ValueError("strength_std must be float or list with len equal to number of bands")
+
+    for band, chnc, strngth, str_std in zip(bands, chance, strength, strength_std):
         fq_ind_min = np.argwhere(band >= fqs)[0][0]
         fq_ind_max = fq_ind_min + int(width / delta_f)
         this_rfi = rfi[:, fq_ind_min:fq_ind_max]
 
-        rfis = np.where(np.random.uniform(size=this_rfi) <= chance)[0]
-        this_rfi.flat[rfis] += np.random.normal(strength, strength_std, size=rfis.size) * np.exp(
+        rfis = np.where(np.random.uniform(size=this_rfi) <= chnc)[0]
+        this_rfi.flat[rfis] += np.random.normal(strngth, str_std, size=rfis.size) * np.exp(
             2 * np.pi * 1j * np.random.uniform(size=rfis.size)
         )
 
