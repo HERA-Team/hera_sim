@@ -263,9 +263,9 @@ def rfi_dtv(fqs, lsts, rfi=None, freq_min=.174, freq_max=.214, width=0.008,
         fq_ind_max = fq_ind_min + int(width / delta_f)
         this_rfi = rfi[:, fq_ind_min:fq_ind_max]
 
-        rfis = np.where(np.random.uniform(size=this_rfi) <= chnc)[0]
-        this_rfi.flat[rfis] += np.random.normal(strngth, str_std, size=rfis.size) * np.exp(
-            2 * np.pi * 1j * np.random.uniform(size=rfis.size)
+        rfis = np.random.uniform(size=lsts.size) <= chnc
+        this_rfi.flat[rfis] += np.random.normal(strngth, str_std, size=np.sum(rfis)) * np.exp(
+            2 * np.pi * 1j * np.random.uniform(size=np.sum(rfis))
         )
 
     return rfi
