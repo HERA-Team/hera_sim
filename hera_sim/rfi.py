@@ -228,7 +228,7 @@ def rfi_dtv(fqs, lsts, rfi=None, freq_min=.174, freq_max=.214, width=0.008,
     """
     if rfi is None:
         rfi = np.zeros((lsts.size, fqs.size), dtype=np.complex)
-    assert rfi.shape == (lsts.size, fqs.size)
+    assert rfi.shape == (lsts.size, fqs.size), "rfi shape is not (lst.size, fqs.size)"
 
     bands = np.arange(freq_min, freq_max, width) # lower freq of each potential DTV band
 
