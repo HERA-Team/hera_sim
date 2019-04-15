@@ -1,0 +1,10 @@
+nose
+numpy
+scipy
+nose
+matplotlib
+coverage
+h5py
+scikit-learn
+aipy
+coveralls

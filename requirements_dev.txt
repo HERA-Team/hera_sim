@@ -1,2 +1,4 @@
+-r requirements_dev_conda.txt
 pre-commit
-nose
+git+https://github.com/HERA-Team/pyuvdata.git
+git+https://github.com/HERA-Team/uvtools.git

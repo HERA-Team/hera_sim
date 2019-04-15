@@ -22,7 +22,7 @@ However, ``hera_sim`` depends on several packages which are conda-installable,
 and if you are using ``conda``, you may wish to install them using conda 
 instead of letting pip install them upon installation:
 
-``$ conda install -c conda-forge numpy scipy pyuvdata aipy``
+``$ conda install -c conda-forge numpy scipy pyuvdata aipy mpi4py``
 
 Then to install this repo, either download and run ``pip install -e .`` or
 run 

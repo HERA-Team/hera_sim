@@ -1,5 +1,5 @@
 import unittest
-from hera_sim import noise, foregrounds, utils
+from hera_sim import noise, foregrounds
 import numpy as np
 import aipy
 import nose.tools as nt

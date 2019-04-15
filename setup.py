@@ -48,7 +48,15 @@ setup_args = {
     "package_dir": {"hera_sim": "hera_sim"},
     "packages": ["hera_sim"],
     "include_package_data": True,
-    "install_requires": ['numpy>=1.14', 'scipy', 'cached_property', 'pyuvsim', 'pyuvdata', 'aipy'],
+    "install_requires": [
+        'numpy>=1.14',
+        'scipy',
+        'cached_property',
+        'mpi4py',   # this is a dependency of pyuvsim which currently is not automatically installed. Remove when possible.
+        'pyuvsim',
+        'pyuvdata',
+        'aipy'
+    ],
     "version": version.version,
     "package_data": {"hera_sim": data_files},
     "zip_safe": False,
