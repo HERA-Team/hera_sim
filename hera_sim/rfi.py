@@ -240,7 +240,7 @@ def rfi_dtv(fqs, lsts, rfi=None, freq_min=.174, freq_max=.214, width=0.008,
 
     delta_f = fqs[1] - fqs[0]
 
-    chance = list(change)
+    chance = list(chance)
     strength_std = list(strength_std)
     strength = list(strength)
 
