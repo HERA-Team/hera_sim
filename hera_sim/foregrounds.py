@@ -6,7 +6,6 @@ at the requested lsts and frequencies.
 """
 
 import numpy as np
-from scipy.interpolate import RectBivariateSpline
 from aipy.const import sidereal_day
 
 from . import noise
@@ -118,7 +117,7 @@ def pntsrc_foreground(lsts, fqs, bl_vec, nsrcs=1000, Smin=0.3, Smax=300,
         dtau = np.random.uniform(-.1 * bl_len_ns, .1 * bl_len_ns)  # XXX adds a bit to total delay, increasing bl_len_ns
         vis[t, :] += flux * (fqs / mfreq) ** index * np.exp(2j * np.pi * fqs * dtau)
     ha = utils.compute_ha(lsts, 0)
-    for fi in xrange(fqs.size):
+    for fi in range(fqs.size):
         bm = np.exp(-ha ** 2 / (2 * beam_width[fi] ** 2))
         bm = np.where(np.abs(ha) > np.pi / 2, 0, bm)
         w = .9 * bl_len_ns * np.sin(ha) * fqs[fi]  # XXX .9 to offset increase from dtau above
