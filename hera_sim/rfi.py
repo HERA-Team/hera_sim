@@ -241,7 +241,7 @@ def rfi_dtv(fqs, lsts, rfi=None, freq_min=.174, freq_max=.214, width=0.008,
 
         rfis = np.where(np.random.uniform(size=this_rfi) <= chance)[0]
         this_rfi.flat[rfis] += np.random.normal(strength, strength_std, size=rfis.size)*np.exp(
-            1j*np.random.uniform(size=rfis.size)
+            2 * np.pi * 1j*np.random.uniform(size=rfis.size)
         )
 
     return rfi
