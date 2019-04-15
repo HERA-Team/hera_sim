@@ -8,3 +8,4 @@ h5py
 scikit-learn
 aipy
 coveralls
+mpi4py
