@@ -1,6 +1,6 @@
 """A module for generating realistic HERA RFI."""
 
-import aipy
+from astropy.units import sday
 import numpy as np
 
 
@@ -59,7 +59,7 @@ class RfiStation:
             ch2 = ch1 - 1
         phs1, phs2 = np.random.uniform(0, 2 * np.pi, size=2)
         signal = 0.999 * np.cos(
-            lsts * aipy.const.sidereal_day / self.timescale + phs1
+            lsts * sday.to("s") / self.timescale + phs1
         ) + 2 * (self.duty_cycle - 0.5)
         signal = np.where(
             signal > 0, np.random.normal(self.strength, self.std) * np.exp(1j * phs2), 0
