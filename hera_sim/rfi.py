@@ -238,11 +238,16 @@ def rfi_dtv(fqs, lsts, rfi=None, freq_min=.174, freq_max=.214, width=0.008,
 
     bands = np.arange(freq_min, freq_max, width)  # lower freq of each potential DTV band
 
+    # If the bands fit exactly into freqs, the upper band will be the top freq
+    # and we need to ignore it.
+    if fqs.max() <= bands.max():
+        bands = bands[:-1]
+
     delta_f = fqs[1] - fqs[0]
 
-    chance = list(chance)
-    strength_std = list(strength_std)
-    strength = list(strength)
+    chance = _listify(chance)
+    strength_std = _listify(strength_std)
+    strength = _listify(strength)
 
     if len(chance) == 1:
         chance *= len(bands)
@@ -259,13 +264,30 @@ def rfi_dtv(fqs, lsts, rfi=None, freq_min=.174, freq_max=.214, width=0.008,
         raise ValueError("strength_std must be float or list with len equal to number of bands")
 
     for band, chnc, strngth, str_std in zip(bands, chance, strength, strength_std):
-        fq_ind_min = np.argwhere(band >= fqs)[0][0]
-        fq_ind_max = fq_ind_min + int(width / delta_f)
-        this_rfi = rfi[:, fq_ind_min:fq_ind_max]
+        fq_ind_min = np.argwhere(band <= fqs)[0][0]
+        fq_ind_max = fq_ind_min + int(width / delta_f) + 1
+        this_rfi = rfi[:, fq_ind_min:min(fq_ind_max, fqs.size)]
 
         rfis = np.random.uniform(size=lsts.size) <= chnc
-        this_rfi.flat[rfis] += np.random.normal(strngth, str_std, size=np.sum(rfis)) * np.exp(
+        this_rfi[rfis] += np.atleast_2d(np.random.normal(strngth, str_std, size=np.sum(rfis)) * np.exp(
             2 * np.pi * 1j * np.random.uniform(size=np.sum(rfis))
-        )
+        )).T
 
     return rfi
+
+
+def _listify(x):
+    """
+    Ensure a scalar/list is returned as a list.
+
+    Gotten from https://stackoverflow.com/a/1416677/1467820
+    """
+    if isinstance(x, basestring):
+        return [x]
+    else:
+        try:
+            iter(x)
+        except TypeError:
+            return [x]
+        else:
+            return list(x)

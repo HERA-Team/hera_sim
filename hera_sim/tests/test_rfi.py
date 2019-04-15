@@ -38,7 +38,7 @@ class TestRFI(unittest.TestCase):
         lsts = np.linspace(0, 2 * np.pi, 200)
         r = rfi.rfi_impulse(fqs, lsts, chance=0.5)
         self.assertEqual(r.shape, (lsts.size, fqs.size))
-        self.assertAlmostEqual(np.where(np.abs(r) > 0)[0].size, r.size / 2, -3)
+        self.assertAlmostEqual(np.where(np.abs(r) > 0)[0].size / float(r.size), 0.5, -1)
         # import uvtools, pylab as plt
         # uvtools.plot.waterfall(r); plt.show()
 
@@ -50,6 +50,28 @@ class TestRFI(unittest.TestCase):
         self.assertAlmostEqual(np.where(np.abs(r) > 0)[0].size, r.size / 2, -3)
         # import uvtools, pylab as plt
         # uvtools.plot.waterfall(r); plt.show()
+
+    def test_rfi_dtv(self):
+        fqs = np.linspace(0.1, 0.2, 100)
+        lsts = np.linspace(0, 2 * np.pi, 200)
+
+        # Scalar chance.
+        r = rfi.rfi_dtv(fqs, lsts, freq_min=0.15, freq_max=0.20, width=0.01,
+                        chance=0.5, strength=10, strength_std=1)
+        self.assertEqual(r.shape, (lsts.size, fqs.size))
+        self.assertAlmostEqual(np.where(np.abs(r) > 0)[0].size / float(r.size), 0.5,  -1)
+
+        # Ensure that a sub-band is the same across frequencies.
+        np.testing.assert_allclose(np.mean(r[:, np.logical_and(fqs>=0.15, fqs<0.16)], axis=1), r[:, 50])
+        np.testing.assert_allclose(np.mean(r[:, np.logical_and(fqs>=0.19, fqs<0.2)], axis=1), r[:, -1])
+
+        # List of chances.
+        r = rfi.rfi_dtv(fqs, lsts, freq_min=0.15, freq_max=0.20, width=0.01,
+                        chance=[0.5, 0.6, 0.7, 0.8, 1.0], strength=10, strength_std=1e-5)
+
+        # Ensure that the correct chance gets applied to each band
+        self.assertAlmostEqual(np.sum(np.abs(r[:, -1])), lsts.size * 10, -2)
+        self.assertAlmostEqual(np.sum(np.abs(r[:, 0])), 0, -5)
 
 
 if __name__ == "__main__":
