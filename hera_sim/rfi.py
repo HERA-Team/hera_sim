@@ -1,7 +1,7 @@
 """A module for generating realistic HERA RFI."""
 
-import numpy as np
 import aipy
+import numpy as np
 
 
 class RfiStation:
@@ -20,6 +20,7 @@ class RfiStation:
         timescale (scalar): seconds, default=100.
             timescale for sinusoidal variation in transmission amplitude'''
     """
+
     def __init__(self, fq0, duty_cycle=1.0, strength=100.0, std=10.0, timescale=100.0):
         self.fq0 = fq0
         self.duty_cycle = duty_cycle
@@ -46,7 +47,8 @@ class RfiStation:
         sdf = np.average(fqs[1:] - fqs[:-1])
         if rfi is None:
             rfi = np.zeros((lsts.size, fqs.size), dtype=np.complex)
-        assert rfi.shape == (lsts.size, fqs.size)
+        assert rfi.shape == (lsts.size, fqs.size), "rfi is not shape (lsts.size, fqs.size)"
+
         try:
             ch1 = np.argwhere(np.abs(fqs - self.fq0) < sdf)[0, 0]
         except IndexError:
@@ -93,6 +95,7 @@ HERA_RFI_STATIONS = [
     # DC Offset from ADCs
     # (.2000, 1., 100., 0., 10000),
 ]
+
 
 # XXX reverse lsts and fqs?
 def rfi_stations(fqs, lsts, stations=HERA_RFI_STATIONS, rfi=None):
@@ -150,13 +153,15 @@ def rfi_impulse(fqs, lsts, rfi=None, chance=0.001, strength=20.0):
     """
     if rfi is None:
         rfi = np.zeros((lsts.size, fqs.size), dtype=np.complex)
-    assert rfi.shape == (lsts.size, fqs.size)
+    assert rfi.shape == (lsts.size, fqs.size), "rfi is not shape (lsts.size, fqs.size)"
+
     impulse_times = np.where(np.random.uniform(size=lsts.size) <= chance)[0]
     dlys = np.random.uniform(-300, 300, size=impulse_times.size)  # ns
     impulses = strength * np.array([np.exp(2j * np.pi * dly * fqs) for dly in dlys])
     if impulses.size > 0:
         rfi[impulse_times] += impulses
     return rfi
+
 
 # XXX reverse lsts and fqs?
 def rfi_scatter(fqs, lsts, rfi=None, chance=0.0001, strength=10, std=10):
@@ -184,10 +189,11 @@ def rfi_scatter(fqs, lsts, rfi=None, chance=0.0001, strength=10, std=10):
     """
     if rfi is None:
         rfi = np.zeros((lsts.size, fqs.size), dtype=np.complex)
-    assert rfi.shape == (lsts.size, fqs.size)
+    assert rfi.shape == (lsts.size, fqs.size), "rfi shape is not (lsts.size, fqs.size)"
+
     rfis = np.where(np.random.uniform(size=rfi.size) <= chance)[0]
     rfi.flat[rfis] += np.random.normal(strength, std) * np.exp(
-        1j * np.random.uniform(size=rfis.size)
+        2 * np.pi * 1j * np.random.uniform(size=rfis.size)
     )
     return rfi
 
@@ -230,18 +236,18 @@ def rfi_dtv(fqs, lsts, rfi=None, freq_min=.174, freq_max=.214, width=0.008,
         rfi = np.zeros((lsts.size, fqs.size), dtype=np.complex)
     assert rfi.shape == (lsts.size, fqs.size), "rfi shape is not (lst.size, fqs.size)"
 
-    bands = np.arange(freq_min, freq_max, width) # lower freq of each potential DTV band
+    bands = np.arange(freq_min, freq_max, width)  # lower freq of each potential DTV band
 
     delta_f = fqs[1] - fqs[0]
 
     for band in bands:
         fq_ind_min = np.argwhere(band >= fqs)[0][0]
-        fq_ind_max = fq_ind_min + int(width/delta_f)
+        fq_ind_max = fq_ind_min + int(width / delta_f)
         this_rfi = rfi[:, fq_ind_min:fq_ind_max]
 
         rfis = np.where(np.random.uniform(size=this_rfi) <= chance)[0]
-        this_rfi.flat[rfis] += np.random.normal(strength, strength_std, size=rfis.size)*np.exp(
-            2 * np.pi * 1j*np.random.uniform(size=rfis.size)
+        this_rfi.flat[rfis] += np.random.normal(strength, strength_std, size=rfis.size) * np.exp(
+            2 * np.pi * 1j * np.random.uniform(size=rfis.size)
         )
 
     return rfi
