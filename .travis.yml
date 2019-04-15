@@ -1,4 +1,6 @@
 language: python
+dist: xenial
+
 python:
   # We don't actually use the Travis Python, but this keeps it organized.
   - "2.7"
@@ -8,8 +10,10 @@ python:
 # Cache pip-installed dependencies
 cache:
     pip: true
+    directories:
+    - $HOME/miniconda
 
-# Test against known version of pyuvdata and current version
+    # Test against known version of pyuvdata and current version
 env:
   - PYUVDATA_VERSION=""
 
@@ -42,7 +46,7 @@ install:
 #  - pip install git+https://github.com/HERA-Team/hera_qm.git
 #  - pip install git+https://github.com/HERA-Team/uvtools.git
 #  - pip install git+https://github.com/HERA-Team/hera_cal.git
-  - python setup.py install
+  - pip install .
 
 before_script:
   - "export DISPLAY=:99.0"
