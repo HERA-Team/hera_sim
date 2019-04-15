@@ -10,8 +10,6 @@ python:
 # Cache pip-installed dependencies
 cache:
     pip: true
-    directories:
-    - $HOME/miniconda
 
     # Test against known version of pyuvdata and current version
 env:
