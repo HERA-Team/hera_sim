@@ -103,6 +103,8 @@ class VisCPU(VisibilitySimulator):
         crd_eq = self.get_crd_eq()
         beam_lm = self.get_beam_lm()
 
+        visfull = np.zeros_like(self.uvdata.data_array)
+
         for i, freq in enumerate(self.freqs):
             vis = vis_cpu(
                 antpos=self.antpos,
@@ -115,9 +117,9 @@ class VisCPU(VisibilitySimulator):
                 complex_dtype=self._complex_dtype
             )
 
-            self.uvdata.data_array[:, 0, i, 0] += vis.flatten()
+            visfull[:, 0, i, 0] = vis.flatten()
 
-        return self.uvdata.data_array[:, 0, :, 0]
+        return visfull
 
 
 def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube, real_dtype=np.float32,

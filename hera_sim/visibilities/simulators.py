@@ -169,7 +169,9 @@ class VisibilitySimulator(object):
     def simulate(self):
         """Perform the visibility simulation"""
         self._write_history()
-        self._simulate()
+        vis = self._simulate()
+        self.uvdata.data_array += vis
+        return vis
 
     def _simulate(self):
         """Subclass-specific simulation method, to be overwritten."""
