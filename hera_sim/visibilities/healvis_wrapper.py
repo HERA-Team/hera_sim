@@ -3,13 +3,14 @@ Wrapper around the healvis package for producing visibilities from
 healpix maps.
 """
 
-from .simulators import VisibilitySimulator
+import healpy
+import numpy as np
+from cached_property import cached_property
+from healvis.beam_model import AnalyticBeam
 from healvis.simulator import setup_observatory_from_uvdata
 from healvis.sky_model import SkyModel
-from healvis.beam_model import AnalyticBeam
-from cached_property import cached_property
-import numpy as np
-import healpy
+
+from .simulators import VisibilitySimulator
 
 
 class HealVis(VisibilitySimulator):
@@ -64,7 +65,4 @@ class HealVis(VisibilitySimulator):
 
         visibility = np.moveaxis(visibility, 0, -1)
 
-        # Add the visibility to the uvdata object
-        self.uvdata.data_array += visibility[:, 0][:, np.newaxis, :, :]
-
-        return visibility
+        return visibility[:, 0][:, np.newaxis, :, :]
