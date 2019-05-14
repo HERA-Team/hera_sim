@@ -305,7 +305,7 @@ class Simulator:
 
         Args:
             model (str or callable): either a string name of a model function existing in :mod:`~hera_sim.noise`,
-                or a callable which has the signature ``fnc(lsts, fqs, bl_len_ns, **kwargs)``.
+                or a callable which has the signature ``fnc(lsts, fqs, bl_len_ns, omega_p, **kwargs)``.
             ret_vis (bool, optional): whether to return the visibilities that are being added to to the base
                 data as a new array. Default False.
             add_vis (bool, optional): whether to add the calculated visibilities to the underlying data array.

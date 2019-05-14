@@ -47,7 +47,7 @@ def bm_poly_to_omega_p(fqs, bm_poly=HERA_BEAM_POLY):
     return np.polyval(bm_poly, fqs)
 
 
-def jy2T(fqs, omega_p=None):
+def jy2T(fqs, omega_p):
     """
     Return [mK] / [Jy] for a beam size vs. frequency.
 
@@ -63,11 +63,7 @@ def jy2T(fqs, omega_p=None):
             beam size.'''
     """
     lam = aipy.const.c / (fqs * 1e9)
-    if omega_p is None:
-        bm = np.polyval(bm_poly, fqs)
-    else:
-        bm = omega_p
-    return 1e-23 * lam ** 2 / (2 * aipy.const.k * bm) * 1e3 # XXX make Kelvin in future
+    return 1e-23 * lam ** 2 / (2 * aipy.const.k * omega_p) * 1e3 # XXX make Kelvin in future
 
 
 def white_noise(size=1):
@@ -81,7 +77,6 @@ def white_noise(size=1):
     Returns:
         noise (ndarray): shape=size
             random white noise realization
-
     """
     sig = 1.0 / np.sqrt(2)
     return np.random.normal(scale=sig, size=size) + 1j * np.random.normal(
@@ -124,7 +119,7 @@ def resample_Tsky(fqs, lsts, Tsky_mdl=None, Tsky=180.0, mfreq=0.18, index=-2.5):
 
 # XXX make inttime default=None
 # XXX reorder fqs/lsts
-def sky_noise_jy(Tsky, fqs, lsts, omega_p=None, B=None, inttime=10.7):
+def sky_noise_jy(Tsky, fqs, lsts, omega_p, B=None, inttime=10.7):
     """
     Generate Gaussian noise (in Jy units) corresponding to a sky temperature
     model integrated for the specified integration time and bandwidth.
@@ -144,6 +139,7 @@ def sky_noise_jy(Tsky, fqs, lsts, omega_p=None, B=None, inttime=10.7):
         inttime (float): default=10.7, seconds
             the time used to integrate noise.  If not provided, defaults
             to delta between lsts.
+
     Returns:
         noise (array-like): shape=(NTIMES,NFREQS)
             complex Gaussian noise vs. time and frequency
@@ -154,7 +150,7 @@ def sky_noise_jy(Tsky, fqs, lsts, omega_p=None, B=None, inttime=10.7):
     if inttime is None:
         inttime = (lsts[1] - lsts[0]) / (2 * np.pi) * aipy.const.sidereal_day
     # XXX fix below when jy2T changed to Jy/K
-    T2jy = 1e3 / jy2T(fqs, omega_p=omega_p)  # K to Jy conversion
+    T2jy = 1e3 / jy2T(fqs, omega_p)  # K to Jy conversion
     T2jy.shape = (1, -1)
     Vnoise_jy = T2jy * Tsky / np.sqrt(inttime * B_Hz) # see noise_study.py for discussion of why no factor of 2 here
     return white_noise(Vnoise_jy.shape) * Vnoise_jy
@@ -171,13 +167,15 @@ def thermal_noise(fqs, lsts, Tsky_mdl=None, Trx=0, omega_p=None, inttime=10.7, *
             array of global beam-averaged sky temperatures (in K) as a function of LST and frequency.
         Trx (float, optional): receiver temperature, in K.
         omega_p (array-like): shape=(NFREQS,) steradians
-            Sky-integral of beam power.
+            Sky-integral of beam power. Default is to use noise.HERA_BEAM_POLY to create omega_p.
         inttime (float, optional): the integration time, in sec.
         **kwargs: passed to :func:`resample_Tsky`.
 
     Returns:
         2d array size(lsts, fqs): the thermal visibilities [Jy].
     """
+    if omega_p is None:
+        omega_p = bm_poly_to_omega_p(fqs)
     Tsky = resample_Tsky(fqs, lsts, Tsky_mdl=Tsky_mdl, **kwargs)
     Tsky += Trx
-    return sky_noise_jy(Tsky, fqs, lsts, omega_p=omega_p, inttime=inttime)
+    return sky_noise_jy(Tsky, fqs, lsts, omega_p, inttime=inttime)
