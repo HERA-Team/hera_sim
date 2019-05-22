@@ -11,9 +11,12 @@ from healvis.simulator import setup_observatory_from_uvdata
 from healvis.sky_model import SkyModel
 
 from .simulators import VisibilitySimulator
+from astropy import constants as cnst
 
 
 class HealVis(VisibilitySimulator):
+    point_source_ability = False
+
     def __init__(self, fov=180, nprocesses=1, sky_ref_chan=0, **kwargs):
         self.fov = fov
         self._nprocs = nprocesses
@@ -40,7 +43,10 @@ class HealVis(VisibilitySimulator):
         sky.Nskies = 1
         sky.ref_chan = self._sky_ref_chan
 
-        sky.data = self.sky_intensity.T[np.newaxis, :, :]
+        # convert from Jy/sr to T.sr [K.sr]
+        intensity = 10**-26 * self.sky_intensity.T * (cnst.c.to("m/s").value/self.sky_freqs)**2 / (2 * cnst.k_B.value) / healpy.nside2pixarea(self.nside)
+        sky.data = intensity[np.newaxis, :, :]
+
         sky._update()
 
         return sky
