@@ -5,10 +5,10 @@ import healpy
 import numpy as np
 
 
-def beam_healpix_to_lm(hmap, n_pix_lm=63, nest=False):
+def beam_healpix_to_top(hmap, n_pix_lm=63, nest=False):
     """
-    Convert a beam contained in a healpix map to (l,m) co-ordinates,
-    assuming the zenith is where???
+    Convert a beam contained in a healpix map to Cartesian topocentric
+    co-ordinates.
 
     Args:
         hmap (1D array): array representing a healpix map.
@@ -40,10 +40,6 @@ def beam_healpix_to_lm(hmap, n_pix_lm=63, nest=False):
     return bm
 
 
-def lm_to_azza(l,m):
-    return np.arcsin(np.sqrt(l**2 + m**2)), np.arctan2(l, m)
-
-
 def uvbeam_to_lm(uvbeam, freqs, n_pix_lm=63, **kwargs):
     """
     Convert a UVbeam to a uniform (l,m) grid
@@ -65,14 +61,14 @@ def uvbeam_to_lm(uvbeam, freqs, n_pix_lm=63, **kwargs):
     lsqr = l ** 2 + m ** 2
     n = np.where(lsqr < 1, np.sqrt(1 - lsqr), -1)
 
-    az, za = lm_to_azza(l[n >= 0],m[n >= 0])
+    az = -np.arctan2(m, l)
+    za = np.arcsin(n)
 
     res = uvbeam.interp(az, za, freqs, **kwargs)[0]
 
     # Get the relevant indices of res
     bm = np.zeros((len(freqs), len(l)))
-
-    bm[:, n >= 0] = res[0, 0, 0]
+    bm[:, n >= 0] = res[0, 0, 0][:, n>= 0]
 
     if np.max(bm) > 0:
         bm /= np.max(bm)

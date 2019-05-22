@@ -10,11 +10,11 @@ from pyuvsim.simsetup import initialize_uvdata_from_params, uvdata_to_config_fil
 class VisibilitySimulator(object):
     # Whether this particular simulator has the ability to simulate point sources
     # directly
-    _point_source_ability = True
+    point_source_ability = True
 
     # Whether this particular simulator has the ability to simulate diffuse maps
     # directly
-    _diffuse_ability = True
+    diffuse_ability = True
 
     def __init__(self, obsparams=None, uvdata=None, sky_freqs=None, beams=None,
                  beam_ids=None,
@@ -45,7 +45,7 @@ class VisibilitySimulator(object):
                 (i.e. the index of `beams` which it should refer to). By default,
                 all antennas use the same beam (beam 0).
             sky_intensity (2D array, shape=[NFREQS, N_PIX_SKY]):
-                A healpix model for the intensity of the sky emission.
+                A healpix model for the intensity of the sky emission, in [Jy/sr]
             point_source_pos (2D array, optional, shape=[N_SOURCES, 2]):
                 An array of point sources. For each source, the entries are
                 (ra, dec) [rad].
@@ -82,7 +82,8 @@ class VisibilitySimulator(object):
     def validate(self):
         if ((self.point_source_pos is not None and self.point_source_flux is None) or
                 (self.point_source_flux is not None and self.point_source_pos is None)):
-            raise ValueError("Either both or neither of point_source_pos and point_source_flux must be given.")
+            raise ValueError("Either both or neither of point_source_pos and "
+                             "point_source_flux must be given.")
 
         if self.sky_intensity is not None and not healpy.isnpixok(self.n_pix):
             raise ValueError("The sky_intensity map is not compatible with healpy")
@@ -97,29 +98,32 @@ class VisibilitySimulator(object):
 
         if self.point_source_flux is not None:
             if self.point_source_flux.shape[0] != self.sky_freqs.shape[0]:
-                raise ValueError("point_source_flux must have the same number of freqs as sky_freqs")
+                raise ValueError("point_source_flux must have the same number of freqs "
+                                 "as sky_freqs")
 
         if self.point_source_flux is not None:
             if self.point_source_flux.shape[1] != self.point_source_pos.shape[0]:
-                raise ValueError("Number of sources in point_source_flux and point_source_pos is different")
+                raise ValueError("Number of sources in point_source_flux and "
+                                 "point_source_pos is different")
 
         if self.sky_intensity is not None and self.sky_intensity.shape[0] != self.sky_freqs.shape[0]:
             raise ValueError("sky_intensity has a different number of freqs than sky_freqs")
 
         if self.sky_intensity is not None and self.sky_intensity.ndim != 2:
-            raise ValueError("sky_intensity must be a 2D array (a healpix map per frequency)")
+            raise ValueError("sky_intensity must be a 2D array (a healpix map per "
+                             "frequency)")
 
-        if not self._point_source_ability and self.point_source_pos is not None:
+        if not self.point_source_ability and self.point_source_pos is not None:
             warnings.warn("This visibility simulator is unable to explicitly "
                           "simulate point sources. Adding point sources to "
                           "diffuse pixels")
             if self.sky_intensity is None:
                 self.sky_intensity = 0
             self.sky_intensity += self.convert_point_sources_to_healpix(
-                self.point_sources, self.nside
+                self.point_source_pos, self.point_source_flux, self.nside
             )
 
-        if not self._diffuse_ability and self.sky_intensity is not None:
+        if not self.diffuse_ability and self.sky_intensity is not None:
             warnings.warn("This visibility simulator is unable to explicitly "
                           "simulate diffuse structure. Converting diffuse "
                           "intensity to approximate points")
@@ -128,6 +132,8 @@ class VisibilitySimulator(object):
                 self.point_source_flux = 0
 
             pos, flux = self.convert_healpix_to_point_sources(self.sky_intensity)
+            self.point_source_flux = np.hstack(self.point_source_flux, flux)
+            self.point_source_pos = np.hstack(self.point_source_pos, pos)
 
     @staticmethod
     def convert_point_sources_to_healpix(point_source_pos, point_source_flux, nside=40):
@@ -162,9 +168,9 @@ class VisibilitySimulator(object):
             2D array: the point sources
         """
         nside = healpy.get_nside(hmap[0])
-        ra, dec = healpy.pix2ang(nside, np.arange(len(hmap[0])))
+        ra, dec = healpy.pix2ang(nside, np.arange(len(hmap[0])), lonlat=True)
         flux = hmap * healpy.nside2pixarea(nside)
-        return np.array([ra, dec]).T, flux
+        return np.array([ra*np.pi/180, dec*np.pi/180]).T, flux
 
     def simulate(self):
         """Perform the visibility simulation"""
@@ -180,9 +186,9 @@ class VisibilitySimulator(object):
     @property
     def nside(self):
         """Nside parameter of the sky healpix map"""
-        if self.sky_intensity is not None:
+        try:
             return healpy.get_nside(self.sky_intensity[0])
-        else:
+        except TypeError:
             return self._nside
 
     @cached_property
@@ -217,11 +223,3 @@ class VisibilitySimulator(object):
             **kwargs: any options are passed to :func:`uvdata_to_config_file`.
         """
         uvdata_to_config_file(self.uvdata, **kwargs)
-
-    # @cached_property
-    # def n_pix_beam(self):
-    #     """Number of pixels in the beam maps"""
-    #     try:
-    #         return self.beams.shape[1]
-    #     except IndexError:
-    #         return 0

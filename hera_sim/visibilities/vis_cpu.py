@@ -11,7 +11,6 @@ from .simulators import VisibilitySimulator
 
 
 class VisCPU(VisibilitySimulator):
-    _point_source_ability = False
 
     def __init__(self, bm_pix=100, real_dtype=np.float32,
                  complex_dtype=np.complex64, **kwargs):
@@ -49,7 +48,7 @@ class VisCPU(VisibilitySimulator):
         super(VisCPU, self).validate()
 
         # This one in particular requires that every baseline is used!
-        if len(self.uvdata.get_antpairs()) != len(self.uvdata.antenna_numbers)**2:
+        if len(self.uvdata.get_antpairs()) != len(self.uvdata.antenna_numbers) ** 2:
             raise ValueError("VisCPU requires using every pair of antennas, but the UVData object does not comply")
 
         if len(self.uvdata.data_array) != len(self.uvdata.get_antpairs()) * len(self.lsts):
@@ -76,34 +75,33 @@ class VisCPU(VisibilitySimulator):
             ) for i in range(self.n_ant)
         ])
 
-    def get_crd_eq(self):
-        """Calculate the equatorial co-ordinates of the healpix sky pixels."""
+    def get_diffuse_crd_eq(self):
+        """Calculate the equatorial co-ordinates of the healpix sky pixels (in Cartesian co-ords)."""
         return conversions.healpix_to_crd_eq(self.sky_intensity[0]).astype(self._real_dtype)
+
+    def get_point_source_crd_eq(self):
+        ra, dec = self.point_source_pos.T
+        return np.array([np.cos(ra)*np.cos(dec), np.cos(dec)*np.sin(ra), np.sin(dec)])
 
     def get_eq2tops(self):
         """
         Calculate the set of 3x3 transformation matrices converting equatorial
         coords to topocentric at each LST.
         """
-        latitude = self.uvdata.telescope_location_lat_lon_alt[0]
 
-        return conversions.eq2top_m(
-            self.lsts.astype(self._real_dtype),
-            (latitude * np.ones_like(self.lsts)).astype(self._real_dtype)
-        ).astype(self._real_dtype)
+        sid_time = np.unique(self.uvdata.lst_array)
+        eq2tops = np.empty((len(sid_time), 3, 3), dtype=self._real_dtype)
 
-    def _simulate(self):
-        """
-        Runs the cpu_vis algorithm.
+        for i, st in enumerate(sid_time):
+            eq2tops[i] = conversions.eq2top_m(-st, self.uvdata.telescope_lat_lon_alt[0])
 
-        Notes:
-            This routine does not support negative intensity values on the sky.
-        """
+        return eq2tops
+
+    def _base_simulate(self, crd_eq, I):
         eq2tops = self.get_eq2tops()
-        crd_eq = self.get_crd_eq()
         beam_lm = self.get_beam_lm()
 
-        visfull = np.zeros_like(self.uvdata.data_array)
+        visfull = np.zeros_like(self.uvdata.data_array, dtype=self._complex_dtype)
 
         for i, freq in enumerate(self.freqs):
             vis = vis_cpu(
@@ -111,7 +109,7 @@ class VisCPU(VisibilitySimulator):
                 freq=freq,
                 eq2tops=eq2tops,
                 crd_eq=crd_eq,
-                I_sky=self.sky_intensity[i],
+                I_sky=I[i],
                 bm_cube=beam_lm[:, i],
                 real_dtype=self._real_dtype,
                 complex_dtype=self._complex_dtype
@@ -120,6 +118,22 @@ class VisCPU(VisibilitySimulator):
             visfull[:, 0, i, 0] = vis.flatten()
 
         return visfull
+
+    def _simulate_diffuse(self):
+        crd_eq = self.get_diffuse_crd_eq()
+        return self._base_simulate(crd_eq, self.sky_intensity)
+
+    def _simulate_points(self):
+        crd_eq = self.get_point_source_crd_eq()
+        return self._base_simulate(crd_eq, self.point_source_flux)
+
+    def _simulate(self):
+        vis = 0
+        if self.sky_intensity is not None:
+            vis += self._simulate_diffuse()
+        if self.point_source_flux is not None:
+            vis += self._simulate_points()
+        return vis
 
 
 def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube, real_dtype=np.float32,
@@ -136,7 +150,7 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube, real_dtype=np.float32
             matrices converting equatorial coordinates to topocentric at each
             hour angle (and declination) in the dataset.
         crd_eq (array_like, shape: (3, NPIX)):
-            equatorial coordinates of Healpix pixels.
+            equatorial coordinates of Healpix pixels, in Cartesian system.
         I_sky (array_like, shape: (NPIX,)): intensity distribution on the sky,
             stored as array of Healpix pixels.
         bm_cube (array_like, shape: (NANT, BM_PIX, BM_PIX)):
