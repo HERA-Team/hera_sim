@@ -278,5 +278,32 @@ class TestSimRedData(unittest.TestCase):
                 np.testing.assert_almost_equal(ans0yx, ans_yx, decimal=7)
                 np.testing.assert_almost_equal(ans0yy, ans_yy, decimal=7)
 
+def test_simulator_comparison(uvdata):
+    freqs = np.unique(uvdata.freq_array)
+
+    # put a point source in
+    point_source_pos = np.array([[0, uvdata.telescope_lat_lon_alt[0]]])
+    point_source_flux = np.array([[1.0]] * len(freqs))
+
+    viscpu = vis.VisCPU(
+        uvdata=uvdata,
+        sky_freqs=np.unique(uvdata.freq_array),
+        point_source_flux=point_source_flux,
+        point_source_pos=point_source_pos,
+        nside=2**4
+    ).simulate()
+
+    healvis = vis.HealVis(
+        uvdata=uvdata,
+        sky_freqs=np.unique(uvdata.freq_array),
+        point_source_flux=point_source_flux,
+        point_source_pos=point_source_pos,
+        nside=2 ** 4
+    ).simulate()
+
+    assert viscpu.shape == healvis.shape
+    assert np.testing.assert_allclose(viscpu, healvis)
+
+
 if __name__ == "__main__":
     unittest.main()
