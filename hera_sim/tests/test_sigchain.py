@@ -58,14 +58,14 @@ class TestSigchainReflections(unittest.TestCase):
         times = lsts / (2 * np.pi) * aipy.const.sidereal_day
         Tsky_mdl = noise.HERA_Tsky_mdl["xx"]
         Tsky = Tsky_mdl(lsts, fqs)
-        bl_len_ns = 50.0
+        bl_vec = np.array([50.0, 0, 0])
         # + 20 is to boost k=0 mode
-        vis = foregrounds.diffuse_foreground(Tsky_mdl, lsts, fqs, bl_len_ns) + 20
+        vis = foregrounds.diffuse_foreground(lsts, fqs, bl_vec, Tsky_mdl=Tsky_mdl, delay_filter_type='gauss') + 20
 
         self.freqs = fqs
         self.lsts = lsts
         self.Tsky = Tsky
-        self.bl_len_ns = bl_len_ns
+        self.bl_vec = bl_vec
         self.vis = vis
         self.vfft = np.fft.fft(vis, axis=1)
         self.dlys = np.fft.fftfreq(len(fqs), d=np.median(np.diff(fqs)))

@@ -13,68 +13,61 @@ from . import noise
 from . import utils
 
 
-def diffuse_foreground(Tsky, lsts, fqs, bl_len_ns, bm_poly=noise.HERA_BEAM_POLY, scalar=30.,
-                       fr_width=None, fr_max_mult=2.0):
-
+def diffuse_foreground(lsts, fqs, bl_vec, Tsky_mdl=None, omega_p=None,
+                       standoff=0.0, delay_filter_type='tophat', delay_filter_normalize=None,
+                       fringe_filter_type='tophat', **fringe_filter_kwargs):
     """
     Produce a (NTIMES,NFREQS) mock-up of what diffuse foregrounds could look
     like on a baseline of a provided geometric length.
 
     Args:
-        Tsky (callable): interpolation object [mK, matching units of noise.jy2T]
-            an interpolation object that returns the sky temperature as a
-            function of (lst, freqs).  Called as Tsky(lsts,fqs).
         lsts (array-like): shape=(NTIMES,), radians
             local sidereal times of the observation to be generated.
         fqs (array-like): shape=(NFREQS,), GHz
             the spectral frequencies of the observation to be generated.
-        bl_len_ns (float): nanoseconds
-            the length in nanoseconds of the baseline in the observation.
-            Nominally, the baseline length divided by the speed of light.
-        bm_poly (polynomial): default=noise.HERA_BEAM_POLY
-            a polynomial fit to the solid-angle beam size of the observation
-            as a function of frequency.  Used to convert temperatures to Jy.
-        scalar (float): default=30.
-            a multiplicative scalar controlling the amplitude of the
-            foregrounds.  Default value tuned to match HERA amplitudes.
-        fr_width (float): optional
-            width of Gaussian FR filter in 1 / sec
-        fr_max_mult (float): default=2.0
-            multiplier of fr_max to get lst_grid resolution
+        bl_vec (array-like): shape=(3,), nanosec
+            East-North-Up (i.e. Topocentric) baseline vector [East, North, Up]
+        Tsky_mdl (callable): interpolation object
+            an interpolation object that returns the sky temperature as a
+            function of (lst, freqs).  Called as Tsky_mdl(lsts, fqs).
+        omega_p (array-like): shape=(NFREQS,) steradians
+            Sky-integral of beam power. Default is to use noise.HERA_BEAM_POLY polynomial fit.
+        standoff (float): baseline horizon buffer [ns] for modeling suprahorizon emission
+        delay_filter_type (str): type of delay filter to use, see utils.gen_delay_filter
+        delay_filter_normalize (float): delay filter normalization, see utils.gen_delay_filter
+        fringe_filter_type (str): type of fringe-rate filter, see utils.gen_fringe_filter
+        fringe_filter_kwargs: kwargs given fringe_filter_type, see utils.gen_fringe_filter
+
     Returns:
         mdl (array-like): shape=(NTIMES,NFREQS)
-            mock diffuse foreground visibility spectra vs. time'''
+            mock diffuse foreground visibility spectra vs. time
     """
+    if Tsky_mdl is None:
+        raise TypeError("Tsky_mdl is a required parameter of diffuse_foreground")
+    if omega_p is None:
+        omega_p = noise.bm_poly_to_omega_p(fqs)
+
+    # generate a Tsky visibility in time and freq space, convert from K to Jy
+    Tsky = Tsky_mdl(lsts, fqs)
+    mdl = np.asarray(Tsky * 1e3 / noise.jy2T(fqs, omega_p), np.complex)
+
     # If an auto-correlation, return the beam-weighted integrated sky.
-    if utils.get_bl_len_magnitude(bl_len_ns) == 0:
-        return Tsky(lsts, fqs) / noise.jy2T(fqs, bm_poly=bm_poly)
+    if np.isclose(np.linalg.norm(bl_vec), 0):
+        return mdl
 
-    # Get the maximum fringe rate corresponding to a time scale over
-    # which co-ordinates pass through the beam.
-    beam_widths = np.polyval(bm_poly, fqs)
-    fr_max_beam = np.max(2*np.pi/(sidereal_day * beam_widths))
-    fr_max = np.max(utils.calc_max_fringe_rate(fqs, bl_len_ns))
+    # multiply by white noise
+    mdl *= noise.white_noise((len(lsts), len(fqs)))
 
-    fr_max = max(fr_max, fr_max_beam)
+    # fringe rate filter across time using projected East-West distance
+    mdl = utils.rough_fringe_filter(mdl, lsts, fqs, bl_vec[0], filter_type=fringe_filter_type, **fringe_filter_kwargs)
 
-    dt = 1.0 / (fr_max_mult * fr_max)  # over-resolve by fr_mult factor
-    ntimes = int(np.around(sidereal_day / dt))
+    # delay filter across freq
+    mdl = utils.rough_delay_filter(mdl, fqs, np.linalg.norm(bl_vec), standoff=standoff, filter_type=delay_filter_type, normalize=delay_filter_normalize)
 
-    lst_grid = np.linspace(0, 2 * np.pi, ntimes, endpoint=False)
-    nos = Tsky(lst_grid, fqs) * noise.white_noise((ntimes, fqs.size))
-
-    nos, ff, frs = utils.rough_fringe_filter(nos, lst_grid, fqs, bl_len_ns,
-                                             fr_width=fr_width, normalise=1)
-
-    nos = utils.rough_delay_filter(nos, fqs, bl_len_ns, normalise=1)
-    nos /= noise.jy2T(fqs, bm_poly=bm_poly)
-
-    mdl_real = RectBivariateSpline(lst_grid, fqs, scalar * nos.real)
-    mdl_imag = RectBivariateSpline(lst_grid, fqs, scalar * nos.imag)
-    return mdl_real(lsts, fqs) + 1j * mdl_imag(lsts, fqs)
+    return mdl
 
 
-def pntsrc_foreground(lsts, fqs, bl_len_ns, nsrcs=1000, Smin=0.3, Smax=300,
+def pntsrc_foreground(lsts, fqs, bl_vec, nsrcs=1000, Smin=0.3, Smax=300,
                       beta=-1.5, spectral_index_mean=-1, spectral_index_std=0.5,
                       reference_freq=0.15):
     """
@@ -88,9 +81,8 @@ def pntsrc_foreground(lsts, fqs, bl_len_ns, nsrcs=1000, Smin=0.3, Smax=300,
             local sidereal times of the observation to be generated.
         fqs (array-like): shape=(NFREQS,), GHz
             the spectral frequencies of the observation to be generated.
-        bl_len_ns (float): nanoseconds
-            the length in nanoseconds of the baseline in the observation.
-            Nominally, the baseline length divided by the speed of light.
+        bl_vec (array-like): shape=(3,), nanosec
+            East-North-Up (i.e. Topocentric) baseline vector [East, North, Up]
         nsrcs (float): default=1000.
             the number of mock sources to put on the sky, drawn from a power-law
             of flux-densities with an index of beta. between Smin and Smax
@@ -106,10 +98,12 @@ def pntsrc_foreground(lsts, fqs, bl_len_ns, nsrcs=1000, Smin=0.3, Smax=300,
             the standard deviation of the spectral index of point sources drawn
         reference_freq (float): [GHz], default=0.15
             the frequency from which spectral indices extrapolate
+
     Returns:
         vis (array-like): shape=(NTIMES,NFREQS)
             mock point-source foreground visibility spectra vs. time'''
     """
+    bl_len_ns = np.linalg.norm(bl_vec)
     ras = np.random.uniform(0, 2 * np.pi, nsrcs)
     indices = np.random.normal(spectral_index_mean, spectral_index_std, size=nsrcs)
     mfreq = reference_freq
@@ -133,4 +127,5 @@ def pntsrc_foreground(lsts, fqs, bl_len_ns, nsrcs=1000, Smin=0.3, Smax=300,
         phs = np.exp(2j * np.pi * w)
         kernel = bm * phs
         vis[:, fi] = np.fft.ifft(np.fft.fft(kernel) * np.fft.fft(vis[:, fi]))
+
     return vis

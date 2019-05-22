@@ -11,6 +11,7 @@ import warnings
 import numpy as np
 from cached_property import cached_property
 from pyuvdata import UVData
+from astropy import constants as const
 
 from . import io
 from . import sigchain
@@ -138,6 +139,7 @@ class Simulator:
     def __init__(
             self,
             data_filename=None,
+            data = None,
             refresh_data=False,
             n_freq=None,
             n_times=None,
@@ -149,7 +151,10 @@ class Simulator:
 
         Args:
             data_filename (str, optional): filename of data to be read, in ``pyuvdata``-compatible format. If not
-                given, an empty :class:`pyuvdata.UVdata` object will be created from scratch.
+                given, an empty :class:`pyuvdata.UVdata` object will be created from scratch. *Deprecated since
+                v0.0.1, will be removed in v0.1.0. Use `data` instead*.
+            data (str or :class:`UVData`): either a string pointing to data to be read (i.e. the same as
+                `data_filename`), or a UVData object.
             refresh_data (bool, optional): if reading data from file, this can be used to manually set the data to zero,
                 and remove flags. This is useful for using an existing file as a template, but not using its data.
             n_freq (int, optional): if `data_filename` not given, this is required and sets the number of frequency
@@ -170,18 +175,21 @@ class Simulator:
 
         """
 
+        if data_filename is not None:
+            warnings.warn("`data_filename` is deprecated, please use `data` instead", DeprecationWarning)
+            
         self.data_filename = data_filename
 
-        if self.data_filename is None:
+        if self.data_filename is None and data is None:
             # Create an empty UVData object.
 
             # Ensure required parameters have been set.
             if n_freq is None:
-                raise ValueError("if data_filename not given, n_freq must be given")
+                raise ValueError("if data_filename and data not given, n_freq must be given")
             if n_times is None:
-                raise ValueError("if data_filename not given, n_times must be given")
+                raise ValueError("if data_filename and data not given, n_times must be given")
             if antennas is None:
-                raise ValueError("if data_filename not given, antennas must be given")
+                raise ValueError("if data_filename and data not given, antennas must be given")
 
             # Actually create it
             self.data = io.empty_uvdata(
@@ -192,14 +200,20 @@ class Simulator:
             )
 
         else:
-            # Read data from file.
-            self.data = self._read_data(self.data_filename, **kwargs)
+            if type(data) == str:
+                self.data_filename = data
 
-            # Reset data to zero if user desires.
-            if refresh_data:
-                self.data.data_array[:] = 0.0
-                self.data.flag_array[:] = False
-                self.data.nsample_array[:] = 1.0
+            if self.data_filename is not None:
+                # Read data from file.
+                self.data = self._read_data(self.data_filename, **kwargs)
+
+                # Reset data to zero if user desires.
+                if refresh_data:
+                    self.data.data_array[:] = 0.0
+                    self.data.flag_array[:] = False
+                    self.data.nsample_array[:] = 1.0
+            elif self.data is not None:
+                self.data = data
 
         # Check if the created/read data is compatible with the assumptions of
         # this class.
@@ -258,25 +272,21 @@ class Simulator:
 
         Args:
             model (str or callable): either a string name of a model function existing in :mod:`~hera_sim.eor`, or
-                a callable which has the signature ``fnc(lsts, fqs, bl_len_ns, **kwargs)``.
+                a callable which has the signature ``fnc(lsts, fqs, bl_vec, **kwargs)``.
             ret_vis (bool, optional): whether to return the visibilities that are being added to to the base
                 data as a new array. Default False.
             add_vis (bool, optional): whether to add the calculated visibilities to the underlying data array.
                 Default True.
-            **kwargs: keyword arguments sent to the EoR model function, other than `lsts`, `fqs` and `bl_len_ns`.
+            **kwargs: keyword arguments sent to the EoR model function, other than `lsts`, `fqs` and `bl_vec`.
         """
+        # frequencies come from zeroths spectral window
+        fqs = self.data.freq_array[0] * 1e-9
 
         for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols():
             lsts = self.data.lst_array[blt_ind]
-            bl_len_m = np.abs(self.antpos[ant1][0] - self.antpos[ant2][0])  # E-W baseline length
-
-            self.data.data_array[blt_ind, 0, :, pol_ind] += model(
-                lsts=lsts,
-                # Axis 0 is spectral windows, of which at this point there are always 1.
-                fqs=self.data.freq_array[0] * 1e-9,
-                bl_len_ns=bl_len_m * 1e9 / 3e8,
-                **kwargs
-            )
+            bl_vec = (self.antpos[ant1] - self.antpos[ant2]) * 1e9 / const.c.value
+            vis = model(lsts=lsts, fqs=fqs, bl_vec=bl_vec, **kwargs)
+            self.data.data_array[blt_ind, 0, :, pol_ind] += vis
 
     @_model()
     def add_foregrounds(self, model, **kwargs):
@@ -285,24 +295,21 @@ class Simulator:
 
         Args:
             model (str or callable): either a string name of a model function existing in :mod:`~hera_sim.foregrounds`,
-                or a callable which has the signature ``fnc(lsts, fqs, bl_len_ns, **kwargs)``.
+                or a callable which has the signature ``fnc(lsts, fqs, bl_vec, **kwargs)``.
             ret_vis (bool, optional): whether to return the visibilities that are being added to to the base
                 data as a new array. Default False.
             add_vis (bool, optional): whether to add the calculated visibilities to the underlying data array.
                 Default True.
-            **kwargs: keyword arguments sent to the foregournd model function, other than `lsts`, `fqs` and `bl_len_ns`.
+            **kwargs: keyword arguments sent to the foregournd model function, other than `lsts`, `fqs` and `bl_vec`.
         """
+        # frequencies come from zeroth spectral window
+        fqs = self.data.freq_array[0] * 1e-9
+
         for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols():
             lsts = self.data.lst_array[blt_ind]
-            bl_len_m = np.abs(self.antpos[ant1][0] - self.antpos[ant2][0])  # E-W baseline length
-
-            self.data.data_array[blt_ind, 0, :, pol_ind] += model(
-                lsts=lsts,
-                # Axis 0 is spectral windows, of which at this point there are always 1.
-                fqs=self.data.freq_array[0] * 1e-9,
-                bl_len_ns=bl_len_m * 1e9 / 3e8,
-                **kwargs
-            )
+            bl_vec = (self.antpos[ant1] - self.antpos[ant2]) * 1e9 / const.c.value
+            vis = model(lsts, fqs, bl_vec, **kwargs)
+            self.data.data_array[blt_ind, 0, :, pol_ind] += vis
 
     @_model()
     def add_noise(self, model, **kwargs):
@@ -311,7 +318,7 @@ class Simulator:
 
         Args:
             model (str or callable): either a string name of a model function existing in :mod:`~hera_sim.noise`,
-                or a callable which has the signature ``fnc(lsts, fqs, bl_len_ns, **kwargs)``.
+                or a callable which has the signature ``fnc(lsts, fqs, bl_len_ns, omega_p, **kwargs)``.
             ret_vis (bool, optional): whether to return the visibilities that are being added to to the base
                 data as a new array. Default False.
             add_vis (bool, optional): whether to add the calculated visibilities to the underlying data array.

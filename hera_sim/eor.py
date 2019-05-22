@@ -6,59 +6,43 @@ requested baseline, for the requested lsts and frequencies.
 """
 
 import numpy as np
-from scipy.interpolate import RectBivariateSpline
+from scipy import interpolate
 import aipy
+from scipy.signal import windows
 from . import noise
 from . import utils
 
 
-def noiselike_eor(lsts, fqs, bl_len_ns, eor_amp=1e-5, spec_tilt=0.0,
-                  fr_width=None, min_delay=0, max_delay=3000, fr_max_mult=2.0):
+def noiselike_eor(lsts, fqs, bl_vec, eor_amp=1e-5, min_delay=None, max_delay=None,
+                  fringe_filter_type='tophat', **fringe_filter_kwargs):
     """
-    Generate a noise-like EoR signal that is fringe-rate filtered
-    according to its projected East-West baseline length.
+    Generate a noise-like, fringe-filtered EoR visibility.
 
     Args:
         lsts (ndarray): LSTs [radians]
         fqs (ndarray): frequencies [GHz]
-        bl_len_ns (float): East-West baseline length [nanosec]
-        eor_amp (float): amplitude of EoR signal [arbitrary]
-        spec_tilt (float): spectral slope of EoR spectral amplitude as a function of delay in microseconds
-        fr_width (float) : width of Gaussian FR filter in 1 / sec
-        min_delay (float): minimum absolute delay in nanosec of EoR signal
-        max_delay (float): maximum absolute delay in nanosec of EoR signal
-        fr_max_mult (float): multiplier of fr_max to get lst_grid resolution
+        bl_vec (ndarray): East-North-Up (i.e. Topocentric) baseline vector in nanoseconds [East, North, Up]
+        eor_amp (float): amplitude of EoR signal [arbitrary units]
+        min_delay (float): minimum delay of signal to keep in nanosec (i.e. filter out below this delay)
+        max_delay (float): maximum delay of signal to keep in nanosec (i.e. filter out above this delay)
+        fringe_filter_type (str): type of fringe-rate filter, see utils.gen_fringe_filter()
+        fringe_filter_kwargs: kwargs given fringe_filter_type, see utils.gen_fringe_filter()
 
     Returns: 
-        2D ndarray : simulated complex visibility (per LST and frequency)
+        vis (ndarray): simulated complex visibility
+
+    Notes:
+        Based on the order of operations (delay filter then fringe-rate filter),
+        modes outside of min and max delay will contain some spillover power due
+        to the frequency-dependent nature of the fringe-rate filter.
     """
-    # get fringe rate and generate an LST grid
-    fr_max = np.max(utils.calc_max_fringe_rate(fqs, bl_len_ns))
-    dt = 1.0 / (fr_max_mult * fr_max)  # over-resolve by fr_mult factor
-    ntimes = int(np.around(aipy.const.sidereal_day / dt))
-    lst_grid = np.linspace(0, 2 * np.pi, ntimes, endpoint=False)
+    # generate white noise in frate and freq space
+    data = noise.white_noise((len(lsts), len(fqs))) * eor_amp
 
-    # generate white noise
-    vis = noise.white_noise((ntimes, len(fqs))) * eor_amp
+    # filter across frequency if desired
+    data = utils.rough_delay_filter(data, fqs, 1e10, filter_type='tophat', min_delay=min_delay, max_delay=max_delay)
 
-    # Fringe-Rate Filter given baseline
-    vis, ff, frs = utils.rough_fringe_filter(
-        vis, lst_grid, fqs, bl_len_ns, fr_width=fr_width
-    )
-
-    # interpolate at fed LSTs
-    mdl_real = RectBivariateSpline(lst_grid, fqs, vis.real)
-    mdl_imag = RectBivariateSpline(lst_grid, fqs, vis.imag)
-    vis = mdl_real(lsts, fqs) + 1j * mdl_imag(lsts, fqs)
-
-    # introduce a spectral tilt and filter out certain modes
-    visFFT = np.fft.fft(vis, axis=1)
-    delays = np.abs(np.fft.fftfreq(len(fqs), d=np.median(np.diff(fqs))) / 1e3).clip(
-        1e-3, np.inf
-    )
-    visFFT *= delays ** spec_tilt
-    visFFT[:, delays < np.abs(min_delay) / 1e3] = 0.0
-    visFFT[:, delays > np.abs(max_delay) / 1e3] = 0.0
-    vis = np.fft.ifft(visFFT, axis=1)
-
-    return vis
+    # fringe filter in frate & freq space
+    data = utils.rough_fringe_filter(data, lsts, fqs, bl_vec[0], filter_type=fringe_filter_type, **fringe_filter_kwargs)
+ 
+    return data
