@@ -229,7 +229,7 @@ class VisibilitySimulator:
             **kwargs: any options are passed to :func:`uvdata_to_config_file`.
         """
         if beam_filepath is None:
-            beam_filepath = path.basename(filename) + "_beams.yml"
+            beam_filepath = path.basename(filename) + ".beams"
 
         if antenna_layout_path is None:
             antenna_layout_path = path.basename(filename) + "_antenna_layout.csv"
