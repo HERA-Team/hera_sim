@@ -226,7 +226,14 @@ class VisibilitySimulator:
         object.
 
         Args:
-            **kwargs: any options are passed to :func:`uvdata_to_config_file`.
+            filename (str): filename of the config file
+            direc (str): directory in which to place the config file and its
+                supporting files.
+            beam_filepath (str, optional): where to put the beam information. Default
+                is to place it alongside the config file, but with extension '.beams'.
+            antenna_layout_path (str, optional): where to put the antenna layout CSV
+                file. Default is alongside the main config file, but appended with
+                '_antenna_layout.csv'.
         """
         if beam_filepath is None:
             beam_filepath = path.basename(filename) + ".beams"
