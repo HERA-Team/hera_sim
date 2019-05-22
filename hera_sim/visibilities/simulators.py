@@ -8,7 +8,7 @@ from pyuvsim.simsetup import initialize_uvdata_from_params, uvdata_to_telescope_
 from os import path
 
 
-class VisibilitySimulator:
+class VisibilitySimulator(object):
     # Whether this particular simulator has the ability to simulate point sources
     # directly
     point_source_ability = True
@@ -150,7 +150,7 @@ class VisibilitySimulator:
         hmap = np.zeros((len(point_source_flux), healpy.nside2npix(nside)))
 
         # Get which pixel every point source lies in.
-        pix = healpy.ang2pix(nside, point_source_pos[:, 0], point_source_pos[:, 1])
+        pix = healpy.ang2pix(nside, np.pi/2 - point_source_pos[:, 1], point_source_pos[:, 0])
 
         hmap[:, pix] += point_source_flux / healpy.nside2pixarea(nside)
 
