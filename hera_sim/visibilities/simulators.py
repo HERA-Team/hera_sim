@@ -19,7 +19,7 @@ class VisibilitySimulator(object):
     def __init__(self, obsparams=None, uvdata=None, sky_freqs=None, beams=None,
                  beam_ids=None,
                  sky_intensity=None, point_source_pos=None, point_source_flux=None,
-                 nside=50, ):
+                 nside=2**5, ):
         """
         Base VisibilitySimulator class.
 
@@ -136,7 +136,7 @@ class VisibilitySimulator(object):
             self.point_source_pos = np.hstack(self.point_source_pos, pos)
 
     @staticmethod
-    def convert_point_sources_to_healpix(point_source_pos, point_source_flux, nside=40):
+    def convert_point_sources_to_healpix(point_source_pos, point_source_flux, nside=2**5):
         """
         Convert a set of point sources to an approximate diffuse healpix model.
 
@@ -189,6 +189,10 @@ class VisibilitySimulator(object):
         try:
             return healpy.get_nside(self.sky_intensity[0])
         except TypeError:
+
+            if not healpy.isnsideok(self._nside):
+                raise ValueError("nside must be a power of 2")
+
             return self._nside
 
     @cached_property
