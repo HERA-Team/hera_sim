@@ -5,6 +5,7 @@ This is a fast, simple visibility simulator that
 """
 import numpy as np
 from scipy.interpolate import RectBivariateSpline
+import healpy
 
 from . import conversions
 from .simulators import VisibilitySimulator
@@ -121,7 +122,11 @@ class VisCPU(VisibilitySimulator):
 
     def _simulate_diffuse(self):
         crd_eq = self.get_diffuse_crd_eq()
-        return self._base_simulate(crd_eq, self.sky_intensity)
+        # Multiply intensity by pix area because the algorithm doesn't.
+        return self._base_simulate(
+            crd_eq,
+            self.sky_intensity * healpy.nside2pixarea(self.nside)
+        )
 
     def _simulate_points(self):
         crd_eq = self.get_point_source_crd_eq()

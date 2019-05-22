@@ -27,10 +27,10 @@ def uvdata():
 
 
 def create_uniform_sky(nbase=4, scale=1, nfreq=NFREQ):
-    """Create a uniform sky with total flux density of `scale`"""
-    NSIDE = 2 ** nbase
-    NPIX = 12 * NSIDE ** 2
-    return np.ones((nfreq, NPIX)) * scale / NPIX
+    """Create a uniform sky with total (integrated) flux density of `scale`"""
+    nside = 2 ** nbase
+    npix = 12 * nside ** 2
+    return np.ones((nfreq, npix)) * scale / (4 * np.pi)
 
 
 @pytest.mark.parametrize("simulator", SIMULATORS)
@@ -129,7 +129,10 @@ def test_single_source_autocorr(uvdata, simulator):
         nside=2**4,
     ).simulate()
 
-    assert np.isclose(np.abs(np.mean(v)), 0.5)
+    # Make sure the source is over the horizon half the time
+    # (+/- 1 because of the discreteness of the times)
+    # 1e-3 on either side to account for float inaccuracies.
+    assert -1e-3 + (NTIMES/2.0 - 1.0)/NTIMES <= np.round(np.abs(np.mean(v)), 3) <= (NTIMES/2.0 + 1.0)/NTIMES + 1e-3
 
 
 @pytest.mark.parametrize("simulator", SIMULATORS)

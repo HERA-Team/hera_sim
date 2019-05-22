@@ -5,7 +5,6 @@ import numpy as np
 import pyuvdata as uv
 from pyuvdata.utils import get_lst_for_time, polstr2num
 import itertools
-from astropy import units as un
 
 SEC_PER_SDAY = 86164.1  # sec per sidereal day
 HERA_LOCATION = [5109342.82705015, 2005241.83929272, -3239939.40461961]
