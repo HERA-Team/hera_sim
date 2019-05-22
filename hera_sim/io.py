@@ -5,6 +5,7 @@ import numpy as np
 import pyuvdata as uv
 from pyuvdata.utils import get_lst_for_time, polstr2num
 import itertools
+from astropy import units as un
 
 SEC_PER_SDAY = 86164.1  # sec per sidereal day
 HERA_LOCATION = [5109342.82705015, 2005241.83929272, -3239939.40461961]
@@ -12,7 +13,7 @@ HERA_LAT_LON_ALT = (-0.53619179912885, 0.3739944696510935, 1073.0000000074506)
 
 
 def empty_uvdata(nfreq, ntimes, ants, antpairs=None, pols=['xx',],
-                 time_per_integ=10.7, min_freq=0.1, channel_bw=0.1/1024., 
+                 time_per_integ=10.7, min_freq=0.1, channel_bw=0.1/1024.,
                  instrument='hera_sim', telescope_location=HERA_LOCATION, 
                  telescope_lat_lon_alt=HERA_LAT_LON_ALT, 
                  object_name='sim_data', start_jd=2458119.5, 
@@ -55,7 +56,7 @@ def empty_uvdata(nfreq, ntimes, ants, antpairs=None, pols=['xx',],
     sim_times = start_jd + np.arange(ntimes) * time_per_integ / SEC_PER_SDAY
     sim_pols = pols
     lat, lon, alt = telescope_lat_lon_alt
-    sim_lsts = get_lst_for_time(sim_times, lat, lon, alt)
+    sim_lsts = get_lst_for_time(sim_times, lat*180/np.pi, lon*180/np.pi, alt)
 
     # Basic telescope metadata
     uvd.instrument = instrument
