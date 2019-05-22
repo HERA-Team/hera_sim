@@ -4,10 +4,11 @@ import healpy
 import numpy as np
 from cached_property import cached_property
 from pyuvsim import analyticbeam as ab
-from pyuvsim.simsetup import initialize_uvdata_from_params, uvdata_to_config_file
+from pyuvsim.simsetup import initialize_uvdata_from_params, uvdata_to_telescope_config
+from os import path
 
 
-class VisibilitySimulator(object):
+class VisibilitySimulator:
     # Whether this particular simulator has the ability to simulate point sources
     # directly
     point_source_ability = True
@@ -218,7 +219,8 @@ class VisibilitySimulator(object):
             self.__class__.__name__)
         self.uvdata.history += "Class Repr: {}".format(repr(self))
 
-    def write_config_file(self, **kwargs):
+    def write_config_file(self, filename, direc='.', beam_filepath=None,
+                          antenna_layout_path=None):
         """
         Write out a YAML config file corresponding to the current UVData
         object.
@@ -226,4 +228,14 @@ class VisibilitySimulator(object):
         Args:
             **kwargs: any options are passed to :func:`uvdata_to_config_file`.
         """
-        uvdata_to_config_file(self.uvdata, **kwargs)
+        if beam_filepath is None:
+            beam_filepath = path.basename(filename) + "_beams.yml"
+
+        if antenna_layout_path is None:
+            antenna_layout_path = path.basename(filename) + "_antenna_layout.csv"
+
+        uvdata_to_telescope_config(
+            self.uvdata, beam_filepath=beam_filepath,
+            layout_csv_name=antenna_layout_path, telescope_config_name=filename,
+            return_names=False, path_out=direc
+        )
