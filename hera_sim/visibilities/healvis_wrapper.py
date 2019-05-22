@@ -43,10 +43,12 @@ class HealVis(VisibilitySimulator):
         sky.Nskies = 1
         sky.ref_chan = self._sky_ref_chan
 
-        # convert from Jy/sr to T.sr [K.sr]
-        intensity = 10**-26 * self.sky_intensity.T * (cnst.c.to("m/s").value/self.sky_freqs)**2 / (2 * cnst.k_B.value) / healpy.nside2pixarea(self.nside)
-        sky.data = intensity[np.newaxis, :, :]
+        # convert from Jy/sr to K
+        intensity = 10**-26 * self.sky_intensity.T
+        intensity *= (cnst.c.to("m/s").value/self.sky_freqs)**2 / (2 * cnst.k_B.value)
+        intensity /= healpy.nside2pixarea(self.nside)
 
+        sky.data = intensity[np.newaxis, :, :]
         sky._update()
 
         return sky

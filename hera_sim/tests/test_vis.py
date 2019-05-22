@@ -30,7 +30,7 @@ def create_uniform_sky(nbase=4, scale=1, nfreq=NFREQ):
     """Create a uniform sky with total flux density of `scale`"""
     NSIDE = 2 ** nbase
     NPIX = 12 * NSIDE ** 2
-    return np.ones((NFREQ, NPIX)) * scale / NPIX
+    return np.ones((nfreq, NPIX)) * scale / NPIX
 
 
 @pytest.mark.parametrize("simulator", SIMULATORS)
@@ -90,7 +90,27 @@ def test_autocorr_flat_beam(uvdata, simulator):
     ).simulate()
 
     np.testing.assert_allclose(np.abs(v), np.mean(v), rtol=1e-3)
-    np.testing.assert_almost_equal(v, 0.5, 2)
+    np.testing.assert_almost_equal(np.abs(v), 0.5, 2)
+
+
+def test_viscpu_res_autocorr(uvdata):
+    I_sky = create_uniform_sky(nbase=5)
+    v = vis.VisCPU(
+        uvdata=uvdata,
+        sky_freqs=np.unique(uvdata.freq_array),
+        sky_intensity=I_sky,
+    ).simulate()
+
+    I_sky = create_uniform_sky(nbase=6)
+    v2 = vis.VisCPU(
+        uvdata=uvdata,
+        sky_freqs=np.unique(uvdata.freq_array),
+        sky_intensity=I_sky,
+    ).simulate()
+
+    # Ensure that increasing sky resolution smooths out
+    # any 'wiggles' in the auto-correlations of a flat sky.
+    assert np.std(np.abs(v)) >= np.std(np.abs(v2))
 
 
 @pytest.mark.parametrize("simulator", SIMULATORS)
@@ -105,7 +125,8 @@ def test_single_source_autocorr(uvdata, simulator):
         uvdata=uvdata,
         sky_freqs=np.unique(uvdata.freq_array),
         point_source_flux=point_source_flux,
-        point_source_pos=point_source_pos
+        point_source_pos=point_source_pos,
+        nside=2**4,
     ).simulate()
 
     assert np.isclose(np.abs(np.mean(v)), 0.5)
@@ -123,7 +144,8 @@ def test_single_source_autocorr_past_horizon(uvdata, simulator):
         uvdata=uvdata,
         sky_freqs=np.unique(uvdata.freq_array),
         point_source_flux=point_source_flux,
-        point_source_pos=point_source_pos
+        point_source_pos=point_source_pos,
+        nside=2**4
     ).simulate()
 
     assert np.abs(np.mean(v)) == 0
