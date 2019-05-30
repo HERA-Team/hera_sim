@@ -63,5 +63,9 @@ setup_args = {
 }
 
 
+# If on Python 2, we also need the "future" module
+if sys.version.startswith("2"):
+    setup_args['install_requires'].append("future")
+
 if __name__ == "__main__":
     setup(*(), **setup_args)
