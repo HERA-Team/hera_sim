@@ -2,6 +2,7 @@ import numpy as np
 from . import foregrounds, rfi, noise, sigchain
 from scipy.interpolate import RectBivariateSpline
 from copy import deepcopy
+from builtins import range
 
 DEFAULT_LSTS = np.linspace(0, 2 * np.pi, 10000, endpoint=False)
 DEFAULT_FQS = np.linspace(0.1, 0.2, 1024, endpoint=False)

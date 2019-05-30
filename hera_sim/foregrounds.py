@@ -7,6 +7,7 @@ at the requested lsts and frequencies.
 
 import numpy as np
 from aipy.const import sidereal_day
+from builtins import range
 
 from . import noise
 from . import utils
