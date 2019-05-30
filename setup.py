@@ -2,7 +2,12 @@ from setuptools import setup
 import glob
 import os
 import sys
-from hera_sim import version
+
+# Import version this way so as not to import the entire hera_sim package.
+# Importing all of hera_sim creates problems when requirements aren't installed.
+sys.path.append("hera_sim")
+import version
+
 import json
 
 data = [
@@ -18,6 +23,7 @@ if sys.version[0] == '2':
 else:
     with open(os.path.join("hera_sim", "GIT_INFO"), "w", encoding='utf8') as outfile:
         json.dump(data, outfile)
+
 
 def package_files(package_dir, subdirectory):
     # walk the input package_dir/subdirectory
@@ -42,14 +48,24 @@ setup_args = {
     "package_dir": {"hera_sim": "hera_sim"},
     "packages": ["hera_sim"],
     "include_package_data": True,
-    #'install_requires': ['numpy>=1.14', 'aipy', 'hera_cal', 'pyuvdata'],
-    #'scripts': ['scripts/firstcal_run.py', 'scripts/omni_apply.py',
-    #            'scripts/omni_run.py', 'scripts/extract_hh.py'],
+    "install_requires": [
+        'numpy>=1.14',
+        'scipy',
+        'cached_property',
+        'mpi4py',   # this is a dependency of pyuvsim which currently is not automatically installed. Remove when possible.
+        'pyuvsim',
+        'pyuvdata',
+        'aipy'
+    ],
     "version": version.version,
     "package_data": {"hera_sim": data_files},
     "zip_safe": False,
 }
 
+
+# If on Python 2, we also need the "future" module
+if sys.version.startswith("2"):
+    setup_args['install_requires'].append("future")
 
 if __name__ == "__main__":
     setup(*(), **setup_args)

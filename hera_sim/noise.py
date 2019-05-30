@@ -2,9 +2,6 @@
 A module for generating realistic HERA noise.
 """
 
-import os
-
-import aipy
 import numpy as np
 from scipy.interpolate import RectBivariateSpline
 import aipy
