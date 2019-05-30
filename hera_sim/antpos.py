@@ -5,7 +5,7 @@ giving the 3D position of each antenna.
 """
 
 import numpy as np
-
+from builtins import range
 
 def linear_array(nants, sep=14.6):
     """
