@@ -282,6 +282,11 @@ def _listify(x):
 
     Gotten from https://stackoverflow.com/a/1416677/1467820
     """
+    try:
+        basestring
+    except NameError:
+        basestring = (str, bytes)
+
     if isinstance(x, basestring):
         return [x]
     else:
