@@ -5,42 +5,43 @@ import healpy
 import numpy as np
 
 
-def beam_healpix_to_top(hmap, n_pix_lm=63, nest=False):
-    """
-    Convert a beam contained in a healpix map to Cartesian topocentric
-    co-ordinates.
+# def beam_healpix_to_top(hmap, n_pix_lm=63, nest=False):
+#     """
+#     Convert a beam contained in a healpix map to Cartesian topocentric
+#     co-ordinates.
+#
+#     Args:
+#         hmap (1D array): array representing a healpix map.
+#             Must have length 12*N^2 for some N.
+#         n_pix_lm (int): number of pixels on a size for the beam map cube.
+#         nest (bool): whether the healpix scheme is NEST (default is RING).
+#
+#     Returns:
+#         ndarray, shape[beam_px, beam_px]: the beam map cube.
+#     """
+#
+#     # X is 3rd dim, Y is 2nd dim
+#     l = np.linspace(-1, 1, n_pix_lm, dtype=np.float32)
+#     l, m = np.meshgrid(l, l)
+#     l = l.flatten()
+#     m = m.flatten()
+#
+#     lsqr = l ** 2 + m ** 2
+#     n = np.where(lsqr < 1, np.sqrt(1 - lsqr), -1)
+#
+#     hp_pix = healpy.vec2pix(healpy.get_nside(hmap), l, m, n, nest=nest)
+#
+#     bm = hmap[hp_pix]
+# #    bm = np.where(n >= 0, hmap[hp_pix], 0)
+#     bm = np.reshape(bm, (n_pix_lm, n_pix_lm))
+#
+#     if np.max(hmap) > 0:
+#         bm /= np.max(hmap)
+#
+#     return bm
 
-    Args:
-        hmap (1D array): array representing a healpix map.
-            Must have length 12*N^2 for some N.
-        n_pix_lm (int): number of pixels on a size for the beam map cube.
-        nest (bool): whether the healpix scheme is NEST (default is RING).
 
-    Returns:
-        ndarray, shape[beam_px, beam_px]: the beam map cube.
-    """
-
-    # X is 3rd dim, Y is 2nd dim
-    l = np.linspace(-1, 1, n_pix_lm, dtype=np.float32)
-    l, m = np.meshgrid(l, l)
-    l = l.flatten()
-    m = m.flatten()
-
-    lsqr = l ** 2 + m ** 2
-    n = np.where(lsqr < 1, np.sqrt(1 - lsqr), -1)
-
-    hp_pix = healpy.vec2pix(healpy.get_nside(hmap), l, m, n, nest=nest)
-
-    bm = np.where(n > 0, hmap[hp_pix], 0)
-    bm = np.reshape(bm, (n_pix_lm, n_pix_lm))
-
-    if np.max(hmap) > 0:
-        bm /= np.max(hmap)
-
-    return bm
-
-
-def uvbeam_to_lm(uvbeam, freqs, n_pix_lm=63, **kwargs):
+def uvbeam_to_lm(uvbeam, freqs, n_pix_lm=63, trunc_at_horizon=False, **kwargs):
     """
     Convert a UVbeam to a uniform (l,m) grid
 
@@ -68,7 +69,11 @@ def uvbeam_to_lm(uvbeam, freqs, n_pix_lm=63, **kwargs):
 
     # Get the relevant indices of res
     bm = np.zeros((len(freqs), len(l)))
-    bm[:, n >= 0] = res[0, 0, 0][:, n>= 0]
+
+    if trunc_at_horizon:
+        bm[:, n >= 0] = res[0, 0, 0][:, n >= 0]
+    else:
+        bm = res[0, 0, 0]
 
     if np.max(bm) > 0:
         bm /= np.max(bm)
