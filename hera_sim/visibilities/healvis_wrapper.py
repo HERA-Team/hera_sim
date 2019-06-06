@@ -6,9 +6,13 @@ healpix maps.
 import healpy
 import numpy as np
 from cached_property import cached_property
-from healvis.beam_model import AnalyticBeam
-from healvis.simulator import setup_observatory_from_uvdata
-from healvis.sky_model import SkyModel
+
+try:
+    from healvis.beam_model import AnalyticBeam
+    from healvis.simulator import setup_observatory_from_uvdata
+    from healvis.sky_model import SkyModel
+except ImportError:
+    raise ImportError("to use the healvis wrapper, you must install healvis!")
 
 from .simulators import VisibilitySimulator
 from astropy import constants as cnst
