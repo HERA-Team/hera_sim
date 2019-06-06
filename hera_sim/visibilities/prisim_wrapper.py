@@ -271,7 +271,7 @@ class PRISim(VisibilitySimulator):
                 skymodel=self.sky_model,
                 t_acc=self.uvdata.integration_time[0],
                 pb_info={
-                    "pointing_centre": np.array([90., 270])  # hard-coded to zenith
+                    "pointing_centre": np.array([90., 270]),  # hard-coded to zenith
                     "pointing_coords": 'altaz'
                 },
                 brightness_units="Jy",
