@@ -49,7 +49,7 @@ class VisibilitySimulator(object):
                 A healpix model for the intensity of the sky emission, in [Jy/sr]
             point_source_pos (2D array, optional, shape=[N_SOURCES, 2]):
                 An array of point sources. For each source, the entries are
-                (ra, dec) [rad].
+                (ra, dec) [rad] (assumed to be in J2000).
             point_source_flux (2D array, optional, shape=[NFREQS, N_SOURCES]):
                 An array of fluxes of the given point sources, per frequency.
                 Fluxes in [Jy].
