@@ -204,6 +204,7 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube, real_dtype=np.float32
             # Linear interpolation of primary beam pattern
             spline = RectBivariateSpline(bm_pix_y, bm_pix_x, bm_cube[i], kx=1, ky=1)
             A_s[i] = spline(ty, tx, grid=False)
+
         A_s = np.where(tz > 0, A_s, 0)
 
         # Calculate delays
