@@ -120,10 +120,25 @@ def gen_reflection_coefficient(fqs, amp, dly, phs, conj=False):
         complex ndarray: complex reflection gain
 
     Notes:
-        Reflection terms can be fed as floats, in which case output coefficient
-        is a 1D array of shape (Nfreqs,) or they can be fed as (Ntimes, 1) ndarrays,
-        in which case output coefficient is a 2D narray of shape (Ntimes, Nfreqs)
+        If reflection terms (amp, dly, phs) are fed as a float they are assumed to be
+        frequency and time independent. If they are an ndarray, they can take the following
+        shapes: (1,) or (Ntimes,) or (1, Nfreqs) or (Ntimes, Nfreqs).
     """
+    # type and shape check
+    def _type_check(arr):
+        if isinstance(arr, np.ndarray):
+            if arr.ndim == 1 and arr.size > 1:
+                # resize into (Ntimes, 1)
+                arr = arr.reshape(-1, 1)
+            elif arr.ndim > 1:
+                assert arr.shape[1] in [1, Nfreqs], "frequency-dependent reflection coefficients" \
+                "must match input fqs size"
+        return arr
+    Nfreqs = fqs.size                                                                                     
+    amp = _type_check(amp)
+    dly = _type_check(dly)
+    phs = _type_check(phs)
+
     # form reflection coefficient
     eps = amp * np.exp(2j * np.pi * fqs * dly + 1j * phs)
 
