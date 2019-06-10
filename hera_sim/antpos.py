@@ -7,6 +7,7 @@ giving the 3D position of each antenna.
 import numpy as np
 from builtins import range
 
+
 def linear_array(nants, sep=14.6):
     """
     Build a linear (east-west) array configuration.
@@ -43,7 +44,7 @@ def hex_array(hexNum, sep=14.6, split_core=True, outriggers=2):
     # Main Hex
     positions = []
     for row in range(
-        hexNum - 1, -hexNum + split_core, -1
+            hexNum - 1, -hexNum + split_core, -1
     ):  # the + split_core deletes a row
         for col in range(0, 2 * hexNum - abs(row) - 1):
             xPos = sep * ((-(2 * hexNum - abs(row)) + 2) / 2.0 + col)
@@ -77,9 +78,9 @@ def hex_array(hexNum, sep=14.6, split_core=True, outriggers=2):
         for row in range(exteriorHexNum - 1, -exteriorHexNum, -1):
             for col in range(2 * exteriorHexNum - abs(row) - 1):
                 xPos = (
-                    ((-(2 * exteriorHexNum - abs(row)) + 2) / 2.0 + col)
-                    * sep
-                    * (hexNum - 1)
+                        ((-(2 * exteriorHexNum - abs(row)) + 2) / 2.0 + col)
+                        * sep
+                        * (hexNum - 1)
                 )
                 yPos = row * sep * (hexNum - 1) * 3 ** 0.5 / 2
                 theta = np.arctan2(yPos, xPos)
