@@ -128,13 +128,17 @@ class VisibilitySimulator(object):
             warnings.warn("This visibility simulator is unable to explicitly "
                           "simulate diffuse structure. Converting diffuse "
                           "intensity to approximate points")
-            if self.point_sources is None:
-                self.point_source_pos = 0
-                self.point_source_flux = 0
 
             pos, flux = self.convert_healpix_to_point_sources(self.sky_intensity)
-            self.point_source_flux = np.hstack(self.point_source_flux, flux)
-            self.point_source_pos = np.hstack(self.point_source_pos, pos)
+
+            if self.point_source_pos is None:
+                self.point_source_pos = pos
+                self.point_source_flux = flux
+            else:
+                self.point_source_flux = np.hstack((self.point_source_flux, flux))
+                self.point_source_pos = np.hstack((self.point_source_pos, pos))
+
+            self.sky_intensity = None
 
     @staticmethod
     def convert_point_sources_to_healpix(point_source_pos, point_source_flux, nside=2**5):

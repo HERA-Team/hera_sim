@@ -1,4 +1,5 @@
 import os
+import warnings
 
 import numpy as np
 import pyuvdata
@@ -11,6 +12,7 @@ from cached_property import cached_property
 try:
     from astroutils import catalog, geometry, mathops
     from prisim import interferometry as intf
+    import prisim
 except ImportError:
     raise ImportError("To use the PRISim wrapper, you will need to install prisim!")
 
@@ -22,7 +24,7 @@ PRISIM_PATH = prisim.__path__[0]
 class PRISim(VisibilitySimulator):
     diffuse_ability = False
 
-    def __init__(self, aux_file_loc='prisim_roi_file.fits', fov_radius=90.0,
+    def __init__(self, aux_file_loc='prisim_roi_file', fov_radius=90.0,
                  beam_pol='x', beam_interp='cubic', precision='single', **kwargs):
         self.fov_radius = fov_radius
         self.beam_pol = beam_pol
@@ -44,16 +46,15 @@ class PRISim(VisibilitySimulator):
         """
         An instance of `prisim.interferometry.InterferometerArray`
         """
-        intf.InterferometerArray(
-            labels=np.asarray(self.uvdata.get_ant_pairs(), dtype=[("A2", int), ("A1", int)]),
-            baselines=self.uvdata.get,  # ask bryna
+        return intf.InterferometerArray(
+            labels=np.asarray(self.uvdata.get_antpairs(), dtype=[("A2", int), ("A1", int)]),
+            baselines=self.uvdata.get,  # (N,3) array ENU ask bryna
             channels=self.uvdata.freq_array[0],
             telescope=None,  # TODO: new class
             latitude=np.degrees(self.uvdata.telescope_lat_lon_alt[0]),
             longitude=np.degrees(self.uvdata.telescope_lat_lon_alt[1]),
             altitude=self.uvdata.telescope_lat_lon_alt[2],
             pointing_coords="altaz"
-            # blgroupinfo=None,
         )
 
     def validate(self):
@@ -75,32 +76,38 @@ class PRISim(VisibilitySimulator):
             dec=np.degrees(self.point_source_pos[:, 1]) * u.deg,
             frame='fk5',
             equinox=Time(2000.0, format='jyear', scale='utc'),
-        ).transform_to(FK5(equinox=self.times[0]))
+        ).transform_to(FK5(equinox=self._astropy_times[0]))
 
     @cached_property
     def sky_model(self):
         """A PRISim SkyModel"""
         return catalog.SkyModel(
-            name='hera_sim',
-            frequency=self.sky_freqs,
-            location=np.array([
-                self._sky_coords.ra.deg,
-                self._sky_coords.dec.deg
-            ]).T,
-            spec_type='spectrum',
-            spectrum=self.point_source_flux.T,
-            spec_parms={},  # only useful if specturm is a function.
-            src_shape=np.zeros((len(self.point_source_pos), 3)),
+            init_parms=dict(
+                name='hera_sim',
+                frequency=self.sky_freqs,
+                location=np.array([
+                    self._sky_coords.ra.deg,
+                    self._sky_coords.dec.deg
+                ]).T,
+                spec_type='spectrum',
+                spectrum=self.point_source_flux.T,
+                spec_parms={},  # only useful if specturm is a function.
+                src_shape=np.zeros((len(self.point_source_pos), 3)),
+            )
         )
 
     @cached_property
     def _earth_location(self):
         """EarthLocation object for the array"""
         return EarthLocation(
-            lat=self.uvdata.telescope_location_lat_lon_alt_degree[0] * u.deg,
-            lon=self.uvdata.telescope_location_lat_lon_alt_degree[1] * u.deg,
+            lat=self.uvdata.telescope_location_lat_lon_alt_degrees[0] * u.deg,
+            lon=self.uvdata.telescope_location_lat_lon_alt_degrees[1] * u.deg,
             height=self.uvdata.telescope_location_lat_lon_alt[2] * u.m,
         )
+
+    @cached_property
+    def _astropy_times(self):
+        return [Time(t, format='jd', scale='utc', location=self._earth_location) for t in self.times]
 
     @cached_property
     def _pointing_centres_radec(self):
@@ -110,13 +117,13 @@ class PRISim(VisibilitySimulator):
                 az=270 * u.deg,
                 obstime=t,
                 location=self._earth_location
-            ).transform_to(FK5(equinox=self.times[0])) for t in self.times
+            ).transform_to(FK5(equinox=self._astropy_times[0])) for t in self._astropy_times
         ]
 
         return np.array([[x.ra.deg, x.dec.deg] for x in radecs])
 
     @cached_property
-    def get_skymodel_indices(self):
+    def skymodel_indices(self):
         """
         Return the indices in the SkyModel that fall within the fov_radius
         around the pointings (as function of time).
@@ -132,7 +139,7 @@ class PRISim(VisibilitySimulator):
             self._sky_coords.ra.deg,
             self._sky_coords.dec.deg,
             matchrad=self.fov_radius,
-            nnearrest=0,
+            nnearest=0,
             maxmatches=0
         )
 
@@ -156,6 +163,8 @@ class PRISim(VisibilitySimulator):
             elif self.beams[0].type == 'gaussian':
                 shape = 'gaussian'
                 size = self.beams[0].diameter
+            else:
+                raise ValueError("beam type if analytic must be uniform, airy or gaussian")
 
         return {
             'shape': shape,
@@ -172,7 +181,7 @@ class PRISim(VisibilitySimulator):
         """Run calculations for Region of Interest, and save a file for later use"""
         roi = intf.ROI_parameters()
 
-        indices = self.get_skymodel_indices
+        indices = self.skymodel_indices
 
         for i, (ind, time) in enumerate(zip(indices, self.times)):
             if len(ind) == 0:
@@ -184,19 +193,26 @@ class PRISim(VisibilitySimulator):
             else:
                 src_altaz = self._sky_coords[ind].transform_to(
                     AltAz(
-                        obstime=time, location=self._earth_location,
+                        obstime=self._astropy_times[i], location=self._earth_location,
                     )
                 )
 
                 src_altaz = np.array([src_altaz.alt.deg, src_altaz.az.deg]).T
-                assert src_altaz[:, 0] >= 0, "some sources are below horizon!"
 
-                pbinfo = {}
-                pbinfo['pointing_coords'] = 'altaz'
-                pbinfo['pointing_centre'] = np.array([90., 270.0])
+                if not np.all(src_altaz[:, 0] >= 0):
+                    warnings.warn("some sources are below horizon! Removing those sources manually. Minimum alt={}".format(src_altaz[:, 0].min()))
 
-                roiinfo = {}
-                roiinfo['ind'] = ind
+                # Ensure all sources are above horizon in alt/az coords
+                above = np.where(src_altaz[:, 0] >= 0)[0]
+                src_altaz = src_altaz[above]
+                indices[i] = above
+
+                pbinfo = {
+                    'pointing_coords': 'altaz',
+                    'pointing_centre': np.array([90., 270.0])
+                }
+
+                roiinfo = {'ind': ind}
 
                 if isinstance(self.beams[0], pyuvdata.UVBeam):
                     beam = self.beams[0].data_array[0, 0, 0 if self.beam_pol == 'x' else 1, :, :].T
@@ -227,36 +243,36 @@ class PRISim(VisibilitySimulator):
                 roi.append_settings(
                     self.sky_model, self.uvdata.freq_array[0] / 1e9,
                     pinfo=pbinfo,
-                    lst=Time(
-                        time, format='jd', scale='utc',
-                        location=self._earth_location
-                    ).sidereal_time('apparent').deg,
+                    lst=self._astropy_times[i].sidereal_time('apparent').deg,
                     time_jd=time,
                     roi_info=roiinfo,
                     telescope=self._prisim_telescope,
                     freq_scale="GHz"
                 )
 
-            roi.save(self.aux_file_loc, tabtype="BinTableHDU",
-                     overwrite=True, verbose=True)
+        roi.save(self.aux_file_loc, tabtype="BinTableHDU",
+                 overwrite=True, verbose=True)
+
+        return indices
 
     def _simulate(self):
         """
         Runs the healvis algorithm
         """
         # First run the RegionOfInterest
+        indices = self.run_region_of_interest()
 
-        for j, (ind, time) in enumerate(zip(self.get_skymodel_indices, self.times)):
+        for j, (ind, time) in enumerate(zip(indices, self.times)):
             if len(ind) > 0:
                 roi_ind_snap = fits.getdata(
-                    self.aux_file_loc,
-                    extname="IND_{0d}".format(j),
+                    self.aux_file_loc + ".fits",
+                    extname="IND_{:0d}".format(j),
                     memmap=False
                 )
 
                 roi_pbeam_snap = fits.getdata(
-                    self.aux_file_loc,
-                    extname="PB_{0d}".format(j),
+                    self.aux_file_loc + ".fits",
+                    extname="PB_{:0d}".format(j),
                     memmap=False
                 )
             else:
@@ -264,7 +280,7 @@ class PRISim(VisibilitySimulator):
                 roi_pbeam_snap = np.array([])
 
             self.interferometer.observe(
-                timeobj=Time(time, format='jd'),
+                timeobj=self._astropy_times[j],
                 Tsysinfo={"Tnet": 0},
                 bandpass=self.beams[0].bandpass_array,
                 pointing_center=np.array([90.0, 270.0]),
