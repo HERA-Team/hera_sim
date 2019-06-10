@@ -157,5 +157,6 @@ dependencies:
     - virtualenv==16.6.0
     - webencodings==0.5.1
     - zipp==0.5.1
+    - .
 prefix: /home/steven/miniconda3/envs/hera_sim3
 
