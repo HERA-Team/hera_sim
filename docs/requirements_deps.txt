@@ -3,5 +3,5 @@ scipy
 matplotlib
 h5py
 scikit-learn
-aipy
+aipy==3.0.0rc2
 coveralls
