@@ -153,7 +153,7 @@ dependencies:
     - testpath==0.4.2
     - toml==0.10.0
     - urllib3==1.24.1
-    - uvtools==0.1.0
+    - git+git://github.com/HERA-Team/uvtools.git
     - virtualenv==16.6.0
     - webencodings==0.5.1
     - zipp==0.5.1
