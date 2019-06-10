@@ -15,7 +15,8 @@
 import os
 import sys
 
-sys.path.insert(0, os.path.abspath('.'))
+sys.path.insert(0, os.path.abspath('../'))
+print("ABSPATH: ", os.path.abspath('../'))
 
 from unittest.mock import MagicMock
 
@@ -26,7 +27,8 @@ class Mock(MagicMock):
         return MagicMock()
 
 
-MOCK_MODULES = ['pyuvsim', 'aipy']
+MOCK_MODULES = ['pyuvsim', 'aipy', 'aipy.const', 'pyuvdata', 'pyuvdata.utils',
+                'astropy', 'astropy.units', 'cached_property']
 sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
 
 # -- Project information -----------------------------------------------------
