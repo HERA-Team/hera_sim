@@ -17,6 +17,8 @@ python:
   version: 3.6
   system_packages: true
   install:
+    - method: pip
+      - path: astropy # required here until pyuvdata fixes its install
     - requirements: requirements_dev_conda.txt
     - requirements: docs/requirements.txt
     - method: pip
