@@ -1,8 +1,2 @@
 numpy
 scipy
-matplotlib
-h5py
-scikit-learn
-aipy==3.0.0rc2
-coveralls
-mpi4py

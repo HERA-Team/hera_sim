@@ -17,10 +17,10 @@ python:
   version: 3.6
   system_packages: true
   install:
-    - requirements: docs/requirements_deps.txt # these need to be installed before the main package
+#    - requirements: docs/requirements_deps.txt # these need to be installed before the main package
     - requirements: docs/requirements.txt
-    - method: pip
-      path: .
+#    - method: pip
+#      path: .
 
 #conda:
 #  environment: environment.yml
