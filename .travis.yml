@@ -33,11 +33,12 @@ install:
   - conda info -a
 
   # create environment and install dependencies
+  - conda env create
   - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION
   - conda activate test-environment
-  - conda install -c conda-forge --file requirements_dev_conda.txt
-  - pip install -r requirements_dev.txt
-  - pip install .
+#  - conda install -c conda-forge --file requirements_dev_conda.txt
+#  - pip install -r requirements.txt
+#  - pip install .
 
 # The following doesn't work in xenial
 #before_script:
