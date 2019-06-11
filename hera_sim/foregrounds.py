@@ -76,6 +76,7 @@ def pntsrc_foreground(lsts, fqs, bl_vec, nsrcs=1000, Smin=0.3, Smax=300,
     have phase coherence within an observation but not between repeated
     calls of this function (i.e. no phase coherence between baselines).
     Beam width is currently hardcoded for HERA.
+
     Args:
         lsts (array-like): shape=(NTIMES,), radians
             local sidereal times of the observation to be generated.
@@ -101,7 +102,7 @@ def pntsrc_foreground(lsts, fqs, bl_vec, nsrcs=1000, Smin=0.3, Smax=300,
 
     Returns:
         vis (array-like): shape=(NTIMES,NFREQS)
-            mock point-source foreground visibility spectra vs. time'''
+            mock point-source foreground visibility spectra vs. time
     """
     bl_len_ns = np.linalg.norm(bl_vec)
     ras = np.random.uniform(0, 2 * np.pi, nsrcs)
