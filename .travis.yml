@@ -33,19 +33,9 @@ install:
   - conda info -a
 
   # create environment and install dependencies
-  - conda env create
-  - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION
-  - conda activate test-environment
-#  - conda install -c conda-forge --file requirements_dev_conda.txt
-#  - pip install -r requirements.txt
-#  - pip install .
-
-# The following doesn't work in xenial
-#before_script:
-#  - "export DISPLAY=:99.0"
-#  - "sh -e /etc/init.d/xvfb start"
-#  - "export MPLBACKEND=agg"
-#  - sleep 3
+  - conda create -q -n test-env python=$TRAVIS_PYTHON_VERSION
+  - conda env update -q -n test-env -f travis-environment.yml
+  - conda activate test-env
 
 script: nosetests hera_sim --with-coverage --cover-package=hera_sim --verbose
 
