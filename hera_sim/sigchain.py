@@ -87,6 +87,7 @@ def gen_gains(fqs, ants, gain_spread=0.1, dly_rng=(-20, 20)):
             the fractional variation in gain harmonics
         dly_range (2-tuple): ns
             the range of the delay
+
     Returns:
         g (dictionary):
             a dictionary of ant:bandpass * exp(2pi*i*tau*fqs) pairs where
@@ -102,7 +103,7 @@ def gen_gains(fqs, ants, gain_spread=0.1, dly_rng=(-20, 20)):
 
 
 def gen_reflection_coefficient(fqs, amp, dly, phs, conj=False):
-    """
+    r"""
     Generate a reflection coefficient.
 
     The reflection coefficient is described as
@@ -135,7 +136,7 @@ def gen_reflection_coefficient(fqs, amp, dly, phs, conj=False):
 
 
 def gen_reflection_gains(fqs, ants, amp=None, dly=None, phs=None, conj=False):
-    """
+    r"""
     Generate a signal chain reflection as an antenna gain.
 
     A signal chain reflection is a copy of an antenna
@@ -252,12 +253,13 @@ def gen_whitenoise_xtalk(fqs, amplitude=3.0):
 
 
 def gen_cross_coupling_xtalk(fqs, autovis, amp=None, dly=None, phs=None, conj=False):
-    """
+    r"""
     Generate a cross coupling systematic (e.g. crosstalk).
 
-    A cross coupling systematic is the auto-correlation visibility multiplied by a coupling coefficient.
-    If :math:`V_{11}` is the auto-correlation visibility of antenna 1, and :math:`\epsilon_{12}`
-    is the coupling coefficient, then cross correlation visibility takes the form
+    A cross coupling systematic is the auto-correlation visibility multiplied by a
+    coupling coefficient. If :math:`V_{11}` is the auto-correlation visibility of
+    antenna 1, and :math:`\epsilon_{12}` is the coupling coefficient, then cross
+    correlation visibility takes the form
 
     .. math::   V_{12} = v_1 v_2^\ast + V_{11}\epsilon_{12}^\ast
 

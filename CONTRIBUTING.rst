@@ -36,19 +36,29 @@ Development
 
 To set up `hera_sim` for local development:
 
-1. Fork `hera_sim <https://github.com/HERA-Team/hera_sim>`_
-   (look for the "Fork" button).
-2. Clone your fork locally::
+1. If you are *not* on the HERA-Team collaboration, make a fork of
+   `hera_sim <https://github.com/HERA-Team/hera_sim>`_ (look for the "Fork" button).
+2. Clone the repository locally. If you made a fork in step 1::
 
     git clone git@github.com:your_name_here/hera_sim.git
 
-3. Create a branch for local development::
+   Otherwise::
+
+    git clone git@github.com:HERA-Team/hera_sim.git
+
+3. Create a branch for local development (you will *not* be able to push to "master")::
 
     git checkout -b name-of-your-bugfix-or-feature
 
    Now you can make your changes locally.
 
-4. When you're done making changes, run all the checks, doc builder and spell checker with `tox <http://tox.readthedocs.io/en/latest/install.html>`_ one command::
+4. Make a development environment. We highly recommend using conda for this. With conda,
+   just run::
+
+    conda env create -f travis-environment.yml
+
+4. When you're done making changes, run all the checks, doc builder and spell checker
+   with `tox <http://tox.readthedocs.io/en/latest/install.html>`_ one command::
 
     tox
 

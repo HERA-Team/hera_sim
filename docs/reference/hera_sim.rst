@@ -15,7 +15,6 @@ hera_sim
     hera_sim.foregrounds
     hera_sim.io
     hera_sim.noise
-    hera_sim.reflections
     hera_sim.rfi
     hera_sim.sigchain
     hera_sim.utils

@@ -284,6 +284,7 @@ def compute_ha(lsts, ra):
             local sidereal times of the observation to be generated.
         ra: float, radians
             the right ascension of a point source.
+            
     Returns:
         ha: array-like, shape=(NTIMES,)
             hour angle corresponding to the provide ra and times'''
