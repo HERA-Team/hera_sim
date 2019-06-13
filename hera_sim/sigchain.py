@@ -1,8 +1,10 @@
 """A module for modeling HERA signal chains."""
 
-from . import noise
 import numpy as np
 import aipy
+import warnings
+
+from . import noise
 
 HERA_NRAO_BANDPASS = np.array(
     [
@@ -130,11 +132,15 @@ def gen_reflection_coefficient(fqs, amp, dly, phs, conj=False):
             if arr.ndim == 1 and arr.size > 1:
                 # resize into (Ntimes, 1)
                 arr = arr.reshape(-1, 1)
+                # if this happens to be of len Nfreqs, raise a warning
+                if arr.shape[0] == Nfreqs:
+                    warnings.warn("Warning: the input array had len Nfreqs, " \
+                                  "but we are reshaping it as (Ntimes, 1)")
             elif arr.ndim > 1:
                 assert arr.shape[1] in [1, Nfreqs], "frequency-dependent reflection coefficients" \
                 "must match input fqs size"
         return arr
-    Nfreqs = fqs.size                                                                                     
+    Nfreqs = fqs.size
     amp = _type_check(amp)
     dly = _type_check(dly)
     phs = _type_check(phs)
