@@ -96,6 +96,25 @@ class TestSigchainReflections(unittest.TestCase):
         m = np.mean(np.abs(ovfft), axis=0)
         nt.assert_true(np.isclose(m[select] / m[0], 1e-1, atol=1e-2))
 
+        # test reshaping into Ntimes
+        amp = np.linspace(1e-2, 1e-3, 3)
+        gains = sigchain.gen_reflection_gains(self.freqs, [0], amp=[amp], dly=[300], phs=[1])
+        nt.assert_equal(gains[0].shape, (3, 100))
+
+        # test frequency evolution with one time
+        amp = np.linspace(1e-2, 1e-3, 100).reshape(1, -1)
+        gains = sigchain.gen_reflection_gains(self.freqs, [0], amp=[amp], dly=[300], phs=[1])
+        nt.assert_equal(gains[0].shape, (1, 100))
+        # now test with multiple times
+        amp = np.repeat(np.linspace(1e-2, 1e-3, 100).reshape(1, -1), 10, axis=0)
+        gains = sigchain.gen_reflection_gains(self.freqs, [0], amp=[amp], dly=[300], phs=[1])
+        nt.assert_equal(gains[0].shape, (10, 100))
+
+        # exception
+        amp = np.linspace(1e-2, 1e-3, 2).reshape(1, -1)
+        nt.assert_raises(AssertionError, sigchain.gen_reflection_gains, self.freqs, [0], amp=[amp], dly=[300], phs=[1])
+
+
     def test_cross_coupling_xtalk(self):
         # introduce a cross reflection at a single delay
         outvis = sigchain.gen_cross_coupling_xtalk(self.freqs, self.Tsky, amp=1e-2, dly=300, phs=1)

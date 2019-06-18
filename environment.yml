@@ -1,0 +1,25 @@
+# minimum-spec development environment for travis
+
+name: test-environment
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - aipy=3.0.0rc2
+  - attrs
+  - h5py
+  - hdf5
+  - healpy
+  - mpi4py
+  - nose
+  - numpy
+  - pip
+  - pytest
+  - pyuvdata
+  - scipy
+  - pyyaml
+  - future #only for python 2
+  - pip:
+    - cached-property
+    - pyuvsim
+    - git+https://github.com/HERA-Team/uvtools.git

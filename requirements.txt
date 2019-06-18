@@ -1,0 +1,18 @@
+# Because we don't yet have an agreed-on way to pin dependencies,
+# this list is left very flexible in terms of version numbers.
+# Since requirements.txt is used to specify *development* environments,
+# it should actually be pinned.
+nose
+numpy
+scipy
+matplotlib
+coverage
+h5py
+scikit-learn
+aipy==3.0.0rc2
+coveralls
+mpi4py
+pyuvdata
+pre-commit
+future
+git+https://github.com/HERA-Team/uvtools.git
