@@ -74,7 +74,7 @@ class _model(object):
                 warnings.warn("You are adding absolute visibilities _after_ determining visibilities that should " +
                               "depend on these. Please re-consider.")
 
-            if "model" in inspect.getargspec(func)[0]:
+            if "model" in inspect.getargspec(func)[0]: # TODO: needs to be updated for python 3
                 # Cases where there is a choice of model
                 model = args[0] if args else kwargs.pop("model")
 
@@ -215,6 +215,11 @@ class Simulator:
             elif self.data is not None:
                 self.data = data
 
+        # Assume the phase type is drift unless otherwise specified.
+        if self.data.phase_type == "unknown":
+            self.data.set_drift()
+
+        self.data.baseline_array
         # Check if the created/read data is compatible with the assumptions of
         # this class.
         self._check_compatibility()
@@ -349,12 +354,11 @@ class Simulator:
         for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols():
             lsts = self.data.lst_array[blt_ind]
 
-            # RFI added in-place
-            model(
+            # RFI added in-place (giving rfi= does not seem to work here)
+            self.data.data_array[blt_ind, 0, :, 0] += model(
                 lsts=lsts,
                 # Axis 0 is spectral windows, of which at this point there are always 1.
                 fqs=self.data.freq_array[0] * 1e-9,
-                rfi=self.data.data_array[blt_ind, 0, :, 0],
                 **kwargs
             )
 
