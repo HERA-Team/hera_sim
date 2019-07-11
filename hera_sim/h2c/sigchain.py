@@ -11,7 +11,7 @@ from .data import DATA_PATH
 HERA_BANDPASS_NPY = os.path.join(DATA_PATH, 'HERA_H2C_BANDPASS.npy')
 
 HERA_NRAO_BANDPASS = np.load(HERA_BANDPASS_NPY)
-
+# See Memo ??? (should be either 69 or 70 once published)
 
 def gen_bandpass(fqs, ants, gain_spread=0.1):
     """
