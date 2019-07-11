@@ -3,20 +3,14 @@
 import numpy as np
 import aipy
 import warnings
+import os
 
 from . import noise
+from .data import DATA_PATH
 
-HERA_NRAO_BANDPASS = np.array(
-    [
-        -2.04689451e06,
-        1.90683718e06,
-        -7.41348361e05,
-        1.53930807e05,
-        -1.79976473e04,
-        1.12270390e03,
-        -2.91166102e01,
-    ]
-)  # See "HERA's Passband to First Order"
+HERA_BANDPASS_NPY = os.path.join(DATA_PATH, 'HERA_H2C_BANDPASS.npy')
+
+HERA_NRAO_BANDPASS = np.load(HERA_BANDPASS_NPY)
 
 
 def gen_bandpass(fqs, ants, gain_spread=0.1):
