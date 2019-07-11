@@ -115,7 +115,7 @@ def resample_Tsky(fqs, lsts, Tsky_mdl=None, Tsky=180.0, mfreq=0.18, index=-2.5):
 
 # XXX make inttime default=None
 # XXX reorder fqs/lsts
-def sky_noise_jy(Tsky, fqs, lsts, omega_p, B=None, inttime=10.7):
+def sky_noise_jy(Tsky, fqs, lsts, omega_p, B=None, inttime=8.59):
     """
     Generate Gaussian noise (in Jy units) corresponding to a sky temperature
     model integrated for the specified integration time and bandwidth.
@@ -152,7 +152,7 @@ def sky_noise_jy(Tsky, fqs, lsts, omega_p, B=None, inttime=10.7):
     return white_noise(Vnoise_jy.shape) * Vnoise_jy
 
 
-def thermal_noise(fqs, lsts, Tsky_mdl=None, Trx=0, omega_p=None, inttime=10.7, **kwargs):
+def thermal_noise(fqs, lsts, Tsky_mdl=None, Trx=0, omega_p=None, inttime=8.59, **kwargs):
     """
     Create thermal noise visibilities.
 
