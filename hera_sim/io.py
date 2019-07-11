@@ -4,8 +4,6 @@ codes, especially UVData.
 """
 import numpy as np
 from pyuvsim.simsetup import initialize_uvdata_from_keywords
-from pyuvsim.uvsim import init_uvdata_out
-import copy
 
 HERA_LAT_LON_ALT = (
     np.degrees(-0.53619179912885),
@@ -41,7 +39,7 @@ def empty_uvdata(nfreq, ntimes, ants, **kwargs):
                 | integration_time: 10.7 sec
                 | start_time: 2458119.5 JD
                 | end_time: start_time + ntimes*integration_time
-                | polarization_array: np.array([-5])
+                | polarizations : ['xx']
                 | write_files: False
 
     Returns:
@@ -65,62 +63,10 @@ def empty_uvdata(nfreq, ntimes, ants, **kwargs):
         start_time=start_time,
         end_time=kwargs.get("end_time", start_time + ntimes * integration_time),
         time_array=None,  # To keep consistency with old hera_sim empty_uvdata
-        polarizations=kwargs.get("polarizations", ['xx']),
-        polarization_array=kwargs.get("polarization_array", np.array([-5])),
+        polarization_array=kwargs.get("polarization_array", ['xx']),
         write_files=kwargs.get("write_files", False),
+        complete=True,  # Fills out the UVData object
         **kwargs
-    )[0]  # TODO: The 0 index needs to be removed when pyuvsim is fixed.
+    )
 
-    init_uvdata_out(uv)
     return uv
-
-
-def init_uvdata_out(uv_in, inplace=True):
-    """
-    Initialize an empty uvdata object to fill with simulated data.
-
-    NOTE: this is a copy of the function from pyuvsim, but streamlined.
-    Args:
-        uv_in: The input uvdata object.
-               This is usually an incomplete object, containing only metadata.
-        source_list_name: Name of source list file or mock catalog.
-        obs_param_file: Name of observation parameter config file
-        telescope_config_file: Name of telescope config file
-        antenna_location_file: Name of antenna location file
-    """
-    if not inplace:
-        uv_obj = copy.deepcopy(uv_in)
-    else:
-        uv_obj = uv_in
-
-    uv_obj.set_drift()
-    uv_obj.vis_units = 'Jy'
-
-    uv_obj.instrument = uv_obj.telescope_name
-    uv_obj.set_lsts_from_time_array()
-    uv_obj.spw_array = np.array([0])
-    if uv_obj.Nfreqs == 1:
-        uv_obj.channel_width = 1.  # Hz
-    else:
-        uv_obj.channel_width = np.diff(uv_obj.freq_array[0])[0]
-    uv_obj.set_uvws_from_antenna_positions()
-    if uv_obj.Ntimes == 1:
-        uv_obj.integration_time = np.ones_like(uv_obj.time_array, dtype=np.float64)  # Second
-    else:
-        # Note: currently only support a constant spacing of times
-        uv_obj.integration_time = (np.ones_like(uv_obj.time_array, dtype=np.float64)
-                                   * np.diff(np.unique(uv_obj.time_array))[0] * (24. * 60**2))  # Seconds
-
-    # Clear existing data, if any
-    uv_obj.data_array = np.zeros((uv_obj.Nblts, uv_obj.Nspws, uv_obj.Nfreqs, uv_obj.Npols), dtype=np.complex)
-    uv_obj.flag_array = np.zeros((uv_obj.Nblts, uv_obj.Nspws, uv_obj.Nfreqs, uv_obj.Npols), dtype=bool)
-    uv_obj.nsample_array = np.ones_like(uv_obj.data_array, dtype=float)
-
-    uv_obj.extra_keywords = {}
-
-    # TODO: this needs to be fixed in the original metadata setter
-    uv_obj.telescope_location = list(uv_obj.telescope_location)
-    uv_obj.antenna_names = uv_obj.antenna_numbers.astype('str')
-    uv_obj.check()
-
-    return uv_obj

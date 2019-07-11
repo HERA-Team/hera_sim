@@ -55,7 +55,7 @@ setup_args = {
         'mpi4py',   # this is a dependency of pyuvsim which currently is not automatically installed. Remove when possible.
         'pyuvsim',
         'pyuvdata',
-        'aipy'
+        'aipy>=3.0.0rc2'
     ],
     "version": version.version,
     "package_data": {"hera_sim": data_files},

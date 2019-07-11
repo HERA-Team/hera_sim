@@ -35,13 +35,13 @@ class TestNoise(unittest.TestCase):
 
     def test_sky_noise_jy(self):
         fqs = np.linspace(0.1, 0.2, 100)
-        lsts = np.linspace(0, 2 * np.pi, 300)
+        lsts = np.linspace(0, 2 * np.pi, 500)
         omp = noise.bm_poly_to_omega_p(fqs)
         tsky = noise.resample_Tsky(fqs, lsts)
         jy2T = noise.jy2T(fqs, omega_p=omp) / 1e3
         jy2T.shape = (1, -1)
         nos_jy = noise.sky_noise_jy(tsky, fqs, lsts, inttime=10.7, omega_p=omp)
-        self.assertEqual(nos_jy.shape, (300, 100))
+        self.assertEqual(nos_jy.shape, (500, 100))
         np.testing.assert_allclose(np.average(nos_jy, axis=0), 0, atol=0.7)
         scaling = np.average(tsky, axis=0) / jy2T
         np.testing.assert_allclose(
