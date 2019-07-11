@@ -8,6 +8,7 @@ import aipy
 import os
 from .data import DATA_PATH
 HERA_TSKY_VS_LST_NPZ = os.path.join(DATA_PATH, 'HERA_Tsky_vs_LST.npz')
+HERA_BEAM_POLY_NPY = os.path.join(DATA_PATH, 'HERA_H2C_BEAM_POLY.npy')
 
 npz = np.load(HERA_TSKY_VS_LST_NPZ) # Tsky vs fq/lst from Beardsley, beam v XXX, GSM v XXX
 fqs = npz['freqs'] / 1e3
@@ -22,9 +23,7 @@ HERA_Tsky_mdl['xx'] = RectBivariateSpline(lsts, fqs, HERA_Tsky_xx, kx=4, ky=4)
 HERA_Tsky_mdl['yy'] = RectBivariateSpline(lsts, fqs, HERA_Tsky_yy, kx=4, ky=4)
 
 
-HERA_BEAM_POLY = np.array([8.07774113e+08, -1.02194430e+09,
-                           5.59397878e+08, -1.72970713e+08, 3.30317669e+07, -3.98798031e+06,
-                           2.97189690e+05, -1.24980700e+04, 2.27220000e+02])  # See HERA Memo #27
+HERA_BEAM_POLY = np.load(HERA_BEAM_POLY_NPY)
 
 def bm_poly_to_omega_p(fqs, bm_poly=HERA_BEAM_POLY):
     """
