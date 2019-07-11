@@ -13,7 +13,7 @@ HERA_LAT_LON_ALT = (-0.53619179912885, 0.3739944696510935, 1073.0000000074506)
 
 
 def empty_uvdata(nfreq, ntimes, ants, antpairs=None, pols=['xx', ],
-                 time_per_integ=10.7, min_freq=0.1, channel_bw=0.1 / 1024.,
+                 time_per_integ=8.59, min_freq=0.1, channel_bw=0.1 / 1024.,
                  instrument='hera_sim', telescope_location=HERA_LOCATION,
                  telescope_lat_lon_alt=HERA_LAT_LON_ALT,
                  object_name='sim_data', start_jd=2458119.5,
