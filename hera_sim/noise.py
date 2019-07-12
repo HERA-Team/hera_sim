@@ -48,7 +48,7 @@ def _jy2T(fqs, omega_p):
             beam size.'''
     """
     lam = aipy.const.c / (fqs * 1e9)
-    return 1e-23 * lam ** 2 / (2 * aipy.const.k * omega_p) * 1e3 # XXX make Kelvin in future
+    return 1e-23 * lam ** 2 / (2 * aipy.const.k * omega_p) # Kelvin
 
 
 def white_noise(size=1):
@@ -68,43 +68,7 @@ def white_noise(size=1):
         scale=sig, size=size
     )
 
-
-# XXX reverse fqs and lsts in this function?
-def resample_Tsky(fqs, lsts, Tsky_mdl=None, Tsky=180.0, mfreq=0.18, index=-2.5):
-    """
-    Re-sample a model of the sky temperature at particular freqs and lsts.
-
-    Args:
-        fqs (array-like): shape=(NFREQS,), GHz
-            the spectral frequencies of the observation to be generated.
-        lsts (array-like): shape=(NTIMES,), radians
-            local sidereal times of the observation to be generated.
-        Tsky_mdl (callable): interpolation object, default=None
-            if provided, an interpolation object that returns the sky temperature as a
-            function of (lst, freqs).  Called as Tsky(lsts,fqs).
-        Tsky (float): Kelvin
-            if Tsky_mdl not provided, an isotropic sky temperature
-            corresponding to the provided mfreq.
-        mfreq (float): GHz
-            the spectral frequency, in GHz, at which Tsky is specified
-        index (float): default=-2.5
-            the spectral index used to extrapolate Tsky to other frequencies
-
-    Returns:
-        tsky (array-like): shape=(NTIMES,NFREQS)
-            sky temperature vs. time and frequency
-    """
-    if Tsky_mdl is not None:
-        tsky = Tsky_mdl(lsts, fqs)  # support an interpolation object
-    else:
-        tsky = Tsky * (fqs / mfreq) ** index  # default to a scalar
-        tsky = np.resize(tsky, (lsts.size, fqs.size))
-    return tsky
-
-
-# XXX make inttime default=None
-# XXX reorder fqs/lsts
-def sky_noise_jy(Tsky, fqs, lsts, omega_p, B=None, inttime=10.7):
+def sky_noise_jy(lsts, fqs, Tsky=None, version=None, B=None, inttime=10.7):
     """
     Generate Gaussian noise (in Jy units) corresponding to a sky temperature
     model integrated for the specified integration time and bandwidth.
@@ -129,15 +93,21 @@ def sky_noise_jy(Tsky, fqs, lsts, omega_p, B=None, inttime=10.7):
         noise (array-like): shape=(NTIMES,NFREQS)
             complex Gaussian noise vs. time and frequency
     """
+    ver = get_version(version)
+    if Tsky is None:
+        Tsky = ver.noise.resample_Tsky(lsts, fqs)
+
     if B is None:
         B = np.average(fqs[1:] - fqs[:-1])
     B_Hz = B * 1e9 # bandwidth in Hz
+
     if inttime is None:
         inttime = (lsts[1] - lsts[0]) / (2 * np.pi) * aipy.const.sidereal_day
-    # XXX fix below when jy2T changed to Jy/K
-    T2jy = 1e3 / jy2T(fqs, omega_p)  # K to Jy conversion
+    
+    T2jy = 1.0 / jy2T(fqs, version)  # K to Jy conversion
     T2jy.shape = (1, -1)
     Vnoise_jy = T2jy * Tsky / np.sqrt(inttime * B_Hz) # see noise_study.py for discussion of why no factor of 2 here
+    
     return white_noise(Vnoise_jy.shape) * Vnoise_jy
 
 
