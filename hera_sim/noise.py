@@ -2,39 +2,47 @@
 A module for generating realistic HERA noise.
 """
 from __future__ import absolute_import
-from . import h1c, h2c
-VERSIONS = {'h1c':h1c, 'h2c':h2c}
 import numpy as np
-from scipy.interpolate import RectBivariateSpline
 import aipy
-import os
-from .data import DATA_PATH
-
-DEFAULT = 'h1c'
+from . import h1c, h2c
+SEASONS = {'h1c':h1c, 'h2c':h2c}
+DEFAULT_SEASON = 'h1c'
 
 def set_default(season):
-    assert season in VERSIONS.keys()
-    global DEFAULT
-    DEFAULT = season
-
-def get_version(version=None):
-    if version is None:
-        version = DEFAULT
-    return VERSIONS[version]
-
-def jy2T(fqs, version=None):
     """
-    Return [mK] / [Jy] conversion for given frequencies
-    and HERA version.
-    """
-    ver = get_version(version)
-    
-    omega_p = ver.noise.get_omega_p(fqs)
-    return _jy2T(fqs, omega_p)
+    Method for setting the default HERA observing season.
 
-def _jy2T(fqs, omega_p):
+    Arg:
+        season (string):
+            string designating which observing season to set as DEFAULT
+
+    Returns:
+        None
     """
-    Return [mK] / [Jy] for a beam size vs. frequency.
+    assert season in SEASONS.keys()
+    global DEFAULT_SEASON
+    DEFAULT_SEASON = season
+
+def get_season(season=None):
+    """
+    Method for retrieving a pointer to the desired observing season.
+
+    Arg:
+        season (string, optional):
+            string designating which observing season to simulate
+            default value is DEFAULT_SEASON
+
+    Returns:
+        SEASON (module):
+            pointer to desired observing season module
+    """
+    if season is None:
+        season = DEFAULT_SEASON
+    return SEASONS[season]
+
+def jy2T(fqs, omega_p=None, season=None):
+    """
+    Return [K] / [Jy] for a beam size vs. frequency.
 
     Arg:
         fqs (array-like): shape=(NFREQS,), GHz
@@ -45,10 +53,14 @@ def _jy2T(fqs, omega_p):
     Returns:
         jy_to_mK (array-like): shape=(NFREQS,)
             a frequency-dependent scalar converting Jy to mK for the provided
-            beam size.'''
+            beam area
     """
+    if omega_p is None:
+        seas = get_season(season)
+        omega_p = seas.noise.get_omega_p(fqs)
+    assert len(omega_p)==len(fqs)
     lam = aipy.const.c / (fqs * 1e9)
-    return 1e-23 * lam ** 2 / (2 * aipy.const.k * omega_p) # Kelvin
+    return 1e-23 * lam ** 2 / (2 * aipy.const.k * omega_p)
 
 
 def white_noise(size=1):
@@ -68,18 +80,19 @@ def white_noise(size=1):
         scale=sig, size=size
     )
 
-def sky_noise_jy(lsts, fqs, Tsky=None, version=None, B=None, inttime=10.7):
+# XXX should inttime's default value be left at 10.7? this seems h1c specific.
+def sky_noise_jy(lsts, fqs, Tsky=None, omega_p=None, season=None, B=None, inttime=10.7):
     """
     Generate Gaussian noise (in Jy units) corresponding to a sky temperature
     model integrated for the specified integration time and bandwidth.
 
     Args:
-        Tsky (array-like): shape=(NTIMES,NFREQS), K
-            the sky temperature at each time/frequency observation
-        fqs (array-like): shape=(NFREQS,), GHz
-            the spectral frequencies of the observation
         lsts (array-like): shape=(NTIMES,), radians
             local sidereal times of the observation
+        fqs (array-like): shape=(NFREQS,), GHz
+            the spectral frequencies of the observation
+        Tsky (array-like): shape=(NTIMES,NFREQS), K
+            the sky temperature at each time/frequency observation
         omega_p (array-like): shape=(NFREQS,) steradians
             Sky-integral of beam power.
         B (float): default=None, GHz
@@ -93,9 +106,9 @@ def sky_noise_jy(lsts, fqs, Tsky=None, version=None, B=None, inttime=10.7):
         noise (array-like): shape=(NTIMES,NFREQS)
             complex Gaussian noise vs. time and frequency
     """
-    ver = get_version(version)
+    seas = get_season(season)
     if Tsky is None:
-        Tsky = ver.noise.resample_Tsky(lsts, fqs)
+        Tsky = seas.noise.resample_Tsky(lsts, fqs)
 
     if B is None:
         B = np.average(fqs[1:] - fqs[:-1])
@@ -104,14 +117,14 @@ def sky_noise_jy(lsts, fqs, Tsky=None, version=None, B=None, inttime=10.7):
     if inttime is None:
         inttime = (lsts[1] - lsts[0]) / (2 * np.pi) * aipy.const.sidereal_day
     
-    T2jy = 1.0 / jy2T(fqs, version)  # K to Jy conversion
+    T2jy = 1.0 / jy2T(fqs, omega_p, season)  # K to Jy conversion
     T2jy.shape = (1, -1)
     Vnoise_jy = T2jy * Tsky / np.sqrt(inttime * B_Hz) # see noise_study.py for discussion of why no factor of 2 here
     
     return white_noise(Vnoise_jy.shape) * Vnoise_jy
 
-
-def thermal_noise(fqs, lsts, Tsky_mdl=None, Trx=0, omega_p=None, inttime=10.7, **kwargs):
+# XXX should inttime's default value be left at 10.7 s? this seems h1c specific.
+def thermal_noise(lsts, fqs, Tsky_mdl=None, omega_p=None, season=None, Trx=0, inttime=10.7, **kwargs):
     """
     Create thermal noise visibilities.
 
@@ -129,8 +142,8 @@ def thermal_noise(fqs, lsts, Tsky_mdl=None, Trx=0, omega_p=None, inttime=10.7, *
     Returns:
         2d array size(lsts, fqs): the thermal visibilities [Jy].
     """
-    if omega_p is None:
-        omega_p = bm_poly_to_omega_p(fqs)
-    Tsky = resample_Tsky(fqs, lsts, Tsky_mdl=Tsky_mdl, **kwargs)
+    seas = get_season(season)
+
+    Tsky = seas.noise.resample_Tsky(lsts, fqs, Tsky_mdl=Tsky_mdl, **kwargs)
     Tsky += Trx
-    return sky_noise_jy(Tsky, fqs, lsts, omega_p, inttime=inttime)
+    return sky_noise_jy(lsts, fqs, Tsky, omega_p, season, inttime=inttime)
