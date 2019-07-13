@@ -13,7 +13,7 @@ from . import noise
 from . import utils
 
 
-def diffuse_foreground(lsts, fqs, bl_vec, Tsky_mdl=None, omega_p=None,
+def diffuse_foreground(lsts, fqs, bl_vec, Tsky_mdl=None, omega_p=None, season=None,
                        standoff=0.0, delay_filter_type='tophat', delay_filter_normalize=None,
                        fringe_filter_type='tophat', **fringe_filter_kwargs):
     """
@@ -45,11 +45,12 @@ def diffuse_foreground(lsts, fqs, bl_vec, Tsky_mdl=None, omega_p=None,
     if Tsky_mdl is None:
         raise TypeError("Tsky_mdl is a required parameter of diffuse_foreground")
     if omega_p is None:
-        omega_p = noise.bm_poly_to_omega_p(fqs)
+        seas = noise.get_season(season)
+        omega_p = seas.noise.get_omega_p(fqs)
 
     # generate a Tsky visibility in time and freq space, convert from K to Jy
     Tsky = Tsky_mdl(lsts, fqs)
-    mdl = np.asarray(Tsky * 1e3 / noise.jy2T(fqs, omega_p), np.complex)
+    mdl = np.asarray(Tsky / noise.jy2T(fqs, omega_p), np.complex)
 
     # If an auto-correlation, return the beam-weighted integrated sky.
     if np.isclose(np.linalg.norm(bl_vec), 0):
