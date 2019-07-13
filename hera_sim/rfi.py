@@ -2,7 +2,10 @@
 
 from astropy.units import sday
 import numpy as np
-
+from .hera_season import get_season
+import glob
+import os
+import warnings
 
 class RfiStation:
     """
@@ -69,36 +72,9 @@ class RfiStation:
         return rfi
 
 
-HERA_RFI_STATIONS = [
-    # FM Stations
-    (0.1007, 1.0, 1000 * 100.0, 10.0, 100.0),
-    (0.1016, 1.0, 1000 * 100.0, 10.0, 100.0),
-    (0.1024, 1.0, 1000 * 100.0, 10.0, 100.0),
-    (0.1028, 1.0, 1000 * 3.0, 1.0, 100.0),
-    (0.1043, 1.0, 1000 * 100.0, 10.0, 100.0),
-    (0.1050, 1.0, 1000 * 10.0, 3.0, 100.0),
-    (0.1052, 1.0, 1000 * 100.0, 10.0, 100.0),
-    (0.1061, 1.0, 1000 * 100.0, 10.0, 100.0),
-    (0.1064, 1.0, 1000 * 10.0, 3.0, 100.0),
-
-    # Orbcomm
-    (0.1371, 0.2, 1000 * 100.0, 3.0, 600.0),
-    (0.1372, 0.2, 1000 * 100.0, 3.0, 600.0),
-    (0.1373, 0.2, 1000 * 100.0, 3.0, 600.0),
-    (0.1374, 0.2, 1000 * 100.0, 3.0, 600.0),
-    (0.1375, 0.2, 1000 * 100.0, 3.0, 600.0),
-    # Other
-    (0.1831, 1.0, 1000 * 100.0, 30.0, 1000),
-    (0.1891, 1.0, 1000 * 2.0, 1.0, 1000),
-    (0.1911, 1.0, 1000 * 100.0, 30.0, 1000),
-    (0.1972, 1.0, 1000 * 100.0, 30.0, 1000),
-    # DC Offset from ADCs
-    # (.2000, 1., 100., 0., 10000),
-]
-
 
 # XXX reverse lsts and fqs?
-def rfi_stations(fqs, lsts, stations=HERA_RFI_STATIONS, rfi=None):
+def rfi_stations(fqs, lsts, stations=None, season=None, rfi=None):
     """
     Generate an (NTIMES,NFREQS) waterfall containing RFI stations that
     are localized in frequency.
@@ -119,6 +95,15 @@ def rfi_stations(fqs, lsts, stations=HERA_RFI_STATIONS, rfi=None):
         rfi (array-like): shape=(NTIMES,NFREQS)
             a waterfall containing RFI
     """
+    if stations is None:
+        seas = get_season(season)
+        DATA_PATH = seas.data.DATA_PATH
+        try:
+            rfi_file = glob.glob('{}/*RFI*.npy'.format(DATA_PATH))[0]
+            stations = np.load(rfi_file)
+        except:
+            warnings.warn('RFI Station parameter file not found.')
+
     for s in stations:
         if not isinstance(s, RfiStation):
             if len(s) != 5:
