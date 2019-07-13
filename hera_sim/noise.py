@@ -4,41 +4,7 @@ A module for generating realistic HERA noise.
 from __future__ import absolute_import
 import numpy as np
 import aipy
-from . import h1c, h2c
-SEASONS = {'h1c':h1c, 'h2c':h2c}
-DEFAULT_SEASON = 'h1c'
-
-def set_default(season):
-    """
-    Method for setting the default HERA observing season.
-
-    Arg:
-        season (string):
-            string designating which observing season to set as DEFAULT
-
-    Returns:
-        None
-    """
-    assert season in SEASONS.keys()
-    global DEFAULT_SEASON
-    DEFAULT_SEASON = season
-
-def get_season(season=None):
-    """
-    Method for retrieving a pointer to the desired observing season.
-
-    Arg:
-        season (string, optional):
-            string designating which observing season to simulate
-            default value is DEFAULT_SEASON
-
-    Returns:
-        SEASON (module):
-            pointer to desired observing season module
-    """
-    if season is None:
-        season = DEFAULT_SEASON
-    return SEASONS[season]
+from .hera_season import get_season
 
 def jy2T(fqs, omega_p=None, season=None):
     """
