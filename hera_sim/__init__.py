@@ -1,5 +1,6 @@
 from . import antpos
 from . import foregrounds
+from . import hera_season
 from . import io
 from . import noise
 from . import rfi

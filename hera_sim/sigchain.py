@@ -4,22 +4,10 @@ import numpy as np
 import aipy
 import warnings
 
+from .hera_season import get_season
 from . import noise
 
-HERA_NRAO_BANDPASS = np.array(
-    [
-        -2.04689451e06,
-        1.90683718e06,
-        -7.41348361e05,
-        1.53930807e05,
-        -1.79976473e04,
-        1.12270390e03,
-        -2.91166102e01,
-    ]
-)  # See "HERA's Passband to First Order"
-
-
-def gen_bandpass(fqs, ants, gain_spread=0.1):
+def gen_bandpass(fqs, ants, season=None, gain_spread=0.1):
     """
     Produce a set of mock bandpass gains with variation based around the
     HERA_NRAO_BANDPASS model.
@@ -39,7 +27,8 @@ def gen_bandpass(fqs, ants, gain_spread=0.1):
     See Also:
         :meth:`~gen_gains`: uses this function to generate full gains.
     """
-    bp_base = np.polyval(HERA_NRAO_BANDPASS, fqs)
+    seas = get_season(season)
+    bp_base = seas.sigchain.get_bandpass(fqs)
     window = aipy.dsp.gen_window(fqs.size, 'blackman-harris')
     _modes = np.abs(np.fft.fft(window * bp_base))
     g = {}
@@ -75,7 +64,7 @@ def gen_delay_phs(fqs, ants, dly_rng=(-20, 20)):
     return phs
 
 
-def gen_gains(fqs, ants, gain_spread=0.1, dly_rng=(-20, 20)):
+def gen_gains(fqs, ants, season=None, gain_spread=0.1, dly_rng=(-20, 20)):
     """
     Produce a set of mock bandpasses perturbed around a HERA_NRAO_BANDPASS model
     and complex phasors corresponding to cables delays.
@@ -99,7 +88,7 @@ def gen_gains(fqs, ants, gain_spread=0.1, dly_rng=(-20, 20)):
     See Also:
         :meth:`~apply_gains`: apply gains from this function to a visibility
     """
-    bp = gen_bandpass(fqs, ants, gain_spread)
+    bp = gen_bandpass(fqs, ants, season, gain_spread)
     phs = gen_delay_phs(fqs, ants, dly_rng)
     return {ai: bp[ai] * phs[ai] for ai in ants}
 
