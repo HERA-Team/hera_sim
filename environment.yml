@@ -18,8 +18,9 @@ dependencies:
   - pyuvdata
   - scipy
   - pyyaml
-  - future #only for python 2
+  - future # only for python 2
+  - psutil
   - pip:
     - cached-property
-    - pyuvsim
+    - git+https://github.com/RadioAstronomySoftwareGroup/pyuvsim.git
     - git+https://github.com/HERA-Team/uvtools.git
