@@ -50,7 +50,7 @@ class TestNoise(unittest.TestCase):
         np.random.seed(0)
         nos_jy = noise.sky_noise_jy(tsky, fqs, lsts, inttime=None, omega_p=omp)
         np.testing.assert_allclose(
-            np.std(nos_jy, axis=0) / scaling * np.sqrt(1e6 * aipy.const.sidereal_day/300), 1.0, atol=0.1
+            np.std(nos_jy, axis=0) / scaling * np.sqrt(1e6 * aipy.const.sidereal_day/500), 1.0, atol=0.1
         )
         np.random.seed(0)
         nos_jy = noise.sky_noise_jy(tsky, fqs, lsts, B=.1, inttime=10.7, omega_p=omp)
