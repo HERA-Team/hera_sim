@@ -445,12 +445,12 @@ def make_data(lsts, fqs, ants, sim_params, season=None):
         fqs: array of frequencies, Hz? GHz?
         ants: {antenna:position} dictionary; position given in ENU frame, meters
         sim_params: {model:kwargs} dictionary;
-            model keys correspond to functions in hera_sim i.e. diffuse_foreground
+            model keys correspond to functions in hera_sim e.g. diffuse_foreground
             kwargs correspond to keyword arguments for given model, supplied as a dict
         season: string corresponding to HERA observing season.
 
     Returns:
-        :class:pyuvdata.UVData object with complete metadata and data arrays correct
+        :class: `pyuvdata.UVData` object with complete metadata and data arrays correct
         for the desired simulation parameters
 
     """
@@ -474,14 +474,15 @@ def make_data(lsts, fqs, ants, sim_params, season=None):
                  re.compile('noise'), re.compile('gains'), re.compile('xtalk'),
                  re.compile('sigchain_reflections') )
 
-    # get reference to observing season
-    # currently, this isn't being used... figure out how to work this in
-    seas = get_season(season)
-
     # parse sim_params
     for model, kwargs in sim_params.items():
+        # add observing season to kwargs
+        kwargs['season'] = season
+
         # find out which model is being provided
         for pattern in patterns:
             if len(pattern.findall(model)) is not 0:
                 add_component = SIMULATION_COMPONENTS[pattern.pattern]
         add_component(model, **kwargs)
+    # is this the right way to do it?
+    return sim.data
