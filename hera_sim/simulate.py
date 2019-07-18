@@ -495,3 +495,4 @@ class Simulator:
                 add_component(**params)
             else:
                 add_component(model, **params)
+
