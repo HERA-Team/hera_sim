@@ -434,4 +434,63 @@ class Simulator:
                 vis=self.data.data_array[blt_ind, 0, :, pol_ind],
                 xtalk=xtalk
             )
+    
+    def make_data(self, sim_file=None, sim_params=None):
+        """
+        Accept a dictionary or YAML file of simulation parameters and add in
+        all of the desired simulation components to the Simulator object.
 
+        Args:
+            sim_file (str): string providing a hook to a YAML file
+            
+            sim_params (dict): dictionary of simulation parameters.
+                it must take the form {model:params}, where model is
+                a string specifying the simulation component to be added
+                and params is a dictionary providing all the keyword
+                arguments and their desired values.
+        """
+        # make a dictionary whose values point to the various methods
+        # used to add different simulation components
+        SIMULATION_COMPONENTS = { 'noiselike_eor':self.add_eor,
+                                  'diffuse_foreground':self.add_foreground,
+                                  'pntsrc_foreground':self.add_foreground,
+                                  'gains':self.add_gains,
+                                  'sigchain_reflections':self.add_sigchain_reflections,
+                                  'gen_whitenoise_xtalk':self.add_xtalk,
+                                  'gen_cross_coupling_xtalk':self.add_xtalk,
+                                  'thermal_noise':self.add_noise }
+
+        # make a tuple keeping track of which components do not use a model
+        uses_no_model = ('gains', 'sigchain_reflections')
+
+        assert sim_file is not None or sim_params is not None, \
+                'Either a hook to a simulation file or a dictionary of ' + \
+                'simulation parameters must be provided.'
+
+        # if a hook to a simulation file is provided, then read it in
+        # XXX is there a way to check that the formatting of sim_file is OK?
+        if sim_file is not None:
+            with open(sim_file, 'r') as doc:
+                sim_params = yaml.load(doc.read(), Loader=yaml.FullLoader)
+        
+        # enforce that sim_params are of the correct form
+        assert type(sim_params) is dict, \
+                'Simulation parameters must be passed as a dictionary.'
+
+        for model, params in sim_params.items():
+            assert model in SIMULATION_COMPONENTS.keys(), \
+                    'Models must be supported by hera_sim. ' + \
+                    "'{}' is currently not supported.".format(model)
+
+            assert type(params) is dict, \
+                    'Values of sim_params must be dictionaries. ' + \
+                    "The values for '{}' do not comply.".format(model)
+
+
+        # everything should be in working order at this point, so let's simulate
+        for model, params in sim_params.items():
+            add_component = SIMULATION_COMPONENTS[model]
+            if model in uses_no_model:
+                add_component(**params)
+            else:
+                add_component(model, **params)
