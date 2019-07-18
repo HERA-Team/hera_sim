@@ -16,7 +16,6 @@ from astropy import constants as const
 from . import io
 from . import sigchain
 from .version import version
-from .hera_season import get_season
 
 class CompatibilityException(ValueError):
     pass
@@ -435,54 +434,3 @@ class Simulator:
                 xtalk=xtalk
             )
 
-
-def make_data(lsts, fqs, ants, sim_params, season=None):
-    """
-    Provide the user with a single function for generating simulated data.
-    
-    Args:
-        lsts: array of lsts
-        fqs: array of frequencies, Hz? GHz?
-        ants: {antenna:position} dictionary; position given in ENU frame, meters
-        sim_params: {model:kwargs} dictionary;
-            model keys correspond to functions in hera_sim e.g. diffuse_foreground
-            kwargs correspond to keyword arguments for given model, supplied as a dict
-        season: string corresponding to HERA observing season.
-
-    Returns:
-        :class: `pyuvdata.UVData` object with complete metadata and data arrays correct
-        for the desired simulation parameters
-
-    """
-    # XXX should re be imported at the top?
-    import re
-   
-    # XXX figure out the right way to do this
-    sim = Simulator(n_freq=len(fqs), n_times=len(lsts), antennas=ants)
-
-    # define dictionary for ... find words for this later
-    SIMULATION_COMPONENTS = { 'eor':sim.add_eor,
-                              'rfi':sim.add_rfi,
-                              'foreground':sim.add_foregrounds,
-                              'noise':sim.add_noise,
-                              'gains':sim.add_gains,
-                              'sigchain_reflections':sim.add_sigchain_reflections,
-                              'xtalk':sim.add_xtalk }
-
-    # make tuple of re patterns
-    patterns = ( re.compile('eor'), re.compile('rfi'), re.compile('foreground'),
-                 re.compile('noise'), re.compile('gains'), re.compile('xtalk'),
-                 re.compile('sigchain_reflections') )
-
-    # parse sim_params
-    for model, kwargs in sim_params.items():
-        # add observing season to kwargs
-        kwargs['season'] = season
-
-        # find out which model is being provided
-        for pattern in patterns:
-            if len(pattern.findall(model)) is not 0:
-                add_component = SIMULATION_COMPONENTS[pattern.pattern]
-        add_component(model, **kwargs)
-    # is this the right way to do it?
-    return sim.data
