@@ -5,7 +5,12 @@ import pytest
 
 from hera_sim import visibilities as vis, io
 
-SIMULATORS = (vis.HealVis, vis.VisCPU)
+
+#####################################
+#SIMULATORS = (vis.HealVis, vis.VisCPU)
+SIMULATORS = (vis.VisCPU, vis.VisCPU)
+#####################################
+
 np.random.seed(0)
 NTIMES = 10
 BM_PIX = 31
@@ -186,7 +191,7 @@ def test_simulator_comparison(uvdata):
         point_source_pos=point_source_pos,
         nside=2 ** 4
     ).simulate()
-
+    
     assert viscpu.shape == healvis.shape
     assert np.testing.assert_allclose(viscpu, healvis)
 
