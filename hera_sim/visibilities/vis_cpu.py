@@ -168,6 +168,13 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube, real_dtype=np.float32
     Returns:
         array_like, shape(NTIMES, NANTS, NANTS): visibilities
     """
+    
+    ####################################################################
+    print("I_sky", I_sky)
+    ####################################################################
+    
+    
+    
     nant, ncrd = antpos.shape
     assert ncrd == 3, "antpos must have shape (NANTS, 3)"
     ntimes, ncrd1, ncrd2 = eq2tops.shape
