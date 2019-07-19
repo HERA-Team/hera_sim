@@ -475,7 +475,7 @@ class Simulator:
                 sim_params = yaml.load(doc.read(), Loader=yaml.FullLoader)
         
         # enforce that sim_params are of the correct form
-        assert type(sim_params) is dict, \
+        assert isinstance(sim_params, dict), \
                 'Simulation parameters must be passed as a dictionary.'
 
         for model, params in sim_params.items():
@@ -483,7 +483,7 @@ class Simulator:
                     'Models must be supported by hera_sim. ' + \
                     "'{}' is currently not supported.".format(model)
 
-            assert type(params) is dict, \
+            assert isinstance(params, dict), \
                     'Values of sim_params must be dictionaries. ' + \
                     "The values for '{}' do not comply.".format(model)
 
