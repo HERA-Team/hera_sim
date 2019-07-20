@@ -4,7 +4,34 @@ A module for generating realistic HERA noise.
 from __future__ import absolute_import
 import numpy as np
 import aipy
-from .hera_season import get_season
+import glob
+from .hera_season import get_season, SEASONS
+
+def bm_poly_to_omega_p(fqs, bm_poly=None):
+    """
+    Convert a set of beam polynomial coefficients to a beam size.
+    This method is maintained for backwards compatability.
+
+    Args:
+        fqs (array-like): shape=(NFREQS,), GHz
+            frequency array
+        bm_poly (polynomial): defaults to H1C beam polynomial
+            polynomial fit to sky-integral of peak-normalized beam-power 
+            pattern as a function of frequency
+
+    Returns:
+        omega_p (array-like): shape=(NFREQS,), steradian
+            sky-integral of peak-normalized beam power
+    """
+    if bm_poly is None:
+        # default to HERA H1C beam polynomial
+        seas = get_season('h1c')
+        DATA_PATH = seas.data.DATA_PATH
+        beamfile = glob.glob('/{}*BEAM_POLY.npy'.format(DATA_PATH))[0]
+        HERA_BEAM_POLY = np.load(beamfile)
+    else:
+        HERA_BEAM_POLY = bm_poly
+    return np.polyval(HERA_BEAM_POLY)
 
 def jy2T(fqs, omega_p=None, season=None):
     """
