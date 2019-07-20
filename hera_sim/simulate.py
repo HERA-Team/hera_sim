@@ -137,6 +137,17 @@ class Simulator:
     visibilities in :class:`pyuvdata.UVData` format.
     """
 
+    # make a dictionary whose values point to the various methods
+    # used to add different simulation components
+    SIMULATION_COMPONENTS = { 'noiselike_eor':self.add_eor,
+                              'diffuse_foreground':self.add_foreground,
+                              'pntsrc_foreground':self.add_foreground,
+                              'gains':self.add_gains,
+                              'sigchain_reflections':self.add_sigchain_reflections,
+                              'gen_whitenoise_xtalk':self.add_xtalk,
+                              'gen_cross_coupling_xtalk':self.add_xtalk,
+                              'thermal_noise':self.add_noise }
+    
     def __init__(
             self,
             data_filename=None,
@@ -436,13 +447,16 @@ class Simulator:
                 xtalk=xtalk
             )
     
-    def make_data(self, sim_file=None, sim_params=None):
+    def run_sim(self, sim_file=None, sim_params=None):
         """
         Accept a dictionary or YAML file of simulation parameters and add in
         all of the desired simulation components to the Simulator object.
 
         Args:
             sim_file (str): string providing a hook to a YAML file
+                if a simulation file is passed, then the parameters listed
+                in the simulation file will overwrite anything passed to
+                sim_params
             
             sim_params (dict): dictionary of simulation parameters.
                 it must take the form {model:params}, where model is
@@ -450,36 +464,32 @@ class Simulator:
                 and params is a dictionary providing all the keyword
                 arguments and their desired values.
         """
-        # make a dictionary whose values point to the various methods
-        # used to add different simulation components
-        SIMULATION_COMPONENTS = { 'noiselike_eor':self.add_eor,
-                                  'diffuse_foreground':self.add_foreground,
-                                  'pntsrc_foreground':self.add_foreground,
-                                  'gains':self.add_gains,
-                                  'sigchain_reflections':self.add_sigchain_reflections,
-                                  'gen_whitenoise_xtalk':self.add_xtalk,
-                                  'gen_cross_coupling_xtalk':self.add_xtalk,
-                                  'thermal_noise':self.add_noise }
 
-        # make a tuple keeping track of which components do not use a model
-        uses_no_model = ('gains', 'sigchain_reflections')
+        # keep track of which components don't use models
+        uses_no_model = []
+        for key, val in self.SIMULATION_COMPONENTS.items():
+            if 'model' not in inspect.signature(val).parameters:
+                uses_no_model.append(key)
 
         assert sim_file is not None or sim_params is not None, \
                 'Either a hook to a simulation file or a dictionary of ' + \
                 'simulation parameters must be provided.'
 
         # if a hook to a simulation file is provided, then read it in
-        # XXX is there a way to check that the formatting of sim_file is OK?
         if sim_file is not None:
             with open(sim_file, 'r') as doc:
-                sim_params = yaml.load(doc.read(), Loader=yaml.FullLoader)
-        
+                try:
+                    sim_params = yaml.load(doc.read(), Loader=yaml.FullLoader)
+                except:
+                    print('Check your configuration file. Something broke.')
+                    sys.exit()
+
         # enforce that sim_params are of the correct form
         assert isinstance(sim_params, dict), \
                 'Simulation parameters must be passed as a dictionary.'
 
         for model, params in sim_params.items():
-            assert model in SIMULATION_COMPONENTS.keys(), \
+            assert model in self.SIMULATION_COMPONENTS.keys(), \
                     'Models must be supported by hera_sim. ' + \
                     "'{}' is currently not supported.".format(model)
 
@@ -490,7 +500,7 @@ class Simulator:
 
         # everything should be in working order at this point, so let's simulate
         for model, params in sim_params.items():
-            add_component = SIMULATION_COMPONENTS[model]
+            add_component = self.SIMULATION_COMPONENTS[model]
             if model in uses_no_model:
                 add_component(**params)
             else:
