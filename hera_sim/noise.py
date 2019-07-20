@@ -35,13 +35,14 @@ def bm_poly_to_omega_p(fqs, bm_poly=None):
 
 def jy2T(fqs, omega_p=None, season=None):
     """
-    Return [K] / [Jy] for a beam size vs. frequency.
+    Return [mK] / [Jy] for a beam size vs. frequency.
 
     Arg:
         fqs (array-like): shape=(NFREQS,), GHz
             the spectral frequencies of the observation to be generated.
         omega_p (array-like): shape=(NFREQS,) steradians
-            Sky-integral of beam power.
+            Sky-integral of beam power. If nothing is passed to omega_p, then
+            the value appropriate for the H1C observing season is used.
 
     Returns:
         jy_to_mK (array-like): shape=(NFREQS,)
@@ -53,7 +54,7 @@ def jy2T(fqs, omega_p=None, season=None):
         omega_p = seas.noise.get_omega_p(fqs)
     assert len(omega_p)==len(fqs)
     lam = aipy.const.c / (fqs * 1e9)
-    return 1e-23 * lam ** 2 / (2 * aipy.const.k * omega_p)
+    return 1e-23 * lam ** 2 / (2 * aipy.const.k * omega_p) * 1e3 # XXX make Kelvin in future
 
 
 def white_noise(size=1):
@@ -122,8 +123,8 @@ def thermal_noise(lsts, fqs, Tsky_mdl=None, omega_p=None, season=None, Trx=0, in
     Create thermal noise visibilities.
 
     Args:
-        fqs (1d array): frequencies, in GHz.
         lsts (1d array): times, in rad.
+        fqs (1d array): frequencies, in GHz.
         Tsky_mdl (callable, optional): a callable model, with signature ``Tsky_mdl(lsts, fqs)``, which returns a 2D
             array of global beam-averaged sky temperatures (in K) as a function of LST and frequency.
         Trx (float, optional): receiver temperature, in K.

@@ -7,6 +7,11 @@ np.random.seed(0)
 
 
 class TestNoise(unittest.TestCase):
+    def test_bm_poly_to_omega_p(self):
+        fqs = np.linspace(0.1,0.2,100)
+        omega_p = noise.bm_poly_to_omega_p(fqs)
+        self.assertEqual(fqs.size, omega_p.size)
+    
     def test_white_noise(self):
         n1 = noise.white_noise(100)
         self.assertEqual(n1.size, 100)
