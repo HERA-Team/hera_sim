@@ -4,11 +4,11 @@ A module for generating realistic HERA noise.
 
 import numpy as np
 from scipy.interpolate import RectBivariateSpline
+from scipy.interpolate import interp1d
 import os
 from .data import DATA_PATH
 
-# XXX find a way to make this neater?
-# XXX either way, needs updating for H2C
+# XXX this is repeated code, but will be updated once we have a new Tsky model for H2C 
 HERA_TSKY_VS_LST_NPZ = os.path.join(DATA_PATH, 'HERA_Tsky_vs_LST.npz')
 npz = np.load(HERA_TSKY_VS_LST_NPZ) # Tsky vs fq/lst from Beardsley, beam v XXX, GSM v XXX
 fqs = npz['freqs'] / 1e3
@@ -22,26 +22,26 @@ HERA_Tsky_mdl = {}
 HERA_Tsky_mdl['xx'] = RectBivariateSpline(lsts, fqs, HERA_Tsky_xx, kx=4, ky=4)
 HERA_Tsky_mdl['yy'] = RectBivariateSpline(lsts, fqs, HERA_Tsky_yy, kx=4, ky=4)
 
+# XXX should the beam fit be loaded and made here, or in get_omega_p?
+beamfile = '{}/HERA_H2C_BEAM_MODEL.npy'.format(DATA_PATH)
+BEAM_MODEL_NPZ = np.load(beamfile)
+BEAM_MODEL = BEAM_MODEL_NPZ['beam']
+BEAM_FREQS = BEAM_MODEL_NPZ['freqs']
+BEAMFIT = interp1d(BEAM_FREQS, BEAM_MODEL, kind='cubic')
 
-HERA_BEAM_POLY_NPY = os.path.join(DATA_PATH, 'HERA_H2C_BEAM_POLY.npy')
-HERA_BEAM_POLY = np.load(HERA_BEAM_POLY_NPY)
-
-def get_omega_p(fqs, bm_poly=HERA_BEAM_POLY):
+def get_omega_p(fqs):
     """
-    Convert polynomial coefficients to beam area.
+    Use a cubic spline interpolator for calculating the HERA beam.
 
     Args:
         fqs (array-like): shape=(NFREQS,), GHz
             frequency array
-        bm_poly (polynomial): default=HERA_BEAM_POLY
-            a polynomial fit to sky-integral, solid-angle beam size of
-            observation as a function of frequency.
 
     Returns:
         omega_p : (array-like): shape=(NFREQS,), steradian
-            sky-integral of peak-normalized beam power
+            sky-integral of peak-normalized beam power for H2C observing season
     """
-    return np.polyval(bm_poly, fqs)
+    return BEAMFIT(fqs)
 
 
 def resample_Tsky(lsts, fqs, Tsky_mdl=None, Tsky=180.0, mfreq=0.18, index=-2.5):
