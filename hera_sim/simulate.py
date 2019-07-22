@@ -137,6 +137,22 @@ class Simulator:
     visibilities in :class:`pyuvdata.UVData` format.
     """
  
+    # make a dictionary whose values point to the various methods
+    # used to add different simulation components
+    SIMULATION_COMPONENTS = { 'noiselike_eor':'add_eor',
+                              'diffuse_foreground':'add_foregrounds',
+                              'pntsrc_foreground':'add_foregrounds',
+                              'thermal_noise':'add_noise',
+                              'rfi_stations':'add_rfi',
+                              'rfi_impulse':'add_rfi',
+                              'rfi_scatter':'add_rfi',
+                              'rfi_dtv':'add_rfi',
+                              'gains':'add_gains',
+                              'sigchain_reflections':'add_sigchain_reflections',
+                              'gen_whitenoise_xtalk':'add_xtalk',
+                              'gen_cross_coupling_xtalk':'add_xtalk'
+                              }
+
     def __init__(
             self,
             data_filename=None,
@@ -436,21 +452,6 @@ class Simulator:
                 xtalk=xtalk
             )
     
-    # make a dictionary whose values point to the various methods
-    # used to add different simulation components
-    SIMULATION_COMPONENTS = { 'noiselike_eor':add_eor,
-                              'diffuse_foreground':add_foregrounds,
-                              'pntsrc_foreground':add_foregrounds,
-                              'gains':add_gains,
-                              'sigchain_reflections':add_sigchain_reflections,
-                              'gen_whitenoise_xtalk':add_xtalk,
-                              'gen_cross_coupling_xtalk':add_xtalk,
-                              'thermal_noise':add_noise,
-                              'rfi_stations':add_rfi,
-                              'rfi_impulse':add_rfi,
-                              'rfi_scatter':add_rfi,
-                              'rfi_dtv':add_rfi
-                              }
     
     def run_sim(self, sim_file=None, **sim_params):
         """
@@ -505,10 +506,14 @@ class Simulator:
 
 
         # everything should be in working order at this point, so let's simulate
-        for model, params in sim_params.items():
-            add_component = self.SIMULATION_COMPONENTS[model]
-            if model in uses_no_model:
-                add_component(**params)
+        for model in self.SIMULATION_COMPONENTS.keys():
+            if model in sim_params.keys():
+                add_component = getattr(self, self.SIMULATION_COMPONENTS[model])
+                params = sim_params[model]
+                if model in uses_no_model:
+                    add_component(**params)
+                else:
+                    add_component(model, **params)
             else:
-                add_component(model, **params)
+                pass
 

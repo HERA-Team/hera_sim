@@ -16,7 +16,7 @@ from hera_sim.noise import thermal_noise, HERA_Tsky_mdl
 from hera_sim.simulate import Simulator
 
 
-def create_sim():
+def create_sim(autos=False):
     return Simulator(
         n_freq=10,
         n_times=20,
@@ -24,6 +24,7 @@ def create_sim():
             0: (20.0, 20.0, 0),
             1: (50.0, 50.0, 0)
         },
+        no_autos=not autos
     )
 
 
@@ -55,8 +56,7 @@ def create_sim():
 def test_from_empty():
     sim = create_sim()
 
-    Nbls = len(np.unique(sim.data.baseline_array))
-    assert sim.data.data_array.shape == (Nbls*20, 1, 10, 1)
+    assert sim.data.data_array.shape == (20, 1, 10, 1)
     assert np.all(np.isclose(sim.data.data_array, 0))
 
 
