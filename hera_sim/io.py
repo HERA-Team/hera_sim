@@ -52,7 +52,6 @@ def empty_uvdata(nfreq, ntimes, ants, **kwargs):
     uv = initialize_uvdata_from_keywords(
         antenna_layout_filename=None,  # To keep consistency with old hera_sim empty_uvdata
         array_layout=ants,
-        no_autos=kwargs.get("no_autos", False),
         telescope_location=list(kwargs.get("telescope_location", HERA_LAT_LON_ALT)),
         telescope_name=kwargs.get("telescope_name", "hera_sim"),
         Nfreqs=nfreq,
