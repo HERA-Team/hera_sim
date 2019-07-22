@@ -447,22 +447,22 @@ class Simulator:
                 xtalk=xtalk
             )
     
-    def run_sim(self, sim_file=None, sim_params=None):
+    def run_sim(self, sim_file=None, **sim_params):
         """
         Accept a dictionary or YAML file of simulation parameters and add in
         all of the desired simulation components to the Simulator object.
 
         Args:
             sim_file (str): string providing a hook to a YAML file
-                if a simulation file is passed, then the parameters listed
-                in the simulation file will overwrite anything passed to
-                sim_params
             
             sim_params (dict): dictionary of simulation parameters.
                 it must take the form {model:params}, where model is
                 a string specifying the simulation component to be added
                 and params is a dictionary providing all the keyword
                 arguments and their desired values.
+
+            If both sim_file and sim_params are provided, then this function
+            will raise an AssertionError.
         """
 
         # keep track of which components don't use models
@@ -471,9 +471,14 @@ class Simulator:
             if 'model' not in inspect.signature(val).parameters:
                 uses_no_model.append(key)
 
-        assert sim_file is not None or sim_params is not None, \
+        assert sim_file is not None or len(sim_params) is not 0, \
                 'Either a hook to a simulation file or a dictionary of ' + \
                 'simulation parameters must be provided.'
+
+        assert sim_file is None or len(sim_params) is 0, \
+                'Either a simulation configuration file or a dictionary ' + \
+                'of simulation parameters may be passed, but not both. ' + \
+                'Please choose only one of the two to pass as an argument.'
 
         # if a hook to a simulation file is provided, then read it in
         if sim_file is not None:
@@ -483,10 +488,6 @@ class Simulator:
                 except:
                     print('Check your configuration file. Something broke.')
                     sys.exit()
-
-        # enforce that sim_params are of the correct form
-        assert isinstance(sim_params, dict), \
-                'Simulation parameters must be passed as a dictionary.'
 
         for model, params in sim_params.items():
             assert model in self.SIMULATION_COMPONENTS.keys(), \
