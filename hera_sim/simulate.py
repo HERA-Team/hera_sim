@@ -136,18 +136,7 @@ class Simulator:
     Produces visibility simulations with various independent sky- and instrumental-effects, and offers the resulting
     visibilities in :class:`pyuvdata.UVData` format.
     """
-
-    # make a dictionary whose values point to the various methods
-    # used to add different simulation components
-    SIMULATION_COMPONENTS = { 'noiselike_eor':self.add_eor,
-                              'diffuse_foreground':self.add_foreground,
-                              'pntsrc_foreground':self.add_foreground,
-                              'gains':self.add_gains,
-                              'sigchain_reflections':self.add_sigchain_reflections,
-                              'gen_whitenoise_xtalk':self.add_xtalk,
-                              'gen_cross_coupling_xtalk':self.add_xtalk,
-                              'thermal_noise':self.add_noise }
-    
+ 
     def __init__(
             self,
             data_filename=None,
@@ -446,6 +435,17 @@ class Simulator:
                 vis=self.data.data_array[blt_ind, 0, :, pol_ind],
                 xtalk=xtalk
             )
+    
+    # make a dictionary whose values point to the various methods
+    # used to add different simulation components
+    SIMULATION_COMPONENTS = { 'noiselike_eor':add_eor,
+                              'diffuse_foreground':add_foreground,
+                              'pntsrc_foreground':add_foreground,
+                              'gains':add_gains,
+                              'sigchain_reflections':add_sigchain_reflections,
+                              'gen_whitenoise_xtalk':add_xtalk,
+                              'gen_cross_coupling_xtalk':add_xtalk,
+                              'thermal_noise':add_noise }
     
     def run_sim(self, sim_file=None, **sim_params):
         """
