@@ -35,7 +35,7 @@ def get_omega_p(fqs):
 
     Args:
         fqs (array-like): shape=(NFREQS,), GHz
-            frequency array
+            array of frequencies at which to calculate omega_p
 
     Returns:
         omega_p : (array-like): shape=(NFREQS,), steradian

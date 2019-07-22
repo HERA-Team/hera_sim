@@ -36,7 +36,7 @@ def get_omega_p(fqs, bm_poly=HERA_BEAM_POLY):
             observation as a function of frequency.
 
     Returns:
-        omega_p : (array-like): shape=(NFREQS,), steradian
+        omega_p (array-like): shape=(NFREQS,), steradian
             sky-integral of peak-normalized beam power
     """
     return np.polyval(bm_poly, fqs)
