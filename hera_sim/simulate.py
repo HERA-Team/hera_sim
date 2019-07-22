@@ -439,13 +439,18 @@ class Simulator:
     # make a dictionary whose values point to the various methods
     # used to add different simulation components
     SIMULATION_COMPONENTS = { 'noiselike_eor':add_eor,
-                              'diffuse_foreground':add_foreground,
-                              'pntsrc_foreground':add_foreground,
+                              'diffuse_foreground':add_foregrounds,
+                              'pntsrc_foreground':add_foregrounds,
                               'gains':add_gains,
                               'sigchain_reflections':add_sigchain_reflections,
                               'gen_whitenoise_xtalk':add_xtalk,
                               'gen_cross_coupling_xtalk':add_xtalk,
-                              'thermal_noise':add_noise }
+                              'thermal_noise':add_noise,
+                              'rfi_stations':add_rfi,
+                              'rfi_impulse':add_rfi,
+                              'rfi_scatter':add_rfi,
+                              'rfi_dtv':add_rfi
+                              }
     
     def run_sim(self, sim_file=None, **sim_params):
         """
