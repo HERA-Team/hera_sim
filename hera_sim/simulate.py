@@ -473,9 +473,10 @@ class Simulator:
 
         # keep track of which components don't use models
         uses_no_model = []
-        for key, val in self.SIMULATION_COMPONENTS.items():
-            if 'model' not in inspect.signature(val).parameters:
-                uses_no_model.append(key)
+        for component in self.SIMULATION_COMPONENTS.keys():
+            func = getattr(self, self.SIMULATION_COMPONENTS[component])
+            if 'model' not in inspect.signature(func).parameters:
+                uses_no_model.append(component)
 
         assert sim_file is not None or len(sim_params) is not 0, \
                 'Either a hook to a simulation file or a dictionary of ' + \
@@ -514,6 +515,4 @@ class Simulator:
                     add_component(**params)
                 else:
                     add_component(model, **params)
-            else:
-                pass
 
