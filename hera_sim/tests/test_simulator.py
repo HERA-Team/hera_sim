@@ -158,8 +158,8 @@ def test_adding_vis_but_also_returning():
 
 def test_run_sim():
     fgs_params = {
-            "diffuse_foregrounds": {"Tsky_mdl":HERA_Tsky_mdl['xx']},
-            "pntsrc_foregrounds": {"nsrcs":500, "Smin":0.1}
+            "diffuse_foreground": {"Tsky_mdl":HERA_Tsky_mdl['xx']},
+            "pntsrc_foreground": {"nsrcs":500, "Smin":0.1}
             }
     
     eor_params = {"noiselike_eor": {"eor_amp":3e-2}}
