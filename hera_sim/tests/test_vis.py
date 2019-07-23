@@ -8,7 +8,7 @@ from hera_sim import visibilities as vis, io
 
 #####################################
 #SIMULATORS = (vis.HealVis, vis.VisCPU)
-SIMULATORS = (vis.VisCPU, vis.VisGPU)
+SIMULATORS = (vis.VisCPU, vis.VisCPU)
 #####################################
 
 np.random.seed(0)
@@ -45,7 +45,7 @@ def test_shapes(uvdata, simulator):
     v = simulator(
         uvdata=uvdata,
         sky_freqs=np.unique(uvdata.freq_array),
-        sky_intensity=I_sky
+        sky_intensity=I_sky,
     )
 
     assert v.simulate().shape == (NTIMES, 1, NFREQ, 1)
