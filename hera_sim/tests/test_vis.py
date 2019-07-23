@@ -99,14 +99,14 @@ def test_autocorr_flat_beam(uvdata, simulator):
 
 
 def test_viscpu_res_autocorr(uvdata):
-    I_sky = create_uniform_sky(nbase=5)
+    I_sky = create_uniform_sky(nbase=5) #was 5
     v = vis.VisCPU(
         uvdata=uvdata,
         sky_freqs=np.unique(uvdata.freq_array),
         sky_intensity=I_sky,
     ).simulate()
 
-    I_sky = create_uniform_sky(nbase=6)
+    I_sky = create_uniform_sky(nbase=6) #was 6
     v2 = vis.VisCPU(
         uvdata=uvdata,
         sky_freqs=np.unique(uvdata.freq_array),

@@ -81,7 +81,7 @@ def uvbeam_to_lm(uvbeam, freqs, n_pix_lm=63, trunc_at_horizon=False, **kwargs):
     #az = -np.arctan2(m, l) 
     #za = np.arcsin(n)
 
-    az, alt = aipy.coord.top2azalt([l, m, np.sqrt(np.abs(1-lsqr))])
+    az, alt = aipy.coord.top2azalt([l, m, n])
     za = np.pi/2 - alt
 
 
@@ -90,10 +90,13 @@ def uvbeam_to_lm(uvbeam, freqs, n_pix_lm=63, trunc_at_horizon=False, **kwargs):
     # Get the relevant indices of res
     bm = np.zeros((len(freqs), len(l)))
 
+
+    print("RES.SHAPE", res.shape)
+
     if trunc_at_horizon:
         bm[:, n >= 0] = res[0, 0, 0][:, n >= 0]
     else:
-        bm = res[0, 0, 0] 
+        bm = res[1, 0, 0] 
 
     if np.max(bm) > 0:
         bm /= np.max(bm)

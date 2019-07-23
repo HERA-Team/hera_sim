@@ -13,7 +13,7 @@ from .simulators import VisibilitySimulator
 
 class VisCPU(VisibilitySimulator):
 
-    def __init__(self, bm_pix=100, real_dtype=np.float32,
+    def __init__(self, bm_pix=31, real_dtype=np.float32, ####### bm_pix was = 100 on default
                  complex_dtype=np.complex64, **kwargs):
         """
         Fast visibility simulator on the CPU.
