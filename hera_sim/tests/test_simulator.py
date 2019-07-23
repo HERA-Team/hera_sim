@@ -201,4 +201,14 @@ def test_run_sim_both_args():
     sim = create_sim()
     sim.run_sim(sim_file, **sim_params)
 
+@raises(AssertionError)
+def test_run_sim_bad_param_key():
+    bad_key = {"something": {"something else": "another different thing"} }
+    sim = create_sim()
+    sim.run_sim(**bad_key)
 
+@raises(AssertionError)
+def test_run_sim_bad_param_value():
+    bad_value = {"diffuse_foregrounds": 13}
+    sim = create_sim
+    sim.run_sim(**bad_value)
