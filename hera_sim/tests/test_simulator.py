@@ -166,13 +166,14 @@ def test_run_sim():
 
     noise_params = { "thermal_noise": {"Tsky_mdl":HERA_Tsky_mdl['xx'], "inttime":8.59} }
 
-    rfi_params = { "rfi_scatter": {"chance":0.001, "strength":5.7, "std":2.2},
-                   "rfi_dtv" : {"freq_min":0.172, "width":0.012, "chance":0.002},
-                   "rfi_impulse": {"strength":17.22},
+    rfi_params = { "rfi_scatter": {"chance":0.99, "strength":5.7, "std":2.2},
+                   "rfi_impulse": {"chance":0.99, "strength":17.22},
                    "rfi_stations": {} }
 
     sigchain_params = { "gains": {"gain_spread":0.05},
-                        "sigchain_reflections":{} }
+                        "sigchain_reflections": {"amp":[0.5,0.5],
+                                                 "dly":[14,7],
+                                                 "phs":[0.7723,3.2243]} }
 
     xtalk_params = { "gen_whitenoise_xtalk": {"amplitude":1.2345} }
 

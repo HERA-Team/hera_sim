@@ -11,13 +11,13 @@ pntsrc_foregrounds:
 gen_whitenoise_xtalk:
     amplitude: 2.222
 
-rfi_dtv:
-    freq_min: 0.125
-    freq_max: 0.195
-    width: 0.025
+rfi_scatter:
+    chance: 0.999
+    strength: 20
+    std: 7
 
 sigchain_reflections:
-    amp: [1.2, 1.5]
+    amp: [0.7, 0.5]
     dly: [14, 7]
     phs: [0.77723, 3.2244]
 
