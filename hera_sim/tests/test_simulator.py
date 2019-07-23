@@ -164,7 +164,7 @@ def test_run_sim():
     
     eor_params = {"noiselike_eor": {"eor_amp":3e-2}}
 
-    noise_params = { "thermal_noise": {"Tsky_mdl":HERA_Tsky_mdl['xx'], "inttime"=8.59} }
+    noise_params = { "thermal_noise": {"Tsky_mdl":HERA_Tsky_mdl['xx'], "inttime":8.59} }
 
     rfi_params = { "rfi_scatter": {"chance":0.001, "strength":5.7, "std":2.2},
                    "rfi_dtv" : {"freq_min":0.172, "width":0.012, "chance":0.002},
