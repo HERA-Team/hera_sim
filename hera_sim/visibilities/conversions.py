@@ -4,6 +4,8 @@ Provides a number of mappings which may be useful for visibility simulators.
 import healpy
 import numpy as np
 
+import aipy
+
 
 # def beam_healpix_to_top(hmap, n_pix_lm=63, nest=False):
 #     """
@@ -40,6 +42,9 @@ import numpy as np
 #
 #     return bm
 
+def lm_to_azza(l, m):
+    return np.arcsin(np.sqrt(l**2 + m**2)), -np.arctan2(m, l)
+
 
 def uvbeam_to_lm(uvbeam, freqs, n_pix_lm=63, trunc_at_horizon=False, **kwargs):
     """
@@ -55,15 +60,30 @@ def uvbeam_to_lm(uvbeam, freqs, n_pix_lm=63, trunc_at_horizon=False, **kwargs):
     """
 
     l = np.linspace(-1, 1, n_pix_lm, dtype=np.float32)
+
     l, m = np.meshgrid(l, l)
     l = l.flatten()
     m = m.flatten()
 
     lsqr = l ** 2 + m ** 2
-    n = np.where(lsqr < 1, np.sqrt(1 - lsqr), -1)
+   
 
-    az = -np.arctan2(m, l)
-    za = np.arcsin(n)
+
+    ###################################################
+    #n = np.where(lsqr < 1, np.sqrt(1 - lsqr), -1)
+    one_minus_lsqr = 1 - lsqr
+    mask = (lsqr < 1)
+    n = np.empty_like(lsqr)
+    n[mask] = np.sqrt(one_minus_lsqr[mask])
+    n[~mask] = -1
+    ####################################################
+   
+    #az = -np.arctan2(m, l) 
+    #za = np.arcsin(n)
+
+    az, alt = aipy.coord.top2azalt([l, m, np.sqrt(np.abs(1-lsqr))])
+    za = np.pi/2 - alt
+
 
     res = uvbeam.interp(az, za, freqs, **kwargs)[0]
 
@@ -73,7 +93,7 @@ def uvbeam_to_lm(uvbeam, freqs, n_pix_lm=63, trunc_at_horizon=False, **kwargs):
     if trunc_at_horizon:
         bm[:, n >= 0] = res[0, 0, 0][:, n >= 0]
     else:
-        bm = res[0, 0, 0]
+        bm = res[0, 0, 0] 
 
     if np.max(bm) > 0:
         bm /= np.max(bm)

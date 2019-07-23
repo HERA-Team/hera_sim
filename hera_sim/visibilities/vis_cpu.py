@@ -31,6 +31,7 @@ class VisCPU(VisibilitySimulator):
         self._complex_dtype = complex_dtype
         self.bm_pix = bm_pix
 
+
         super(VisCPU, self).__init__(**kwargs)
 
         # Convert some of our arguments to forms more simple for vis_cpu
@@ -70,11 +71,16 @@ class VisCPU(VisibilitySimulator):
             method can be modified to only return one matrix for each beam.
 
         """
+        #print ("self.freqs", self.freqs)
+        #print("self.bm_pix", self.bm_pix)
+
+        ##############################
         return np.array([
             conversions.uvbeam_to_lm(
                 self.beams[self.beam_ids[i]], self.freqs, self.bm_pix
             ) for i in range(self.n_ant)
         ])
+        ###############################
 
     def get_diffuse_crd_eq(self):
         """Calculate the equatorial co-ordinates of the healpix sky pixels (in Cartesian co-ords)."""
@@ -105,6 +111,9 @@ class VisCPU(VisibilitySimulator):
         visfull = np.zeros_like(self.uvdata.data_array, dtype=self._complex_dtype)
 
         for i, freq in enumerate(self.freqs):
+
+            #print("BEAM_LM", i, beam_lm[:, i])
+
             vis = vis_cpu(
                 antpos=self.antpos,
                 freq=freq,
@@ -170,7 +179,16 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube, real_dtype=np.float32
     """
     
     ####################################################################
-    print("I_sky", I_sky)
+    #print("I_sky", I_sky)
+    #print("antpos", antpos)
+    #print("freq", freq)
+    #print("eq2tops", eq2tops)
+    #print("crd_eq", crd_eq)
+    #print("bm_cube", bm_cube)
+
+    print("MAX OF BM_CUBE", np.max(bm_cube))
+    #bm_cube = np.ones_like(bm_cube)
+
     ####################################################################
     
     
@@ -231,5 +249,5 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube, real_dtype=np.float32
     # Fill in whole visibility matrix from upper triangle
     for i in range(nant):
         vis[:, i + 1:, i] = vis[:, i, i + 1:].conj()
-
+    
     return vis
