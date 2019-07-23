@@ -180,15 +180,16 @@ def test_run_sim():
     param_list = [fgs_params, eor_params, noise_params, rfi_params, \
                   sigchain_params, xtalk_params]
 
-    def check_update(sim, params):
-        data = sim.data.data_array
+    def apply_update(sim, params):
         sim.run_sim(**params)
         assert not np.all(np.isclose(data, sim.data.data_array))
 
     sim = create_sim()
-
+    
     for params in param_list:
-        check_update(sim, params)
+        apply_update(sim, params)
+
+    assert not np.all(np.isclose(sim.data.data_array, 0))
 
     sim_file = "test_sim_file.yaml"
     sim = create_sim()
