@@ -155,3 +155,50 @@ def test_adding_vis_but_also_returning():
 
     vis = sim.add_foregrounds("diffuse_foreground", Tsky_mdl=HERA_Tsky_mdl['xx'], ret_vis=True)
     np.testing.assert_array_almost_equal(vis, sim.data.data_array, decimal=5)
+
+def test_run_sim():
+    fgs_params = {
+            "diffuse_foregrounds": {"Tsky_mdl":HERA_Tsky_mdl['xx']},
+            "pntsrc_foregrounds": {"nsrcs":500, "Smin":0.1}
+            }
+    
+    eor_params = {"noiselike_eor": {"eor_amp":3e-2}}
+
+    noise_params = { "thermal_noise": {"Tsky_mdl":HERA_Tsky_mdl['xx'], "inttime"=8.59} }
+
+    rfi_params = { "rfi_scatter": {"chance":0.001, "strength":5.7, "std":2.2},
+                   "rfi_dtv" : {"freq_min":0.172, "width":0.012, "chance":0.002},
+                   "rfi_impulse": {"strength":17.22},
+                   "rfi_stations": {} }
+
+    sigchain_params = { "gains": {"gain_spread":0.05},
+                        "sigchain_reflections":{} }
+
+    xtalk_params = { "gen_whitenoise_xtalk": {"amplitude":1.2345} }
+
+    param_list = [fgs_params, eor_params, noise_params, rfi_params, \
+                  sigchain_params, xtalk_params]
+
+    def check_update(sim, params):
+        data = sim.data.data_array
+        sim.run_sim(**params)
+        assert not np.all(np.isclose(data, sim.data.data_array))
+
+    sim = create_sim()
+
+    for params in param_list:
+        check_update(sim, params)
+
+    sim_file = "test_sim_file.yaml"
+    sim = create_sim()
+    sim.run_sim(sim_file)
+    assert not np.all(np.isclose(sim.data.data_array, 0))
+
+@raises(AssertionError)
+def test_run_sim_both_args():
+    sim_file = "test_sim_file.yaml"
+    sim_params = {"diffuse_foregrounds": {"Tsky_mdl":HERA_Tsky_mdl['xx']} }
+    sim = create_sim()
+    sim.run_sim(sim_file, **sim_params)
+
+
