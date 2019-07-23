@@ -459,15 +459,16 @@ class Simulator:
         all of the desired simulation components to the Simulator object.
 
         Args:
-            sim_file (str): string providing a hook to a YAML file
+            sim_file (str, optional): string providing a hook to a YAML file
             
-            sim_params (dict): dictionary of simulation parameters.
+            sim_params (dict, optional): dictionary of simulation parameters.
                 it must take the form {model:params}, where model is
                 a string specifying the simulation component to be added
                 and params is a dictionary providing all the keyword
                 arguments and their desired values.
 
-            If both sim_file and sim_params are provided, then this function
+            One (and *only* one) of the above arguments must be provided. If 
+            *both* sim_file and sim_params are provided, then this function
             will raise an AssertionError.
         """
 
@@ -478,11 +479,11 @@ class Simulator:
             if 'model' not in inspect.signature(func).parameters:
                 uses_no_model.append(key)
 
-        assert sim_file is not None or len(sim_params) is not 0, \
+        assert sim_file is not None or sim_params, \
                 'Either a hook to a simulation file or a dictionary of ' + \
                 'simulation parameters must be provided.'
 
-        assert sim_file is None or len(sim_params) is 0, \
+        assert sim_file is None or sim_params, \
                 'Either a simulation configuration file or a dictionary ' + \
                 'of simulation parameters may be passed, but not both. ' + \
                 'Please choose only one of the two to pass as an argument.'
