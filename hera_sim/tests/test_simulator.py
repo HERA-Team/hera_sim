@@ -14,6 +14,7 @@ from nose.tools import raises, assert_raises
 from hera_sim.foregrounds import diffuse_foreground
 from hera_sim.noise import thermal_noise, HERA_Tsky_mdl
 from hera_sim.simulate import Simulator
+from .data import DATA_PATH
 
 
 def create_sim(autos=False):
@@ -187,14 +188,14 @@ def test_run_sim():
 
     assert not np.all(np.isclose(sim.data.data_array, 0))
 
-    sim_file = "test_sim_file.yaml"
+    sim_file = "{}/test_sim_file.yaml".format(DATA_PATH)
     sim = create_sim()
     sim.run_sim(sim_file)
     assert not np.all(np.isclose(sim.data.data_array, 0))
 
 @raises(AssertionError)
 def test_run_sim_both_args():
-    sim_file = "test_sim_file.yaml"
+    sim_file = "{}/test_sim_file.yaml".format(DATA_PATH)
     sim_params = {"diffuse_foregrounds": {"Tsky_mdl":HERA_Tsky_mdl['xx']} }
     sim = create_sim()
     sim.run_sim(sim_file, **sim_params)
