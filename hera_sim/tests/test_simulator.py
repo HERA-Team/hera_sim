@@ -210,5 +210,5 @@ def test_run_sim_bad_param_key():
 @raises(AssertionError)
 def test_run_sim_bad_param_value():
     bad_value = {"diffuse_foregrounds": 13}
-    sim = create_sim
+    sim = create_sim()
     sim.run_sim(**bad_value)
