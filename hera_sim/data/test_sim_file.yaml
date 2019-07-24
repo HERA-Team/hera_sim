@@ -1,8 +1,8 @@
-#diffuse_foregrounds:
+#diffuse_foreground:
 #    Tsky_mdl: HERA_Tsky_mdl['xx']
 #    inttime: 8.59
 
-pntsrc_foregrounds:
+pntsrc_foreground:
     nsrcs: 250
     beta: -1.25
     spectral_index_mean: -1.5

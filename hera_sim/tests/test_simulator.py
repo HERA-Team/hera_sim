@@ -14,7 +14,7 @@ from nose.tools import raises, assert_raises
 from hera_sim.foregrounds import diffuse_foreground
 from hera_sim.noise import thermal_noise, HERA_Tsky_mdl
 from hera_sim.simulate import Simulator
-from .data import DATA_PATH
+from hera_sim.data import DATA_PATH
 
 
 def create_sim(autos=False):
@@ -158,33 +158,24 @@ def test_adding_vis_but_also_returning():
     np.testing.assert_array_almost_equal(vis, sim.data.data_array, decimal=5)
 
 def test_run_sim():
-    fgs_params = {
+    sim_params = {
             "diffuse_foreground": {"Tsky_mdl":HERA_Tsky_mdl['xx']},
-            "pntsrc_foreground": {"nsrcs":500, "Smin":0.1}
+            "pntsrc_foreground": {"nsrcs":500, "Smin":0.1},
+            "noiselike_eor": {"eor_amp":3e-2},
+            "thermal_noise": {"Tsky_mdl":HERA_Tsky_mdl['xx'], "inttime":8.59},
+            "rfi_scatter": {"chance":0.99, "strength":5.7, "std":2.2},
+            "rfi_impulse": {"chance":0.99, "strength":17.22},
+            "rfi_stations": {},
+            "gains": {"gain_spread":0.05},
+            "sigchain_reflections": {"amp":[0.5,0.5],
+                                     "dly":[14,7],
+                                     "phs":[0.7723,3.2243]},
+            "gen_whitenoise_xtalk": {"amplitude":1.2345} 
             }
-    
-    eor_params = {"noiselike_eor": {"eor_amp":3e-2}}
-
-    noise_params = { "thermal_noise": {"Tsky_mdl":HERA_Tsky_mdl['xx'], "inttime":8.59} }
-
-    rfi_params = { "rfi_scatter": {"chance":0.99, "strength":5.7, "std":2.2},
-                   "rfi_impulse": {"chance":0.99, "strength":17.22},
-                   "rfi_stations": {} }
-
-    sigchain_params = { "gains": {"gain_spread":0.05},
-                        "sigchain_reflections": {"amp":[0.5,0.5],
-                                                 "dly":[14,7],
-                                                 "phs":[0.7723,3.2243]} }
-
-    xtalk_params = { "gen_whitenoise_xtalk": {"amplitude":1.2345} }
-
-    param_list = [fgs_params, eor_params, noise_params, rfi_params, \
-                  sigchain_params, xtalk_params]
 
     sim = create_sim()
     
-    for params in param_list:
-        sim.run_sim(**params)
+    sim.run_sim(**sim_params)
 
     assert not np.all(np.isclose(sim.data.data_array, 0))
 
@@ -211,3 +202,9 @@ def test_run_sim_bad_param_value():
     bad_value = {"diffuse_foregrounds": 13}
     sim = create_sim()
     sim.run_sim(**bad_value)
+
+@raises(SystemExit)
+def test_bad_yaml_config():
+    bad_file = "{}/bad_test_file.yaml".format(DATA_PATH)
+    sim = create_sim()
+    sim.run_sim(bad_file)

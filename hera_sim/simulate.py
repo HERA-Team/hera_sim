@@ -483,7 +483,7 @@ class Simulator:
                 'Either a hook to a simulation file or a dictionary of ' + \
                 'simulation parameters must be provided.'
 
-        assert sim_file is None or sim_params, \
+        assert sim_file is None or not sim_params, \
                 'Either a simulation configuration file or a dictionary ' + \
                 'of simulation parameters may be passed, but not both. ' + \
                 'Please choose only one of the two to pass as an argument.'
