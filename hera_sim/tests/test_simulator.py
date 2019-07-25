@@ -6,6 +6,7 @@ elsewhere.
 
 import shutil
 import tempfile
+import sys
 from os import path
 
 import numpy as np
@@ -13,7 +14,7 @@ from nose.tools import raises, assert_raises
 
 from hera_sim.foregrounds import diffuse_foreground
 from hera_sim.noise import thermal_noise, HERA_Tsky_mdl
-from hera_sim.simulate import Simulator
+from hera_sim.simulate import Simulator, VersionError
 from hera_sim.data import DATA_PATH
 
 
@@ -157,54 +158,64 @@ def test_adding_vis_but_also_returning():
     vis = sim.add_foregrounds("diffuse_foreground", Tsky_mdl=HERA_Tsky_mdl['xx'], ret_vis=True)
     np.testing.assert_array_almost_equal(vis, sim.data.data_array, decimal=5)
 
-def test_run_sim():
-    sim_params = {
-            "diffuse_foreground": {"Tsky_mdl":HERA_Tsky_mdl['xx']},
-            "pntsrc_foreground": {"nsrcs":500, "Smin":0.1},
-            "noiselike_eor": {"eor_amp":3e-2},
-            "thermal_noise": {"Tsky_mdl":HERA_Tsky_mdl['xx'], "inttime":8.59},
-            "rfi_scatter": {"chance":0.99, "strength":5.7, "std":2.2},
-            "rfi_impulse": {"chance":0.99, "strength":17.22},
-            "rfi_stations": {},
-            "gains": {"gain_spread":0.05},
-            "sigchain_reflections": {"amp":[0.5,0.5],
-                                     "dly":[14,7],
-                                     "phs":[0.7723,3.2243]},
-            "gen_whitenoise_xtalk": {"amplitude":1.2345} 
-            }
 
-    sim = create_sim()
+if sys.version_info.major < 3 or \
+   sys.version_info.major > 3 and sys.version_info.minor < 4:
+    @raises(VersionError)
+    def test_run_sim():
+        sim_params = {}
+        sim = create_sim()
+        sim.run_sim(**sim_params)
+else:
+    def test_run_sim():
+        sim_params = {
+                "diffuse_foreground": {"Tsky_mdl":HERA_Tsky_mdl['xx']},
+                "pntsrc_foreground": {"nsrcs":500, "Smin":0.1},
+                "noiselike_eor": {"eor_amp":3e-2},
+                "thermal_noise": {"Tsky_mdl":HERA_Tsky_mdl['xx'], "inttime":8.59},
+                "rfi_scatter": {"chance":0.99, "strength":5.7, "std":2.2},
+                "rfi_impulse": {"chance":0.99, "strength":17.22},
+                "rfi_stations": {},
+                "gains": {"gain_spread":0.05},
+                "sigchain_reflections": {"amp":[0.5,0.5],
+                                         "dly":[14,7],
+                                         "phs":[0.7723,3.2243]},
+                "gen_whitenoise_xtalk": {"amplitude":1.2345} 
+                }
+
+        sim = create_sim()
     
-    sim.run_sim(**sim_params)
+        sim.run_sim(**sim_params)
 
-    assert not np.all(np.isclose(sim.data.data_array, 0))
+        assert not np.all(np.isclose(sim.data.data_array, 0))
 
-    sim_file = "{}/test_sim_file.yaml".format(DATA_PATH)
-    sim = create_sim()
-    sim.run_sim(sim_file)
-    assert not np.all(np.isclose(sim.data.data_array, 0))
+        sim_file = "{}/tests/test_sim_file.yaml".format(DATA_PATH)
+        sim = create_sim()
+        sim.run_sim(sim_file)
+        assert not np.all(np.isclose(sim.data.data_array, 0))
 
-@raises(AssertionError)
-def test_run_sim_both_args():
-    sim_file = "{}/test_sim_file.yaml".format(DATA_PATH)
-    sim_params = {"diffuse_foregrounds": {"Tsky_mdl":HERA_Tsky_mdl['xx']} }
-    sim = create_sim()
-    sim.run_sim(sim_file, **sim_params)
+    @raises(AssertionError)
+    def test_run_sim_both_args():
+        sim_file = "{}/tests/test_sim_file.yaml".format(DATA_PATH)
+        sim_params = {"diffuse_foregrounds": {"Tsky_mdl":HERA_Tsky_mdl['xx']} }
+        sim = create_sim()
+        sim.run_sim(sim_file, **sim_params)
 
-@raises(AssertionError)
-def test_run_sim_bad_param_key():
-    bad_key = {"something": {"something else": "another different thing"} }
-    sim = create_sim()
-    sim.run_sim(**bad_key)
+    @raises(AssertionError)
+    def test_run_sim_bad_param_key():
+        bad_key = {"something": {"something else": "another different thing"} }
+        sim = create_sim()
+        sim.run_sim(**bad_key)
 
-@raises(AssertionError)
-def test_run_sim_bad_param_value():
-    bad_value = {"diffuse_foregrounds": 13}
-    sim = create_sim()
-    sim.run_sim(**bad_value)
+    @raises(AssertionError)
+    def test_run_sim_bad_param_value():
+        bad_value = {"diffuse_foreground": 13}
+        sim = create_sim()
+        sim.run_sim(**bad_value)
 
-@raises(SystemExit)
-def test_bad_yaml_config():
-    bad_file = "{}/bad_test_file.yaml".format(DATA_PATH)
-    sim = create_sim()
-    sim.run_sim(bad_file)
+    @raises(SystemExit)
+    def test_bad_yaml_config():
+        bad_file = "{}/tests/bad_test_file.yaml".format(DATA_PATH)
+        sim = create_sim()
+        sim.run_sim(bad_file)
+

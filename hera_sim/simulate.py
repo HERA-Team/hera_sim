@@ -22,6 +22,8 @@ from .version import version
 class CompatibilityException(ValueError):
     pass
 
+class VersionError(Exception):
+    pass
 
 def _get_model(mod, name):
     return getattr(sys.modules["hera_sim." + mod], name)
@@ -476,6 +478,10 @@ class Simulator:
         uses_no_model = []
         for key, val in self.SIMULATION_COMPONENTS.items():
             func = getattr(self, val)
+            # raise a NotImplementedError if using Py2
+            if sys.version_info.major < 3 or \
+               sys.version_info.major > 3 and sys.version_info.minor < 4:
+                raise VersionError("Please use a version of Python >= 3.4.")
             if 'model' not in inspect.signature(func).parameters:
                 uses_no_model.append(key)
 
@@ -512,6 +518,11 @@ class Simulator:
             if model in sim_params.keys():
                 add_component = getattr(self, self.SIMULATION_COMPONENTS[model])
                 params = sim_params[model]
+                # check if Tsky_mdl is in the parameters
+#                if "Tsky_mdl" in params.keys():
+                    # if it's a string, then we need to make an interp object
+#                    if isinstance(params["Tsky_mdl"], str):
+                        # make interpolation object
                 if model in uses_no_model:
                     add_component(**params)
                 else:
