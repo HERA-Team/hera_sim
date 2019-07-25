@@ -9,54 +9,49 @@ class Tsky:
     """
     # TODO: fill in docstring
     """
-    def __init__(self, datafile, pol, **interp_kwargs):
+    def __init__(self, datafile):
         self.datafile = datafile
         self._data = np.load(self.datafile, allow_pickle=True)
         self._check_npz_format()
 
-        self._interpolators = {}
-
-        # fill in interpolators
-        # XXX do we want to make a hidden member function for generating
-        # XXX the interpolator objects?
-        for j, pol in enumerate(self.meta['pols']):
-            tsky_data = self.tsky[j]
-
-            # fill in information outside of measured LST values for
-            # interpolator stability
-            lsts = np.concatenate([self.lsts[-10:]-2*np.pi,
-                                   self.lsts,
-                                   self.lsts[:10]+2*np.pi])
-            tsky_data = np.concatenate([tsky_data[-10:],
-                                        tsky_data,
-                                        tsky_data[:10]])
-            
-            # now make the interpolation object
-            self._interpolators[pol] = RectBivariateSpline(lsts, 
-                                                           self.freqs,
-                                                           tsky_data,
-                                                           **interp_kwargs)
+    def __call__(self, lsts, freqs, pol='xx', **interp_kwargs):
+        return self._interpolator(pol, **interp_kwargs)(lsts, freqs)
 
     @property
     def freqs(self):
-        # XXX units handling?
         return self._data['freqs']
 
     @property
     def tsky(self):
-        # XXX units handling?
         return self._data['tsky']
 
     @property
     def lsts(self):
-        # XXX units handling?
         return self._data['lsts']
-    # XXX should we assert that units must be of a certain type, or do we allow
-    # XXX for more flexibility and provide conversions between units?
 
     @property
     def meta(self):
         return self._data['meta'][None][0]
+
+    @memoize
+    def _interpolator(self, pol='xx', **interp_kwargs):
+        # check polarization
+        self._check_pol(pol)
+
+        # get index of tsky's 0-axis corresponding to pol
+        j = self.meta['pols'].index(pol)
+        
+        # get the tsky data
+        tsky_data = self.tsky[j]
+
+        # do some wrapping in LST
+        lsts = np.concatenate([self.lsts[-10:]-2*np.pi,
+                               lsts,
+                               self.lsts[:10]+2*np.pi])
+        tsky_data = np.concatenate([tsky_data[-10:], tsky_data, tsky_data[:10]])
+
+        # now make the interpolation object
+        return RectBivariateSpline(lsts, self.freqs, tsky_data, **interp_kwargs)
 
     def _check_npz_format(self):
         # check that the npz has all the required objects archived
@@ -81,15 +76,6 @@ class Tsky:
                                  self.lsts.size, self.freqs.size), \
                 "The tsky array is incorrectly shaped. Please ensure that " \
                 "the tsky array has shape (NPOLS, NLSTS, NFREQS)."
-
-
-    def get_interpolator(self, pol='xx'):
-        self._check_pol(pol)
-        return self._interpolators[pol]
-
-    def resample_Tsky(self, lsts, freqs, pol='xx'):
-        self._check_pol(pol)
-        return self._interpolators[pol](lsts, freqs)
 
     def _check_pol(self, pol):
         assert pol in self.meta['pols'], \
