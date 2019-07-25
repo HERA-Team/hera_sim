@@ -2,6 +2,7 @@
 build/*
 dist/*
 *.egg-info/
+*.coverage
 
 \.idea/
 docs/_build/*

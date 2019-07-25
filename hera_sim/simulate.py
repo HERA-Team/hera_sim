@@ -504,22 +504,17 @@ class Simulator:
                     # parameters for any components that require a Tsky model
                     for component, params in sim_params.items():
                         if "Tsky_mdl" in params.keys():
-                            # given the behavior of the interpolators.Tsky
-                            # class, we need a dictionary with a 'file' key
-                            # and a 'pol' key
-                            # XXX think about the best way to assert this
-                            # XXX do we assert that it has the correct keys?
-                            assert isinstance(params["Tsky_mdl"], dict), \
-                                    "Please ensure that the Tsky_mdl entry " \
-                                    "has a 'file' key and a 'pol' key. " \
-                                    "These indicate the npz file location " \
-                                    "and the polarization to use."
-                            Tsky_params = params["Tsky_mdl"]
-                            dfile = Tsky_params["file"]
-                            pol = Tsky_params["pol"]
-                            interp_kwargs = Tsky_params.get('interp_kwargs', {})
-                            tsky = Tsky(dfile, **interp_kwargs)
-                            params["Tsky_mdl"] = tsky.get_interpolator(pol)
+                            try:
+                                tsky = Tsky(params["Tsky_mdl"]["file"],
+                                            pol=params["Tsky_mdl"].get("pol", "xx"),
+                                            **params["Tsky_mdl"].get("interp_kwargs", {}) )
+                                params["Tsky_mdl"] = tsky
+                            except KeyError:
+                                raise KeyError("Please ensure that the Tsky_mdl " \
+                                               "dict has a 'file' key.")
+                            except TypeError:
+                                raise TypeError("Please ensure that Tsky_mdl is " \
+                                                "a dict.")
                 except:
                     print('Check your configuration file. Something broke.')
                     sys.exit()
