@@ -166,7 +166,7 @@ def hmap_to_I(h):
 # from hera_cal.redcal
 def sim_red_data(reds, gains=None, shape=(10, 10), gain_scatter=0.1):
     """
-    Simulate noise-free random but redundant (up to differing gains) visibilities.
+    Simulate thermal-noise-free random but redundant (up to differing gains) visibilities.
 
     Args:
         reds (list of list of tuples): list of lists of baseline-pol tuples where each sublist has only

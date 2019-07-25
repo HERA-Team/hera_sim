@@ -97,9 +97,11 @@ class TestVisCpu(unittest.TestCase):
 class TestSimRedData(unittest.TestCase):
 
     def test_sim_red_data(self):
+        # Test that redundant baselines are redundant up to the gains in single pol mode
         #antpos = build_linear_array(5)
         #reds = om.get_reds(antpos, pols=['xx'], pol_mode='1pol')
-        reds = [[(0, 1, 'xx'), (1, 2, 'xx'), (2, 3, 'xx'), (3, 4, 'xx')],
+        # Hard code redundancies to eliminate dependence on hera_cal
+        reds = [[(0, 1, 'xx'), (1, 2, 'xx'), (2, 3, 'xx'), (3, 4, 'xx')], 
                 [(0, 2, 'xx'), (1, 3, 'xx'), (2, 4, 'xx')],
                 [(0, 3, 'xx'), (1, 4, 'xx')],
                 [(0, 4, 'xx')]]
@@ -113,9 +115,12 @@ class TestSimRedData(unittest.TestCase):
             for bl in bls[1:]:
                 ai, aj, pol = bl
                 ans = data[bl] / (gains[(ai, 'Jxx')] * gains[(aj, 'Jxx')].conj())
+                # compare calibrated visibilities knowing the input gains
                 np.testing.assert_almost_equal(ans0, ans, decimal=7)
 
+        # Test that redundant baselines are redundant up to the gains in 4-pol mode
         #reds = om.get_reds(antpos, pols=['xx', 'yy', 'xy', 'yx'], pol_mode='4pol')
+        # Hard code redundancies to eliminate dependence on hera_cal
         reds = [[(0, 1, 'xx'), (1, 2, 'xx'), (2, 3, 'xx'), (3, 4, 'xx')],
                 [(0, 2, 'xx'), (1, 3, 'xx'), (2, 4, 'xx')],
                 [(0, 3, 'xx'), (1, 4, 'xx')],
@@ -148,12 +153,15 @@ class TestSimRedData(unittest.TestCase):
                 ans_xy = data[(ai, aj, 'xy',)] / (gains[(ai, 'Jxx')] * gains[(aj, 'Jyy')].conj())
                 ans_yx = data[(ai, aj, 'yx',)] / (gains[(ai, 'Jyy')] * gains[(aj, 'Jxx')].conj())
                 ans_yy = data[(ai, aj, 'yy',)] / (gains[(ai, 'Jyy')] * gains[(aj, 'Jyy')].conj())
+                # compare calibrated visibilities knowing the input gains
                 np.testing.assert_almost_equal(ans0xx, ans_xx, decimal=7)
                 np.testing.assert_almost_equal(ans0xy, ans_xy, decimal=7)
                 np.testing.assert_almost_equal(ans0yx, ans_yx, decimal=7)
                 np.testing.assert_almost_equal(ans0yy, ans_yy, decimal=7)
 
+        # Test that redundant baselines are redundant up to the gains in 4-pol minV mode (where Vxy = Vyx)
         #reds = om.get_reds(antpos, pols=['xx', 'yy', 'xy', 'yX'], pol_mode='4pol_minV')
+        # Hard code redundancies to eliminate dependence on hera_cal
         reds = [[(0, 1, 'xx'), (1, 2, 'xx'), (2, 3, 'xx'), (3, 4, 'xx')],
                 [(0, 2, 'xx'), (1, 3, 'xx'), (2, 4, 'xx')],
                 [(0, 3, 'xx'), (1, 4, 'xx')],
@@ -195,6 +203,7 @@ class TestSimRedData(unittest.TestCase):
                 ans_xy = data[(ai, aj, 'xy',)] / (gains[(ai, 'Jxx')] * gains[(aj, 'Jyy')].conj())
                 ans_yx = data[(ai, aj, 'yx',)] / (gains[(ai, 'Jyy')] * gains[(aj, 'Jxx')].conj())
                 ans_yy = data[(ai, aj, 'yy',)] / (gains[(ai, 'Jyy')] * gains[(aj, 'Jyy')].conj())
+                # compare calibrated visibilities knowing the input gains
                 np.testing.assert_almost_equal(ans0xx, ans_xx, decimal=7)
                 np.testing.assert_almost_equal(ans0xy, ans_xy, decimal=7)
                 np.testing.assert_almost_equal(ans0yx, ans_yx, decimal=7)
