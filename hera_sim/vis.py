@@ -3,6 +3,7 @@ from . import foregrounds, rfi, noise, sigchain
 from scipy.interpolate import RectBivariateSpline
 from copy import deepcopy
 from builtins import range
+from pyuvdata.utils import jnum2str, jstr2num
 
 DEFAULT_LSTS = np.linspace(0, 2 * np.pi, 10000, endpoint=False)
 DEFAULT_FQS = np.linspace(0.1, 0.2, 1024, endpoint=False)
@@ -162,10 +163,10 @@ def hmap_to_I(h):
 #     return gains, true_vis, data
 
 
-# XXX from hera_cal.redcal
+# from hera_cal.redcal
 def sim_red_data(reds, gains=None, shape=(10, 10), gain_scatter=0.1):
     """
-    Simulate noise-free random but redundant (up to differing gains) visibilities.
+    Simulate thermal-noise-free random but redundant (up to differing gains) visibilities.
 
     Args:
         reds (list of list of tuples): list of lists of baseline-pol tuples where each sublist has only
@@ -188,7 +189,8 @@ def sim_red_data(reds, gains=None, shape=(10, 10), gain_scatter=0.1):
                 ant
                 for bls in reds
                 for bl in bls
-                for ant in [(bl[0], bl[2][0]), (bl[1], bl[2][1])]
+                for ant in [(bl[0], jnum2str(jstr2num(bl[2][0]))), 
+                            (bl[1], jnum2str(jstr2num(bl[2][1])))]
             ]
         )
     )
@@ -197,13 +199,14 @@ def sim_red_data(reds, gains=None, shape=(10, 10), gain_scatter=0.1):
     else:
         gains = deepcopy(gains)
     for ant in ants:
-        gains[ant] = gains.get(ant, 1 + gain_scatter * noise((1,))) * np.ones(
+        gains[ant] = gains.get(ant, 1 + gain_scatter * noise.white_noise((1,))) * np.ones(
             shape, dtype=np.complex
         )
     for bls in reds:
-        true_vis[bls[0]] = noise(shape)
+        true_vis[bls[0]] = noise.white_noise(shape)
         for (i, j, pol) in bls:
             data[(i, j, pol)] = (
-                true_vis[bls[0]] * gains[(i, pol[0])] * gains[(j, pol[1])].conj()
+                true_vis[bls[0]] * gains[(i, jnum2str(jstr2num(pol[0])))] * \
+                gains[(j, jnum2str(jstr2num(pol[1])))].conj()
             )
     return gains, true_vis, data
