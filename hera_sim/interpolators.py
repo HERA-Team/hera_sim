@@ -30,7 +30,7 @@ class Tsky:
                 "provide information about the units of the various arrays " \
                 "and the polarizations of the sky temperature array."
         # now make sure that the sky temperature array has the correct shape
-        # this should be (NPOLS, NLSTS, NFREQS) or (NPOLS, NFREQS, NLSTS)
+        # this should be (NPOLS, NLSTS, NFREQS)
         # XXX this is somewhat strict, but useful in the case NFREQS==NLSTS
         # XXX however, in the case NFREQS==NLSTS, it is possible for the
         # XXX sky temperature to be shaped incorrectly and pass this assertion

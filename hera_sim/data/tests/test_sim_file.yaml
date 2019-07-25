@@ -1,5 +1,5 @@
 #diffuse_foreground:
-#    Tsky_mdl: HERA_Tsky_mdl['xx']
+#    Tsky_mdl: # XXX how to give a hook to a npz that Travis can find???
 #    inttime: 8.59
 
 pntsrc_foreground:
