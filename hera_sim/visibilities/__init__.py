@@ -24,7 +24,4 @@ except ImportError:
     pass
 
 # GPU version of VisCPU
-try:
-    from .vis_gpu import VisGPU
-except ImportError:
-    pass
+from .vis_gpu import VisGPU

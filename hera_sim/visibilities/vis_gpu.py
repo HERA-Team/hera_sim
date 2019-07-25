@@ -153,7 +153,6 @@ class VisGPU(VisibilitySimulator):
             vis += self._simulate_points()
         return vis
 
-GPU = True
 GPU_TEMPLATE_FLOAT = """
 // CUDA code for interpolating antenna beams and computing "voltage" visibilities 
 // [A^1/2 * I^1/2 * exp(-2*pi*i*freq*dot(a,s)/c)]
@@ -169,7 +168,7 @@ GPU_TEMPLATE_FLOAT = """
 // v = v0 * (1-t) + v1 * t = t*v1 + (-t*v0 + v0)
 // Runs on GPU only
 __device__
-inline double lerp(double v0, double v1, double t) { ////////////////////////////////////////WAS FLOAT
+inline float lerp(float v0, float v1, float t) {
     return fma(t, v1, fma(-t, v0, v0));
 }
 // 3D texture storing beam response on (x=sin th_x, y=sin th_y, nant) grid
@@ -180,7 +179,7 @@ inline double lerp(double v0, double v1, double t) { ///////////////////////////
 texture<float, cudaTextureType3D, cudaReadModeElementType> bm_tex;
 // Shared memory for storing per-antenna results to be reused among all ants
 // for "BLOCK_PX" pixels, avoiding a rush on global memory.
-__shared__ double sh_buf[%(BLOCK_PX)s*5]; //////////////////WAS FLOAT
+__shared__ float sh_buf[%(BLOCK_PX)s*5];
 // Interpolate bm_tex[x,y] at top=(x,y,z) coordinates and store answer in "A"
 __global__ void InterpolateBeam(float *top, float *A)
 {
@@ -191,7 +190,7 @@ __global__ void InterpolateBeam(float *top, float *A)
     const uint pix = blockIdx.x * blockDim.x + threadIdx.x;
     const uint ant = blockIdx.y * blockDim.y + threadIdx.y;
     const uint beam_px = %(BEAM_PX)s;
-    double bm_x, bm_y, px, py, pz, fx, fy, top_z; ///////////////////////////WAS FLOAT
+    float bm_x, bm_y, px, py, pz, fx, fy, top_z;
     if (pix >= npix || ant >= nant) return;
     if (ty == 0) // buffer top_z for all threads
         sh_buf[tx+%(BLOCK_PX)s * 4] = top[2*npix+pix];
@@ -261,7 +260,6 @@ GPU_TEMPLATE_DOUBLE = """
 // Runs on GPU only
 __device__
 inline double lerp(double v0, double v1, double t) {
-    //return t*v1 + (-t*v0 + v0);
     return fma(t, v1, fma(-t, v0, v0));
 }
 // 3D texture storing beam response on (x=sin th_x, y=sin th_y, nant) grid
@@ -341,7 +339,6 @@ def numpy3d_to_array(np_array):
     '''Copy a 3D (d,h,w) numpy array into a 3D pycuda array that can be used 
     to set a texture.  (For some reason, gpuarrays can't be used to do that 
     directly).  A transpose happens implicitly; the CUDA array has dim (w,h,d).'''
-    import pycuda.autoinit
     d, h, w = np_array.shape
     descr = driver.ArrayDescriptor3D()
     descr.width = w
@@ -372,8 +369,15 @@ def vis_gpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube,
 
     freq = 2 * freq * np.pi # PI TO TURN IT TO AN ANGULAR FREQUENCY??
 
+
+    if real_dtype != np.float32:
+        real_dtype = np.float64
+    if complex_dtype != np.complex64:
+        complex_dtype = np.complex128
+
     # use double precision CUDA?
     double_precision = not (real_dtype==np.float32 and complex_dtype==np.complex64)
+
     if double_precision:
         real_dtype=np.float64
         complex_dtype=np.complex128
@@ -415,6 +419,10 @@ def vis_gpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube,
     bm_texref = gpu_module.get_texref("bm_tex")
     h = cublasCreate() # handle for managing cublas
     # define GPU buffers and transfer initial values
+
+
+    print
+
 
     if double_precision:
         bm_texref.set_array(driver.np_to_array(bm_cube, "C"))
