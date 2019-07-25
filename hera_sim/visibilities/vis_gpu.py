@@ -13,6 +13,7 @@ import pycuda.autoinit
 from pycuda import compiler, gpuarray, driver
 from skcuda.cublas import cublasCreate, cublasSetStream, cublasSgemm, cublasCgemm, cublasDestroy, cublasDgemm, cublasZgemm
 from math import ceil
+import time
 
 
 class VisGPU(VisibilitySimulator):
@@ -153,6 +154,7 @@ class VisGPU(VisibilitySimulator):
             vis += self._simulate_points()
         return vis
 
+GPU = True
 GPU_TEMPLATE_FLOAT = """
 // CUDA code for interpolating antenna beams and computing "voltage" visibilities 
 // [A^1/2 * I^1/2 * exp(-2*pi*i*freq*dot(a,s)/c)]
@@ -168,7 +170,7 @@ GPU_TEMPLATE_FLOAT = """
 // v = v0 * (1-t) + v1 * t = t*v1 + (-t*v0 + v0)
 // Runs on GPU only
 __device__
-inline float lerp(float v0, float v1, float t) {
+inline double lerp(double v0, double v1, double t) { ////////////////////////////////////////WAS FLOAT
     return fma(t, v1, fma(-t, v0, v0));
 }
 // 3D texture storing beam response on (x=sin th_x, y=sin th_y, nant) grid
@@ -179,7 +181,7 @@ inline float lerp(float v0, float v1, float t) {
 texture<float, cudaTextureType3D, cudaReadModeElementType> bm_tex;
 // Shared memory for storing per-antenna results to be reused among all ants
 // for "BLOCK_PX" pixels, avoiding a rush on global memory.
-__shared__ float sh_buf[%(BLOCK_PX)s*5];
+__shared__ double sh_buf[%(BLOCK_PX)s*5]; //////////////////WAS FLOAT
 // Interpolate bm_tex[x,y] at top=(x,y,z) coordinates and store answer in "A"
 __global__ void InterpolateBeam(float *top, float *A)
 {
@@ -190,7 +192,7 @@ __global__ void InterpolateBeam(float *top, float *A)
     const uint pix = blockIdx.x * blockDim.x + threadIdx.x;
     const uint ant = blockIdx.y * blockDim.y + threadIdx.y;
     const uint beam_px = %(BEAM_PX)s;
-    float bm_x, bm_y, px, py, pz, fx, fy, top_z;
+    double bm_x, bm_y, px, py, pz, fx, fy, top_z; ///////////////////////////WAS FLOAT
     if (pix >= npix || ant >= nant) return;
     if (ty == 0) // buffer top_z for all threads
         sh_buf[tx+%(BLOCK_PX)s * 4] = top[2*npix+pix];
@@ -204,13 +206,13 @@ __global__ void InterpolateBeam(float *top, float *A)
     }
     if (ty == 1 && top_z > 0) { // buffer y interpolation for all threads
         bm_y = (beam_px-1) * (0.5 * top[npix+pix] + 0.5);
-    py = floorf(bm_y); 
-    sh_buf[tx+%(BLOCK_PX)s * 1] = bm_y - py; // fy, fractional position
+	py = floorf(bm_y); 
+	sh_buf[tx+%(BLOCK_PX)s * 1] = bm_y - py; // fy, fractional position
         sh_buf[tx+%(BLOCK_PX)s * 3] = py + 0.5f; // py, pixel index
     }
     __syncthreads(); // make sure interpolation exists for all threads
     if (top_z > 0) {
-    fx = sh_buf[tx+%(BLOCK_PX)s * 0];
+	fx = sh_buf[tx+%(BLOCK_PX)s * 0];
         fy = sh_buf[tx+%(BLOCK_PX)s * 1];
         px = sh_buf[tx+%(BLOCK_PX)s * 2];
         py = sh_buf[tx+%(BLOCK_PX)s * 3];
@@ -260,6 +262,7 @@ GPU_TEMPLATE_DOUBLE = """
 // Runs on GPU only
 __device__
 inline double lerp(double v0, double v1, double t) {
+    //return t*v1 + (-t*v0 + v0);
     return fma(t, v1, fma(-t, v0, v0));
 }
 // 3D texture storing beam response on (x=sin th_x, y=sin th_y, nant) grid
@@ -290,7 +293,7 @@ __global__ void InterpolateBeam(double *top, double *A)
     if (ty == 0 && top_z > 0) { // buffer x interpolation for all threads
         bm_x = (beam_px-1) * (0.5 * top[pix] + 0.5);
         px = floorf(bm_x);   // integer position 
-    sh_buf[tx+%(BLOCK_PX)s * 0] = bm_x - px; // fx, fractional position
+	sh_buf[tx+%(BLOCK_PX)s * 0] = bm_x - px; // fx, fractional position
         sh_buf[tx+%(BLOCK_PX)s * 2] = px + 0.5f; // px, pixel index
     }
     if (ty == 1 && top_z > 0) { // buffer y interpolation for all threads
@@ -301,7 +304,7 @@ __global__ void InterpolateBeam(double *top, double *A)
     }
     __syncthreads(); // make sure interpolation exists for all threads
     if (top_z > 0) {
-    //printf("SHARED BUF DOUBLE: %%f, %%f //n", sh_buf[tx+%(BLOCK_PX)s * 0], sh_buf[tx+%(BLOCK_PX)s * 2]);
+    	//printf("SHARED BUF DOUBLE: %%f, %%f //n", sh_buf[tx+%(BLOCK_PX)s * 0], sh_buf[tx+%(BLOCK_PX)s * 2]);
         fx = sh_buf[tx+%(BLOCK_PX)s * 0];
         fy = sh_buf[tx+%(BLOCK_PX)s * 1];
         px = sh_buf[tx+%(BLOCK_PX)s * 2];
@@ -339,6 +342,7 @@ def numpy3d_to_array(np_array):
     '''Copy a 3D (d,h,w) numpy array into a 3D pycuda array that can be used 
     to set a texture.  (For some reason, gpuarrays can't be used to do that 
     directly).  A transpose happens implicitly; the CUDA array has dim (w,h,d).'''
+    import pycuda.autoinit
     d, h, w = np_array.shape
     descr = driver.ArrayDescriptor3D()
     descr.width = w
@@ -367,24 +371,14 @@ def vis_gpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube,
             verbose=False):
 
 
+
     freq = 2 * freq * np.pi # PI TO TURN IT TO AN ANGULAR FREQUENCY??
-
-
-    if real_dtype != np.float32:
-        real_dtype = np.float64
-    if complex_dtype != np.complex64:
-        complex_dtype = np.complex128
-
-
-    print("GPU MAX BM_CUBE", np.max(bm_cube))
-
 
     # use double precision CUDA?
     double_precision = not (real_dtype==np.float32 and complex_dtype==np.complex64)
-
     if double_precision:
-        real_dtype=np.float64
-        complex_dtype=np.complex128
+    	real_dtype=np.float64
+	complex_dtype=np.complex128
     # ensure shapes
     nant = antpos.shape[0]
     assert(antpos.shape == (nant, 3))
@@ -424,12 +418,8 @@ def vis_gpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube,
     h = cublasCreate() # handle for managing cublas
     # define GPU buffers and transfer initial values
 
-
-    print
-
-
     if double_precision:
-        bm_texref.set_array(driver.np_to_array(bm_cube, "C"))
+	bm_texref.set_array(driver.np_to_array(bm_cube, "C"))
     else:
         bm_texref.set_array(numpy3d_to_array(bm_cube)) # never changes, transpose happens in copy so cuda bm_tex is (BEAM_PX,BEAM_PX,NANT
 
@@ -441,109 +431,137 @@ def vis_gpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube,
     crdtop_gpu = gpuarray.empty(shape=(3,npixc), dtype=real_dtype) # will be set on GPU
     tau_gpu = gpuarray.empty(shape=(nant,npixc), dtype=real_dtype) # will be set on GPU
     v_gpu = gpuarray.empty(shape=(nant,npixc), dtype=complex_dtype) # will be set on GPU
-    vis_gpus = [gpuarray.empty(shape=(nant,nant), dtype=complex_dtype) for i in range(chunk)]
+    vis_gpus = [gpuarray.empty(shape=(nant,nant), dtype=complex_dtype) for i in xrange(chunk)]
     # output CPU buffers for downloading answers
-    vis_cpus = [np.empty(shape=(nant,nant), dtype=complex_dtype) for i in range(chunk)]
-    streams = [driver.Stream() for i in range(chunk)]
+    vis_cpus = [np.empty(shape=(nant,nant), dtype=complex_dtype) for i in xrange(chunk)]
+    streams = [driver.Stream() for i in xrange(chunk)]
     event_order = ('start','upload','eq2top','tau','interpolate','meas_eq','vis','end')
     vis = np.empty((ntimes,nant,nant), dtype=complex_dtype)
 
     
     if double_precision:
     # FOR DOUBLE PRECISION FLOATING POINT
-        for t in range(ntimes):
-            eq2top_gpu.set(eq2tops[t]) # defines sky orientation for this time step
-            events = [{e:driver.Event() for e in event_order} for i in range(chunk)]
-        for c in range(chunk+2):
-            cc = c - 1
-            ccc = c - 2
-            if 0 <= ccc < chunk:
-                stream = streams[ccc]
-                vis_gpus[ccc].get_async(ary=vis_cpus[ccc], stream=stream)
-                events[ccc]['end'].record(stream)
-            if 0 <= cc < chunk:
-                stream = streams[cc]
-                cublasSetStream(h, stream.handle)
-                ## compute crdtop = dot(eq2top,crd_eq)
-                # cublas arrays are in Fortran order, so P=M*N is actually 
-                # peformed as P.T = N.T * M.T
-                cublasDgemm(h, 'n', 'n', npixc, 3, 3, 1., crd_eq_gpu.gpudata, 
-                    npixc, eq2top_gpu.gpudata, 3, 0., crdtop_gpu.gpudata, npixc)
-                events[cc]['eq2top'].record(stream)
-                ## compute tau = dot(antpos,crdtop)
-                cublasDgemm(h, 'n', 'n', npixc, nant, 3, 1., crdtop_gpu.gpudata, 
-                npixc, antpos_gpu.gpudata, 3, 0., tau_gpu.gpudata, npixc)
-                events[cc]['tau'].record(stream)
-                ## interpolate bm_tex at specified topocentric coords, store interpolation in A
-                ## threads are parallelized across pixel axis
-                bm_interp(crdtop_gpu, A_gpu, grid=grid, block=block, stream=stream)
-                events[cc]['interpolate'].record(stream)
+	for t in xrange(ntimes):
+	    if verbose: print '%d/%d' % (t+1, ntimes)
+	    eq2top_gpu.set(eq2tops[t]) # defines sky orientation for this time step
+	    events = [{e:driver.Event() for e in event_order} for i in xrange(chunk)]
+	    for c in xrange(chunk+2):
+		cc = c - 1
+		ccc = c - 2
+		if 0 <= ccc < chunk:
+		    stream = streams[ccc]
+		    vis_gpus[ccc].get_async(ary=vis_cpus[ccc], stream=stream)
+		    events[ccc]['end'].record(stream)
+		if 0 <= cc < chunk:
+		    stream = streams[cc]
+		    cublasSetStream(h, stream.handle)
+		    ## compute crdtop = dot(eq2top,crd_eq)
+		    # cublas arrays are in Fortran order, so P=M*N is actually 
+		    # peformed as P.T = N.T * M.T
+		    cublasDgemm(h, 'n', 'n', npixc, 3, 3, 1., crd_eq_gpu.gpudata, 
+			npixc, eq2top_gpu.gpudata, 3, 0., crdtop_gpu.gpudata, npixc)
+		    events[cc]['eq2top'].record(stream)
+		    ## compute tau = dot(antpos,crdtop)
+		    cublasDgemm(h, 'n', 'n', npixc, nant, 3, 1., crdtop_gpu.gpudata, 
+			npixc, antpos_gpu.gpudata, 3, 0., tau_gpu.gpudata, npixc)
+		    events[cc]['tau'].record(stream)
+		    ## interpolate bm_tex at specified topocentric coords, store interpolation in A
+		    ## threads are parallelized across pixel axis
+		    bm_interp(crdtop_gpu, A_gpu, grid=grid, block=block, stream=stream)
+		    events[cc]['interpolate'].record(stream)
 
-                # compute v = A * I * exp(1j*tau*freq)
-                meas_eq(A_gpu, Isqrt_gpu, tau_gpu, real_dtype(freq), v_gpu, 
-                grid=grid, block=block, stream=stream)
-                events[cc]['meas_eq'].record(stream)
+		    #if c == 1 and t == ntimes-1:
+		    	#print "A_GPU[0][0]", A_gpu.get()[0][0], "01", A_gpu.get()[0][1], "02", A_gpu.get()[0][2]
 
-                # compute vis = dot(v, v.T)
-                # transpose below incurs about 20% overhead
-                cublasZgemm(h, 'c', 'n', nant, nant, npixc, 1., v_gpu.gpudata, 
-                npixc, v_gpu.gpudata, npixc, 0., vis_gpus[cc].gpudata, nant)
-                events[cc]['vis'].record(stream)
-            if c < chunk:
-                stream = streams[c]
-                events[c]['start'].record(stream)
-                crd_eq_gpu.set_async(crd_eq[:,c*npixc:(c+1)*npixc], stream=stream)
-                Isqrt_gpu.set_async(Isqrt[c*npixc:(c+1)*npixc], stream=stream)
-                events[c]['upload'].record(stream)
-        events[chunk-1]['end'].synchronize()
-        vis[t] = sum(vis_cpus)
+
+		    # compute v = A * I * exp(1j*tau*freq)
+		    meas_eq(A_gpu, Isqrt_gpu, tau_gpu, real_dtype(freq), v_gpu, 
+			grid=grid, block=block, stream=stream)
+		    events[cc]['meas_eq'].record(stream)
+
+		    #if c == 1 and t == ntimes-1:
+		    	#print "MEAS_EQ OUTPUT:", v_gpu.get()[0][0]
+			#np.save("GPU", v_gpu.get())
+
+
+		    # compute vis = dot(v, v.T)
+		    # transpose below incurs about 20% overhead
+		    cublasZgemm(h, 'c', 'n', nant, nant, npixc, 1., v_gpu.gpudata, 
+			npixc, v_gpu.gpudata, npixc, 0., vis_gpus[cc].gpudata, nant)
+		    events[cc]['vis'].record(stream)
+		if c < chunk:
+		    stream = streams[c]
+		    events[c]['start'].record(stream)
+		    crd_eq_gpu.set_async(crd_eq[:,c*npixc:(c+1)*npixc], stream=stream)
+		    Isqrt_gpu.set_async(Isqrt[c*npixc:(c+1)*npixc], stream=stream)
+		    events[c]['upload'].record(stream)
+	    events[chunk-1]['end'].synchronize()
+	    vis[t] = sum(vis_cpus)
+	    if verbose:
+		for c in xrange(chunk):
+		    print '%d:%d START->END:' % (c, chunk), events[c]['start'].time_till(events[c]['end']) * 1e-3
+		    #for i,e in enumerate(event_order[:-1]):
+		    #    print c, e,'->',event_order[i+1], ':', events[c][e].time_till(events[c][event_order[i+1]]) * 1e-3
+		print 'TOTAL:', events[0]['start'].time_till(events[chunk-1]['end']) * 1e-3
     
-    else:   
+    else: 	
     # FOR SINGLE PRECISION FLOATING POINT
-        for t in range(ntimes):
-            events = [{e:driver.Event() for e in event_order} for i in range(chunk)]
-            for c in range(chunk+2):
-                cc = c - 1
-                ccc = c - 2
-                if 0 <= ccc < chunk:
-                    stream = streams[ccc]
-                    vis_gpus[ccc].get_async(ary=vis_cpus[ccc], stream=stream)
-                    events[ccc]['end'].record(stream)
-                if 0 <= cc < chunk:
-                    stream = streams[cc]
-                    cublasSetStream(h, stream.handle)
-                    ## compute crdtop = dot(eq2top,crd_eq)
-                    # cublas arrays are in Fortran order, so P=M*N is actually 
-                    # peformed as P.T = N.T * M.T
-                    cublasSgemm(h, 'n', 'n', npixc, 3, 3, 1., crd_eq_gpu.gpudata, 
-                    npixc, eq2top_gpu.gpudata, 3, 0., crdtop_gpu.gpudata, npixc)
-                    events[cc]['eq2top'].record(stream)
-                    ## compute tau = dot(antpos,crdtop)
-                    cublasSgemm(h, 'n', 'n', npixc, nant, 3, 1., crdtop_gpu.gpudata, 
-                    npixc, antpos_gpu.gpudata, 3, 0., tau_gpu.gpudata, npixc)
-                    events[cc]['tau'].record(stream)
-                    ## interpolate bm_tex at specified topocentric coords, store interpolation in A
-                    ## threads are parallelized across pixel axis
-                    bm_interp(crdtop_gpu, A_gpu, grid=grid, block=block, stream=stream)
-                    events[cc]['interpolate'].record(stream)
+	for t in xrange(ntimes):
+	    if verbose: print '%d/%d' % (t+1, ntimes)
+	    eq2top_gpu.set(eq2tops[t]) # defines sky orientation for this time step
+	    events = [{e:driver.Event() for e in event_order} for i in xrange(chunk)]
+	    for c in xrange(chunk+2):
+		cc = c - 1
+		ccc = c - 2
+		if 0 <= ccc < chunk:
+		    stream = streams[ccc]
+		    vis_gpus[ccc].get_async(ary=vis_cpus[ccc], stream=stream)
+		    events[ccc]['end'].record(stream)
+		if 0 <= cc < chunk:
+		    stream = streams[cc]
+		    cublasSetStream(h, stream.handle)
+		    ## compute crdtop = dot(eq2top,crd_eq)
+		    # cublas arrays are in Fortran order, so P=M*N is actually 
+		    # peformed as P.T = N.T * M.T
+		    cublasSgemm(h, 'n', 'n', npixc, 3, 3, 1., crd_eq_gpu.gpudata, 
+			npixc, eq2top_gpu.gpudata, 3, 0., crdtop_gpu.gpudata, npixc)
+		    events[cc]['eq2top'].record(stream)
+		    ## compute tau = dot(antpos,crdtop)
+		    cublasSgemm(h, 'n', 'n', npixc, nant, 3, 1., crdtop_gpu.gpudata, 
+			npixc, antpos_gpu.gpudata, 3, 0., tau_gpu.gpudata, npixc)
+		    events[cc]['tau'].record(stream)
+		    ## interpolate bm_tex at specified topocentric coords, store interpolation in A
+		    ## threads are parallelized across pixel axis
+		    bm_interp(crdtop_gpu, A_gpu, grid=grid, block=block, stream=stream)
+		    events[cc]['interpolate'].record(stream)
+		
+		    #if c == 1 and t == 0:
+		    	#print "A_GPU[0][0]", A_gpu.get()[0][0], "01", A_gpu.get()[0][1], "02", A_gpu.get()[0][2]
 
-                    # compute v = A * I * exp(1j*tau*freq)
-                    meas_eq(A_gpu, Isqrt_gpu, tau_gpu, real_dtype(freq), v_gpu, 
-                    grid=grid, block=block, stream=stream)
-                    events[cc]['meas_eq'].record(stream)
-                    # compute vis = dot(v, v.T)
-                    # transpose below incurs about 20% overhead
-                    cublasCgemm(h, 'c', 'n', nant, nant, npixc, 1., v_gpu.gpudata, 
-                    npixc, v_gpu.gpudata, npixc, 0., vis_gpus[cc].gpudata, nant)
-                    events[cc]['vis'].record(stream)
-                if c < chunk:
-                    stream = streams[c]
-                    events[c]['start'].record(stream)
-                    crd_eq_gpu.set_async(crd_eq[:,c*npixc:(c+1)*npixc], stream=stream)
-                    Isqrt_gpu.set_async(Isqrt[c*npixc:(c+1)*npixc], stream=stream)
-                    events[c]['upload'].record(stream)
-            events[chunk-1]['end'].synchronize()
-            vis[t] = sum(vis_cpus)
+
+		    # compute v = A * I * exp(1j*tau*freq)
+		    meas_eq(A_gpu, Isqrt_gpu, tau_gpu, real_dtype(freq), v_gpu, 
+			grid=grid, block=block, stream=stream)
+		    events[cc]['meas_eq'].record(stream)
+		    # compute vis = dot(v, v.T)
+		    # transpose below incurs about 20% overhead
+		    cublasCgemm(h, 'c', 'n', nant, nant, npixc, 1., v_gpu.gpudata, 
+			npixc, v_gpu.gpudata, npixc, 0., vis_gpus[cc].gpudata, nant)
+		    events[cc]['vis'].record(stream)
+		if c < chunk:
+		    stream = streams[c]
+		    events[c]['start'].record(stream)
+		    crd_eq_gpu.set_async(crd_eq[:,c*npixc:(c+1)*npixc], stream=stream)
+		    Isqrt_gpu.set_async(Isqrt[c*npixc:(c+1)*npixc], stream=stream)
+		    events[c]['upload'].record(stream)
+	    events[chunk-1]['end'].synchronize()
+	    vis[t] = sum(vis_cpus)
+	    if verbose:
+		for c in xrange(chunk):
+		    print '%d:%d START->END:' % (c, chunk), events[c]['start'].time_till(events[c]['end']) * 1e-3
+		    #for i,e in enumerate(event_order[:-1]):
+		    #    print c, e,'->',event_order[i+1], ':', events[c][e].time_till(events[c][event_order[i+1]]) * 1e-3
+		print 'TOTAL:', events[0]['start'].time_till(events[chunk-1]['end']) * 1e-3
 
     # teardown GPU configuration
     cublasDestroy(h)
