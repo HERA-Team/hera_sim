@@ -375,6 +375,10 @@ def vis_gpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube,
     if complex_dtype != np.complex64:
         complex_dtype = np.complex128
 
+
+    print("GPU MAX BM_CUBE", np.max(bm_cube))
+
+
     # use double precision CUDA?
     double_precision = not (real_dtype==np.float32 and complex_dtype==np.complex64)
 
