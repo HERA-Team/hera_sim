@@ -8,7 +8,7 @@ from hera_sim import visibilities as vis, io
 
 #####################################
 #SIMULATORS = (vis.HealVis, vis.VisCPU)
-SIMULATORS = (vis.VisCPU, vis.VisCPU)
+SIMULATORS = (vis.VisCPU, vis.HealVis)
 #####################################
 
 np.random.seed(0)
