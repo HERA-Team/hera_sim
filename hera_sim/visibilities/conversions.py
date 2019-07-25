@@ -85,6 +85,8 @@ def uvbeam_to_lm(uvbeam, freqs, n_pix_lm=63, trunc_at_horizon=False, **kwargs):
     za = np.pi/2 - alt
 
 
+    # Ensure that interp gives us the power values, not e-field.
+    uvbeam.efield_to_power()
     res = uvbeam.interp(az, za, freqs, **kwargs)[0]
 
     # Get the relevant indices of res
