@@ -7,7 +7,7 @@ elsewhere.
 import shutil
 import tempfile
 import sys
-from os import path
+from os import path, remove
 
 import numpy as np
 from nose.tools import raises, assert_raises
@@ -189,17 +189,54 @@ else:
 
         assert not np.all(np.isclose(sim.data.data_array, 0))
 
-        sim_file = "{}/tests/test_sim_file.yaml".format(DATA_PATH)
+        # instantiate a mock simulation file
+        tmp_sim_file = tempfile.mkstemp()[1]
+        # write something to it
+        with open(tmp_sim_file, 'w') as sim_file:
+            sim_file.write("""
+                diffuse_foreground: 
+                    Tsky_mdl: 
+                        file: {}/HERA_Tsky_Reformatted.npz
+                        pol: yy
+                pntsrc_foreground: 
+                    nsrcs: !!int 500
+                    Smin: !!float 0.1
+                noiselike_eor: 
+                    eor_amp: !!float 0.03
+                gains: 
+                    gain_spread: !!float 0.05
+                gen_whitenoise_xtalk: 
+                    amplitude: !!float 1.2345
+                thermal_noise: 
+                    Tsky_mdl: 
+                        file: {}/HERA_Tsky_Reformatted.npz
+                        pol: xx
+                    inttime: !!float 9.72
+                rfi_scatter: 
+                    chance: !!float 0.99
+                    strength: !!float 5.7
+                    std: !!float 2.2
+                    """.format(DATA_PATH, DATA_PATH))
         sim = create_sim()
-        sim.run_sim(sim_file)
+        sim.run_sim(tmp_sim_file)
         assert not np.all(np.isclose(sim.data.data_array, 0))
+        # delete the temp file
+        remove(tmp_sim_file)
 
     @raises(AssertionError)
     def test_run_sim_both_args():
-        sim_file = "{}/tests/test_sim_file.yaml".format(DATA_PATH)
-        sim_params = {"diffuse_foregrounds": {"Tsky_mdl":HERA_Tsky_mdl['xx']} }
+        # make a temporary test file
+        tmp_sim_file = tempfile.mkstemp()[1]
+        with open(tmp_sim_file, 'w') as sim_file:
+            sim_file.write("""
+                pntsrc_foreground:
+                    nsrcs: 5000
+                    """)
+        sim_params = {"diffuse_foreground": {"Tsky_mdl":HERA_Tsky_mdl['xx']} }
         sim = create_sim()
-        sim.run_sim(sim_file, **sim_params)
+        sim.run_sim(tmp_sim_file, **sim_params)
+        # remove test file
+        remove(tmp_sim_file)
 
     @raises(AssertionError)
     def test_run_sim_bad_param_key():
@@ -215,7 +252,44 @@ else:
 
     @raises(SystemExit)
     def test_bad_yaml_config():
-        bad_file = "{}/tests/bad_test_file.yaml".format(DATA_PATH)
+        # make a bad config file
+        tmp_sim_file = tempfile.mkstemp()[1]
+        with open(tmp_sim_file, 'w') as sim_file:
+            sim_file.write("""
+                this:
+                    is: a
+                     bad: file
+                     """)
         sim = create_sim()
-        sim.run_sim(bad_file)
+        sim.run_sim(tmp_sim_file)
+        # delete the file
+        remove(tmp_sim_file)
 
+    @raises(KeyError)
+    def test_bad_tsky_key():
+        # make a config file with no file key for Tsky_mdl
+        tmp_sim_file = tempfile.mkstemp()[1]
+        with open(tmp_sim_file, 'w') as sim_file:
+            sim_file.write("""
+                diffuse_foreground: 
+                    Tsky_mdl: 
+                        pol: xx
+                        """)
+        sim = create_sim()
+        sim.run_sim(tmp_sim_file)
+        # delete the file
+        remove(tmp_sim_file)
+
+    @raises(TypeError)
+    def test_bad_tsky_mdl():
+        # make a config file where Tsky_mdl is not a dict
+        tmp_sim_file = tempfile.mkstemp()[1]
+        with open(tmp_sim_file, 'w') as sim_file:
+            sim_file.write("""
+                diffuse_foreground:
+                    Tsky_mdl: 13
+                    """)
+        sim = create_sim()
+        sim.run_sim(tmp_sim_file)
+        # delete the file
+        remove(tmp_sim_file)

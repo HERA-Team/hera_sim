@@ -3,19 +3,23 @@ This module provides interfaces to different interpolation classes.
 """
 
 import numpy as np
+from cached_property import cached_property
 from scipy.interpolate import RectBivariateSpline
 
 class Tsky:
     """
     # TODO: fill in docstring
     """
-    def __init__(self, datafile):
+    def __init__(self, datafile, pol='xx', **interp_kwargs):
         self.datafile = datafile
         self._data = np.load(self.datafile, allow_pickle=True)
         self._check_npz_format()
+        self._check_pol(pol)
+        self.pol = pol
+        self._interp_kwargs = interp_kwargs
 
-    def __call__(self, lsts, freqs, pol='xx', **interp_kwargs):
-        return self._interpolator(pol, **interp_kwargs)(lsts, freqs)
+    def __call__(self, lsts, freqs):
+        return self._interpolator(lsts, freqs)
 
     @property
     def freqs(self):
@@ -33,25 +37,22 @@ class Tsky:
     def meta(self):
         return self._data['meta'][None][0]
 
-    @memoize
-    def _interpolator(self, pol='xx', **interp_kwargs):
-        # check polarization
-        self._check_pol(pol)
-
+    @cached_property
+    def _interpolator(self):
         # get index of tsky's 0-axis corresponding to pol
-        j = self.meta['pols'].index(pol)
+        j = self.meta['pols'].index(self.pol)
         
         # get the tsky data
         tsky_data = self.tsky[j]
 
         # do some wrapping in LST
         lsts = np.concatenate([self.lsts[-10:]-2*np.pi,
-                               lsts,
+                               self.lsts,
                                self.lsts[:10]+2*np.pi])
         tsky_data = np.concatenate([tsky_data[-10:], tsky_data, tsky_data[:10]])
 
         # now make the interpolation object
-        return RectBivariateSpline(lsts, self.freqs, tsky_data, **interp_kwargs)
+        return RectBivariateSpline(lsts, self.freqs, tsky_data, **self._interp_kwargs)
 
     def _check_npz_format(self):
         # check that the npz has all the required objects archived

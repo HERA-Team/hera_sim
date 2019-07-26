@@ -505,16 +505,21 @@ class Simulator:
                     for component, params in sim_params.items():
                         if "Tsky_mdl" in params.keys():
                             try:
-                                tsky = Tsky(params["Tsky_mdl"]["file"],
-                                            pol=params["Tsky_mdl"].get("pol", "xx"),
-                                            **params["Tsky_mdl"].get("interp_kwargs", {}) )
+                                npz_file = params["Tsky_mdl"]["file"]
+                                pol = params["Tsky_mdl"].get("pol", "xx")
+                                interp_kwargs = params["Tsky_mdl"].get("interp_kwargs", {})
+                                tsky = Tsky(npz_file, pol=pol, **interp_kwargs)
                                 params["Tsky_mdl"] = tsky
                             except KeyError:
-                                raise KeyError("Please ensure that the Tsky_mdl " \
-                                               "dict has a 'file' key.")
+                                raise KeyError
                             except TypeError:
-                                raise TypeError("Please ensure that Tsky_mdl is " \
-                                                "a dict.")
+                                raise TypeError
+                except KeyError:
+                    raise KeyError("Please ensure that the Tsky_mdl " \
+                                    "dict has a 'file' key.")
+                except TypeError:
+                    raise TypeError("Please ensure that Tsky_mdl is " \
+                                    "a dict.")
                 except:
                     print('Check your configuration file. Something broke.')
                     sys.exit()
