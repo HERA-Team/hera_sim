@@ -4,11 +4,9 @@ import numpy as np
 import os
 import glob
 import tempfile
-import shutil
 
 from scipy.interpolate import RectBivariateSpline
 from hera_sim.interpolators import Tsky
-from hera_sim.data import DATA_PATH
 from nose.tools import raises
 
 def test_interpolator():
@@ -20,7 +18,8 @@ def test_interpolator():
     meta = {'pols': pols}
     
     # make a path to the temporary file and save the file there
-    dfile = os.path.join(DATA_PATH, 'test_file.npz')
+    tmpdir = tempfile.mkdtemp()
+    dfile = os.path.join(tmpdir, 'test_file.npz')
     np.savez(dfile, tsky=tsky_arr, lsts=lsts, freqs=freqs, meta=meta)
     
     # instantiate a Tsky object
@@ -37,8 +36,6 @@ def test_interpolator():
     resampled_tsky = tsky(lsts, freqs)
     assert resampled_tsky.shape==(lsts.size, freqs.size)
 
-    # delete the file
-    os.remove(dfile)
 
 @raises(AssertionError)
 def test_bad_npz():
@@ -69,6 +66,3 @@ def test_bad_npz():
     # now check that it catches using a bad polarization
     np.savez(temp_dir+'/ok_file', lsts=lsts, freqs=freqs, tsky=ok_tsky, meta=meta)
     tsky = Tsky(temp_dir+'/ok_file.npz', pol='yy')
-    
-    # now delete the temporary directory
-    shutil.rmtree(temp_dir)

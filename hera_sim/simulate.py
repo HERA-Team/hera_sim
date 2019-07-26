@@ -13,6 +13,7 @@ import numpy as np
 from cached_property import cached_property
 from pyuvdata import UVData
 from astropy import constants as const
+from collections import OrderedDict
 
 from . import io
 from . import sigchain
@@ -142,7 +143,8 @@ class Simulator:
  
     # make a dictionary whose values point to the various methods
     # used to add different simulation components
-    SIMULATION_COMPONENTS = { 'noiselike_eor':'add_eor',
+    SIMULATION_COMPONENTS = OrderedDict(
+                            { 'noiselike_eor':'add_eor',
                               'diffuse_foreground':'add_foregrounds',
                               'pntsrc_foreground':'add_foregrounds',
                               'thermal_noise':'add_noise',
@@ -154,7 +156,7 @@ class Simulator:
                               'sigchain_reflections':'add_sigchain_reflections',
                               'gen_whitenoise_xtalk':'add_xtalk',
                               'gen_cross_coupling_xtalk':'add_xtalk'
-                              }
+                              } )
 
     def __init__(
             self,

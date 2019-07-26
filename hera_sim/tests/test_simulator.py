@@ -7,7 +7,7 @@ elsewhere.
 import shutil
 import tempfile
 import sys
-from os import path, remove
+from os import path
 
 import numpy as np
 from nose.tools import raises, assert_raises
@@ -205,8 +205,10 @@ else:
                     eor_amp: !!float 0.03
                 gains: 
                     gain_spread: !!float 0.05
-                gen_whitenoise_xtalk: 
-                    amplitude: !!float 1.2345
+                gen_cross_coupling_xtalk: 
+                    amp: !!float 0.225
+                    dly: !!float 13.2
+                    phs: !!float 2.1123
                 thermal_noise: 
                     Tsky_mdl: 
                         file: {}/HERA_Tsky_Reformatted.npz
@@ -217,11 +219,9 @@ else:
                     strength: !!float 5.7
                     std: !!float 2.2
                     """.format(DATA_PATH, DATA_PATH))
-        sim = create_sim()
+        sim = create_sim(autos=True)
         sim.run_sim(tmp_sim_file)
         assert not np.all(np.isclose(sim.data.data_array, 0))
-        # delete the temp file
-        remove(tmp_sim_file)
 
     @raises(AssertionError)
     def test_run_sim_both_args():
@@ -235,8 +235,6 @@ else:
         sim_params = {"diffuse_foreground": {"Tsky_mdl":HERA_Tsky_mdl['xx']} }
         sim = create_sim()
         sim.run_sim(tmp_sim_file, **sim_params)
-        # remove test file
-        remove(tmp_sim_file)
 
     @raises(AssertionError)
     def test_run_sim_bad_param_key():
@@ -262,8 +260,6 @@ else:
                      """)
         sim = create_sim()
         sim.run_sim(tmp_sim_file)
-        # delete the file
-        remove(tmp_sim_file)
 
     @raises(KeyError)
     def test_bad_tsky_key():
@@ -277,8 +273,6 @@ else:
                         """)
         sim = create_sim()
         sim.run_sim(tmp_sim_file)
-        # delete the file
-        remove(tmp_sim_file)
 
     @raises(TypeError)
     def test_bad_tsky_mdl():
@@ -291,5 +285,4 @@ else:
                     """)
         sim = create_sim()
         sim.run_sim(tmp_sim_file)
-        # delete the file
-        remove(tmp_sim_file)
+
