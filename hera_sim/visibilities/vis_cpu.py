@@ -186,7 +186,7 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube, real_dtype=np.float32
     #print("crd_eq", crd_eq)
     #print("bm_cube", bm_cube)
 
-    print("MAX OF BM_CUBE", np.max(bm_cube))
+    #print("MAX OF BM_CUBE", np.max(bm_cube))
     #bm_cube = np.ones_like(bm_cube)
 
     ####################################################################
