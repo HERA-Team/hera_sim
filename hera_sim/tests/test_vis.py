@@ -100,18 +100,34 @@ def test_autocorr_flat_beam(uvdata, simulator):
 
 def test_viscpu_res_autocorr(uvdata):
     I_sky = create_uniform_sky(nbase=5) #was 5
-    v = vis.VisCPU(
+    v = vis.HealVis(
         uvdata=uvdata,
         sky_freqs=np.unique(uvdata.freq_array),
         sky_intensity=I_sky,
     ).simulate()
 
     I_sky = create_uniform_sky(nbase=6) #was 6
-    v2 = vis.VisCPU(
+    v2 = vis.HealVis(
         uvdata=uvdata,
         sky_freqs=np.unique(uvdata.freq_array),
         sky_intensity=I_sky,
     ).simulate()
+
+    '''
+    for i in range(0, 20):
+        I_sky = create_uniform_sky(nbase=i) #was 6
+        v3 = vis.HealVis(
+            uvdata=uvdata,
+            sky_freqs=np.unique(uvdata.freq_array),
+            sky_intensity=I_sky,
+        ).simulate()
+        print("ISKY SUM", np.sum(I_sky))
+        print("V3 SUM", np.sum(v3))
+        print("NBASE=", i, "=> np.std(np.abs(v3)) =", np.std(np.abs(v3)))
+    '''
+
+
+
 
     # Ensure that increasing sky resolution smooths out
     # any 'wiggles' in the auto-correlations of a flat sky.
@@ -191,7 +207,17 @@ def test_simulator_comparison(uvdata):
         point_source_pos=point_source_pos,
         nside=2 ** 4
     ).simulate()
-    
+
+    print("SHAPE", healvis.shape)
+
+    print("HEALVIS SUM", np.sum(healvis))
+    print("VISCPU SUM", np.sum(viscpu))
+    print("HEALVIS NUM NONZERO", np.count_nonzero(healvis))
+    print("VISCPU NUM NONZERO", np.count_nonzero(viscpu))
+   
+    np.save("healvis.npy", healvis)
+    np.save("viscpu.npy", viscpu)
+
     assert viscpu.shape == healvis.shape
     assert np.testing.assert_allclose(viscpu, healvis)
 
