@@ -10,6 +10,7 @@ from . import eor
 from . import utils
 from . import simulate
 from .simulate import Simulator
+from .defaults import defaults
 
 # import antpos
 __version__ = version.version
