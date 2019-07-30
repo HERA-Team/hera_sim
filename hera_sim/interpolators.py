@@ -4,7 +4,7 @@ This module provides interfaces to different interpolation classes.
 
 import numpy as np
 from cached_property import cached_property
-from scipy.interpolate import RectBivariateSpline
+from scipy.interpolate import RectBivariateSpline, interp1d
 
 class Tsky:
     """
@@ -131,3 +131,53 @@ class Tsky:
                 "The metadata contains the following polarizations: " \
                 "{}".format(self.meta['pols'])
 
+class BeamSize:
+    """
+    # TODO: fill in docstring
+    """
+    def __init__(self, ref_file, interpolator, **interp_kwargs):
+        self.ref_file = ref_file
+        self._data = np.load(ref_file)
+        self._interp_type = interpolator
+        self._interp_kwargs = interp_kwargs
+        self._check_format()
+
+    def __call__(self, freqs):
+        return self._interpolator(freqs)
+
+    @cached_property
+    def _interpolator(self):
+        if self._interp_type=='poly1d':
+            return np.poly1d(self._data)
+        else:
+            # if not using poly1d, then need to get some parameters for
+            # making the interp1d object
+            beam = self._data['beam']
+            freqs = self._data['freqs']
+
+            # use a cubic spline by default, but override this if the user
+            # specifies a different kind of interpolator
+            kind = self._interp_kwargs.pop('kind', 'cubic')
+            return interp1d(freqs, beam, kind=kind, **self._interp_kwargs)
+
+    def _check_format(self):
+        assert self._interp_type in ('poly1d', 'interp1d'), \
+                "Interpolator choice must either be 'poly1d' or 'interp1d'."
+
+        if self._interp_type=='interp1d':
+            assert self.ref_file[-4:]=='.npz', \
+                    "In order to use an 'interp1d' object, the reference file " \
+                    "must be a .npz file with a 'beam' key and a 'freqs' key."
+            assert 'beam' in self._data.keys() and 'freqs' in self._data.keys(), \
+                    "You've chosen to use an interp1d object for the beam. " \
+                    "Please ensure that the reference .npz file has a 'freqs' " \
+                    "array (in units of GHz) and a 'beam' array."
+        else:
+            # we can relax this a bit and allow for users to also pass a npz
+            # with the same keys as in the above case, but it seems silly to
+            # use a polynomial interpolator instead of a spline interpolator in
+            # this case
+            assert self.ref_file[-4:]=='.npy', \
+                    "In order to use a 'poly1d' object, the reference file " \
+                    "must be a .npy file that contains the coefficients for " \
+                    "the beam polynomial fit in decreasing order."
