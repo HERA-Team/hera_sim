@@ -1,5 +1,6 @@
 from . import antpos
 from . import foregrounds
+from . import interpolators
 from . import io
 from . import noise
 from . import rfi
