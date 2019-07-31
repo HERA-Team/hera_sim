@@ -133,7 +133,10 @@ class Tsky:
 
 class BeamSize:
     """
-    # TODO: fill in docstring
+    This class provides an interface for creating either a numpy.poly1d or a 
+    scipy.interpolate.interp1d interpolation object from a reference file. This 
+    class is intended to be used primarily as a helper function for various 
+    functions in the hera_sim repository.
     """
     def __init__(self, ref_file, interpolator, **interp_kwargs):
         self.ref_file = ref_file
@@ -141,6 +144,35 @@ class BeamSize:
         self._interp_type = interpolator
         self._interp_kwargs = interp_kwargs
         self._check_format()
+
+    """
+    Initialize a BeamSize object from a given reference file and choice of 
+    interpolator.
+
+    Args:
+        ref_file (str):
+            Absolute path to the reference file to be used for making the
+            BeamSize interpolator. This must be either a .npy or .npz file,
+            depending on which interpolation method is chosen.
+
+        interpolator (str):
+            Choice of interpolation object to be used. Must be either 'poly1d' 
+            or 'interp1d'. If 'poly1d' is chosen, then ref_file must be a 
+            .npy file. If 'interp1d' is chosen, then ref_file must be a .npz 
+            file with two arrays stored in its archive: 'freqs' and 'beam'.
+
+        **interp_kwargs (dict, optional):
+            Keyword arguments to be passed to the interpolator in the case that
+            'interp1d' is chosen.
+
+    Raises:
+        AssertionError:
+            This is raised if the choice of interpolator and the required type
+            of the ref_file do not agree (i.e. trying to make a 'poly1d' object
+            using a .npz file as a reference). An AssertionError is also raised
+            if the .npz for generating an 'interp1d' object does not have the
+            correct arrays in its archive.
+    """
 
     def __call__(self, freqs):
         return self._interpolator(freqs)

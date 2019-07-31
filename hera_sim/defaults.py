@@ -37,7 +37,9 @@ class Defaults:
 
     def __call__(self, module, model):
         with open(self.config_file, 'r') as config:
-            return yaml.load(config.read(), Loader=yaml.FullLoader)[module][model]
+            defaults = yaml.load(config.read(), Loader=yaml.FullLoader)[module][model]
+        # handle instances where default parameters are related to interpolators
+        return defaults
 
     def set_defaults(self, new_config):
         self._config = self._get_config(new_config)
