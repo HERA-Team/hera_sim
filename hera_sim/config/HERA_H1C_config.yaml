@@ -1,0 +1,55 @@
+foregrounds:
+    diffuse_foreground:
+        Tsky_mdl: ???
+        omega_p: ???
+        # do we want to include any other defaults?
+# XXX the current empty_uvdata signature is (nfreq, ntimes, ants, **kwargs), with
+# XXX defaults set *inside* the empty_uvdata function
+# XXX this will *definitely* not be caught by the defaults handler class
+#io:
+#    empty_uvdata:
+
+noise:
+    # HERA_Tsky_mdl ??
+    bm_poly_to_omega_p:
+        bm_poly: ???
+    resample_Tsky:
+        Tsky: !!float 180.0
+        mfreq: !!float 0.18
+        index: !!float -2.5
+    sky_noise_jy:
+        inttime: !!float 10.7
+    thermal_noise:
+        Trx: !!float 0
+        inttime: !!float 10.7
+rfi:
+    # HERA_RFI_STATIONS ??
+    rfi_stations:
+        stations: ???
+    rfi_impulse:
+        chance: !!float 0.001
+        strength: !!float 20.0
+    rfi_scatter:
+        chance: !!float 0.0001
+        strength: !!float 10.0
+        std: !!float 10.0
+    rfi_dtv:
+        freq_min: !!float 0.174
+        freq_max: !!float 0.214
+        width: !!float 0.008
+        chance: !!float 0.0001
+        strength: !!float 10.0
+        strength_std: !!float 10.0
+sigchain:
+    # HERA_NRAO_BANDPASS ??
+    gen_bandpass:
+        gain_spread: !!float 0.1
+    gen_whitenoise_xtalk:
+        amplitude: !!float 3.0
+    gen_cross_coupling_xtalk:
+        amp: !!float 0.0
+        dly: !!float 0.0
+        phs: !!float 0.0
+
+# XXX do we touch anything in utils, vis?
+# XXX which of the above are functions that shouldn't be decorated by _defaults?
