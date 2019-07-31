@@ -48,7 +48,7 @@ class Defaults:
                 "Default configurations are set by passing a hook to a " \
                 "configuration file or one of the season keys. The " \
                 "currently supported season configurations are " \
-                "{}.".format(SEASON_CONFIGS.keys()
+                "{}.".format(SEASON_CONFIGS.keys())
 
         if config_file in SEASON_CONFIGS.keys():
             return SEASON_CONFIGS[config_file]
