@@ -274,6 +274,8 @@ def rfi_dtv(fqs, lsts, rfi=None, freq_min=.174, freq_max=.214, width=0.008,
                 2 * np.pi * 1j * np.random.uniform(size=np.sum(rfis))
             )).T
         except IndexError:
+            # this is only raised if fqs.max() < bands.min(), which
+            # would mean that DTV wouldn't be observed in any channel
             pass
 
     return rfi
