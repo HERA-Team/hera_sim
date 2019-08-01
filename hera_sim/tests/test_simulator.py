@@ -199,25 +199,25 @@ else:
                         file: {}/HERA_Tsky_Reformatted.npz
                         pol: yy
                 pntsrc_foreground: 
-                    nsrcs: !!int 500
-                    Smin: !!float 0.1
+                    nsrcs: 500
+                    Smin: 0.1
                 noiselike_eor: 
-                    eor_amp: !!float 0.03
+                    eor_amp: 0.03
                 gains: 
-                    gain_spread: !!float 0.05
+                    gain_spread: 0.05
                 gen_cross_coupling_xtalk: 
-                    amp: !!float 0.225
-                    dly: !!float 13.2
-                    phs: !!float 2.1123
+                    amp: 0.225
+                    dly: 13.2
+                    phs: 2.1123
                 thermal_noise: 
                     Tsky_mdl: 
                         file: {}/HERA_Tsky_Reformatted.npz
                         pol: xx
-                    inttime: !!float 9.72
+                    inttime: 9.72
                 rfi_scatter: 
-                    chance: !!float 0.99
-                    strength: !!float 5.7
-                    std: !!float 2.2
+                    chance: 0.99
+                    strength: 5.7
+                    std: 2.2
                     """.format(DATA_PATH, DATA_PATH))
         sim = create_sim(autos=True)
         sim.run_sim(tmp_sim_file)
