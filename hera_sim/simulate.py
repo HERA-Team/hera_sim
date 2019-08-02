@@ -7,20 +7,25 @@ import functools
 import inspect
 import sys
 import warnings
+import yaml
 
 import numpy as np
 from cached_property import cached_property
 from pyuvdata import UVData
 from astropy import constants as const
+from collections import OrderedDict
 
 from . import io
 from . import sigchain
+from .interpolators import Tsky
 from .version import version
 
 
 class CompatibilityException(ValueError):
     pass
 
+class VersionError(Exception):
+    pass
 
 def _get_model(mod, name):
     return getattr(sys.modules["hera_sim." + mod], name)
@@ -135,6 +140,23 @@ class Simulator:
     Produces visibility simulations with various independent sky- and instrumental-effects, and offers the resulting
     visibilities in :class:`pyuvdata.UVData` format.
     """
+ 
+    # make a dictionary whose values point to the various methods
+    # used to add different simulation components
+    SIMULATION_COMPONENTS = OrderedDict(
+                            { 'noiselike_eor':'add_eor',
+                              'diffuse_foreground':'add_foregrounds',
+                              'pntsrc_foreground':'add_foregrounds',
+                              'thermal_noise':'add_noise',
+                              'rfi_stations':'add_rfi',
+                              'rfi_impulse':'add_rfi',
+                              'rfi_scatter':'add_rfi',
+                              'rfi_dtv':'add_rfi',
+                              'gains':'add_gains',
+                              'sigchain_reflections':'add_sigchain_reflections',
+                              'gen_whitenoise_xtalk':'add_xtalk',
+                              'gen_cross_coupling_xtalk':'add_xtalk'
+                              } )
 
     def __init__(
             self,
@@ -434,4 +456,93 @@ class Simulator:
                 vis=self.data.data_array[blt_ind, 0, :, pol_ind],
                 xtalk=xtalk
             )
+    
+    
+    def run_sim(self, sim_file=None, **sim_params):
+        """
+        Accept a dictionary or YAML file of simulation parameters and add in
+        all of the desired simulation components to the Simulator object.
+
+        Args:
+            sim_file (str, optional): string providing a hook to a YAML file
+            
+            sim_params (dict, optional): dictionary of simulation parameters.
+                it must take the form {model:params}, where model is
+                a string specifying the simulation component to be added
+                and params is a dictionary providing all the keyword
+                arguments and their desired values.
+
+            One (and *only* one) of the above arguments must be provided. If 
+            *both* sim_file and sim_params are provided, then this function
+            will raise an AssertionError.
+        """
+
+        # keep track of which components don't use models
+        uses_no_model = []
+        for key, val in self.SIMULATION_COMPONENTS.items():
+            func = getattr(self, val)
+            # raise a NotImplementedError if using Py2
+            if sys.version_info.major < 3 or \
+               sys.version_info.major > 3 and sys.version_info.minor < 4:
+                raise VersionError("Please use a version of Python >= 3.4.")
+            if 'model' not in inspect.signature(func).parameters:
+                uses_no_model.append(key)
+
+        assert sim_file is not None or sim_params, \
+                'Either a hook to a simulation file or a dictionary of ' + \
+                'simulation parameters must be provided.'
+
+        assert sim_file is None or not sim_params, \
+                'Either a simulation configuration file or a dictionary ' + \
+                'of simulation parameters may be passed, but not both. ' + \
+                'Please choose only one of the two to pass as an argument.'
+
+        # if a hook to a simulation file is provided, then read it in
+        if sim_file is not None:
+            with open(sim_file, 'r') as doc:
+                try:
+                    sim_params = yaml.load(doc.read(), Loader=yaml.FullLoader)
+                    # since we're loading in a YAML file, we need to fix the
+                    # parameters for any components that require a Tsky model
+                    for component, params in sim_params.items():
+                        if "Tsky_mdl" in params.keys():
+                            try:
+                                npz_file = params["Tsky_mdl"]["file"]
+                                pol = params["Tsky_mdl"].get("pol", "xx")
+                                interp_kwargs = params["Tsky_mdl"].get("interp_kwargs", {})
+                                tsky = Tsky(npz_file, pol=pol, **interp_kwargs)
+                                params["Tsky_mdl"] = tsky
+                            except KeyError:
+                                raise KeyError
+                            except TypeError:
+                                raise TypeError
+                except KeyError:
+                    raise KeyError("Please ensure that the Tsky_mdl " \
+                                    "dict has a 'file' key.")
+                except TypeError:
+                    raise TypeError("Please ensure that Tsky_mdl is " \
+                                    "a dict.")
+                except:
+                    print('Check your configuration file. Something broke.')
+                    sys.exit()
+
+        for model, params in sim_params.items():
+            assert model in self.SIMULATION_COMPONENTS.keys(), \
+                    'Models must be supported by hera_sim. ' + \
+                    "'{}' is currently not supported.".format(model)
+
+            assert isinstance(params, dict), \
+                    'Values of sim_params must be dictionaries. ' + \
+                    "The values for '{}' do not comply.".format(model)
+
+
+        # everything should be in working order at this point, so let's simulate
+        for model in self.SIMULATION_COMPONENTS.keys():
+            if model in sim_params.keys():
+                add_component = getattr(self, self.SIMULATION_COMPONENTS[model])
+                params = sim_params[model]
+                if model in uses_no_model:
+                    add_component(**params)
+                else:
+                    add_component(model, **params)
 
