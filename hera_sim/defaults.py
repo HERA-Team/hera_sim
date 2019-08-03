@@ -39,7 +39,7 @@ class Defaults:
         with open(self.config_file, 'r') as config:
             defaults = yaml.load(config.read(), Loader=yaml.FullLoader)[module][model]
         # handle instances where default parameters are related to interpolators
-        return defaults
+        return self._retrieve_models(defaults)
 
     def set_defaults(self, new_config):
         self._config = self._get_config(new_config)
@@ -97,6 +97,17 @@ class Defaults:
 
             return func(*args, **new_kwargs)
         return new_func
+
+    def _retrieve_models(self, defaults):
+        # think about how the best way to do this is
+        # simple solution: just look for omega_p and Tsky_mdl in keys
+        # this should ideally be an automated process
+        if 'omega_p' not in defaults.keys() and 'Tsky_mdl' not in defaults.keys():
+            return defaults
+        else:
+            # replace these with pointers to interpolator objects
+            # return the new set of defaults
+            # include some assertions about how these should be formatted
 
 defaults = Defaults()
 _defaults = defaults._handler

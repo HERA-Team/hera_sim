@@ -11,8 +11,9 @@ from builtins import range
 
 from . import noise
 from . import utils
+from .defaults import _defaults
 
-
+@_defaults
 def diffuse_foreground(lsts, fqs, bl_vec, Tsky_mdl=None, omega_p=None,
                        standoff=0.0, delay_filter_type='tophat', delay_filter_normalize=None,
                        fringe_filter_type='tophat', **fringe_filter_kwargs):
@@ -66,7 +67,7 @@ def diffuse_foreground(lsts, fqs, bl_vec, Tsky_mdl=None, omega_p=None,
 
     return mdl
 
-
+@_defaults
 def pntsrc_foreground(lsts, fqs, bl_vec, nsrcs=1000, Smin=0.3, Smax=300,
                       beta=-1.5, spectral_index_mean=-1, spectral_index_std=0.5,
                       reference_freq=0.15):
