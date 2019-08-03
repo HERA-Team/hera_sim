@@ -46,25 +46,25 @@ def empty_uvdata(nfreq, ntimes, ants, **kwargs):
         A :class:`pyuvdata.UVData` object, unfilled.
 
     """
-    start_time = kwargs.get("start_time", 2458119.5)
-    integration_time = kwargs.get("integration_time", 10.7)
+    start_time = kwargs.pop("start_time", 2458119.5)
+    integration_time = kwargs.pop("integration_time", 10.7)
 
     uv = initialize_uvdata_from_keywords(
         antenna_layout_filename=None,  # To keep consistency with old hera_sim empty_uvdata
         array_layout=ants,
-        telescope_location=list(kwargs.get("telescope_location", HERA_LAT_LON_ALT)),
-        telescope_name=kwargs.get("telescope_name", "hera_sim"),
+        telescope_location=list(kwargs.pop("telescope_location", HERA_LAT_LON_ALT)),
+        telescope_name=kwargs.pop("telescope_name", "hera_sim"),
         Nfreqs=nfreq,
-        start_freq=kwargs.get("start_freq", 1e8),
+        start_freq=kwargs.pop("start_freq", 1e8),
         freq_array=None,  # To keep consistency with old hera_sim empty_uvdata
-        channel_width=kwargs.get("channel_width", 1e8 / 1024.),
+        channel_width=kwargs.pop("channel_width", 1e8 / 1024.),
         Ntimes=ntimes,
         integration_time=integration_time,
         start_time=start_time,
-        end_time=kwargs.get("end_time", start_time + ntimes * integration_time),
+        end_time=kwargs.pop("end_time", start_time + ntimes * integration_time),
         time_array=None,  # To keep consistency with old hera_sim empty_uvdata
-        polarization_array=kwargs.get("polarization_array", ['xx']),
-        write_files=kwargs.get("write_files", False),
+        polarization_array=kwargs.pop("polarization_array", ['xx']),
+        write_files=kwargs.pop("write_files", False),
         complete=True,  # Fills out the UVData object
         **kwargs
     )

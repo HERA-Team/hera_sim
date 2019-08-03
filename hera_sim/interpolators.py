@@ -213,3 +213,4 @@ class BeamSize:
                     "In order to use a 'poly1d' object, the reference file " \
                     "must be a .npy file that contains the coefficients for " \
                     "the beam polynomial fit in decreasing order."
+
