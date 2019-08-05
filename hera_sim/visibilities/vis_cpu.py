@@ -96,7 +96,7 @@ class VisCPU(VisibilitySimulator):
         coords to topocentric at each LST.
         """
 
-        sid_time = np.unique(self.uvdata.lst_array)
+        sid_time = self.uvdata.lst_array[::self.uvdata.Nbls]
         eq2tops = np.empty((len(sid_time), 3, 3), dtype=self._real_dtype)
 
         for i, st in enumerate(sid_time):
