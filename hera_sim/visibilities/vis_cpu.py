@@ -186,7 +186,6 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube, real_dtype=np.float32
     #print("crd_eq", crd_eq)
     #print("bm_cube", bm_cube)
 
-    #print("MAX OF BM_CUBE", np.max(bm_cube))
     #bm_cube = np.ones_like(bm_cube)
 
     ####################################################################
@@ -242,6 +241,9 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube, real_dtype=np.float32
         # Compute visibilities (upper triangle only)
         for i in range(len(antpos)):
             np.dot(v[i: i + 1].conj(), v[i:].T, out=vis[t, i: i + 1, i:])
+
+        #print("A_s at time t=", t, "is", A_s)
+
 
     # Conjugate visibilities
     np.conj(vis, out=vis)
