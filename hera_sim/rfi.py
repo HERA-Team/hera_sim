@@ -2,7 +2,7 @@
 
 from astropy.units import sday
 import numpy as np
-
+import warnings
 
 class RfiStation:
     """
@@ -240,6 +240,11 @@ def rfi_dtv(fqs, lsts, rfi=None, freq_min=.174, freq_max=.214, width=0.008,
 
     # ensure that only the DTV bands which overlap with the passed frequencies are kept
     bands = bands[np.logical_and(bands >= fqs.min() - width, bands <= fqs.max())]
+
+    if len(bands) is 0:
+        warnings.warn("You are attempting to add DTV RFI to a visibility array whose " \
+                      "frequencies do not overlap with any DTV band. Please ensure " \
+                      "that you are using the correct frequencies.")
 
     delta_f = fqs[1] - fqs[0]
 
