@@ -30,6 +30,19 @@ def uvdata():
         antpairs=[(0, 0)]
     )
 
+@pytest.fixture
+def uvdata2():
+    return io.empty_uvdata(
+        nfreq=NFREQ,
+        time_per_integ=io.SEC_PER_SDAY / NTIMES,
+        ntimes=NTIMES,
+        ants={
+            0: (0, 0, 0),
+            1: (1, 1, 0),
+        },
+        antpairs=[(0, 0), (1, 1), (1, 0), (0, 1)]
+    )
+
 
 def create_uniform_sky(nbase=4, scale=1, nfreq=NFREQ):
     """Create a uniform sky with total (integrated) flux density of `scale`"""
@@ -48,7 +61,7 @@ def test_shapes(uvdata, simulator):
         sky_intensity=I_sky,
     )
 
-    assert v.simulate().shape == (NTIMES, 1, NFREQ, 1)
+    assert v.simulate().shape == (NTIMES*len(uvdata.get_antpairs()), 1, NFREQ, 1) ############################ADDED NUMBASELINES
 
 
 @pytest.mark.parametrize(
@@ -99,40 +112,36 @@ def test_autocorr_flat_beam(uvdata, simulator):
 
 
 def test_viscpu_res_autocorr(uvdata):
-    I_sky = create_uniform_sky(nbase=5) #was 5
-    v = vis.HealVis(
+    I_sky = create_uniform_sky(nbase=2) #was 5
+    v = vis.VisCPU(
         uvdata=uvdata,
         sky_freqs=np.unique(uvdata.freq_array),
         sky_intensity=I_sky,
     ).simulate()
 
     I_sky = create_uniform_sky(nbase=6) #was 6
-    v2 = vis.HealVis(
+    v2 = vis.VisCPU(
         uvdata=uvdata,
         sky_freqs=np.unique(uvdata.freq_array),
         sky_intensity=I_sky,
     ).simulate()
 
-    '''
-    for i in range(0, 20):
-        I_sky = create_uniform_sky(nbase=i) #was 6
-        v3 = vis.HealVis(
+    ''' 
+    for i in range(10):
+        I_sky = create_uniform_sky(nbase=i)
+        v3 = vis.VisCPU(
             uvdata=uvdata,
             sky_freqs=np.unique(uvdata.freq_array),
             sky_intensity=I_sky,
         ).simulate()
-        print("ISKY SUM", np.sum(I_sky))
+        print("ISKY STD", np.std(I_sky))
         print("V3 SUM", np.sum(v3))
         print("NBASE=", i, "=> np.std(np.abs(v3)) =", np.std(np.abs(v3)))
     '''
 
-
-
-
     # Ensure that increasing sky resolution smooths out
     # any 'wiggles' in the auto-correlations of a flat sky.
     assert np.std(np.abs(v)) >= np.std(np.abs(v2))
-
 
 @pytest.mark.parametrize("simulator", SIMULATORS)
 def test_single_source_autocorr(uvdata, simulator):
@@ -329,11 +338,83 @@ def test_simulator_comparison(uvdata):
     print("HEALVIS NUM NONZERO", np.count_nonzero(healvis))
     print("VISCPU NUM NONZERO", np.count_nonzero(viscpu))
    
-    np.save("healvis.npy", healvis)
-    np.save("viscpu.npy", viscpu)
+    assert viscpu.shape == healvis.shape
+    assert np.testing.assert_allclose(viscpu, healvis) ################################################333
 
+def test_simulator_comparison2(uvdata):
+    freqs = np.unique(uvdata.freq_array)
+
+    # put a point source in
+    point_source_pos = np.array([[0, uvdata.telescope_lat_lon_alt[0] + np.pi/4]])
+    point_source_flux = np.array([[1.0]] * len(freqs))
+
+    viscpu = vis.VisCPU(
+        uvdata=uvdata,
+        sky_freqs=np.unique(uvdata.freq_array),
+        point_source_flux=point_source_flux,
+        point_source_pos=point_source_pos,
+        nside=2**4
+    ).simulate()
+
+    healvis = vis.HealVis(
+        uvdata=uvdata,
+        sky_freqs=np.unique(uvdata.freq_array),
+        point_source_flux=point_source_flux,
+        point_source_pos=point_source_pos,
+        nside=2 ** 4
+    ).simulate()
+
+    print("SHAPE2", healvis.shape)
+
+    print("HEALVIS SUM2", np.sum(healvis))
+    print("VISCPU SUM2", np.sum(viscpu))
+    print("HEALVIS NUM NONZERO2", np.count_nonzero(healvis))
+    print("VISCPU NUM NONZERO2", np.count_nonzero(viscpu))
+   
     assert viscpu.shape == healvis.shape
     assert np.testing.assert_allclose(viscpu, healvis)
+
+def test_simulator_comparison3(uvdata2):
+    freqs = np.unique(uvdata2.freq_array)
+
+    # put a point source in
+    point_source_pos = np.array([[0, uvdata2.telescope_lat_lon_alt[0] + np.pi/4]])
+    point_source_flux = np.array([[1.0]] * len(freqs))
+
+    viscpu = vis.VisCPU(
+        uvdata=uvdata2,
+        sky_freqs=np.unique(uvdata2.freq_array),
+        point_source_flux=point_source_flux,
+        point_source_pos=point_source_pos,
+        nside=2**4,
+        real_dtype=np.float64,
+        complex_dtype=np.complex128 ##################### W/Out high precision the sum(viscpu) is very dif than sum(healvis)
+    ).simulate()
+
+    healvis = vis.HealVis(
+        uvdata=uvdata2,
+        sky_freqs=np.unique(uvdata2.freq_array),
+        point_source_flux=point_source_flux,
+        point_source_pos=point_source_pos,
+        nside=2 ** 4
+    ).simulate()
+
+    print("SHAPE3", healvis.shape)
+
+    print("HEALVIS SUM3", np.sum(healvis))
+    print("VISCPU SUM3", np.sum(viscpu))
+    print("HEALVIS NUM NONZERO3", np.count_nonzero(healvis))
+    print("VISCPU NUM NONZERO3", np.count_nonzero(viscpu))
+   
+    print("HEALVIS MAX3", np.max(healvis))
+    print("VISCPU MAX3", np.max(viscpu))
+
+    print("HEALVIS MIN3", np.min(healvis))
+    print("VISCPU MIN3", np.min(viscpu))
+
+    
+    assert viscpu.shape == healvis.shape
+    assert np.testing.assert_allclose(viscpu, healvis) 
 
 
 if __name__ == "__main__":
