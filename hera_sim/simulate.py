@@ -535,14 +535,12 @@ class Simulator:
                     'Values of sim_params must be dictionaries. ' + \
                     "The values for '{}' do not comply.".format(model)
 
-
-        # everything should be in working order at this point, so let's simulate
-        for model in self.SIMULATION_COMPONENTS.keys():
-            if model in sim_params.keys():
-                add_component = getattr(self, self.SIMULATION_COMPONENTS[model])
-                params = sim_params[model]
-                if model in uses_no_model:
-                    add_component(**params)
-                else:
-                    add_component(model, **params)
+            # since this currently only supports python 3.4 or newer, we can
+            # assume that all dicts are ordered
+            add_component = getattr(self, self.SIMULATION_COMPONENTS[model])
+            params = sim_params[model]
+            if model in uses_no_model:
+                add_component(**params)
+            else:
+                add_component(model, **params)
 
