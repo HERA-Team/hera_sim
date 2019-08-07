@@ -2,7 +2,9 @@
 
 from astropy.units import sday
 import numpy as np
-
+from os import path
+from hera_sim.data import DATA_PATH
+from hera_sim.interpolators import _check_path
 
 class RfiStation:
     """
@@ -67,34 +69,6 @@ class RfiStation:
         rfi[:, ch1] += signal * (1 - np.abs(fqs[ch1] - self.fq0) / sdf).clip(0, 1)
         rfi[:, ch2] += signal * (1 - np.abs(fqs[ch2] - self.fq0) / sdf).clip(0, 1)
         return rfi
-
-
-HERA_RFI_STATIONS = [
-    # FM Stations
-    (0.1007, 1.0, 1000 * 100.0, 10.0, 100.0),
-    (0.1016, 1.0, 1000 * 100.0, 10.0, 100.0),
-    (0.1024, 1.0, 1000 * 100.0, 10.0, 100.0),
-    (0.1028, 1.0, 1000 * 3.0, 1.0, 100.0),
-    (0.1043, 1.0, 1000 * 100.0, 10.0, 100.0),
-    (0.1050, 1.0, 1000 * 10.0, 3.0, 100.0),
-    (0.1052, 1.0, 1000 * 100.0, 10.0, 100.0),
-    (0.1061, 1.0, 1000 * 100.0, 10.0, 100.0),
-    (0.1064, 1.0, 1000 * 10.0, 3.0, 100.0),
-
-    # Orbcomm
-    (0.1371, 0.2, 1000 * 100.0, 3.0, 600.0),
-    (0.1372, 0.2, 1000 * 100.0, 3.0, 600.0),
-    (0.1373, 0.2, 1000 * 100.0, 3.0, 600.0),
-    (0.1374, 0.2, 1000 * 100.0, 3.0, 600.0),
-    (0.1375, 0.2, 1000 * 100.0, 3.0, 600.0),
-    # Other
-    (0.1831, 1.0, 1000 * 100.0, 30.0, 1000),
-    (0.1891, 1.0, 1000 * 2.0, 1.0, 1000),
-    (0.1911, 1.0, 1000 * 100.0, 30.0, 1000),
-    (0.1972, 1.0, 1000 * 100.0, 30.0, 1000),
-    # DC Offset from ADCs
-    # (.2000, 1., 100., 0., 10000),
-]
 
 
 # XXX reverse lsts and fqs?
@@ -301,3 +275,17 @@ def _listify(x):
             return [x]
         else:
             return list(x)
+
+# XXX I do not like this implementation, but it seems like the API needs to
+# XXX change in order to allow for a better implementation
+
+@_defaults
+def _get_hera_stations(npy="HERA_H1C_RFI_STATIONS.npy"):
+    """
+    Accept a .npy file and return an array of HERA RFI station parameters.
+    """
+    npy = _check_path(npy)
+    return np.load(npy)
+
+HERA_RFI_STATIONS = _get_hera_stations()
+

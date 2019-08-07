@@ -5,6 +5,19 @@ This module provides interfaces to different interpolation classes.
 import numpy as np
 from cached_property import cached_property
 from scipy.interpolate import RectBivariateSpline, interp1d
+from hera_sim.data import DATA_PATH
+from os import path
+
+def _check_path(datafile):
+    # if the datafile is not an absolute path, assume it's in the data folder
+    if datafile[0] != "/":
+        datafile = path.join(DATA_PATH, datafile)
+    # make sure that the path exists
+    assert path.exists(datafile), \
+            "If datafile is not an absolute path, then it is assumed to " \
+            "exist in the hera_sim.data folder. The datafile passed could " \
+            "not be found; please ensure that the path to the file exists"
+    return datafile
 
 class Tsky:
     """
@@ -15,7 +28,7 @@ class Tsky:
     temperature array is evaluated.
     """
     def __init__(self, datafile, **interp_kwargs):
-        self.datafile = datafile
+        self.datafile = _check_path(datafile)
         self._data = np.load(self.datafile, allow_pickle=True)
         self._check_npz_format()
         self._check_pol(pol)
@@ -146,7 +159,7 @@ class BeamSize:
     functions in the hera_sim repository.
     """
     def __init__(self, datafile, **interp_kwargs):
-        self.datafile = datafile
+        self.datafile = _check_path(datafile)
         self._data = np.load(datafile)
         self._interp_type = interp_kwargs.pop("interpolator", "poly1d")
         self._interp_kwargs = interp_kwargs

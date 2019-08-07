@@ -101,16 +101,20 @@ class Defaults:
                     new_kwargs[kwarg] = kwargs[kwarg]
                 elif use_func_defaults:
                     # use the defaults from the function signature
-                    new_kwargs[kwarg] = argspec.defaults[argspec.args.index(kwarg) - offset]
-
+                    try:
+                        new_kwargs[kwarg] = argspec.defaults[argspec.args.index(kwarg) - offset]
+                    except ValueError:
+                        # this will get triggered if kwarg is not in argspec.args
+                        # since this block is only entered if function defaults are
+                        # desired, we shouldn't be overwriting things with defaults, so
+                        del new_kwargs[kwarg]
             return func(*args, **new_kwargs)
         return new_func
 
     def _retrieve_models(self, defaults):
-        # think about how the best way to do this is
-        # simple solution: just look for omega_p and Tsky_mdl in keys
-        # this should ideally be an automated process
         # first, get a list of the interpolators supported
+        # XXX there are fundamental issues with this and the way some code in the
+        # XXX package has been written.
         clsmembs = dict(inspect.getmembers(sys.modules['hera_sim.interpolators'],
                                            inspect.isclass)
                       )
@@ -134,6 +138,8 @@ class Defaults:
                 
                 # now replace the default parameter with the interpolator
                 defaults[name] = interp
+        
+        return defaults
 
 defaults = Defaults()
 _defaults = defaults._handler

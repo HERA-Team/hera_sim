@@ -1,7 +1,7 @@
 foregrounds:
     diffuse_foreground:
-        Tsky_mdl: ???
-        omega_p: ???
+        Tsky_mdl: HERA_Tsky_Reformatted.npz
+        # omega_p: ???
         # do we want to include any other defaults?
 # XXX the current empty_uvdata signature is (nfreq, ntimes, ants, **kwargs), with
 # XXX defaults set *inside* the empty_uvdata function
@@ -10,9 +10,9 @@ foregrounds:
 #    empty_uvdata:
 
 noise:
-    # HERA_Tsky_mdl ??
+    HERA_Tsky_mdl: HERA_Tsky_Reformatted.npz
     bm_poly_to_omega_p:
-        bm_poly: ???
+        bm_poly: HERA_H1C_BEAM_POLY.npy
     resample_Tsky:
         Tsky: 180.0
         mfreq: 0.18

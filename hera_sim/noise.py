@@ -7,24 +7,14 @@ from scipy.interpolate import RectBivariateSpline
 import aipy
 import os
 from .data import DATA_PATH
-HERA_TSKY_VS_LST_NPZ = os.path.join(DATA_PATH, 'HERA_Tsky_vs_LST.npz')
+from .interpolators import Tsky, _check_path
 
-npz = np.load(HERA_TSKY_VS_LST_NPZ) # Tsky vs fq/lst from Beardsley, beam v XXX, GSM v XXX
-fqs = npz['freqs'] / 1e3
-lsts = npz['lsts'] / 12. * np.pi
-lsts = np.concatenate([lsts[-10:]-2*np.pi, lsts, lsts[:10]+2*np.pi])
-HERA_Tsky_xx = npz['HERA_Tsky'][0].T
-HERA_Tsky_yy = npz['HERA_Tsky'][1].T
-HERA_Tsky_xx = np.concatenate([HERA_Tsky_xx[-10:], HERA_Tsky_xx, HERA_Tsky_xx[:10]])
-HERA_Tsky_yy = np.concatenate([HERA_Tsky_yy[-10:], HERA_Tsky_yy, HERA_Tsky_yy[:10]])
+HERA_TSKY_VS_LST_NPZ = os.path.join(DATA_PATH, 'HERA_Tsky_Reformatted.npz')
+
 HERA_Tsky_mdl = {}
-HERA_Tsky_mdl['xx'] = RectBivariateSpline(lsts, fqs, HERA_Tsky_xx, kx=4, ky=4)
-HERA_Tsky_mdl['yy'] = RectBivariateSpline(lsts, fqs, HERA_Tsky_yy, kx=4, ky=4)
+HERA_Tsky_mdl['xx'] = Tsky(HERA_TSKY_VS_LST_NPZ, pol='xx')
+HERA_Tsky_mdl['yy'] = Tsky(HERA_TSKY_VS_LST_NPZ, pol='yy')
 
-
-HERA_BEAM_POLY = np.array([8.07774113e+08, -1.02194430e+09,
-                           5.59397878e+08, -1.72970713e+08, 3.30317669e+07, -3.98798031e+06,
-                           2.97189690e+05, -1.24980700e+04, 2.27220000e+02])  # See HERA Memo #27
 
 def bm_poly_to_omega_p(fqs, bm_poly=HERA_BEAM_POLY):
     """
@@ -176,3 +166,15 @@ def thermal_noise(fqs, lsts, Tsky_mdl=None, Trx=0, omega_p=None, inttime=10.7, *
     Tsky = resample_Tsky(fqs, lsts, Tsky_mdl=Tsky_mdl, **kwargs)
     Tsky += Trx
     return sky_noise_jy(Tsky, fqs, lsts, omega_p, inttime=inttime)
+
+# XXX I don't like this. Also figure out what the hell to do about omega_p.
+@_defaults
+def _get_hera_bm_poly(datafile='HERA_H1C_BEAM_POLY.npy'):
+    """
+    Method for getting HERA bandpass polynomial coefficients. This should be
+    replaced in the future.
+    """
+    datafile = _check_path(datafile)
+    return np.load(datafile)
+
+HERA_BEAM_POLY = _get_hera_bm_poly()
