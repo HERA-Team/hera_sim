@@ -14,14 +14,15 @@ class Tsky:
     the frequencies and LSTs (specified in the npz file) at which the sky
     temperature array is evaluated.
     """
-    def __init__(self, datafile, pol='xx', **interp_kwargs):
+    def __init__(self, datafile, **interp_kwargs):
         self.datafile = datafile
         self._data = np.load(self.datafile, allow_pickle=True)
         self._check_npz_format()
         self._check_pol(pol)
-        self.pol = pol
+        self.pol = interp_kwargs.pop("pol", "xx")
         self._interp_kwargs = interp_kwargs
 
+    # TODO: update docstring
     """
     Initialize the Tsky object from a hook to a npz file with the required
     information.
@@ -67,6 +68,12 @@ class Tsky:
 
     def __call__(self, lsts, freqs):
         return self._interpolator(lsts, freqs)
+
+    # XXX is there a cleaner way of doing this? (I want to be able to find out
+    # XXX what this interpolator is used for without making an instance of it)
+    @staticmethod
+    def _name():
+        return "Tsky_mdl"
 
     @property
     def freqs(self):
@@ -138,13 +145,14 @@ class BeamSize:
     class is intended to be used primarily as a helper function for various 
     functions in the hera_sim repository.
     """
-    def __init__(self, ref_file, interpolator, **interp_kwargs):
-        self.ref_file = ref_file
-        self._data = np.load(ref_file)
-        self._interp_type = interpolator
+    def __init__(self, datafile, **interp_kwargs):
+        self.datafile = datafile
+        self._data = np.load(datafile)
+        self._interp_type = interp_kwargs.pop("interpolator", "poly1d")
         self._interp_kwargs = interp_kwargs
         self._check_format()
-
+    
+    # TODO: update docstring
     """
     Initialize a BeamSize object from a given reference file and choice of 
     interpolator.
@@ -176,6 +184,11 @@ class BeamSize:
 
     def __call__(self, freqs):
         return self._interpolator(freqs)
+
+    # XXX see note in Tsky class for same method
+    @staticmethod
+    def _name():
+        return "omega_p"
 
     @cached_property
     def _interpolator(self):

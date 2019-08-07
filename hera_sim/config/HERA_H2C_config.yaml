@@ -14,42 +14,41 @@ noise:
     bm_poly_to_omega_p:
         bm_poly: ???
     resample_Tsky:
-        Tsky: !!float 180.0
-        mfreq: !!float 0.18
-        index: !!float -2.5
+        Tsky:  180.0
+        mfreq:  0.18
+        index:  -2.5
     sky_noise_jy:
-        inttime: !!float 10.7
+        inttime:  10.7
     thermal_noise:
-        Trx: !!float 0
-        inttime: !!float 10.7
+        Trx:  0
+        inttime:  10.7
 rfi:
     # HERA_RFI_STATIONS ??
     rfi_stations:
         stations: ???
     rfi_impulse:
-        chance: !!float 0.001
-        strength: !!float 20.0
+        chance:  0.001
+        strength:  20.0
     rfi_scatter:
-        chance: !!float 0.0001
-        strength: !!float 10.0
-        std: !!float 10.0
+        chance:  0.0001
+        strength:  10.0
+        std:  10.0
     rfi_dtv:
-        freq_min: !!float 0.174
-        freq_max: !!float 0.214
-        width: !!float 0.008
-        chance: !!float 0.0001
-        strength: !!float 10.0
-        strength_std: !!float 10.0
+        freq_min:  0.174
+        freq_max:  0.214
+        width:  0.008
+        chance:  0.0001
+        strength:  10.0
+        strength_std:  10.0
 sigchain:
     # HERA_NRAO_BANDPASS ??
     gen_bandpass:
-        gain_spread: !!float 0.1
+        gain_spread:  0.1
     gen_whitenoise_xtalk:
-        amplitude: !!float 3.0
+        amplitude:  3.0
     gen_cross_coupling_xtalk:
-        amp: !!float 0.0
-        dly: !!float 0.0
-        phs: !!float 0.0
+        amp:  0.0
+        dly:  0.0
+        phs:  0.0
 
-# XXX do we touch anything in utils, vis?
 # XXX which of the above are functions that shouldn't be decorated by _defaults?

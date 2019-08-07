@@ -23,6 +23,7 @@ class Defaults:
     def __init__(self, config_file='h1c'):
         self._config = self._get_config(config_file)
         self._check_config()
+        self.use_season_defaults = False
 
     """
     Instantiate a Defaults object with a hook to a configuration file.
@@ -44,6 +45,12 @@ class Defaults:
     def set_defaults(self, new_config):
         self._config = self._get_config(new_config)
         self._check_config()
+
+    def activate_defaults(self):
+        self.use_season_defaults = True
+
+    def deactivate_defaults(self):
+        self.use_season_defaults = False
 
     def _get_config(self, config_file):
         assert isinstance(config_file, str), \
@@ -68,7 +75,8 @@ class Defaults:
         def new_func(*args, **kwargs):
             # XXX do we want to use the season defaults by default?
             # XXX or do we want to default to the defaults from the func signature?
-            use_func_defaults = kwargs.pop('use_func_defaults', True)
+            use_func_defaults = kwargs.pop("use_func_defaults",
+                                           not self.use_season_defaults)
 
             # get model name and module name
             model = func.__name__
@@ -102,12 +110,30 @@ class Defaults:
         # think about how the best way to do this is
         # simple solution: just look for omega_p and Tsky_mdl in keys
         # this should ideally be an automated process
-        if 'omega_p' not in defaults.keys() and 'Tsky_mdl' not in defaults.keys():
-            return defaults
-        else:
-            # replace these with pointers to interpolator objects
-            # return the new set of defaults
-            # include some assertions about how these should be formatted
+        # first, get a list of the interpolators supported
+        clsmembs = dict(inspect.getmembers(sys.modules['hera_sim.interpolators'],
+                                           inspect.isclass)
+                      )
+        interps = {}
+        for cls, ref in clsmembs.items():
+            if ref.__module__[:8]=="hera_sim":
+                interps[cls] = ref
+
+        for cls, ref in interps.items():
+            # find out what the interpolator is usually referenced as
+            f = getattr(ref, '_name')
+            name = f()
+            
+            # check if it's in the defaults
+            if name in defaults.keys():
+                # if it is, then we need to make an instance of the interpolator
+                # this requires the datafile and interpolation kwargs
+                datafile = defaults[name]['datafile']
+                interp_kwargs = defaults[name]['interp_kwargs']
+                interp = ref(datafile, **interp_kwargs)
+                
+                # now replace the default parameter with the interpolator
+                defaults[name] = interp
 
 defaults = Defaults()
 _defaults = defaults._handler
