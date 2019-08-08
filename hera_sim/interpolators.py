@@ -8,6 +8,9 @@ from scipy.interpolate import RectBivariateSpline, interp1d
 from hera_sim.data import DATA_PATH
 from os import path
 
+INTERP_OBJECTS = {"1d": ("beam", "bandpass"),
+                  "2d": ("Tsky_mdl", ) }
+
 def _check_path(datafile):
     # if the datafile is not an absolute path, assume it's in the data folder
     if datafile[0] != "/":
@@ -31,8 +34,8 @@ class Tsky:
         self.datafile = _check_path(datafile)
         self._data = np.load(self.datafile, allow_pickle=True)
         self._check_npz_format()
-        self._check_pol(pol)
         self.pol = interp_kwargs.pop("pol", "xx")
+        self._check_pol(self.pol)
         self._interp_kwargs = interp_kwargs
 
     # TODO: update docstring
@@ -151,7 +154,9 @@ class Tsky:
                 "The metadata contains the following polarizations: " \
                 "{}".format(self.meta['pols'])
 
-class BeamSize:
+# XXX can we think of a better name for this? it's a bit unfortunate that
+# XXX interp1d is already taken...
+class Hera1dInterp:
     """
     This class provides an interface for creating either a numpy.poly1d or a 
     scipy.interpolate.interp1d interpolation object from a reference file. This 
@@ -161,6 +166,7 @@ class BeamSize:
     def __init__(self, datafile, **interp_kwargs):
         self.datafile = _check_path(datafile)
         self._data = np.load(datafile)
+        self._obj = interp_kwargs.pop("object", None)
         self._interp_type = interp_kwargs.pop("interpolator", "poly1d")
         self._interp_kwargs = interp_kwargs
         self._check_format()
@@ -210,26 +216,37 @@ class BeamSize:
         else:
             # if not using poly1d, then need to get some parameters for
             # making the interp1d object
-            beam = self._data['beam']
+            obj = self._data[self._obj]
             freqs = self._data['freqs']
 
             # use a cubic spline by default, but override this if the user
             # specifies a different kind of interpolator
             kind = self._interp_kwargs.pop('kind', 'cubic')
-            return interp1d(freqs, beam, kind=kind, **self._interp_kwargs)
+            return interp1d(freqs, obj, kind=kind, **self._interp_kwargs)
 
     def _check_format(self):
+        if self._obj is None:
+            raise ValueError("Please specify what type of object the " \
+                             "interpolator represents by using the `object` " \
+                             "kwarg. The currently supported object types are " \
+                             "{}.".format(INTERP_OBJECTS['1d'])
+                             )
+        else:
+            assert self._obj in INTERP_OBJECTS['1d'], \
+                    "The specified object type is not supported. The currently " \
+                    "supported object types are: {}".format(INTERP_OBJECTS['1d'])
+
         assert self._interp_type in ('poly1d', 'interp1d'), \
                 "Interpolator choice must either be 'poly1d' or 'interp1d'."
 
         if self._interp_type=='interp1d':
             assert self.ref_file[-4:]=='.npz', \
                     "In order to use an 'interp1d' object, the reference file " \
-                    "must be a .npz file with a 'beam' key and a 'freqs' key."
-            assert 'beam' in self._data.keys() and 'freqs' in self._data.keys(), \
-                    "You've chosen to use an interp1d object for the beam. " \
-                    "Please ensure that the reference .npz file has a 'freqs' " \
-                    "array (in units of GHz) and a 'beam' array."
+                    "must be a '.npz' file."
+            assert self._obj in self._data.keys() and 'freqs' in self._data.keys(), \
+                    "You've chosen to use an interp1d object for modeling the " \
+                    "{}. Please ensure that the `.npz` archive has the following " \
+                    "keys: 'freqs', '{}'".format(self._obj, self._obj)
         else:
             # we can relax this a bit and allow for users to also pass a npz
             # with the same keys as in the above case, but it seems silly to
@@ -238,5 +255,5 @@ class BeamSize:
             assert self.ref_file[-4:]=='.npy', \
                     "In order to use a 'poly1d' object, the reference file " \
                     "must be a .npy file that contains the coefficients for " \
-                    "the beam polynomial fit in decreasing order."
+                    "the polynomial fit in decreasing order."
 

@@ -5,6 +5,22 @@ import numpy as np
 from os import path
 from hera_sim.data import DATA_PATH
 from hera_sim.interpolators import _check_path
+from .defaults import _defaults
+
+# XXX the below is repeated code. figure out which module to store the general
+# XXX code in
+
+@_defaults
+def _get_hera_stations(datafile="HERA_H1C_RFI_STATIONS.npy"):
+    """
+    Accept a .npy file and return an array of HERA RFI station parameters.
+    """
+    datafile = _check_path(datafile)
+    return np.load(datafile)
+
+# XXX I do not like this implementation, but it seems like the API needs to
+# XXX change in order to allow for a better implementation
+HERA_RFI_STATIONS = _get_hera_stations()
 
 class RfiStation:
     """
@@ -275,17 +291,4 @@ def _listify(x):
             return [x]
         else:
             return list(x)
-
-# XXX I do not like this implementation, but it seems like the API needs to
-# XXX change in order to allow for a better implementation
-
-@_defaults
-def _get_hera_stations(npy="HERA_H1C_RFI_STATIONS.npy"):
-    """
-    Accept a .npy file and return an array of HERA RFI station parameters.
-    """
-    npy = _check_path(npy)
-    return np.load(npy)
-
-HERA_RFI_STATIONS = _get_hera_stations()
 

@@ -6,11 +6,12 @@ parameters in an interactive environment.
 import yaml
 import inspect
 import functools
-from .config import CONFIG_PATH
+import sys
 from os import path
+from .config import CONFIG_PATH
 
 SEASON_CONFIGS = {'h1c': path.join(CONFIG_PATH, 'HERA_H1C_config.yaml'),
-                  'h2c': path.join(CONFIG_PATH, 'HERA_H2C_config.yaml')
+                  'h2c': path.join(CONFIG_PATH, 'HERA_H2C_config.yaml'),
                   }
 
 class Defaults:
@@ -37,7 +38,7 @@ class Defaults:
     """
 
     def __call__(self, module, model):
-        with open(self.config_file, 'r') as config:
+        with open(self._config, 'r') as config:
             defaults = yaml.load(config.read(), Loader=yaml.FullLoader)[module][model]
         # handle instances where default parameters are related to interpolators
         return self._retrieve_models(defaults)

@@ -8,6 +8,7 @@ import aipy
 import os
 from .data import DATA_PATH
 from .interpolators import Tsky, _check_path
+from .defaults import _defaults
 
 HERA_TSKY_VS_LST_NPZ = os.path.join(DATA_PATH, 'HERA_Tsky_Reformatted.npz')
 
@@ -15,6 +16,17 @@ HERA_Tsky_mdl = {}
 HERA_Tsky_mdl['xx'] = Tsky(HERA_TSKY_VS_LST_NPZ, pol='xx')
 HERA_Tsky_mdl['yy'] = Tsky(HERA_TSKY_VS_LST_NPZ, pol='yy')
 
+@_defaults
+def _get_hera_bm_poly(datafile='HERA_H1C_BEAM_POLY.npy'):
+    """
+    Method for getting HERA bandpass polynomial coefficients. This should be
+    replaced in the future.
+    """
+    datafile = _check_path(datafile)
+    return np.load(datafile)
+
+# XXX I don't like this. Also figure out what to do about omega_p.
+HERA_BEAM_POLY = _get_hera_bm_poly()
 
 def bm_poly_to_omega_p(fqs, bm_poly=HERA_BEAM_POLY):
     """
@@ -167,14 +179,3 @@ def thermal_noise(fqs, lsts, Tsky_mdl=None, Trx=0, omega_p=None, inttime=10.7, *
     Tsky += Trx
     return sky_noise_jy(Tsky, fqs, lsts, omega_p, inttime=inttime)
 
-# XXX I don't like this. Also figure out what the hell to do about omega_p.
-@_defaults
-def _get_hera_bm_poly(datafile='HERA_H1C_BEAM_POLY.npy'):
-    """
-    Method for getting HERA bandpass polynomial coefficients. This should be
-    replaced in the future.
-    """
-    datafile = _check_path(datafile)
-    return np.load(datafile)
-
-HERA_BEAM_POLY = _get_hera_bm_poly()

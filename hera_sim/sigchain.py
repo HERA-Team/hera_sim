@@ -5,19 +5,16 @@ import aipy
 import warnings
 
 from . import noise
+from .interpolators import _check_path
+from .defaults import _defaults
 
-HERA_NRAO_BANDPASS = np.array(
-    [
-        -2.04689451e06,
-        1.90683718e06,
-        -7.41348361e05,
-        1.53930807e05,
-        -1.79976473e04,
-        1.12270390e03,
-        -2.91166102e01,
-    ]
-)  # See "HERA's Passband to First Order"
 
+@_defaults
+def _get_hera_bandpass(datafile="HERA_H1C_BANDPASS.npy"):
+    datafile = _check_path(datafile)
+    return np.load(datafile)
+
+HERA_NRAO_BANDPASS = _get_hera_bandpass()
 
 def gen_bandpass(fqs, ants, gain_spread=0.1):
     """
