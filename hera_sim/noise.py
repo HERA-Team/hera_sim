@@ -7,7 +7,7 @@ from scipy.interpolate import RectBivariateSpline
 import aipy
 import os
 from .data import DATA_PATH
-from .interpolators import Tsky, _check_path
+from .interpolators import Tsky, _read_npy
 from .defaults import _defaults
 
 HERA_TSKY_VS_LST_NPZ = os.path.join(DATA_PATH, 'HERA_Tsky_Reformatted.npz')
@@ -22,8 +22,7 @@ def _get_hera_bm_poly(datafile='HERA_H1C_BEAM_POLY.npy'):
     Method for getting HERA bandpass polynomial coefficients. This should be
     replaced in the future.
     """
-    datafile = _check_path(datafile)
-    return np.load(datafile)
+    return _read_npy(datafile)
 
 # XXX I don't like this. Also figure out what to do about omega_p.
 HERA_BEAM_POLY = _get_hera_bm_poly()

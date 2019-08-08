@@ -5,14 +5,13 @@ import aipy
 import warnings
 
 from . import noise
-from .interpolators import _check_path
+from .interpolators import _read_npy
 from .defaults import _defaults
 
 
 @_defaults
 def _get_hera_bandpass(datafile="HERA_H1C_BANDPASS.npy"):
-    datafile = _check_path(datafile)
-    return np.load(datafile)
+    return _read_npy(datafile)
 
 HERA_NRAO_BANDPASS = _get_hera_bandpass()
 

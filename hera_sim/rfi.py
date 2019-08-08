@@ -4,7 +4,7 @@ from astropy.units import sday
 import numpy as np
 from os import path
 from hera_sim.data import DATA_PATH
-from hera_sim.interpolators import _check_path
+from hera_sim.interpolators import _read_npy
 from .defaults import _defaults
 
 # XXX the below is repeated code. figure out which module to store the general
@@ -15,8 +15,7 @@ def _get_hera_stations(datafile="HERA_H1C_RFI_STATIONS.npy"):
     """
     Accept a .npy file and return an array of HERA RFI station parameters.
     """
-    datafile = _check_path(datafile)
-    return np.load(datafile)
+    return _read_npy(datafile)
 
 # XXX I do not like this implementation, but it seems like the API needs to
 # XXX change in order to allow for a better implementation

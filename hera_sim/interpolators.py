@@ -22,6 +22,9 @@ def _check_path(datafile):
             "not be found; please ensure that the path to the file exists"
     return datafile
 
+def _read_npy(npy):
+    return np.load(_check_path(npy))
+
 class Tsky:
     """
     This class provides an interface for converting hooks to npz files into
