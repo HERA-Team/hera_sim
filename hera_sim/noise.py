@@ -28,7 +28,7 @@ def _get_hera_bm_poly(datafile='HERA_H1C_BEAM_POLY.npy'):
 # HERA Memo #27 for info on how the polyfit was obtained.
 HERA_BEAM_POLY = _get_hera_bm_poly()
 
-def bm_poly_to_omega_p(fqs, bm_poly=_get_hera_bm_poly()):
+def bm_poly_to_omega_p(fqs, bm_poly=_get_hera_bm_poly):
     """
     Convert polynomial coefficients to beam area.
 
@@ -43,6 +43,9 @@ def bm_poly_to_omega_p(fqs, bm_poly=_get_hera_bm_poly()):
         omega_p : (array-like): shape=(NFREQS,), steradian
             sky-integral of peak-normalized beam power
     """
+    if callable(bm_poly):
+        bm_poly = bm_poly()
+    print(bm_poly)
     return np.polyval(bm_poly, fqs)
 
 
