@@ -45,7 +45,6 @@ def bm_poly_to_omega_p(fqs, bm_poly=_get_hera_bm_poly):
     """
     if callable(bm_poly):
         bm_poly = bm_poly()
-    print(bm_poly)
     return np.polyval(bm_poly, fqs)
 
 

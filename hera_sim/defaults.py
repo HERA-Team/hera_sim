@@ -24,7 +24,7 @@ class Defaults:
     def __init__(self, config_file='h1c'):
         self._config = self._get_config(config_file)
         self._check_config()
-        self.use_season_defaults = False
+        self._use_season_defaults = False
 
     """
     Instantiate a Defaults object with a hook to a configuration file.
@@ -48,10 +48,10 @@ class Defaults:
         self._check_config()
 
     def activate_defaults(self):
-        self.use_season_defaults = True
+        self._use_season_defaults = True
 
     def deactivate_defaults(self):
-        self.use_season_defaults = False
+        self._use_season_defaults = False
 
     def _get_config(self, config_file):
         assert isinstance(config_file, str), \
@@ -77,7 +77,7 @@ class Defaults:
             # XXX do we want to use the season defaults by default?
             # XXX or do we want to default to the defaults from the func signature?
             use_func_defaults = kwargs.pop("use_func_defaults",
-                                           not self.use_season_defaults)
+                                           not self._use_season_defaults)
 
             # get model name and module name
             model = func.__name__
