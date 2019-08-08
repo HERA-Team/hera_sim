@@ -156,7 +156,7 @@ def sky_noise_jy(Tsky, fqs, lsts, omega_p, B=None, inttime=10.7):
     Vnoise_jy = T2jy * Tsky / np.sqrt(inttime * B_Hz) # see noise_study.py for discussion of why no factor of 2 here
     return white_noise(Vnoise_jy.shape) * Vnoise_jy
 
-
+@_defaults
 def thermal_noise(fqs, lsts, Tsky_mdl=None, Trx=0, omega_p=None, inttime=10.7, **kwargs):
     """
     Create thermal noise visibilities.
@@ -177,6 +177,8 @@ def thermal_noise(fqs, lsts, Tsky_mdl=None, Trx=0, omega_p=None, inttime=10.7, *
     """
     if omega_p is None:
         omega_p = bm_poly_to_omega_p(fqs)
+    elif callable(omega_p):
+        omega_p = omega_p(fqs)
     Tsky = resample_Tsky(fqs, lsts, Tsky_mdl=Tsky_mdl, **kwargs)
     Tsky += Trx
     return sky_noise_jy(Tsky, fqs, lsts, omega_p, inttime=inttime)

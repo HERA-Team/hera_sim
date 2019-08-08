@@ -9,6 +9,7 @@ import functools
 import sys
 from os import path
 from .config import CONFIG_PATH
+from .interpolators import _check_path
 
 SEASON_CONFIGS = {'h1c': path.join(CONFIG_PATH, 'HERA_H1C_config.yaml'),
                   'h2c': path.join(CONFIG_PATH, 'HERA_H2C_config.yaml'),
@@ -134,7 +135,7 @@ class Defaults:
                 if name in defaults.keys():
                     # if it is, then we need to make an instance of the interpolator
                     # this requires the datafile and interpolation kwargs
-                    datafile = defaults[name]['datafile']
+                    datafile = _check_path(defaults[name]['datafile'])
                     interp_kwargs = defaults[name]['interp_kwargs']
                     interp = ref(datafile, **interp_kwargs)
                 

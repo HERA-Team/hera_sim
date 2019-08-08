@@ -21,6 +21,14 @@ noise:
     sky_noise_jy:
         inttime: 10.7
     thermal_noise:
+        Tsky_mdl:
+            datafile: HERA_Tsky_Reformatted.npz
+            interp_kwargs: {}
+        omega_p:
+            datafile: HERA_H1C_BEAM_POLY.npy
+            interp_kwargs:
+                object: beam
+                interpolator: poly1d
         Trx: 0
         inttime: 10.7
 rfi:

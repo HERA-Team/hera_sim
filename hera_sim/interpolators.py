@@ -243,7 +243,7 @@ class Hera1dInterp:
                 "Interpolator choice must either be 'poly1d' or 'interp1d'."
 
         if self._interp_type=='interp1d':
-            assert self.ref_file[-4:]=='.npz', \
+            assert self.datafile[-4:]=='.npz', \
                     "In order to use an 'interp1d' object, the reference file " \
                     "must be a '.npz' file."
             assert self._obj in self._data.keys() and 'freqs' in self._data.keys(), \
@@ -255,7 +255,7 @@ class Hera1dInterp:
             # with the same keys as in the above case, but it seems silly to
             # use a polynomial interpolator instead of a spline interpolator in
             # this case
-            assert self.ref_file[-4:]=='.npy', \
+            assert self.datafile[-4:]=='.npy', \
                     "In order to use a 'poly1d' object, the reference file " \
                     "must be a .npy file that contains the coefficients for " \
                     "the polynomial fit in decreasing order."
