@@ -13,6 +13,9 @@ from .defaults import _defaults
 def _get_hera_bandpass(datafile="HERA_H1C_BANDPASS.npy"):
     return _read_npy(datafile)
 
+# turns out this will fix HERA_NRAO_BANDPASS as the H1C bandpass
+# see "HERA's Passband to First Order" for info on how the
+# bandpass was modeled for H1C
 HERA_NRAO_BANDPASS = _get_hera_bandpass()
 
 def gen_bandpass(fqs, ants, gain_spread=0.1):
@@ -35,7 +38,7 @@ def gen_bandpass(fqs, ants, gain_spread=0.1):
     See Also:
         :meth:`~gen_gains`: uses this function to generate full gains.
     """
-    bp_base = np.polyval(HERA_NRAO_BANDPASS, fqs)
+    bp_base = np.polyval(_get_hera_bandpass(), fqs)
     window = aipy.dsp.gen_window(fqs.size, 'blackman-harris')
     _modes = np.abs(np.fft.fft(window * bp_base))
     g = {}

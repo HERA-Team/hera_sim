@@ -91,8 +91,8 @@ class Tsky:
     # XXX is there a cleaner way of doing this? (I want to be able to find out
     # XXX what this interpolator is used for without making an instance of it)
     @staticmethod
-    def _name():
-        return "Tsky_mdl"
+    def _names():
+        return ("Tsky_mdl", )
 
     @property
     def freqs(self):
@@ -209,8 +209,8 @@ class Hera1dInterp:
 
     # XXX see note in Tsky class for same method
     @staticmethod
-    def _name():
-        return "omega_p"
+    def _names():
+        return ("omega_p", "bandpass", )
 
     @cached_property
     def _interpolator(self):

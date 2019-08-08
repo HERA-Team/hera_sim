@@ -17,8 +17,8 @@ def _get_hera_stations(datafile="HERA_H1C_RFI_STATIONS.npy"):
     """
     return _read_npy(datafile)
 
-# XXX I do not like this implementation, but it seems like the API needs to
-# XXX change in order to allow for a better implementation
+# this will just return the RFI Station parameters relevant for the H1C
+# observing season.
 HERA_RFI_STATIONS = _get_hera_stations()
 
 class RfiStation:
@@ -87,7 +87,7 @@ class RfiStation:
 
 
 # XXX reverse lsts and fqs?
-def rfi_stations(fqs, lsts, stations=HERA_RFI_STATIONS, rfi=None):
+def rfi_stations(fqs, lsts, stations=_get_hera_stations(), rfi=None):
     """
     Generate an (NTIMES,NFREQS) waterfall containing RFI stations that
     are localized in frequency.

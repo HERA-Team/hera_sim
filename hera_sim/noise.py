@@ -24,10 +24,11 @@ def _get_hera_bm_poly(datafile='HERA_H1C_BEAM_POLY.npy'):
     """
     return _read_npy(datafile)
 
-# XXX I don't like this. Also figure out what to do about omega_p.
+# turns out that this will just return the H1C beam polynomial. See
+# HERA Memo #27 for info on how the polyfit was obtained.
 HERA_BEAM_POLY = _get_hera_bm_poly()
 
-def bm_poly_to_omega_p(fqs, bm_poly=HERA_BEAM_POLY):
+def bm_poly_to_omega_p(fqs, bm_poly=_get_hera_bm_poly()):
     """
     Convert polynomial coefficients to beam area.
 

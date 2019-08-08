@@ -1,6 +1,8 @@
 foregrounds:
     diffuse_foreground:
-        Tsky_mdl: HERA_Tsky_Reformatted.npz
+        Tsky_mdl: 
+            datafile: HERA_Tsky_Reformatted.npz
+            interp_kwargs: {}
         # omega_p: ???
         # do we want to include any other defaults?
 # XXX the current empty_uvdata signature is (nfreq, ntimes, ants, **kwargs), with
@@ -24,8 +26,6 @@ noise:
 rfi:
     _get_hera_stations:
         datafile: HERA_H1C_RFI_STATIONS.npy
-    rfi_stations:
-        stations: ???
     rfi_impulse:
         chance: 0.001
         strength: 20.0

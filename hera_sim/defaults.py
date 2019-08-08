@@ -126,19 +126,20 @@ class Defaults:
 
         for cls, ref in interps.items():
             # find out what the interpolator is usually referenced as
-            f = getattr(ref, '_name')
-            name = f()
+            f = getattr(ref, '_names')
+            names = f()
             
-            # check if it's in the defaults
-            if name in defaults.keys():
-                # if it is, then we need to make an instance of the interpolator
-                # this requires the datafile and interpolation kwargs
-                datafile = defaults[name]['datafile']
-                interp_kwargs = defaults[name]['interp_kwargs']
-                interp = ref(datafile, **interp_kwargs)
+            for name in names:
+                # check if it's in the defaults
+                if name in defaults.keys():
+                    # if it is, then we need to make an instance of the interpolator
+                    # this requires the datafile and interpolation kwargs
+                    datafile = defaults[name]['datafile']
+                    interp_kwargs = defaults[name]['interp_kwargs']
+                    interp = ref(datafile, **interp_kwargs)
                 
-                # now replace the default parameter with the interpolator
-                defaults[name] = interp
+                    # now replace the default parameter with the interpolator
+                    defaults[name] = interp
         
         return defaults
 
