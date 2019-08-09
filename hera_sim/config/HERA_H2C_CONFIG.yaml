@@ -8,6 +8,7 @@ foregrounds:
             interp_kwargs:
                 object: beam
                 interpolator: interp1d
+                fill_value: extrapolate
 io:
     empty_uvdata:
         start_freq: 46920776.3671875
@@ -31,6 +32,7 @@ noise:
             interp_kwargs:
                 object: beam
                 interpolator: interp1d
+                fill_value: extrapolate
         Trx:  0
         inttime:  8.59
 rfi:

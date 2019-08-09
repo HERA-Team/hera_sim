@@ -47,6 +47,8 @@ def diffuse_foreground(lsts, fqs, bl_vec, Tsky_mdl=None, omega_p=None,
         raise TypeError("Tsky_mdl is a required parameter of diffuse_foreground")
     if omega_p is None:
         omega_p = noise.bm_poly_to_omega_p(fqs)
+    elif callable(omega_p):
+        omega_p = omega_p(fqs)
 
     # generate a Tsky visibility in time and freq space, convert from K to Jy
     Tsky = Tsky_mdl(lsts, fqs)

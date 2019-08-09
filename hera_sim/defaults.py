@@ -11,8 +11,8 @@ from os import path
 from .config import CONFIG_PATH
 from .interpolators import _check_path
 
-SEASON_CONFIGS = {'h1c': path.join(CONFIG_PATH, 'HERA_H1C_config.yaml'),
-                  'h2c': path.join(CONFIG_PATH, 'HERA_H2C_config.yaml'),
+SEASON_CONFIGS = {'h1c': path.join(CONFIG_PATH, 'HERA_H1C_CONFIG.yaml'),
+                  'h2c': path.join(CONFIG_PATH, 'HERA_H2C_CONFIG.yaml'),
                   }
 
 class Defaults:
