@@ -91,7 +91,12 @@ class Defaults:
             argspec = inspect.getfullargspec(func)
 
             # find out how many required arguments there are
-            offset = len(argspec.args) - len(argspec.defaults)
+            try:
+                offset = len(argspec.args) - len(argspec.defaults)
+            except TypeError:
+                # this will be raised if there are no defaults; really
+                # the only thing that raises this is io.empty_uvdata (I think?)
+                offset = 0
 
             # initialize a dictionary of new kwargs to pass to func from defaults
             new_kwargs = self(module, model).copy()

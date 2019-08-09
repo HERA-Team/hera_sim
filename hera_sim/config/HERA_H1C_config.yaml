@@ -3,14 +3,16 @@ foregrounds:
         Tsky_mdl: 
             datafile: HERA_Tsky_Reformatted.npz
             interp_kwargs: {}
-        # omega_p: ???
-        # do we want to include any other defaults?
-# XXX the current empty_uvdata signature is (nfreq, ntimes, ants, **kwargs), with
-# XXX defaults set *inside* the empty_uvdata function
-# XXX this will *definitely* not be caught by the defaults handler class
-#io:
-#    empty_uvdata:
-
+        omega_p:
+            datafile: HERA_H1C_BEAM_POLY.npy
+            interp_kwargs:
+                object: beam
+                interpolator: poly1d
+io:
+    empty_uvdata:
+        start_freq: !!float 1e8
+        channel_width: 97656.25
+        integration_time: 10.7
 noise:
     _get_hera_bm_poly:
         datafile: HERA_H1C_BEAM_POLY.npy
