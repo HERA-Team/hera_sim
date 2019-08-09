@@ -101,6 +101,8 @@ class Defaults:
             # initialize a dictionary of new kwargs to pass to func from defaults
             new_kwargs = self(module, model).copy()
 
+            rm_kwargs = []
+
             # now cycle through the kwargs, see if the user has set them
             for kwarg in new_kwargs.keys():
                 # set any kwargs the user set to what they set them to
@@ -113,8 +115,19 @@ class Defaults:
                     except ValueError:
                         # this will get triggered if kwarg is not in argspec.args
                         # since this block is only entered if function defaults are
-                        # desired, we shouldn't be overwriting things with defaults, so
-                        del new_kwargs[kwarg]
+                        # desired, we shouldn't be overwriting things with defaults
+                        rm_kwargs.append(kwarg)
+
+            # check if any entries in the kwargs dict aren't in new_kwargs
+            for kwarg, val in kwargs.items():
+                # add them to the new_kwarg dict if so
+                if kwarg not in new_kwargs.keys():
+                    new_kwargs[kwarg] = val
+
+            # remove any kwargs that shouldn't be in new_kwargs
+            for kwarg in rm_kwargs:
+                del new_kwargs[kwarg]
+
             return func(*args, **new_kwargs)
         return new_func
 
