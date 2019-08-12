@@ -271,7 +271,7 @@ def rfi_dtv(fqs, lsts, rfi=None, freq_min=.174, freq_max=.214, width=0.008,
         try:
             fq_ind_max = np.argwhere(band + width <= fqs)[0][0]
         except IndexError:
-            fq_ind_max = len(fqs) - 1
+            fq_ind_max = fqs.size
         this_rfi = rfi[:, fq_ind_min:min(fq_ind_max, fqs.size)]
 
         rfis = np.random.uniform(size=lsts.size) <= chnc
