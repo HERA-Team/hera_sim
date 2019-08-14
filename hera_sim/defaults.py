@@ -16,7 +16,7 @@ SEASON_CONFIGS = {'h1c': path.join(CONFIG_PATH, 'HERA_H1C_CONFIG.yaml'),
                   'h2c': path.join(CONFIG_PATH, 'HERA_H2C_CONFIG.yaml'),
                   }
 
-class Defaults:
+class _Defaults:
     """
     This class handles the retreival of simulation default parameters from
     YAML files and the ability to switch the default settings while in an
@@ -45,14 +45,15 @@ class Defaults:
         # handle instances where default parameters are related to interpolators
         return self._retrieve_models(defaults)
 
-    def set_defaults(self, new_config):
+    def set(self, new_config):
         self._config = self._get_config(new_config)
         self._check_config()
+        self.activate()
 
-    def activate_defaults(self):
+    def activate(self):
         self._use_season_defaults = True
 
-    def deactivate_defaults(self):
+    def deactivate(self):
         self._use_season_defaults = False
 
     def _get_config(self, config_file):
@@ -88,8 +89,6 @@ class Defaults:
         if self._version_is_compatible:
             @functools.wraps(func)
             def new_func(*args, **kwargs):
-            # XXX do we want to use the season defaults by default?
-            # XXX or do we want to default to the defaults from the func signature?
                 use_func_defaults = kwargs.pop("use_func_defaults",
                         not self._use_season_defaults)
 
@@ -117,6 +116,7 @@ class Defaults:
                 rm_kwargs = []
 
                 # now cycle through the kwargs, see if the user has set them
+                # TODO: see if this can be done using list comprehension instead
                 for kwarg in new_kwargs.keys():
                     # set any kwargs the user set to what they set them to
                     if kwarg in kwargs.keys():
@@ -152,8 +152,6 @@ class Defaults:
 
     def _retrieve_models(self, defaults):
         # first, get a list of the interpolators supported
-        # XXX there are fundamental issues with this and the way some code in the
-        # XXX package has been written.
         clsmembs = dict(inspect.getmembers(sys.modules['hera_sim.interpolators'],
                                            inspect.isclass)
                       )
@@ -181,5 +179,5 @@ class Defaults:
         
         return defaults
 
-defaults = Defaults()
+defaults = _Defaults()
 _defaults = defaults._handler

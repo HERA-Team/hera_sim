@@ -7,36 +7,34 @@ from hera_sim.noise import bm_poly_to_omega_p
 
 if defaults._version_is_compatible:
     def test_config_swap():
-        defaults.set_defaults('h1c')
+        defaults.set('h1c')
         config1 = defaults._config
-        defaults.set_defaults('h2c')
+        defaults.set('h2c')
         assert config1 != defaults._config
 
     def test_direct_config_path():
         config = join(CONFIG_PATH, 'HERA_H2C_CONFIG.yaml')
-        defaults.set_defaults(config)
+        defaults.set(config)
 
     def test_beam_poly_changes():
-        defaults.set_defaults('h1c')
-        defaults.activate_defaults()
+        defaults.set('h1c')
         fqs = np.linspace(0.1,0.2,100)
         omega_p = bm_poly_to_omega_p(fqs)
-        defaults.set_defaults('h2c')
+        defaults.set('h2c')
         assert not np.all(omega_p==bm_poly_to_omega_p(fqs))
 
     def test_bandpass_changes():
-        defaults.set_defaults('h1c')
-        defaults.activate_defaults()
+        defaults.set('h1c')
         fqs = np.linspace(0.1,0.2,100)
         np.random.seed(0)
         bp = gen_bandpass(fqs, [0])[0]
-        defaults.set_defaults('h2c')
+        defaults.set('h2c')
         np.random.seed(0)
         assert not np.all(bp==gen_bandpass(fqs,[0])[0])
-        defaults.deactivate_defaults()
+        defaults.deactivate()
 
     def test_activate_and_deactivate():
-        defaults.activate_defaults()
+        defaults.activate()
         assert defaults._use_season_defaults
-        defaults.deactivate_defaults()
+        defaults.deactivate()
         assert not defaults._use_season_defaults
