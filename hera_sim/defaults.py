@@ -7,6 +7,7 @@ import yaml
 import inspect
 import functools
 import sys
+import warnings
 from os import path
 from .config import CONFIG_PATH
 from .interpolators import _check_path
@@ -71,64 +72,82 @@ class Defaults:
                 "Please ensure that a path to the specified configuration " \
                 "file exists. {} could not be found".format(self._config)
 
-    def _handler(self, func, *args, **kwargs):
+    @property
+    def _version_is_compatible(self):
+        version = sys.version_info
+        if version.major < 3 or version.major > 3 and version.minor < 4:
+            warnings.warn("You are using a version of Python that is not " \
+                          "compatible with the Defaults class. If you would " \
+                          "like to use the features of the Defaults class, " \
+                          "then please use a version of Python newer than 3.4.")
+            return False
+        else:
+            return True
 
-        @functools.wraps(func)
-        def new_func(*args, **kwargs):
+    def _handler(self, func, *args, **kwargs):
+        if self._version_is_compatible:
+            @functools.wraps(func)
+            def new_func(*args, **kwargs):
             # XXX do we want to use the season defaults by default?
             # XXX or do we want to default to the defaults from the func signature?
-            use_func_defaults = kwargs.pop("use_func_defaults",
-                                           not self._use_season_defaults)
+                use_func_defaults = kwargs.pop("use_func_defaults",
+                        not self._use_season_defaults)
 
-            # get model name and module name
-            model = func.__name__
-            module = func.__module__
+                # get model name and module name
+                model = func.__name__
+                module = func.__module__
 
-            # peel off the actual module name
-            module = module[module.index('.')+1:]
+                # peel off the actual module name
+                module = module[module.index('.')+1:]
 
-            # get the full argspec
-            argspec = inspect.getfullargspec(func)
+                # get the full argspec
+                argspec = inspect.getfullargspec(func)
 
-            # find out how many required arguments there are
-            try:
-                offset = len(argspec.args) - len(argspec.defaults)
-            except TypeError:
-                # this will be raised if there are no defaults; really
-                # the only thing that raises this is io.empty_uvdata (I think?)
-                offset = 0
+                # find out how many required arguments there are
+                try:
+                    offset = len(argspec.args) - len(argspec.defaults)
+                except TypeError:
+                    # this will be raised if there are no defaults; really
+                    # the only thing that raises this is io.empty_uvdata (I think?)
+                    offset = 0
 
-            # initialize a dictionary of new kwargs to pass to func from defaults
-            new_kwargs = self(module, model).copy()
+                # initialize a dictionary of new kwargs to pass to func from defaults
+                new_kwargs = self(module, model).copy()
 
-            rm_kwargs = []
+                rm_kwargs = []
 
-            # now cycle through the kwargs, see if the user has set them
-            for kwarg in new_kwargs.keys():
-                # set any kwargs the user set to what they set them to
-                if kwarg in kwargs.keys():
-                    new_kwargs[kwarg] = kwargs[kwarg]
-                elif use_func_defaults:
-                    # use the defaults from the function signature
-                    try:
-                        new_kwargs[kwarg] = argspec.defaults[argspec.args.index(kwarg) - offset]
-                    except ValueError:
-                        # this will get triggered if kwarg is not in argspec.args
-                        # since this block is only entered if function defaults are
-                        # desired, we shouldn't be overwriting things with defaults
-                        rm_kwargs.append(kwarg)
+                # now cycle through the kwargs, see if the user has set them
+                for kwarg in new_kwargs.keys():
+                    # set any kwargs the user set to what they set them to
+                    if kwarg in kwargs.keys():
+                        new_kwargs[kwarg] = kwargs[kwarg]
+                    elif use_func_defaults:
+                        # use the defaults from the function signature
+                        try:
+                            new_kwargs[kwarg] = argspec.defaults[argspec.args.index(kwarg) 
+                                                                 - offset]
+                        except ValueError:
+                            # this will get triggered if kwarg is not in argspec.args
+                            # since this block is only entered if function defaults are
+                            # desired, we shouldn't be overwriting things with defaults
+                            rm_kwargs.append(kwarg)
 
-            # check if any entries in the kwargs dict aren't in new_kwargs
-            for kwarg, val in kwargs.items():
-                # add them to the new_kwarg dict if so
-                if kwarg not in new_kwargs.keys():
-                    new_kwargs[kwarg] = val
+                # check if any entries in the kwargs dict aren't in new_kwargs
+                for kwarg, val in kwargs.items():
+                    # add them to the new_kwarg dict if so
+                    if kwarg not in new_kwargs.keys():
+                        new_kwargs[kwarg] = val
 
-            # remove any kwargs that shouldn't be in new_kwargs
-            for kwarg in rm_kwargs:
-                del new_kwargs[kwarg]
+                # remove any kwargs that shouldn't be in new_kwargs
+                for kwarg in rm_kwargs:
+                    del new_kwargs[kwarg]
 
-            return func(*args, **new_kwargs)
+                return func(*args, **new_kwargs)
+        else:
+            @functools.wraps(func)
+            def new_func(*args, **kwargs):
+                return func(*args, **kwargs)
+        
         return new_func
 
     def _retrieve_models(self, defaults):
