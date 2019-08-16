@@ -130,7 +130,10 @@ def test_other_components():
     sim.add_xtalk('gen_cross_coupling_xtalk', bls=[(0, 1, 'xx')])
     sim.add_sigchain_reflections(ants=[0])
 
-    assert np.all(np.isclose(sim.data.data_array,  0))
+    assert not np.all(np.isclose(sim.data.data_array,  0))
+    assert np.all(np.isclose(sim.data.get_data(0,0), 0))
+
+    sim = create_sim()
 
     sim.add_rfi("rfi_stations")
 

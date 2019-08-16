@@ -69,4 +69,7 @@ def empty_uvdata(nfreq, ntimes, ants, **kwargs):
         **kwargs
     )
 
+    # make sure that the ordering of antpairpol tuples is consistent with abscal assumption
+    uv.conjugate_bls(convention='ant1<ant2')
+
     return uv
