@@ -8,6 +8,8 @@ import inspect
 import functools
 import sys
 import warnings
+import numpy as np
+
 from os import path
 from .config import CONFIG_PATH
 from .interpolators import _check_path
@@ -89,9 +91,6 @@ class _Defaults:
         if self._version_is_compatible:
             @functools.wraps(func)
             def new_func(*args, **kwargs):
-                use_func_defaults = kwargs.pop("use_func_defaults",
-                        not self._use_season_defaults)
-
                 # get model name and module name
                 model = func.__name__
                 module = func.__module__
@@ -110,38 +109,32 @@ class _Defaults:
                     # the only thing that raises this is io.empty_uvdata (I think?)
                     offset = 0
 
-                # initialize a dictionary of new kwargs to pass to func from defaults
-                new_kwargs = self(module, model).copy()
+                # make a dictionary of the function kwargs and their defaults
+                try:
+                    old_kwargs = {arg : default for arg, default 
+                                  in zip(argspec.args[offset:], argspec.defaults)}
+                except TypeError:
+                    # if there are no defaults in the argspec
+                    old_kwargs = {}
 
-                rm_kwargs = []
+                # get the season defaults
+                season_kwargs = self(module, model).copy()
 
-                # now cycle through the kwargs, see if the user has set them
-                # TODO: see if this can be done using list comprehension instead
-                for kwarg in new_kwargs.keys():
-                    # set any kwargs the user set to what they set them to
-                    if kwarg in kwargs.keys():
-                        new_kwargs[kwarg] = kwargs[kwarg]
-                    elif use_func_defaults:
-                        # use the defaults from the function signature
-                        try:
-                            new_kwargs[kwarg] = argspec.defaults[argspec.args.index(kwarg) 
-                                                                 - offset]
-                        except ValueError:
-                            # this will get triggered if kwarg is not in argspec.args
-                            # since this block is only entered if function defaults are
-                            # desired, we shouldn't be overwriting things with defaults
-                            rm_kwargs.append(kwarg)
+                # choose which set of kwargs will be used
+                if self._use_season_defaults:
+                    keys = np.unique(list(season_kwargs.keys()) + list(kwargs.keys()))
+                else:
+                    keys = np.unique(list(old_kwargs.keys()) + list(kwargs.keys()))
 
-                # check if any entries in the kwargs dict aren't in new_kwargs
-                for kwarg, val in kwargs.items():
-                    # add them to the new_kwarg dict if so
-                    if kwarg not in new_kwargs.keys():
-                        new_kwargs[kwarg] = val
-
-                # remove any kwargs that shouldn't be in new_kwargs
-                for kwarg in rm_kwargs:
-                    del new_kwargs[kwarg]
-
+                # make a new dictionary of kwargs to pass to func
+                new_kwargs = {
+                        kwarg: (
+                            kwargs[kwarg] if kwarg in kwargs.keys() else
+                            season_kwargs[kwarg] if self._use_season_defaults else
+                            old_kwargs[kwarg]
+                            )
+                        for kwarg in keys}
+                # return the function using the new kwargs
                 return func(*args, **new_kwargs)
         else:
             @functools.wraps(func)
