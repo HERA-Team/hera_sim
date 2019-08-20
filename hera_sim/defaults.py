@@ -22,7 +22,32 @@ class _Defaults:
     """
     This class handles the retreival of simulation default parameters from
     YAML files and the ability to switch the default settings while in an
-    interactive environment.
+    interactive environment. This class is intended to exist as a singleton;
+    as such, an instance is created at the end of this module, and that
+    instance is what is imported in the hera_sim __init__ script. See below
+    for example usage within hera_sim.
+
+    Examples:
+        To set the default parameters to those appropriate for the H2C
+        observing season (and activate the use of those defaults):
+        
+        hera_sim.defaults.set('h2c')
+
+        To set the defaults to a custom set of defaults, you must first
+        create a configuration YAML. Assuming the path to the YAML is
+        stored in the variable `config_path`, these defaults would be set
+        via the following line:
+
+        hera_sim.defaults.set(config_path)
+
+        To revert back to using defaults defined in function signatures:
+
+        hera_sim.defaults.deactivate()
+
+        To view what the default parameter values for a model in a given
+        module are:
+
+        hera_sim.defaults(module, model)
     """
 
     def __init__(self, config_file='h1c'):
