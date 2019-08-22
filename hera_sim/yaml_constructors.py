@@ -1,26 +1,21 @@
 import yaml
+import inspect
 from . import interpolators
 
-# TODO: make a wrapper that will automate this for each interpolator object
-def tsky_constructor(loader, node):
-    params = loader.construct_mapping(node, deep=True)
-    datafile = params['datafile']
-    interp_kwargs = params.pop('interp_kwargs', {})
-    return interpolators.Tsky(datafile, **interp_kwargs)
+def make_constructor(tag, interpolator):
+    def constructor(loader, node):
+        params = loader.construct_mapping(node, deep=True)
+        print(type(params))
+        datafile = params['datafile']
+        print(type(datafile))
+        interp_kwargs = params.pop('interp_kwargs', {})
+        print(type(interp_kwargs))
+        return interpolator(datafile, **interp_kwargs)
+    yaml.add_constructor(tag, constructor, yaml.FullLoader)
 
-def beam_constructor(loader, node):
-    params = loader.construct_mapping(node, deep=True)
-    # TODO: figure out a better way to do this
-    datafile = params['datafile']
-    interp_kwargs = params.pop('interp_kwargs', {})
-    return interpolators.freq_interp1d(datafile, **interp_kwargs)
+def predicate(obj):
+    return hasattr(obj, '_interpolator')
 
-def bandpass_constructor(loader, node):
-    params = loader.construct_mapping(node, deep=True)
-    datafile = params['datafile']
-    interp_kwargs = params.pop('interp_kwargs', {})
-    return interpolators.freq_interp1d(datafile, **interp_kwargs)
-
-yaml.add_constructor('!Tsky', tsky_constructor, yaml.FullLoader)
-yaml.add_constructor('!Beam', beam_constructor, yaml.FullLoader)
-yaml.add_constructor('!Bandpass', bandpass_constructor, yaml.FullLoader)
+interps = dict(inspect.getmembers(interpolators, predicate))
+for tag, interp in interps.items():
+    make_constructor("!%s"%tag, interp)

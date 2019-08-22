@@ -161,7 +161,7 @@ def test_adding_vis_but_also_returning():
 
 if sys.version_info.major < 3 or \
    sys.version_info.major > 3 and sys.version_info.minor < 4:
-    @raises(VersionError)
+    @raises(NotImplementedError)
     def test_run_sim():
         sim_params = {}
         sim = create_sim()
