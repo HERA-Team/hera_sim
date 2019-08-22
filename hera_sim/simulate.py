@@ -24,9 +24,6 @@ from .version import version
 class CompatibilityException(ValueError):
     pass
 
-class VersionError(Exception):
-    pass
-
 def _get_model(mod, name):
     return getattr(sys.modules["hera_sim." + mod], name)
 
@@ -484,7 +481,7 @@ class Simulator:
             # raise a NotImplementedError if using Py2
             if sys.version_info.major < 3 or \
                sys.version_info.major > 3 and sys.version_info.minor < 4:
-                raise VersionError("Please use a version of Python >= 3.4.")
+                raise NotImplementedError("Please use a version of Python >= 3.4.")
             if 'model' not in inspect.signature(func).parameters:
                 uses_no_model.append(key)
 
@@ -502,26 +499,6 @@ class Simulator:
             with open(sim_file, 'r') as doc:
                 try:
                     sim_params = yaml.load(doc.read(), Loader=yaml.FullLoader)
-                    # since we're loading in a YAML file, we need to fix the
-                    # parameters for any components that require a Tsky model
-                    for component, params in sim_params.items():
-                        if "Tsky_mdl" in params.keys():
-                            try:
-                                npz_file = params["Tsky_mdl"]["file"]
-                                pol = params["Tsky_mdl"].get("pol", "xx")
-                                interp_kwargs = params["Tsky_mdl"].get("interp_kwargs", {})
-                                tsky = Tsky(npz_file, pol=pol, **interp_kwargs)
-                                params["Tsky_mdl"] = tsky
-                            except KeyError:
-                                raise KeyError
-                            except TypeError:
-                                raise TypeError
-                except KeyError:
-                    raise KeyError("Please ensure that the Tsky_mdl " \
-                                    "dict has a 'file' key.")
-                except TypeError:
-                    raise TypeError("Please ensure that Tsky_mdl is " \
-                                    "a dict.")
                 except:
                     print('Check your configuration file. Something broke.')
                     sys.exit()

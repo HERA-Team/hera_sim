@@ -1,12 +1,12 @@
 foregrounds:
     diffuse_foreground:
-        Tsky_mdl: 
+        Tsky_mdl: !Tsky 
             datafile: HERA_Tsky_Reformatted.npz
             interp_kwargs: {}
-        omega_p:
+        omega_p: !Beam
             datafile: HERA_H1C_BEAM_POLY.npy
             interp_kwargs:
-                object: beam
+                obj: beam
                 interpolator: poly1d
 io:
     empty_uvdata:
@@ -23,13 +23,13 @@ noise:
     sky_noise_jy:
         inttime: 10.7
     thermal_noise:
-        Tsky_mdl:
+        Tsky_mdl: !Tsky
             datafile: HERA_Tsky_Reformatted.npz
             interp_kwargs: {}
-        omega_p:
+        omega_p: !Beam
             datafile: HERA_H1C_BEAM_POLY.npy
             interp_kwargs:
-                object: beam
+                obj: beam
                 interpolator: poly1d
         Trx: 0
         inttime: 10.7

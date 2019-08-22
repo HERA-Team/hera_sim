@@ -69,7 +69,8 @@ class _Defaults:
         with open(self._config, 'r') as config:
             defaults = yaml.load(config.read(), Loader=yaml.FullLoader)[module][model]
         # handle instances where default parameters are related to interpolators
-        return self._retrieve_models(defaults)
+#        return self._retrieve_models(defaults)
+        return defaults
 
     def set(self, new_config):
         self._config = self._get_config(new_config)
@@ -167,34 +168,6 @@ class _Defaults:
         
         return new_func
 
-    def _retrieve_models(self, defaults):
-        # first, get a list of the interpolators supported
-        clsmembs = dict(inspect.getmembers(sys.modules['hera_sim.interpolators'],
-                                           inspect.isclass)
-                      )
-        interps = {}
-        for cls, ref in clsmembs.items():
-            if ref.__module__[:8]=="hera_sim":
-                interps[cls] = ref
-
-        for cls, ref in interps.items():
-            # find out what the interpolator is usually referenced as
-            f = getattr(ref, '_names')
-            names = f()
-            
-            for name in names:
-                # check if it's in the defaults
-                if name in defaults.keys():
-                    # if it is, then we need to make an instance of the interpolator
-                    # this requires the datafile and interpolation kwargs
-                    datafile = _check_path(defaults[name]['datafile'])
-                    interp_kwargs = defaults[name]['interp_kwargs']
-                    interp = ref(datafile, **interp_kwargs)
-                
-                    # now replace the default parameter with the interpolator
-                    defaults[name] = interp
-        
-        return defaults
-
 defaults = _Defaults()
 _defaults = defaults._handler
+

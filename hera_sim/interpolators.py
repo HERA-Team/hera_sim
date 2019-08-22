@@ -88,12 +88,6 @@ class Tsky:
     def __call__(self, lsts, freqs):
         return self._interpolator(lsts, freqs)
 
-    # XXX is there a cleaner way of doing this? (I want to be able to find out
-    # XXX what this interpolator is used for without making an instance of it)
-    @staticmethod
-    def _names():
-        return ("Tsky_mdl", )
-
     @property
     def freqs(self):
         return self._data['freqs']
@@ -159,7 +153,7 @@ class Tsky:
 
 # XXX can we think of a better name for this? it's a bit unfortunate that
 # XXX interp1d is already taken...
-class Hera1dInterp:
+class freq_interp1d:
     """
     This class provides an interface for creating either a numpy.poly1d or a 
     scipy.interpolate.interp1d interpolation object from a reference file. This 
@@ -168,9 +162,9 @@ class Hera1dInterp:
     """
     def __init__(self, datafile, **interp_kwargs):
         self.datafile = _check_path(datafile)
-        self._data = np.load(datafile)
-        self._obj = interp_kwargs.pop("object", None)
+        self._data = np.load(self.datafile)
         self._interp_type = interp_kwargs.pop("interpolator", "poly1d")
+        self._obj = interp_kwargs.pop("obj", None)
         self._interp_kwargs = interp_kwargs
         self._check_format()
     
@@ -206,11 +200,6 @@ class Hera1dInterp:
 
     def __call__(self, freqs):
         return self._interpolator(freqs)
-
-    # XXX see note in Tsky class for same method
-    @staticmethod
-    def _names():
-        return ("omega_p", "bandpass", )
 
     @cached_property
     def _interpolator(self):
