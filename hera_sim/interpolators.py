@@ -8,12 +8,12 @@ from scipy.interpolate import RectBivariateSpline, interp1d
 from hera_sim.data import DATA_PATH
 from os import path
 
-INTERP_OBJECTS = {"1d": ("beam", "bandpass"),
+INTERP_OBJECTS = {"1d": ("beam", "bandpass",),
                   "2d": ("Tsky_mdl", ) }
 
 def _check_path(datafile):
     # if the datafile is not an absolute path, assume it's in the data folder
-    if datafile[0] != "/":
+    if not path.isabs(datafile):
         datafile = path.join(DATA_PATH, datafile)
     # make sure that the path exists
     assert path.exists(datafile), \
@@ -255,7 +255,7 @@ class Hera1dInterp:
             # with the same keys as in the above case, but it seems silly to
             # use a polynomial interpolator instead of a spline interpolator in
             # this case
-            assert self.datafile[-4:]=='.npy', \
+            assert path.splitext(self.datafile)[1] == '.npy', \
                     "In order to use a 'poly1d' object, the reference file " \
                     "must be a .npy file that contains the coefficients for " \
                     "the polynomial fit in decreasing order."

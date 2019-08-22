@@ -28,7 +28,7 @@ def _get_hera_bm_poly(datafile='HERA_H1C_BEAM_POLY.npy'):
 # HERA Memo #27 for info on how the polyfit was obtained.
 HERA_BEAM_POLY = _get_hera_bm_poly()
 
-def bm_poly_to_omega_p(fqs, bm_poly=_get_hera_bm_poly):
+def bm_poly_to_omega_p(fqs, bm_poly=None):
     """
     Convert polynomial coefficients to beam area.
 
@@ -43,8 +43,8 @@ def bm_poly_to_omega_p(fqs, bm_poly=_get_hera_bm_poly):
         omega_p : (array-like): shape=(NFREQS,), steradian
             sky-integral of peak-normalized beam power
     """
-    if callable(bm_poly):
-        bm_poly = bm_poly()
+    if bm_poly is None:
+        bm_poly = _get_hera_bm_poly()
     return np.polyval(bm_poly, fqs)
 
 
@@ -177,8 +177,6 @@ def thermal_noise(fqs, lsts, Tsky_mdl=None, Trx=0, omega_p=None, inttime=10.7, *
     """
     if omega_p is None:
         omega_p = bm_poly_to_omega_p(fqs)
-    elif callable(omega_p):
-        omega_p = omega_p(fqs)
     Tsky = resample_Tsky(fqs, lsts, Tsky_mdl=Tsky_mdl, **kwargs)
     Tsky += Trx
     return sky_noise_jy(Tsky, fqs, lsts, omega_p, inttime=inttime)

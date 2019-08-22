@@ -87,7 +87,7 @@ class RfiStation:
 
 
 # XXX reverse lsts and fqs?
-def rfi_stations(fqs, lsts, stations=_get_hera_stations(), rfi=None):
+def rfi_stations(fqs, lsts, stations=None, rfi=None):
     """
     Generate an (NTIMES,NFREQS) waterfall containing RFI stations that
     are localized in frequency.
@@ -108,6 +108,8 @@ def rfi_stations(fqs, lsts, stations=_get_hera_stations(), rfi=None):
         rfi (array-like): shape=(NTIMES,NFREQS)
             a waterfall containing RFI
     """
+    if stations is None:
+        stations = _get_hera_stations()
     for s in stations:
         if not isinstance(s, RfiStation):
             if len(s) != 5:

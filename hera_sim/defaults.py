@@ -8,7 +8,6 @@ import inspect
 import functools
 import sys
 import warnings
-import numpy as np
 
 from os import path
 from .config import CONFIG_PATH
@@ -147,9 +146,9 @@ class _Defaults:
 
                 # choose which set of kwargs will be used
                 if self._use_season_defaults:
-                    keys = np.unique(list(season_kwargs.keys()) + list(kwargs.keys()))
+                    keys = set(list(season_kwargs.keys()) + list(kwargs.keys()))
                 else:
-                    keys = np.unique(list(old_kwargs.keys()) + list(kwargs.keys()))
+                    keys = set(list(old_kwargs.keys()) + list(kwargs.keys()))
 
                 # make a new dictionary of kwargs to pass to func
                 new_kwargs = {

@@ -18,7 +18,7 @@ def _get_hera_bandpass(datafile="HERA_H1C_BANDPASS.npy"):
 # bandpass was modeled for H1C
 HERA_NRAO_BANDPASS = _get_hera_bandpass()
 
-def gen_bandpass(fqs, ants, gain_spread=0.1):
+def gen_bandpass(fqs, ants, gain_spread=0.1, bp_poly=None):
     """
     Produce a set of mock bandpass gains with variation based around the
     HERA_NRAO_BANDPASS model.
@@ -38,7 +38,9 @@ def gen_bandpass(fqs, ants, gain_spread=0.1):
     See Also:
         :meth:`~gen_gains`: uses this function to generate full gains.
     """
-    bp_base = np.polyval(_get_hera_bandpass(), fqs)
+    if bp_poly is None:
+        bp_poly = _get_hera_bandpass()
+    bp_base = np.polyval(bp_poly, fqs)
     window = aipy.dsp.gen_window(fqs.size, 'blackman-harris')
     _modes = np.abs(np.fft.fft(window * bp_base))
     g = {}
