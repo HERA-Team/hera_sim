@@ -6,6 +6,7 @@ import numpy as np
 from scipy.interpolate import RectBivariateSpline
 import aipy
 import os
+import warnings
 from .data import DATA_PATH
 from .interpolators import Tsky, _read_npy
 from .defaults import _defaults
