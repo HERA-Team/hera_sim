@@ -25,6 +25,13 @@ def _check_path(datafile):
 def _read_npy(npy):
     return np.load(_check_path(npy))
 
+# TODO: Update module to have a base `interpolator` class, from which `Tsky`
+# and `freq_interp1d` both inherit. Additionally, either create subclasses of 
+# `freq_interp1d` called `Beam` and `Bandpass`, or change the assumed naming
+# convention for arrays in `.npz` archives used to make `interp1d` objects.
+# The latter option is likely better. _check_path may instead be a member
+# function of the `interpolator` class. Figure out what to do about the
+# `_read_npy` function.
 class Tsky:
     """
     This class provides an interface for converting hooks to npz files into
@@ -41,7 +48,6 @@ class Tsky:
         self._check_pol(self.pol)
         self._interp_kwargs = interp_kwargs
 
-    # TODO: update docstring
     """
     Initialize the Tsky object from a hook to a npz file with the required
     information.
@@ -69,13 +75,11 @@ class Tsky:
                 tsky arrays as strings in this dictionary. this dictionary
                 must be accessible via the key 'meta'.
 
-        pol (str, optional; default='xx'): string specifying which polarization
-            to create the interpolation object for. pol must be in the list of
-            polarizations saved in the metadata dictionary.
-
         **interp_kwargs (dict, optional): dictionary of kwargs for creating
-            the interpolation object. these are used to create an instance of
-            the scipy.interpolate.RectBivariateSpline class.
+            the interpolation object. These are used to create an instance of
+            the scipy.interpolate.RectBivariateSpline class. Additionally, 
+            the polarization used should be stored in this dictionary as the 
+            value corresponding to the key `pol`.
 
     Raises:
         AssertionError: if any of the required npz keys are not found. these
@@ -151,8 +155,6 @@ class Tsky:
                 "The metadata contains the following polarizations: " \
                 "{}".format(self.meta['pols'])
 
-# XXX can we think of a better name for this? it's a bit unfortunate that
-# XXX interp1d is already taken...
 class freq_interp1d:
     """
     This class provides an interface for creating either a numpy.poly1d or a 
@@ -168,16 +170,17 @@ class freq_interp1d:
         self._interp_kwargs = interp_kwargs
         self._check_format()
     
-    # TODO: update docstring
     """
-    Initialize a BeamSize object from a given reference file and choice of 
+    Initialize an interpolation object from a given reference file and choice of 
     interpolator.
 
     Args:
-        ref_file (str):
-            Absolute path to the reference file to be used for making the
-            BeamSize interpolator. This must be either a .npy or .npz file,
-            depending on which interpolation method is chosen.
+        datafile (str):
+            Hook to the reference file to be used for making the 1d-interpolator
+            This must be either a .npy or .npz file, and the path may either be
+            relative or absolute. If the path is relative, then the file is 
+            assumed to exist in the data directory. The choice of .npy or .npz
+            format depends on which interpolation method is chosen.
 
         interpolator (str):
             Choice of interpolation object to be used. Must be either 'poly1d' 
@@ -187,7 +190,10 @@ class freq_interp1d:
 
         **interp_kwargs (dict, optional):
             Keyword arguments to be passed to the interpolator in the case that
-            'interp1d' is chosen.
+            'interp1d' is chosen. `obj` must be a key in `interp_kwargs`; it 
+            should specify whether the object represented is a beam size or a
+            bandpass response (denoted by the values 'beam' and 'bandpass', 
+            respectively).
 
     Raises:
         AssertionError:
@@ -196,6 +202,13 @@ class freq_interp1d:
             using a .npz file as a reference). An AssertionError is also raised
             if the .npz for generating an 'interp1d' object does not have the
             correct arrays in its archive.
+        
+        ValueError:
+            This is raised if 'obj' is not a key in `interp_kwargs`. This behavior
+            was introduced based on the assumption that a `.npz` file would have
+            a `freqs` array and an `obj` (either 'beam' or 'bandpass', depending
+            on the value of `obj`) array in its archive. This will likely be 
+            dropped in a future release.
     """
 
     def __call__(self, freqs):
