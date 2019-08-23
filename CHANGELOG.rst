@@ -8,39 +8,12 @@ Unreleased
 
 Added
 -----
-- `@component` and `@model` decorators for specifying whether a given object is
-  a simulation component or a model for a given simulation component
-  - Add some notes detailing this
-- Functionality to specify antenna configurations in `io.empty_uvdata` using a 
-  function call, rather than being required to generate the array beforehand
 
 Fixed
 -----
-- Silent bug in `Simulator.add_foregrounds`
-  - Incorrect handling of datasets with multiple polarizations
-    - Updated to handle multiple polarizations correctly
-  - Inconsistent sky realizations
-    - Sky realizations made consistent within redundant groups (or do we
-      want this to be consistent across *all* baselines?)
 
 Changed
 -------
-- HERA-specific variables removed from code and placed in season configuration objects
-  - **The following variables have been affected by this change:
-    - `noise.HERA_Tsky_mdl`
-    - `noise.HERA_BEAM_POLY`
-    - `sigchain.HERA_NRAO_BANDPASS`
-    - `rfi.HERA_STATIONS`**
-- Default handling updated to be more semantic; this involves reformatting the
-  various configuration YAMLs in `config`
-- Various helper functions made hidden and generalized where appropriate
-  - **The following helper functions have been modified:
-    - ...**
-
-- **API updated so that it is consistent within a single module, and tends to 
-  follow a regular format throughout the `hera_sim` package
-  - The following modules have been affected by this API change:
-    - ...**
 
 v0.1.0 [DATE]
 =============

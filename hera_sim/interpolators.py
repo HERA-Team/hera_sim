@@ -34,8 +34,8 @@ def _read_npy(npy):
 # `_read_npy` function.
 class Tsky:
     """
-    This class provides an interface for converting hooks to npz files into
-    interpolation objects. In particular, this class takes a hook to a npz
+    This class provides an interface for converting paths to npz files into
+    interpolation objects. In particular, this class takes a path to a npz
     file and creates an interpolation object for a sky temperature model given
     the frequencies and LSTs (specified in the npz file) at which the sky
     temperature array is evaluated.
@@ -49,11 +49,11 @@ class Tsky:
         self._interp_kwargs = interp_kwargs
 
     """
-    Initialize the Tsky object from a hook to a npz file with the required
+    Initialize the Tsky object from a path to a npz file with the required
     information.
 
     Args:
-        datafile (str): hook to a npz file
+        datafile (str): path to a npz file
             the npz file must contain the following information:
                 array of sky temperature values in units of Kelvins
                 this must be accessible via the key 'tsky' and must
@@ -176,7 +176,7 @@ class freq_interp1d:
 
     Args:
         datafile (str):
-            Hook to the reference file to be used for making the 1d-interpolator
+            Path to the reference file to be used for making the 1d-interpolator
             This must be either a .npy or .npz file, and the path may either be
             relative or absolute. If the path is relative, then the file is 
             assumed to exist in the data directory. The choice of .npy or .npz
