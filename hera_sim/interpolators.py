@@ -232,7 +232,7 @@ class freq_interp1d:
                 "Interpolator choice must either be 'poly1d' or 'interp1d'."
 
         if self._interp_type=='interp1d':
-            assert self.datafile[-4:]=='.npz', \
+            assert path.splitext(self.datafile)[1] == '.npz', \
                     "In order to use an 'interp1d' object, the reference file " \
                     "must be a '.npz' file."
             assert self._obj in self._data.keys() and 'freqs' in self._data.keys(), \

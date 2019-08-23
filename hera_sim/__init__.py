@@ -1,4 +1,4 @@
-from . import yaml_constructors
+from . import __yaml_constructors
 from . import antpos
 from . import foregrounds
 from . import interpolators
