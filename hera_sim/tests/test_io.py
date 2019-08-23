@@ -1,4 +1,5 @@
 import unittest
+import numpy as np
 
 from hera_sim import io
 
@@ -21,6 +22,13 @@ class TestIO(unittest.TestCase):
         self.assertEqual(uvd.data_array.shape,
                          (len(antpairs1) * ntimes, 1, nfreqs, 1))
 
+    def test_antpair_order(self):
+        nfreqs = 10
+        ntimes = 10
+        ants = {j: tuple(np.random.rand(3)) for j in range(10)}
+        uvd = io.empty_uvdata(nfreqs, ntimes, ants=ants)
+        for ant1, ant2 in uvd.get_antpairs():
+            self.assertLessEqual(ant1,ant2)
 
 if __name__ == '__main__':
     unittest.main()

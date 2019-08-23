@@ -6,6 +6,7 @@ from os import path
 from hera_sim.data import DATA_PATH
 from hera_sim.interpolators import _read_npy
 from .defaults import _defaults
+import warnings
 
 # XXX the below is repeated code. figure out which module to store the general
 # XXX code in
@@ -229,10 +230,13 @@ def rfi_dtv(fqs, lsts, rfi=None, freq_min=.174, freq_max=.214, width=0.008,
 
     bands = np.arange(freq_min, freq_max, width)  # lower freq of each potential DTV band
 
-    # If the bands fit exactly into freqs, the upper band will be the top freq
-    # and we need to ignore it.
-    if fqs.max() <= bands.max():
-        bands = bands[:-1]
+    # ensure that only the DTV bands which overlap with the passed frequencies are kept
+    bands = bands[np.logical_and(bands >= fqs.min() - width, bands <= fqs.max())]
+
+    if len(bands) is 0:
+        warnings.warn("You are attempting to add DTV RFI to a visibility array whose " \
+                      "frequencies do not overlap with any DTV band. Please ensure " \
+                      "that you are using the correct frequencies.")
 
     delta_f = fqs[1] - fqs[0]
 
@@ -255,19 +259,16 @@ def rfi_dtv(fqs, lsts, rfi=None, freq_min=.174, freq_max=.214, width=0.008,
         raise ValueError("strength_std must be float or list with len equal to number of bands")
 
     for band, chnc, strngth, str_std in zip(bands, chance, strength, strength_std):
+        fq_ind_min = np.argwhere(band <= fqs)[0][0]
         try:
-            fq_ind_min = np.argwhere(band <= fqs)[0][0]
-            fq_ind_max = fq_ind_min + int(width / delta_f) + 1
-            this_rfi = rfi[:, fq_ind_min:min(fq_ind_max, fqs.size)]
-
-            rfis = np.random.uniform(size=lsts.size) <= chnc
-            this_rfi[rfis] += np.atleast_2d(np.random.normal(strngth, str_std, size=np.sum(rfis)) * np.exp(
-                2 * np.pi * 1j * np.random.uniform(size=np.sum(rfis))
-            )).T
+            fq_ind_max = np.argwhere(band + width <= fqs)[0][0]
         except IndexError:
-            # this is only raised if fqs.max() < bands.min(), which
-            # would mean that DTV wouldn't be observed in any channel
-            pass
+            fq_ind_max = fqs.size
+        this_rfi = rfi[:, fq_ind_min:min(fq_ind_max, fqs.size)]
+
+        rfis = np.random.uniform(size=lsts.size) <= chnc
+        this_rfi[rfis] += np.atleast_2d(np.random.normal(strngth, str_std, size=np.sum(rfis)) 
+                          * np.exp(2 * np.pi * 1j * np.random.uniform(size=np.sum(rfis)))).T
 
     return rfi
 
