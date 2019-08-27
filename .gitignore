@@ -13,3 +13,4 @@ hera_sim/GIT_INFO
 hera_sim/\.ipynb_checkpoints/
 
 \.cache/
+*\.coverage
