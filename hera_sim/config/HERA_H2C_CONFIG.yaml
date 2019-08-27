@@ -3,10 +3,9 @@ foregrounds:
         Tsky_mdl: !Tsky 
             datafile: HERA_Tsky_Reformatted.npz
             interp_kwargs: {}
-        omega_p: !FreqInterpolator
+        omega_p: !Beam
             datafile: HERA_H2C_BEAM_MODEL.npz
             interp_kwargs:
-                obj: beam
                 interpolator: interp1d
                 fill_value: extrapolate
 io:
@@ -27,10 +26,9 @@ noise:
         Tsky_mdl: !Tsky
             datafile: HERA_Tsky_Reformatted.npz
             interp_kwargs: {}
-        omega_p: !FreqInterpolator
+        omega_p: !Beam
             datafile: HERA_H2C_BEAM_MODEL.npz
             interp_kwargs:
-                obj: beam
                 interpolator: interp1d
                 fill_value: extrapolate
         Trx:  0

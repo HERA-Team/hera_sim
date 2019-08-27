@@ -25,14 +25,6 @@ def _check_path(datafile):
 def _read_npy(npy):
     return np.load(_check_path(npy))
 
-# TODO: Update module to have a base `interpolator` class, from which `Tsky`
-# and `freq_interp1d` both inherit. Additionally, either create subclasses of 
-# `freq_interp1d` called `Beam` and `Bandpass`, or change the assumed naming
-# convention for arrays in `.npz` archives used to make `interp1d` objects.
-# The latter option is likely better. _check_path may instead be a member
-# function of the `interpolator` class. Figure out what to do about the
-# `_read_npy` function.
-
 class Interpolator:
     """
     This class serves as the base interpolator class from which all other 
@@ -55,7 +47,7 @@ class Tsky(Interpolator):
     temperature array is evaluated.
     """
     def __init__(self, datafile, **interp_kwargs):
-        Interpolator.__init__(self, datafile, **interp_kwargs)
+        super().__init__(datafile, **interp_kwargs)
         self._check_npz_format()
         self.pol = self._interp_kwargs.pop("pol", "xx")
         self._check_pol(self.pol)
@@ -175,10 +167,9 @@ class FreqInterpolator(Interpolator):
     functions in the hera_sim repository.
     """
     def __init__(self, datafile, **interp_kwargs):
-        Interpolator.__init__(self, datafile, **interp_kwargs)
+        super().__init__(datafile, **interp_kwargs)
         self._interp_type = self._interp_kwargs.pop("interpolator", "poly1d")
-        self._obj = self._interp_kwargs.pop("obj", None)
-        self._check_format()
+        self._obj = None
     
     """
     Initialize an interpolation object from a given reference file and choice of 
@@ -212,13 +203,6 @@ class FreqInterpolator(Interpolator):
             using a .npz file as a reference). An AssertionError is also raised
             if the .npz for generating an 'interp1d' object does not have the
             correct arrays in its archive.
-        
-        ValueError:
-            This is raised if 'obj' is not a key in `interp_kwargs`. This behavior
-            was introduced based on the assumption that a `.npz` file would have
-            a `freqs` array and an `obj` (either 'beam' or 'bandpass', depending
-            on the value of `obj`) array in its archive. This will likely be 
-            dropped in a future release.
     """
 
     def __call__(self, freqs):
@@ -240,17 +224,6 @@ class FreqInterpolator(Interpolator):
             return interp1d(freqs, obj, kind=kind, **self._interp_kwargs)
 
     def _check_format(self):
-        if self._obj is None:
-            raise ValueError("Please specify what type of object the " \
-                             "interpolator represents by using the `object` " \
-                             "kwarg. The currently supported object types are " \
-                             "{}.".format(INTERP_OBJECTS['1d'])
-                             )
-        else:
-            assert self._obj in INTERP_OBJECTS['1d'], \
-                    "The specified object type is not supported. The currently " \
-                    "supported object types are: {}".format(INTERP_OBJECTS['1d'])
-
         assert self._interp_type in ('poly1d', 'interp1d'), \
                 "Interpolator choice must either be 'poly1d' or 'interp1d'."
 
@@ -271,4 +244,28 @@ class FreqInterpolator(Interpolator):
                     "In order to use a 'poly1d' object, the reference file " \
                     "must be a .npy file that contains the coefficients for " \
                     "the polynomial fit in decreasing order."
+
+class Beam(FreqInterpolator):
+    """
+    TODO: fill out docstring
+    """
+    def __init__(self, datafile, **interp_kwargs):
+        super().__init__(datafile, **interp_kwargs)
+        self._obj = "beam"
+        self._check_format()
+    """
+    TODO: fill out docstring
+    """
+
+class Bandpass(FreqInterpolator):
+    """
+    TODO: fill out docstring
+    """
+    def __init__(self, datafile, **interp_kwargs):
+        super().__init__(datafile, **interp_kwargs)
+        self._obj = "bandpass"
+        self._check_format()
+    """
+    TODO: fill out docstring
+    """
 

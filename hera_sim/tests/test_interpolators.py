@@ -6,7 +6,7 @@ import glob
 import tempfile
 
 from scipy.interpolate import RectBivariateSpline, interp1d
-from hera_sim.interpolators import Tsky, FreqInterpolator
+from hera_sim.interpolators import Tsky, Beam, Bandpass
 from nose.tools import raises
 
 def test_interpolator():
@@ -67,7 +67,7 @@ def test_bad_npz():
     np.savez(temp_dir+'/ok_file', lsts=lsts, freqs=freqs, tsky=ok_tsky, meta=meta)
     tsky = Tsky(temp_dir+'/ok_file.npz', pol='yy')
 
-def test_FreqInterpolator():
+def test_FreqInterpolators():
     # make a temporary directory
     temp_dir = tempfile.mkdtemp()
 
@@ -83,14 +83,12 @@ def test_FreqInterpolator():
     np.savez(os.path.join(temp_dir, 'beam'), freqs=freqs, beam=values)
 
     # check that things work as expected for a poly1d interpolator
-    interp = FreqInterpolator(os.path.join(temp_dir, 'polyfit.npy'),
-                           interpolator='poly1d', obj='bandpass')
+    interp = Bandpass(os.path.join(temp_dir, 'polyfit.npy'), interpolator='poly1d')
     assert isinstance(interp._interpolator, np.poly1d)
     assert interp(freqs).size == freqs.size
     
     # now do the same for a interp1d interpolator
-    interp = FreqInterpolator(os.path.join(temp_dir, 'beam.npz'),
-                           interpolator='interp1d', obj='beam')
+    interp = Beam(os.path.join(temp_dir, 'beam.npz'), interpolator='interp1d')
     assert isinstance(interp._interpolator, interp1d)
     assert interp(freqs).size == freqs.size
 
@@ -108,39 +106,16 @@ def test_bad_params():
     np.savez(os.path.join(temp_dir, 'no_values'), freqs=freqs)
     np.save(os.path.join(temp_dir, 'some_npy'), values)
 
-    # now try to make FreqInterpolator objects with bad files/parameters
-    # bad object type
-    interp = FreqInterpolator(os.path.join(temp_dir, 'some_npy.npy'), obj='something')
+    # now try to make Beam objects with bad files/parameters
     # bad interpolator
-    interp = FreqInterpolator(os.path.join(temp_dir, 'some_npy.npy'), obj='beam',
-                           interpolator='something')
+    interp = Beam(os.path.join(temp_dir, 'some_npy.npy'), interpolator='something')
     # bad datafile extension v1
-    interp = FreqInterpolator(os.path.join(temp_dir, 'some_npy.npy'), obj='beam',
-                           interpolator='interp1d')
+    interp = Beam(os.path.join(temp_dir, 'some_npy.npy'), interpolator='interp1d')
     # bad datafile extension v2
-    interp = FreqInterpolator(os.path.join(temp_dir, 'no_freqs.npz'), obj='beam',
-                           interpolator='poly1d')
+    interp = Beam(os.path.join(temp_dir, 'no_freqs.npz'), interpolator='poly1d')
     # bad keys
-    interp = FreqInterpolator(os.path.join(temp_dir, 'no_freqs.npz'), obj='beam',
-                           interpolator='interp1d')
-    interp = FreqInterpolator(os.path.join(temp_dir, 'no_values.npz'), obj='beam',
-                           interpolator='interp1d')
+    interp = Beam(os.path.join(temp_dir, 'no_freqs.npz'), interpolator='interp1d')
+    interp = Beam(os.path.join(temp_dir, 'no_values.npz'), interpolator='interp1d')
     # nonexistent file
-    interp = FreqInterpolator(os.path.join(temp_dir, 'not_a_file.npz'), obj='beam',
-                           interpolator='interp1d')
-
-@raises(ValueError)
-def none_obj_type():
-    # make a temporary directory
-    temp_dir = tempfile.mkdtemp()
-
-    # make some mock data
-    data = np.random.random(10)
-
-    # save it
-    np.save(os.path.join(temp_dir, 'data'), data)
-
-    # try to make a FreqInterpolator object
-    interp = FreqInterpolator(os.path.join(temp_dir, 'data.npy'))
-
+    interp = Beam(os.path.join(temp_dir, 'not_a_file.npz'), interpolator='interp1d')
 
