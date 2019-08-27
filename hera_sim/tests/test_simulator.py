@@ -17,6 +17,7 @@ from hera_sim.noise import thermal_noise, HERA_Tsky_mdl
 from hera_sim.simulate import Simulator
 from hera_sim.antpos import hex_array
 from hera_sim.data import DATA_PATH
+from pyuvdata import UVData
 
 
 def create_sim(autos=False, **kwargs):
@@ -96,6 +97,7 @@ def test_io():
     sim.add_foregrounds("pntsrc_foreground")
     sim.add_gains()
 
+    # why is this print statement here?
     print(sim.data.antenna_names)
     sim.write_data(path.join(direc, 'tmp_data.uvh5'))
 
@@ -103,7 +105,13 @@ def test_io():
         data=path.join(direc, 'tmp_data.uvh5')
     )
 
+    uvd = UVData()
+    uvd.read_uvh5(path.join(direc, 'tmp_data.uvh5'))
+
+    sim3 = Simulator(data=uvd)
+
     assert np.all(sim.data.data_array == sim2.data.data_array)
+    assert np.all(sim.data.data_array == sim3.data.data_array)
 
     with assert_raises(ValueError):
         sim.write_data(path.join(direc, 'tmp_data.bad_extension'), file_type="bad_type")

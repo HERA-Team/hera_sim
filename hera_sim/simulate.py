@@ -219,7 +219,7 @@ class Simulator:
             )
 
         else:
-            if type(data) == str:
+            if type(data) is str:
                 self.data_filename = data
 
             if self.data_filename is not None:
@@ -231,7 +231,7 @@ class Simulator:
                     self.data.data_array[:] = 0.0
                     self.data.flag_array[:] = False
                     self.data.nsample_array[:] = 1.0
-            elif self.data is not None:
+            else:
                 self.data = data
 
         # Assume the phase type is drift unless otherwise specified.
