@@ -47,7 +47,7 @@ class Tsky(Interpolator):
     temperature array is evaluated.
     """
     def __init__(self, datafile, **interp_kwargs):
-        super().__init__(datafile, **interp_kwargs)
+        super(Tsky, self).__init__(datafile, **interp_kwargs)
         self._check_npz_format()
         self.pol = self._interp_kwargs.pop("pol", "xx")
         self._check_pol(self.pol)
@@ -167,7 +167,7 @@ class FreqInterpolator(Interpolator):
     functions in the hera_sim repository.
     """
     def __init__(self, datafile, **interp_kwargs):
-        super().__init__(datafile, **interp_kwargs)
+        super(FreqInterpolator, self).__init__(datafile, **interp_kwargs)
         self._interp_type = self._interp_kwargs.pop("interpolator", "poly1d")
         self._obj = None
     
@@ -250,7 +250,7 @@ class Beam(FreqInterpolator):
     TODO: fill out docstring
     """
     def __init__(self, datafile, **interp_kwargs):
-        super().__init__(datafile, **interp_kwargs)
+        super(Beam, self).__init__(datafile, **interp_kwargs)
         self._obj = "beam"
         self._check_format()
     """
@@ -262,7 +262,7 @@ class Bandpass(FreqInterpolator):
     TODO: fill out docstring
     """
     def __init__(self, datafile, **interp_kwargs):
-        super().__init__(datafile, **interp_kwargs)
+        super(Bandpass, self).__init__(datafile, **interp_kwargs)
         self._obj = "bandpass"
         self._check_format()
     """
