@@ -3,7 +3,7 @@ foregrounds:
         Tsky_mdl: !Tsky 
             datafile: HERA_Tsky_Reformatted.npz
             interp_kwargs: {}
-        omega_p: !freq_interp1d
+        omega_p: !FreqInterpolator
             datafile: HERA_H1C_BEAM_POLY.npy
             interp_kwargs:
                 obj: beam
@@ -26,7 +26,7 @@ noise:
         Tsky_mdl: !Tsky
             datafile: HERA_Tsky_Reformatted.npz
             interp_kwargs: {}
-        omega_p: !freq_interp1d
+        omega_p: !FreqInterpolator
             datafile: HERA_H1C_BEAM_POLY.npy
             interp_kwargs:
                 obj: beam

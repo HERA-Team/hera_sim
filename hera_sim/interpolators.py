@@ -32,7 +32,21 @@ def _read_npy(npy):
 # The latter option is likely better. _check_path may instead be a member
 # function of the `interpolator` class. Figure out what to do about the
 # `_read_npy` function.
-class Tsky:
+
+class Interpolator:
+    """
+    This class serves as the base interpolator class from which all other 
+    hera_sim interpolators inherit.
+    """
+    def __init__(self, datafile, **interp_kwargs):
+        self._datafile = _check_path(datafile)
+        self._data = np.load(self._datafile, allow_pickle=True)
+        self._interp_kwargs = interp_kwargs
+    """
+    TODO: fill out the docstring
+    """
+
+class Tsky(Interpolator):
     """
     This class provides an interface for converting paths to npz files into
     interpolation objects. In particular, this class takes a path to a npz
@@ -41,12 +55,10 @@ class Tsky:
     temperature array is evaluated.
     """
     def __init__(self, datafile, **interp_kwargs):
-        self.datafile = _check_path(datafile)
-        self._data = np.load(self.datafile, allow_pickle=True)
+        Interpolator.__init__(self, datafile, **interp_kwargs)
         self._check_npz_format()
-        self.pol = interp_kwargs.pop("pol", "xx")
+        self.pol = self._interp_kwargs.pop("pol", "xx")
         self._check_pol(self.pol)
-        self._interp_kwargs = interp_kwargs
 
     """
     Initialize the Tsky object from a path to a npz file with the required
@@ -155,7 +167,7 @@ class Tsky:
                 "The metadata contains the following polarizations: " \
                 "{}".format(self.meta['pols'])
 
-class freq_interp1d:
+class FreqInterpolator(Interpolator):
     """
     This class provides an interface for creating either a numpy.poly1d or a 
     scipy.interpolate.interp1d interpolation object from a reference file. This 
@@ -163,11 +175,9 @@ class freq_interp1d:
     functions in the hera_sim repository.
     """
     def __init__(self, datafile, **interp_kwargs):
-        self.datafile = _check_path(datafile)
-        self._data = np.load(self.datafile)
-        self._interp_type = interp_kwargs.pop("interpolator", "poly1d")
-        self._obj = interp_kwargs.pop("obj", None)
-        self._interp_kwargs = interp_kwargs
+        Interpolator.__init__(self, datafile, **interp_kwargs)
+        self._interp_type = self._interp_kwargs.pop("interpolator", "poly1d")
+        self._obj = self._interp_kwargs.pop("obj", None)
         self._check_format()
     
     """
@@ -245,7 +255,7 @@ class freq_interp1d:
                 "Interpolator choice must either be 'poly1d' or 'interp1d'."
 
         if self._interp_type=='interp1d':
-            assert path.splitext(self.datafile)[1] == '.npz', \
+            assert path.splitext(self._datafile)[1] == '.npz', \
                     "In order to use an 'interp1d' object, the reference file " \
                     "must be a '.npz' file."
             assert self._obj in self._data.keys() and 'freqs' in self._data.keys(), \
@@ -257,7 +267,7 @@ class freq_interp1d:
             # with the same keys as in the above case, but it seems silly to
             # use a polynomial interpolator instead of a spline interpolator in
             # this case
-            assert path.splitext(self.datafile)[1] == '.npy', \
+            assert path.splitext(self._datafile)[1] == '.npy', \
                     "In order to use a 'poly1d' object, the reference file " \
                     "must be a .npy file that contains the coefficients for " \
                     "the polynomial fit in decreasing order."
