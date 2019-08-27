@@ -289,6 +289,19 @@ class Simulator:
             pol_ind = self.data.get_pols().index(pol)
             yield ant1, ant2, pol, blt_inds, pol_ind
 
+    def _apply_vis(self, model, ant1, ant2, blt_ind, pol_ind, **kwargs):
+        # seed the RNG so that the sky is consistent across bls
+        seeded = kwargs.pop("seeded", False)
+        if seeded:
+            np.random.seed(0)
+
+        # get freqs from zeroth spectral window
+        fqs = self.data.freq_array[0] * 1e-9
+        lsts = self.data.lst_array[blt_ind]
+        bl_vec = (self.antpos[ant1] - self.antpos[ant2]) * 1e9 / const.c.value
+        vis = model(lsts=lsts, fqs=fqs, bl_vec=bl_vec, **kwargs)
+        self.data.data_array[blt_ind, 0, :, pol_ind] += vis
+    
     @_model()
     def add_eor(self, model, **kwargs):
         """
@@ -303,14 +316,8 @@ class Simulator:
                 Default True.
             **kwargs: keyword arguments sent to the EoR model function, other than `lsts`, `fqs` and `bl_vec`.
         """
-        # frequencies come from zeroths spectral window
-        fqs = self.data.freq_array[0] * 1e-9
-
         for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols():
-            lsts = self.data.lst_array[blt_ind]
-            bl_vec = (self.antpos[ant1] - self.antpos[ant2]) * 1e9 / const.c.value
-            vis = model(lsts=lsts, fqs=fqs, bl_vec=bl_vec, **kwargs)
-            self.data.data_array[blt_ind, 0, :, pol_ind] += vis
+            self._apply_vis(model, ant1, ant2, blt_ind, pol_ind, seeded=True, **kwargs)
 
     @_model()
     def add_foregrounds(self, model, **kwargs):
@@ -326,14 +333,30 @@ class Simulator:
                 Default True.
             **kwargs: keyword arguments sent to the foregournd model function, other than `lsts`, `fqs` and `bl_vec`.
         """
-        # frequencies come from zeroth spectral window
-        fqs = self.data.freq_array[0] * 1e-9
+        # account for multiple polarizations if effect is polarized
+        check_pol = True if "Tsky_mdl" in inspect.signature(model).parameters \
+                         and len(self.data.get_pols()) > 1 \
+                         else False
+
+        if check_pol:
+            assert "pol" in kwargs.keys(), \
+                    "Please specify which polarization the sky temperature " \
+                    "model corresponds to by passing in a value for the " \
+                    "kwarg 'pol'."
+            vis_pol = kwargs.pop("pol")
+            assert vis_pol in self.data.get_pols(), \
+                    "You are attempting to use a polarization not included " \
+                    "in the Simulator object you are working with. You tried " \
+                    "to use the polarization {}, but the Simulator object you " \
+                    "are working with only has the following polarizations: " \
+                    "{}".format(vis_pol, self.data.get_pols())
 
         for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols():
-            lsts = self.data.lst_array[blt_ind]
-            bl_vec = (self.antpos[ant1] - self.antpos[ant2]) * 1e9 / const.c.value
-            vis = model(lsts, fqs, bl_vec, **kwargs)
-            self.data.data_array[blt_ind, 0, :, pol_ind] += vis
+            if check_pol:
+                if pol == vis_pol:
+                    self._apply_vis(model, ant1, ant2, blt_ind, pol_ind, seeded=True, **kwargs)
+            else:
+                self._apply_vis(model, ant1, ant2, blt_ind, pol_ind, seeded=True, **kwargs)
 
     @_model()
     def add_noise(self, model, **kwargs):
@@ -350,6 +373,7 @@ class Simulator:
             **kwargs: keyword arguments sent to the noise model function, other than `lsts`, `fqs` and `bl_len_ns`.
         """
         for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols():
+            # this doesn't need to be seeded, does it?
             lsts = self.data.lst_array[blt_ind]
 
             self.data.data_array[blt_ind, 0, :, pol_ind] += model(
@@ -372,6 +396,8 @@ class Simulator:
         """
         for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols():
             lsts = self.data.lst_array[blt_ind]
+
+            # XXX this should be seeded according to the time corresponding to blt_ind
 
             # RFI added in-place (giving rfi= does not seem to work here)
             self.data.data_array[blt_ind, 0, :, 0] += model(
@@ -511,12 +537,12 @@ class Simulator:
                 uses_no_model.append(key)
 
         assert sim_file is not None or sim_params, \
-                'Either a path to a simulation file or a dictionary of ' + \
+                'Either a path to a simulation file or a dictionary of ' \
                 'simulation parameters must be provided.'
 
         assert sim_file is None or not sim_params, \
-                'Either a simulation configuration file or a dictionary ' + \
-                'of simulation parameters may be passed, but not both. ' + \
+                'Either a simulation configuration file or a dictionary ' \
+                'of simulation parameters may be passed, but not both. ' \
                 'Please choose only one of the two to pass as an argument.'
 
         # if a path to a simulation file is provided, then read it in
@@ -530,11 +556,11 @@ class Simulator:
 
         for model, params in sim_params.items():
             assert model in self.SIMULATION_COMPONENTS.keys(), \
-                    'Models must be supported by hera_sim. ' + \
+                    'Models must be supported by hera_sim. ' \
                     "'{}' is currently not supported.".format(model)
 
             assert isinstance(params, dict), \
-                    'Values of sim_params must be dictionaries. ' + \
+                    'Values of sim_params must be dictionaries. ' \
                     "The values for '{}' do not comply.".format(model)
 
             # since this currently only supports python 3.4 or newer, we can

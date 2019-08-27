@@ -15,10 +15,11 @@ from nose.tools import raises, assert_raises
 from hera_sim.foregrounds import diffuse_foreground
 from hera_sim.noise import thermal_noise, HERA_Tsky_mdl
 from hera_sim.simulate import Simulator
+from hera_sim.antpos import hex_array
 from hera_sim.data import DATA_PATH
 
 
-def create_sim(autos=False):
+def create_sim(autos=False, **kwargs):
     return Simulator(
         n_freq=10,
         n_times=20,
@@ -26,7 +27,8 @@ def create_sim(autos=False):
             0: (20.0, 20.0, 0),
             1: (50.0, 50.0, 0)
         },
-        no_autos=not autos
+        no_autos=not autos,
+        **kwargs
     )
 
 
@@ -161,6 +163,29 @@ def test_adding_vis_but_also_returning():
     vis = sim.add_foregrounds("diffuse_foreground", Tsky_mdl=HERA_Tsky_mdl['xx'], ret_vis=True)
     np.testing.assert_array_almost_equal(vis, sim.data.data_array, decimal=5)
 
+def test_mult_pols():
+    sim = create_sim(polarization_array=['xx','yy'])
+    sim.add_foregrounds("diffuse_foreground", Tsky_mdl=HERA_Tsky_mdl['xx'], pol='xx')
+    assert np.all(sim.data.get_data((0,1,'yy'))==0)
+    assert not np.all(sim.data.get_data((0,1,'xx'))==0)
+
+@raises(AssertionError)
+def test_bad_pol():
+    sim = create_sim(polarization_array=['xx','yy'])
+    # not specifying polarization
+    sim.add_foregrounds("diffuse_foreground", Tsky_mdl=HERA_Tsky_mdl['xx'])
+    # specifying bad polarization
+    sim.add_foregrounds("diffuse_foreground", Tsky_mdl=HERA_Tsky_mdl['xx'], pol='xy')
+
+def test_consistent_across_reds():
+    ants = hex_array(2,split_core=False,outriggers=0)
+    sim = Simulator(n_freq=50, n_times=20, antennas=ants)
+    sim.add_foregrounds('diffuse_foreground', Tsky_mdl=HERA_Tsky_mdl['xx'])
+    sim.add_eor('noiselike_eor')
+    reds = sim.data.get_baseline_redundancies()[0][1] # choose non-autos
+    key1 = sim.data.baseline_to_antnums(reds[0]) + ('xx',)
+    key2 = sim.data.baseline_to_antnums(reds[1]) + ('xx',)
+    assert np.all(np.isclose(sim.data.get_data(key1),sim.data.get_data(key2)))
 
 if sys.version_info.major < 3 or \
    sys.version_info.major > 3 and sys.version_info.minor < 4:
