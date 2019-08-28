@@ -238,7 +238,12 @@ class Simulator:
         if self.data.phase_type == "unknown":
             self.data.set_drift()
 
+        # what does this line do?
         self.data.baseline_array
+
+        # add redundant bl groups to UVData object's extra keywords
+        self.data.extra_keywords['reds'] = self.data.get_baseline_redundancies()[0]
+
         # Check if the created/read data is compatible with the assumptions of
         # this class.
         self._check_compatibility()
@@ -290,18 +295,26 @@ class Simulator:
             yield ant1, ant2, pol, blt_inds, pol_ind
 
     def _apply_vis(self, model, ant1, ant2, blt_ind, pol_ind, **kwargs):
-        # seed the RNG so that the sky is consistent across bls
-        seeded = kwargs.pop("seeded", False)
-        if seeded:
-            np.random.seed(0)
-
         # get freqs from zeroth spectral window
         fqs = self.data.freq_array[0] * 1e-9
         lsts = self.data.lst_array[blt_ind]
         bl_vec = (self.antpos[ant1] - self.antpos[ant2]) * 1e9 / const.c.value
         vis = model(lsts=lsts, fqs=fqs, bl_vec=bl_vec, **kwargs)
         self.data.data_array[blt_ind, 0, :, pol_ind] += vis
+
+    def _seed_redundantly(self, model):
+        np.random.seed(int(time.time()))
+        seeds = np.random.randint(2**32, size=len(self.data.extra_keywords['reds']))
+        self.data.extra_keywords["{}_seeds".format(str(model))] = seeds
     
+    def _get_seed(self, ant1, ant2, model):
+        seeds = self.data.extra_keywords["{}_seeds".format(str(model))]
+        bl = self.data.antnums_to_baseline(ant1, ant2)
+        key = []
+        for reds in self.data.extra_keywords['reds']:
+            key.append(bl in reds)
+        return seeds[key.index(True)]
+
     @_model()
     def add_eor(self, model, **kwargs):
         """
@@ -316,8 +329,16 @@ class Simulator:
                 Default True.
             **kwargs: keyword arguments sent to the EoR model function, other than `lsts`, `fqs` and `bl_vec`.
         """
+        seed_redundantly = kwargs.pop("seed_redundantly", False)
+        if seed_redundantly:
+            self._generate_seeds(model)
+
         for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols():
-            self._apply_vis(model, ant1, ant2, blt_ind, pol_ind, seeded=True, **kwargs)
+            if seed_redundantly:
+                seed = self._get_seed(ant1, ant2, model)
+                np.random.seed(seed)
+
+            self._apply_vis(model, ant1, ant2, blt_ind, pol_ind, seeded=True **kwargs)
 
     @_model()
     def add_foregrounds(self, model, **kwargs):
@@ -333,6 +354,10 @@ class Simulator:
                 Default True.
             **kwargs: keyword arguments sent to the foregournd model function, other than `lsts`, `fqs` and `bl_vec`.
         """
+        seed_redundantly = kwargs.pop("seed_redundantly", False)
+        if seed_redundantly:
+            self._generate_seeds(model)
+
         # account for multiple polarizations if effect is polarized
         check_pol = True if "Tsky_mdl" in inspect.signature(model).parameters \
                          and len(self.data.get_pols()) > 1 \
@@ -352,11 +377,15 @@ class Simulator:
                     "{}".format(vis_pol, self.data.get_pols())
 
         for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols():
+            if seed_redundantly:
+                seed = self._get_seed(ant1, ant2, model)
+                np.random.seed(seed)
+
             if check_pol:
                 if pol == vis_pol:
-                    self._apply_vis(model, ant1, ant2, blt_ind, pol_ind, seeded=True, **kwargs)
+                    self._apply_vis(model, ant1, ant2, blt_ind, pol_ind, **kwargs)
             else:
-                self._apply_vis(model, ant1, ant2, blt_ind, pol_ind, seeded=True, **kwargs)
+                self._apply_vis(model, ant1, ant2, blt_ind, pol_ind, **kwargs)
 
     @_model()
     def add_noise(self, model, **kwargs):
