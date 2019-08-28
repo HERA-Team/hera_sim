@@ -8,6 +8,7 @@ import inspect
 import sys
 import warnings
 import yaml
+import time
 
 import numpy as np
 from cached_property import cached_property
@@ -302,7 +303,7 @@ class Simulator:
         vis = model(lsts=lsts, fqs=fqs, bl_vec=bl_vec, **kwargs)
         self.data.data_array[blt_ind, 0, :, pol_ind] += vis
 
-    def _seed_redundantly(self, model):
+    def _generate_seeds(self, model):
         np.random.seed(int(time.time()))
         seeds = np.random.randint(2**32, size=len(self.data.extra_keywords['reds']))
         self.data.extra_keywords["{}_seeds".format(str(model))] = seeds
@@ -338,7 +339,7 @@ class Simulator:
                 seed = self._get_seed(ant1, ant2, model)
                 np.random.seed(seed)
 
-            self._apply_vis(model, ant1, ant2, blt_ind, pol_ind, seeded=True **kwargs)
+            self._apply_vis(model, ant1, ant2, blt_ind, pol_ind, **kwargs)
 
     @_model()
     def add_foregrounds(self, model, **kwargs):

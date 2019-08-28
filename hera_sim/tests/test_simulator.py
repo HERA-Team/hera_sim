@@ -188,8 +188,9 @@ def test_bad_pol():
 def test_consistent_across_reds():
     ants = hex_array(2,split_core=False,outriggers=0)
     sim = Simulator(n_freq=50, n_times=20, antennas=ants)
-    sim.add_foregrounds('diffuse_foreground', Tsky_mdl=HERA_Tsky_mdl['xx'])
-    sim.add_eor('noiselike_eor')
+    sim.add_foregrounds('diffuse_foreground', Tsky_mdl=HERA_Tsky_mdl['xx'],
+            seed_redundantly=True)
+    sim.add_eor('noiselike_eor', seed_redundantly=True)
     reds = sim.data.get_baseline_redundancies()[0][1] # choose non-autos
     key1 = sim.data.baseline_to_antnums(reds[0]) + ('xx',)
     key2 = sim.data.baseline_to_antnums(reds[1]) + ('xx',)
