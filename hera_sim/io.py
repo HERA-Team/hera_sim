@@ -4,6 +4,7 @@ codes, especially UVData.
 """
 import numpy as np
 from pyuvsim.simsetup import initialize_uvdata_from_keywords
+from .defaults import _defaults
 
 HERA_LAT_LON_ALT = (
     np.degrees(-0.53619179912885),
@@ -11,7 +12,7 @@ HERA_LAT_LON_ALT = (
     1073.0000000074506
 )
 
-
+@_defaults
 def empty_uvdata(nfreq, ntimes, ants, **kwargs):
     """Construct and return a full :class:`pyuvdata.UVData` object, with empty
     `data_array`.

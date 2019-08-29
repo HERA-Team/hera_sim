@@ -5,21 +5,20 @@ import aipy
 import warnings
 
 from . import noise
-
-HERA_NRAO_BANDPASS = np.array(
-    [
-        -2.04689451e06,
-        1.90683718e06,
-        -7.41348361e05,
-        1.53930807e05,
-        -1.79976473e04,
-        1.12270390e03,
-        -2.91166102e01,
-    ]
-)  # See "HERA's Passband to First Order"
+from .interpolators import _read_npy
+from .defaults import _defaults
 
 
-def gen_bandpass(fqs, ants, gain_spread=0.1):
+@_defaults
+def _get_hera_bandpass(datafile="HERA_H1C_BANDPASS.npy"):
+    return _read_npy(datafile)
+
+# turns out this will fix HERA_NRAO_BANDPASS as the H1C bandpass
+# see "HERA's Passband to First Order" for info on how the
+# bandpass was modeled for H1C
+HERA_NRAO_BANDPASS = _get_hera_bandpass()
+
+def gen_bandpass(fqs, ants, gain_spread=0.1, bp_poly=None):
     """
     Produce a set of mock bandpass gains with variation based around the
     HERA_NRAO_BANDPASS model.
@@ -39,7 +38,9 @@ def gen_bandpass(fqs, ants, gain_spread=0.1):
     See Also:
         :meth:`~gen_gains`: uses this function to generate full gains.
     """
-    bp_base = np.polyval(HERA_NRAO_BANDPASS, fqs)
+    if bp_poly is None:
+        bp_poly = _get_hera_bandpass()
+    bp_base = np.polyval(bp_poly, fqs)
     window = aipy.dsp.gen_window(fqs.size, 'blackman-harris')
     _modes = np.abs(np.fft.fft(window * bp_base))
     g = {}

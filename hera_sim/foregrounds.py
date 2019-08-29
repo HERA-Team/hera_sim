@@ -11,8 +11,9 @@ from builtins import range
 
 from . import noise
 from . import utils
+from .defaults import _defaults
 
-
+@_defaults
 def diffuse_foreground(lsts, fqs, bl_vec, Tsky_mdl=None, omega_p=None,
                        standoff=0.0, delay_filter_type='tophat', delay_filter_normalize=None,
                        fringe_filter_type='tophat', **fringe_filter_kwargs):
@@ -46,6 +47,8 @@ def diffuse_foreground(lsts, fqs, bl_vec, Tsky_mdl=None, omega_p=None,
         raise TypeError("Tsky_mdl is a required parameter of diffuse_foreground")
     if omega_p is None:
         omega_p = noise.bm_poly_to_omega_p(fqs)
+    elif callable(omega_p):
+        omega_p = omega_p(fqs)
 
     # generate a Tsky visibility in time and freq space, convert from K to Jy
     Tsky = Tsky_mdl(lsts, fqs)
@@ -65,7 +68,6 @@ def diffuse_foreground(lsts, fqs, bl_vec, Tsky_mdl=None, omega_p=None,
     mdl = utils.rough_delay_filter(mdl, fqs, np.linalg.norm(bl_vec), standoff=standoff, filter_type=delay_filter_type, normalize=delay_filter_normalize)
 
     return mdl
-
 
 def pntsrc_foreground(lsts, fqs, bl_vec, nsrcs=1000, Smin=0.3, Smax=300,
                       beta=-1.5, spectral_index_mean=-1, spectral_index_std=0.5,

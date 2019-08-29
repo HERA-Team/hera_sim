@@ -14,7 +14,7 @@ from nose.tools import raises, assert_raises
 
 from hera_sim.foregrounds import diffuse_foreground
 from hera_sim.noise import thermal_noise, HERA_Tsky_mdl
-from hera_sim.simulate import Simulator, VersionError
+from hera_sim.simulate import Simulator
 from hera_sim.data import DATA_PATH
 
 
@@ -164,7 +164,7 @@ def test_adding_vis_but_also_returning():
 
 if sys.version_info.major < 3 or \
    sys.version_info.major > 3 and sys.version_info.minor < 4:
-    @raises(VersionError)
+    @raises(NotImplementedError)
     def test_run_sim():
         sim_params = {}
         sim = create_sim()
@@ -198,8 +198,8 @@ else:
         with open(tmp_sim_file, 'w') as sim_file:
             sim_file.write("""
                 diffuse_foreground: 
-                    Tsky_mdl: 
-                        file: {}/HERA_Tsky_Reformatted.npz
+                    Tsky_mdl: !Tsky
+                        datafile: {}/HERA_Tsky_Reformatted.npz
                         pol: yy
                 pntsrc_foreground: 
                     nsrcs: 500
@@ -213,8 +213,8 @@ else:
                     dly: 13.2
                     phs: 2.1123
                 thermal_noise: 
-                    Tsky_mdl: 
-                        file: {}/HERA_Tsky_Reformatted.npz
+                    Tsky_mdl: !Tsky 
+                        datafile: {}/HERA_Tsky_Reformatted.npz
                         pol: xx
                     inttime: 9.72
                 rfi_scatter: 
@@ -261,31 +261,6 @@ else:
                     is: a
                      bad: file
                      """)
-        sim = create_sim()
-        sim.run_sim(tmp_sim_file)
-
-    @raises(KeyError)
-    def test_bad_tsky_key():
-        # make a config file with no file key for Tsky_mdl
-        tmp_sim_file = tempfile.mkstemp()[1]
-        with open(tmp_sim_file, 'w') as sim_file:
-            sim_file.write("""
-                diffuse_foreground: 
-                    Tsky_mdl: 
-                        pol: xx
-                        """)
-        sim = create_sim()
-        sim.run_sim(tmp_sim_file)
-
-    @raises(TypeError)
-    def test_bad_tsky_mdl():
-        # make a config file where Tsky_mdl is not a dict
-        tmp_sim_file = tempfile.mkstemp()[1]
-        with open(tmp_sim_file, 'w') as sim_file:
-            sim_file.write("""
-                diffuse_foreground:
-                    Tsky_mdl: 13
-                    """)
         sim = create_sim()
         sim.run_sim(tmp_sim_file)
 
