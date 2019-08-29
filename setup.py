@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 import glob
 import os
 import sys
@@ -38,6 +38,7 @@ def package_files(package_dir, subdirectory):
 
 
 data_files = package_files("hera_sim", "data")
+data_files += package_files("hera_sim", "config")
 
 setup_args = {
     "name": "hera_sim",
@@ -46,7 +47,7 @@ setup_args = {
     "license": "BSD",
     "description": "collection of simulation routines describing the HERA instrument.",
     "package_dir": {"hera_sim": "hera_sim"},
-    "packages": ["hera_sim"],
+    "packages": find_packages(),
     "include_package_data": True,
     "install_requires": [
         'numpy>=1.14',
