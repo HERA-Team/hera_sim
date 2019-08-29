@@ -53,7 +53,7 @@ class PRISim(VisibilitySimulator):
         labels=np.asarray(self.uvdata.get_antpairs(), dtype=[("A2", int), ("A1", int)])
 
         antpairs = self.uvdata.get_antpairs()
-        baseline_vectors = np.array([antpos[antpairs[i][0]] - antpos[antpairs[i][1]] for i in range(len(antpairs))])
+        baseline_vectors = np.array([antpos[ant[0]] - antpos[ant[1]] for ant in antpairs]) ### ASK
         print "BASELINE VECTORS", baseline_vectors
         print "ANTPOS SHAPE", antpos.shape
          
@@ -298,11 +298,14 @@ class PRISim(VisibilitySimulator):
                 roi_ind_snap = np.array([])
                 roi_pbeam_snap = np.array([])
 
+            # UVData has a bandpass_array, but AnalyticBeams do not
+            bandpass = getattr(self.beams[0], "bandpass_array", np.ones_like(self.uvdata.freq_array[0]))
+
             self.interferometer.observe(
                 timeobj=self._astropy_times[j],
                 Tsysinfo={"Tnet": 0},
-                bandpass=np.ones_like(self.uvdata.freq_array[0]),     #############################################self.beams[0].bandpass_array,
-                pointing_center=np.array([90.0, 270.0]),            ###################3333333 so now a list of list
+                bandpass=bandpass,
+                pointing_center=np.array([90.0, 270.0]), ### ASK      
                 skymodel=self.sky_model,
                 t_acc=self.uvdata.integration_time[0],
                 pb_info={

@@ -53,8 +53,8 @@ def uvbeam_to_lm(uvbeam, freqs, n_pix_lm=63, trunc_at_horizon=False, **kwargs):
     Returns:
         ndarray, shape[nfreq, beam_px, beam_px]: the beam map cube.
     """
-
-    l = np.linspace(-1, 1, n_pix_lm, dtype=np.float32)
+    
+    l = np.linspace(-1, 1, n_pix_lm, dtype=np.float64)
     l, m = np.meshgrid(l, l)
     l = l.flatten()
     m = m.flatten()
@@ -71,11 +71,19 @@ def uvbeam_to_lm(uvbeam, freqs, n_pix_lm=63, trunc_at_horizon=False, **kwargs):
 
     # Get the relevant indices of res
     bm = np.zeros((len(freqs), len(l)))
-
+    
+    powerXX = res[0, 0, 1]**2 + res[1, 0, 1]**2
+    
     if trunc_at_horizon:
-        bm[:, n >= 0] = res[0, 0, 1][:, n >= 0]**2 + res[1, 0, 1][:, n>=0]**2
+        bm[:, n >= 0] = powerXX[:, n >= 0]
     else:
-        bm = res[0, 0, 1]**2 + res[1, 0, 1]**2
+        bm = powerXX
+    
+
+#     if trunc_at_horizon:
+#         bm[:, n >= 0] = res[0, 0, 1][:, n >= 0]**2 + res[1, 0, 1][:, n>=0]**2
+#     else:
+#         bm = res[0, 0, 1]**2 + res[1, 0, 1]**2
 
     if np.max(bm) > 0:
         bm /= np.max(bm)
