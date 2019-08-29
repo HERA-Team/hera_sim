@@ -63,3 +63,7 @@ run
 
 ## Documentation
 https://hera-sim.readthedocs.io/en/latest/
+
+## Versioning
+We use semantic versioning (`major`.`minor`.`patch`) for the `hera_sim` package (see 
+https://semver.org). To briefly summarize, new `major` versions include API-breaking changes, new `minor` versions add new features in a backwards-compatible way, and new `patch` versions implement backwards-compatible bug fixes.
