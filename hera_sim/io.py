@@ -52,7 +52,7 @@ def empty_uvdata(nfreq, ntimes, ants, antpairs=None, pols=['xx', ],
     uvd = uv.UVData()
 
     # Basic time and freq. specs
-    sim_freq = (min_freq + np.arange(nfreq) * channel_bw) * 1e9  # Hz
+    sim_freq = (min_freq + np.arange(nfreq) * channel_bw) * 1e9 # TRY DIF MULTIPLYING HERE * 1e9  # Hz
     sim_times = start_jd + np.arange(ntimes) * time_per_integ / SEC_PER_SDAY
     sim_pols = pols
     lat, lon, alt = telescope_lat_lon_alt
@@ -82,6 +82,11 @@ def empty_uvdata(nfreq, ntimes, ants, antpairs=None, pols=['xx', ],
 
     # Generate the antpairs if they are not given explicitly.
     antpairs, ant1, ant2 = _get_antpairs(ants, antpairs)
+    
+    def unique(arr):
+        arr = np.array(arr)
+        indices = np.unique(arr, return_index=True)[1]
+        return np.array([arr.flatten()[i] for i in sorted(indices)])
 
     defined_ants = ants.keys()
     ants_not_found = []

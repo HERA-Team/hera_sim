@@ -29,6 +29,50 @@ def uvdata():
         },
         antpairs=[(0, 0)]
     )
+@pytest.fixture
+def uvdataJD():
+    return io.empty_uvdata(
+        nfreq=NFREQ,
+        time_per_integ=io.SEC_PER_SDAY / NTIMES,
+        ntimes=NTIMES,
+        ants={
+            0: (0, 0, 0),
+        },
+        antpairs=[(0, 0)],
+        start_jd=2458150
+    )
+
+
+
+def test_JD(uvdata, uvdataJD):
+    freqs = np.unique(uvdata.freq_array)
+
+    # put a point source in
+    point_source_pos = np.array([[0, uvdata.telescope_lat_lon_alt[0]]])
+    point_source_flux = np.array([[1.0]] * len(freqs))
+
+    viscpu1 = vis.VisCPU(
+        uvdata=uvdata,
+        sky_freqs=np.unique(uvdata.freq_array),
+        point_source_flux=point_source_flux,
+        point_source_pos=point_source_pos,
+        nside=2**4
+    ).simulate()
+
+    viscpu2 = vis.VisCPU(
+        uvdata=uvdataJD,
+        sky_freqs=np.unique(uvdataJD.freq_array),
+        point_source_flux=point_source_flux,
+        point_source_pos=point_source_pos,
+        nside=2 ** 4
+    ).simulate()
+
+    print "DEFAULT JD", viscpu1
+    print "DIFF JD", viscpu2
+
+
+    assert viscpu1.shape == viscpu2.shape
+    assert not np.allclose(viscpu1, viscpu2, atol=0.1)
 
 @pytest.fixture
 def uvdata2():
@@ -206,7 +250,9 @@ def test_simulator_comparison(uvdata):
         sky_freqs=np.unique(uvdata.freq_array),
         point_source_flux=point_source_flux,
         point_source_pos=point_source_pos,
-        nside=2**4
+        nside=2**4,
+        real_dtype=np.float64,
+        complex_dtype=np.complex128
     ).simulate()
 
     healvis = vis.HealVis(
@@ -223,9 +269,12 @@ def test_simulator_comparison(uvdata):
     print("VISCPU SUM", np.sum(viscpu))
     print("HEALVIS NUM NONZERO", np.count_nonzero(healvis))
     print("VISCPU NUM NONZERO", np.count_nonzero(viscpu))
+
+    print "HEALVIS", healvis
+    print "VISCPU", viscpu
    
     assert viscpu.shape == healvis.shape
-    assert np.testing.assert_allclose(viscpu, healvis) ################################################333
+    assert np.testing.assert_allclose(viscpu, healvis, atol=1e-7) 
 
 def test_simulator_comparison2(uvdata):
     freqs = np.unique(uvdata.freq_array)
@@ -239,6 +288,8 @@ def test_simulator_comparison2(uvdata):
         sky_freqs=np.unique(uvdata.freq_array),
         point_source_flux=point_source_flux,
         point_source_pos=point_source_pos,
+        real_dtype=np.float64,
+        complex_dtype=np.complex128,
         nside=2**4
     ).simulate()
 
@@ -256,9 +307,12 @@ def test_simulator_comparison2(uvdata):
     print("VISCPU SUM2", np.sum(viscpu))
     print("HEALVIS NUM NONZERO2", np.count_nonzero(healvis))
     print("VISCPU NUM NONZERO2", np.count_nonzero(viscpu))
+
+    print "HEALVIS2", healvis
+    print "VISCPU2", viscpu
    
     assert viscpu.shape == healvis.shape
-    assert np.testing.assert_allclose(viscpu, healvis)
+    assert np.testing.assert_allclose(viscpu, healvis, atol=1e-7)
 
 def test_simulator_comparison3(uvdata2):
     freqs = np.unique(uvdata2.freq_array)
@@ -274,7 +328,7 @@ def test_simulator_comparison3(uvdata2):
         point_source_pos=point_source_pos,
         nside=2**4,
         real_dtype=np.float64,
-        complex_dtype=np.complex128 ##################### W/Out high precision the sum(viscpu) is very dif than sum(healvis)
+        complex_dtype=np.complex128, 
     ).simulate()
 
     healvis = vis.HealVis(
@@ -300,7 +354,7 @@ def test_simulator_comparison3(uvdata2):
 
     
     assert viscpu.shape == healvis.shape
-    assert np.testing.assert_allclose(viscpu, healvis) 
+    assert np.testing.assert_allclose(viscpu, healvis, atol=1e-7) 
 
 
 if __name__ == "__main__":

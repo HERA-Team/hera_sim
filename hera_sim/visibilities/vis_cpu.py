@@ -1,7 +1,7 @@
 """
-``vis_cpu`` visibility simulator.
+vis_cpu visibility simulator.
 
-This is a fast, simple visibility simulator that
+This is a fast, simple visibility simulator that is intended to be replaced by vis_gpu
 """
 import numpy as np
 from scipy.interpolate import RectBivariateSpline
@@ -13,8 +13,8 @@ from .simulators import VisibilitySimulator
 
 class VisCPU(VisibilitySimulator):
 
-    def __init__(self, bm_pix=31, real_dtype=np.float32, ####### bm_pix was = 100 on default
-                 complex_dtype=np.complex64, **kwargs):
+    def __init__(self, bm_pix=100, real_dtype=np.float32,
+                 complex_dtype=np.complex64, c=299792458.0, **kwargs):
         """
         Fast visibility simulator on the CPU.
 
@@ -30,20 +30,23 @@ class VisCPU(VisibilitySimulator):
         self._real_dtype = real_dtype
         self._complex_dtype = complex_dtype
         self.bm_pix = bm_pix
+        self.c = c
 
 
         super(VisCPU, self).__init__(**kwargs)
 
         # Convert some of our arguments to forms more simple for vis_cpu
-        self.antpos = self.uvdata.get_ENU_antpos()[0].astype(self._real_dtype)
+        self.antpos = self.uvdata.get_ENU_antpos()[0].astype(self._real_dtype)        
+        
         self.freqs = self.uvdata.freq_array[0]
 
     @property
     def lsts(self):
         try:
             return self.__lsts
-        except AttributeError:
-            self.__lsts = np.unique(self.uvdata.lst_array)
+        except AttributeError:      
+            self.__lsts = self.uvdata.lst_array[::self.uvdata.Nbls] ####np.unique(self.uvdata.lst_array)
+
             return self.__lsts
 
     def validate(self):
@@ -98,9 +101,11 @@ class VisCPU(VisibilitySimulator):
 
         sid_time = self.uvdata.lst_array[::self.uvdata.Nbls]
         eq2tops = np.empty((len(sid_time), 3, 3), dtype=self._real_dtype)
-
+        
+        #ra, dec = self.point_source_pos.T
+        
         for i, st in enumerate(sid_time):
-            eq2tops[i] = conversions.eq2top_m(-st, self.uvdata.telescope_lat_lon_alt[0])
+            eq2tops[i] = conversions.eq2top_m(st, self.uvdata.telescope_lat_lon_alt[0]) ######### WAS -st
 
         return eq2tops
 
@@ -112,21 +117,20 @@ class VisCPU(VisibilitySimulator):
 
         for i, freq in enumerate(self.freqs):
 
-            #print("BEAM_LM", i, beam_lm[:, i])
-
             vis = vis_cpu(
                 antpos=self.antpos,
-                freq=freq,
+                freq=self.freqs[i],
                 eq2tops=eq2tops,
                 crd_eq=crd_eq,
                 I_sky=I[i],
                 bm_cube=beam_lm[:, i],
                 real_dtype=self._real_dtype,
-                complex_dtype=self._complex_dtype
+                complex_dtype=self._complex_dtype,
+                c=self.c
             )
-
+            
             visfull[:, 0, i, 0] = vis.flatten()
-
+            
         return visfull
 
     def _simulate_diffuse(self):
@@ -151,7 +155,7 @@ class VisCPU(VisibilitySimulator):
 
 
 def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube, real_dtype=np.float32,
-            complex_dtype=np.complex64):
+            complex_dtype=np.complex64, c=299792458.0):
     """
     Calculate visibility from an input intensity map and beam model.
 
@@ -184,7 +188,9 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube, real_dtype=np.float32
     #print("freq", freq)
     #print("eq2tops", eq2tops)
     #print("crd_eq", crd_eq)
-    #print("bm_cube", bm_cube)
+#     print("bm_cube", bm_cube)
+#     print "bm_cube max", np.max(bm_cube)
+#     print "bm_cube min", np.min(bm_cube)
 
     #bm_cube = np.ones_like(bm_cube)
 
@@ -209,6 +215,7 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube, real_dtype=np.float32
     # Intensity distribution (sqrt) and antenna positions
     Isqrt = np.sqrt(I_sky).astype(real_dtype)  # XXX does not support negative sky
     antpos = antpos.astype(real_dtype)
+    
     ang_freq = 2 * np.pi * freq
 
     # Empty arrays: beam pattern, visibilities, delays, complex voltages
@@ -224,16 +231,25 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube, real_dtype=np.float32
     # Loop over time samples
     for t, eq2top in enumerate(eq2tops.astype(real_dtype)):
         tx, ty, tz = crd_top = np.dot(eq2top, crd_eq)
+        
+        #print "VISCPU CRD_TOP", crd_top
+        
         for i in range(nant):
             # Linear interpolation of primary beam pattern
             spline = RectBivariateSpline(bm_pix_y, bm_pix_x, bm_cube[i], kx=1, ky=1)
-            A_s[i] = spline(ty, tx, grid=False)
+            A_s[i] = spline(ty, tx, grid=True)
 
         A_s = np.where(tz > 0, A_s, 0)
 
         # Calculate delays
         np.dot(antpos, crd_top, out=tau)
-        np.exp((1.0j * ang_freq) * tau, out=v)
+        ############## TAU = (b * s) / c ###################### !!!!!
+        tau = tau/c
+        
+        
+        np.exp(1.0j * (ang_freq * tau), out=v)
+        
+        #print "VISCPU ARGUMENT OF EXPONENTIAL", ang_freq * tau[1][0]
 
         # Complex voltages
         v *= A_s * Isqrt

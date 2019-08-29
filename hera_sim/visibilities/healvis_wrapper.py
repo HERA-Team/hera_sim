@@ -7,6 +7,8 @@ import healpy
 import numpy as np
 from cached_property import cached_property
 
+import pyuvsim
+
 try:
     from healvis.beam_model import AnalyticBeam
     from healvis.simulator import setup_observatory_from_uvdata
@@ -28,9 +30,25 @@ class HealVis(VisibilitySimulator):
 
         # A bit of a hack here because healvis uses its own AnalyticBeam,
         # and doesn't check if you are using pyuvsim's one. This should be fixed.
+        
+
+        
         if "beams" not in kwargs:
             kwargs['beams'] = [AnalyticBeam("uniform")]
-
+            
+        # Check if pyuvsim.analyticbeam and switch to healvis.beam_model
+        if isinstance(kwargs['beams'][0], pyuvsim.analyticbeam.AnalyticBeam):
+            old_args = kwargs['beams'][0].__dict__
+            
+            if old_args['type'] == "gaussian":
+                raise NotImplementedError("HEALVIS DOES NOT PERMIT GAUSSIAN BEAM + DIAMETER")
+            
+            beam_type=old_args['type']
+            ref_freq=old_args['ref_freq']
+            spectral_index=old_args['spectral_index']
+            diameter=old_args['diameter']
+            kwargs['beams'] = [AnalyticBeam(beam_type=beam_type, ref_freq=ref_freq, spectral_index=spectral_index, diameter=diameter)]
+            
         super(HealVis, self).__init__(**kwargs)
 
     def validate(self):
@@ -59,9 +77,11 @@ class HealVis(VisibilitySimulator):
     @cached_property
     def observatory(self):
         """A healvis :class:`healvis.observatory.Observatory` instance"""
-        return setup_observatory_from_uvdata(
+        obs =  setup_observatory_from_uvdata(
             self.uvdata, fov=self.fov, beam=self.beams[0]
         )
+        
+        return obs
 
     def _simulate(self):
         """
