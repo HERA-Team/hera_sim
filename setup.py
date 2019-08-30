@@ -53,7 +53,6 @@ setup_args = {
         'numpy>=1.14',
         'scipy',
         'cached_property',
-        'mpi4py',   # this is a dependency of pyuvsim which currently is not automatically installed. Remove when possible.
         'pyuvsim',
         'pyuvdata',
         'aipy>=3.0.0rc2'
