@@ -104,6 +104,7 @@ class VisCPU(VisibilitySimulator):
         
         #ra, dec = self.point_source_pos.T
         
+        
         for i, st in enumerate(sid_time):
             eq2tops[i] = conversions.eq2top_m(st, self.uvdata.telescope_lat_lon_alt[0]) ######### WAS -st
 
@@ -237,13 +238,13 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube, real_dtype=np.float32
         for i in range(nant):
             # Linear interpolation of primary beam pattern
             spline = RectBivariateSpline(bm_pix_y, bm_pix_x, bm_cube[i], kx=1, ky=1)
-            A_s[i] = spline(ty, tx, grid=True)
+            A_s[i] = spline(ty, tx, grid=False)
 
         A_s = np.where(tz > 0, A_s, 0)
 
         # Calculate delays
         np.dot(antpos, crd_top, out=tau)
-        ############## TAU = (b * s) / c ###################### !!!!!
+        #TAU = (b * s) / c
         tau = tau/c
         
         
