@@ -37,7 +37,7 @@ install:
   - conda env update -q -n test-env -f environment.yml
   - conda activate test-env
 
-script: pytest hera_sim --cov=hera_sim --verbose
+script: pytest --verbose
 
 after_success:
   - coveralls
