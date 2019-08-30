@@ -18,6 +18,7 @@ dependencies:
   - pyuvdata
   - scipy
   - pyyaml
+  - psutil
   - future #only for python 2
   - pip:
     - cached-property
