@@ -19,6 +19,7 @@ dependencies:
   - scipy
   - pyyaml
   - psutil
+  - healvis
   - future #only for python 2
   - pip:
     - cached-property
