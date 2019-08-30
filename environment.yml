@@ -18,6 +18,9 @@ dependencies:
   - scipy
   - pyyaml
   - psutil
+  - astropy
+  - numba
+  - multiprocessing
   - future #only for python 2
   - pip:
     - cached-property
