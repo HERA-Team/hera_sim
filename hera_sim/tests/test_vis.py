@@ -63,10 +63,6 @@ def test_JD(uvdata, uvdataJD):
         nside=2 ** 4
     ).simulate()
 
-    print "DEFAULT JD", viscpu1
-    print "DIFF JD", viscpu2
-
-
     assert viscpu1.shape == viscpu2.shape
     assert not np.allclose(viscpu1, viscpu2, atol=0.1)
 
