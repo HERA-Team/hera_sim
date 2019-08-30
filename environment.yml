@@ -17,7 +17,8 @@ dependencies:
   - pyuvdata
   - scipy
   - pyyaml
-  - future # only for python 2
+  - psutil
+  - future #only for python 2
   - pip:
     - cached-property
     - git+https://github.com/RadioAstronomySoftwareGroup/pyuvsim.git
