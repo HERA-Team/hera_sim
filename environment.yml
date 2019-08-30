@@ -13,7 +13,7 @@ dependencies:
   - nose
   - numpy
   - pip
-  - pytest
+  - pytest-cov
   - pyuvdata
   - scipy
   - pyyaml
