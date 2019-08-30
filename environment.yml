@@ -23,4 +23,4 @@ dependencies:
     - cached-property
     - git+https://github.com/RadioAstronomySoftwareGroup/pyuvsim.git
     - git+https://github.com/HERA-Team/uvtools.git
-    - healvis
+    - git+https://github.com/RadioAstronomySoftwareGroup/healvis.git
