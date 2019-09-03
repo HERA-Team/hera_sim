@@ -1,5 +1,16 @@
 """A module for generating realistic HERA RFI."""
+from __future__ import division
+from __future__ import unicode_literals
+from __future__ import print_function
+from __future__ import absolute_import
 
+from future import standard_library
+standard_library.install_aliases()
+from builtins import *
+from builtins import zip
+from past.builtins import basestring
+from builtins import object
+from past.utils import old_div
 from astropy.units import sday
 import numpy as np
 from os import path
@@ -77,13 +88,13 @@ class RfiStation:
             ch2 = ch1 - 1
         phs1, phs2 = np.random.uniform(0, 2 * np.pi, size=2)
         signal = 0.999 * np.cos(
-            lsts * sday.to("s") / self.timescale + phs1
+            old_div(lsts * sday.to("s"), self.timescale) + phs1
         ) + 2 * (self.duty_cycle - 0.5)
         signal = np.where(
             signal > 0, np.random.normal(self.strength, self.std) * np.exp(1j * phs2), 0
         )
-        rfi[:, ch1] += signal * (1 - np.abs(fqs[ch1] - self.fq0) / sdf).clip(0, 1)
-        rfi[:, ch2] += signal * (1 - np.abs(fqs[ch2] - self.fq0) / sdf).clip(0, 1)
+        rfi[:, ch1] += signal * (1 - old_div(np.abs(fqs[ch1] - self.fq0), sdf)).clip(0, 1)
+        rfi[:, ch2] += signal * (1 - old_div(np.abs(fqs[ch2] - self.fq0), sdf)).clip(0, 1)
         return rfi
 
 

@@ -4,7 +4,14 @@ A module containing functions for generating EoR-like signals.
 Each model may take arbitrary parameters, but must return a 2D complex array containing the visibilities at the
 requested baseline, for the requested lsts and frequencies.
 """
+from __future__ import unicode_literals
+from __future__ import print_function
+from __future__ import division
+from __future__ import absolute_import
 
+from future import standard_library
+standard_library.install_aliases()
+from builtins import *
 import numpy as np
 from scipy import interpolate
 import aipy

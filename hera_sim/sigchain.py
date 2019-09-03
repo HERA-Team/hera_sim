@@ -1,5 +1,13 @@
 """A module for modeling HERA signal chains."""
+from __future__ import division
+from __future__ import unicode_literals
+from __future__ import print_function
+from __future__ import absolute_import
 
+from future import standard_library
+standard_library.install_aliases()
+from builtins import *
+from past.utils import old_div
 import numpy as np
 import aipy
 import warnings
@@ -267,7 +275,7 @@ def gen_whitenoise_xtalk(fqs, amplitude=3.0):
     """
     xtalk = np.convolve(
         noise.white_noise(fqs.size),
-        np.ones(50 if fqs.size > 50 else int(fqs.size/2)),
+        np.ones(50 if fqs.size > 50 else int(old_div(fqs.size,2))),
         'same'
     )
 

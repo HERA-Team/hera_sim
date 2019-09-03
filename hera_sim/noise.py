@@ -1,7 +1,15 @@
 """
 A module for generating realistic HERA noise.
 """
+from __future__ import division
+from __future__ import unicode_literals
+from __future__ import print_function
+from __future__ import absolute_import
 
+from future import standard_library
+standard_library.install_aliases()
+from builtins import *
+from past.utils import old_div
 import numpy as np
 from scipy.interpolate import RectBivariateSpline
 import aipy
@@ -64,8 +72,8 @@ def jy2T(fqs, omega_p):
             a frequency-dependent scalar converting Jy to mK for the provided
             beam size.'''
     """
-    lam = aipy.const.c / (fqs * 1e9)
-    return 1e-23 * lam ** 2 / (2 * aipy.const.k * omega_p) * 1e3 # XXX make Kelvin in future
+    lam = old_div(aipy.const.c, (fqs * 1e9))
+    return old_div(1e-23 * lam ** 2, (2 * aipy.const.k * omega_p) * 1e3) # XXX make Kelvin in future
 
 
 def white_noise(size=1):
@@ -114,7 +122,7 @@ def resample_Tsky(fqs, lsts, Tsky_mdl=None, Tsky=180.0, mfreq=0.18, index=-2.5):
     if Tsky_mdl is not None:
         tsky = Tsky_mdl(lsts, fqs)  # support an interpolation object
     else:
-        tsky = Tsky * (fqs / mfreq) ** index  # default to a scalar
+        tsky = Tsky * (old_div(fqs, mfreq)) ** index  # default to a scalar
         tsky = np.resize(tsky, (lsts.size, fqs.size))
     return tsky
 
@@ -150,11 +158,11 @@ def sky_noise_jy(Tsky, fqs, lsts, omega_p, B=None, inttime=10.7):
         B = np.average(fqs[1:] - fqs[:-1])
     B_Hz = B * 1e9 # bandwidth in Hz
     if inttime is None:
-        inttime = (lsts[1] - lsts[0]) / (2 * np.pi) * aipy.const.sidereal_day
+        inttime = old_div((lsts[1] - lsts[0]), (2 * np.pi) * aipy.const.sidereal_day)
     # XXX fix below when jy2T changed to Jy/K
-    T2jy = 1e3 / jy2T(fqs, omega_p)  # K to Jy conversion
+    T2jy = old_div(1e3, jy2T(fqs, omega_p))  # K to Jy conversion
     T2jy.shape = (1, -1)
-    Vnoise_jy = T2jy * Tsky / np.sqrt(inttime * B_Hz) # see noise_study.py for discussion of why no factor of 2 here
+    Vnoise_jy = old_div(T2jy * Tsky, np.sqrt(inttime * B_Hz)) # see noise_study.py for discussion of why no factor of 2 here
     return white_noise(Vnoise_jy.shape) * Vnoise_jy
 
 @_defaults

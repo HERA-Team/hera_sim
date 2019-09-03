@@ -2,7 +2,17 @@
 Primary interface module for hera_sim, defining a :class:`Simulator` class which provides a common API for all
 effects produced by this package.
 """
+from __future__ import division
+from __future__ import unicode_literals
+from __future__ import print_function
+from __future__ import absolute_import
 
+from future import standard_library
+standard_library.install_aliases()
+from builtins import *
+from builtins import zip
+from past.utils import old_div
+from builtins import object
 import functools
 import inspect
 import sys
@@ -130,7 +140,7 @@ class _model(object):
         return new_func
 
 
-class Simulator:
+class Simulator(object):
     """
     Primary interface object for hera_sim.
 
@@ -249,7 +259,7 @@ class Simulator:
         Dictionary of {antenna: antenna_position} for all antennas in the data.
         """
         antpos, ants = self.data.get_ENU_antpos(pick_data_ants=True)
-        return dict(zip(ants, antpos))
+        return dict(list(zip(ants, antpos)))
 
     @staticmethod
     def _read_data(filename, **kwargs):
@@ -308,7 +318,7 @@ class Simulator:
 
         for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols():
             lsts = self.data.lst_array[blt_ind]
-            bl_vec = (self.antpos[ant1] - self.antpos[ant2]) * 1e9 / const.c.value
+            bl_vec = old_div((self.antpos[ant1] - self.antpos[ant2]) * 1e9, const.c.value)
             vis = model(lsts=lsts, fqs=fqs, bl_vec=bl_vec, **kwargs)
             self.data.data_array[blt_ind, 0, :, pol_ind] += vis
 
@@ -331,7 +341,7 @@ class Simulator:
 
         for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols():
             lsts = self.data.lst_array[blt_ind]
-            bl_vec = (self.antpos[ant1] - self.antpos[ant2]) * 1e9 / const.c.value
+            bl_vec = old_div((self.antpos[ant1] - self.antpos[ant2]) * 1e9, const.c.value)
             vis = model(lsts, fqs, bl_vec, **kwargs)
             self.data.data_array[blt_ind, 0, :, pol_ind] += vis
 
