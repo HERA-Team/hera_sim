@@ -1,3 +1,4 @@
+from __future__ import print_function
 import unittest
 from hera_sim import utils, noise
 from hera_sim.data import DATA_PATH
@@ -122,7 +123,7 @@ def test_delay_filter_norm():
 
     out /= nreal
 
-    print(out, np.sum(tsky**2))
+    print((out, np.sum(tsky**2)))
     assert np.isclose(out, np.sum(tsky**2), atol=0, rtol=1e-2)
 
 

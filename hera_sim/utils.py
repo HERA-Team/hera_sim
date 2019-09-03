@@ -1,5 +1,13 @@
 """ Utility module """
+from __future__ import division
+from __future__ import unicode_literals
+from __future__ import print_function
+from __future__ import absolute_import
 
+from future import standard_library
+standard_library.install_aliases()
+from builtins import *
+from past.utils import old_div
 import numpy as np
 from scipy import interpolate
 import aipy
@@ -85,7 +93,7 @@ def gen_delay_filter(fqs, bl_len_ns, standoff=0.0, filter_type='gauss', min_dela
     if filter_type in [None, 'none', 'None']:
         delay_filter = np.ones_like(delays)
     elif filter_type in ['gauss', 'trunc_gauss']:
-        delay_filter = np.exp(-0.5 * (delays / one_sigma)**2)
+        delay_filter = np.exp(-0.5 * (old_div(delays, one_sigma))**2)
         if filter_type == 'trunc_gauss':
             delay_filter[np.abs(delays) > (one_sigma * 4)] = 0.0
     elif filter_type == 'tophat':
@@ -102,7 +110,7 @@ def gen_delay_filter(fqs, bl_len_ns, standoff=0.0, filter_type='gauss', min_dela
 
     # normalize
     if normalize is not None:
-        norm = normalize / np.sqrt(np.sum(delay_filter**2))
+        norm = old_div(normalize, np.sqrt(np.sum(delay_filter**2)))
         delay_filter *= norm * np.sqrt(len(delay_filter))
 
     return delay_filter
@@ -182,7 +190,7 @@ def gen_fringe_filter(lsts, fqs, ew_bl_len_ns, filter_type='tophat', **filter_kw
             fringe filter is identically one.
     """
     # setup
-    times = lsts / (2 * np.pi) * aipy.const.sidereal_day
+    times = old_div(lsts, (2 * np.pi) * aipy.const.sidereal_day)
     frates = np.fft.fftfreq(times.size, times[1] - times[0])
 
     if filter_type in [None, 'none', 'None']:
@@ -195,7 +203,7 @@ def gen_fringe_filter(lsts, fqs, ew_bl_len_ns, filter_type='tophat', **filter_kw
         assert 'fr_width' in filter_kwargs, "If filter_type=='gauss' must feed fr_width kwarg"
         fr_max = np.repeat(calc_max_fringe_rate(fqs, ew_bl_len_ns)[None, :], len(lsts), axis=0)
         frates = np.repeat(frates[:, None], len(fqs), axis=1)
-        fringe_filter = np.exp(-0.5 * ((frates - fr_max) / filter_kwargs['fr_width'])**2)
+        fringe_filter = np.exp(-0.5 * (old_div((frates - fr_max), filter_kwargs['fr_width']))**2)
     elif filter_type == 'custom':
         assert 'FR_filter' in filter_kwargs, "If filter_type=='custom', must feed 2D FR_filter array"
         assert 'FR_frates' in filter_kwargs, "If filter_type=='custom', must feed 1D FR_frates array"
@@ -271,7 +279,7 @@ def calc_max_fringe_rate(fqs, ew_bl_len_ns):
         fr_max (float): fringe rate [Hz]
     """
     bl_wavelen = fqs * ew_bl_len_ns
-    fr_max = 2 * np.pi / aipy.const.sidereal_day * bl_wavelen
+    fr_max = old_div(2 * np.pi, aipy.const.sidereal_day * bl_wavelen)
     return fr_max
 
 

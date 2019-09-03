@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os
 import warnings
 
@@ -54,14 +55,14 @@ class PRISim(VisibilitySimulator):
 
         antpairs = self.uvdata.get_antpairs()
         baseline_vectors = np.array([antpos[ant[0]] - antpos[ant[1]] for ant in antpairs]) ### ASK
-        print "BASELINE VECTORS", baseline_vectors
-        print "ANTPOS SHAPE", antpos.shape
+        print("BASELINE VECTORS", baseline_vectors)
+        print("ANTPOS SHAPE", antpos.shape)
          
 
-        print "LABELS", labels
-        print "DTYPE", labels.dtype
-        print "TYPE", type(labels)
-        print "SHAPE", labels.shape
+        print("LABELS", labels)
+        print("DTYPE", labels.dtype)
+        print("TYPE", type(labels))
+        print("SHAPE", labels.shape)
         ###################################################################
 
         return intf.InterferometerArray(
@@ -328,7 +329,7 @@ class PRISim(VisibilitySimulator):
         # Reshape array into UVData.data_array format
         vis = self.interferometer.skyvis_freq.conj() ###############333333
 
-        print "VIS SHAPE", vis.shape
+        print("VIS SHAPE", vis.shape)
 
         '''
         # (Nbls, Nfreqs, Ntimes) -> (Ntimes, Nbls, Nfreqs) ->

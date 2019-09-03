@@ -1,6 +1,16 @@
 """
 A module containing routines for interfacing data produced by `hera_sim` with other codes, especially UVData.
 """
+from __future__ import division
+from __future__ import unicode_literals
+from __future__ import print_function
+from __future__ import absolute_import
+from future import standard_library
+standard_library.install_aliases()
+from builtins import *
+from builtins import str
+from builtins import zip
+from past.utils import old_div
 import itertools
 
 import numpy as np
@@ -53,10 +63,10 @@ def empty_uvdata(nfreq, ntimes, ants, antpairs=None, pols=['xx', ],
 
     # Basic time and freq. specs
     sim_freq = (min_freq + np.arange(nfreq) * channel_bw) * 1e9  # Hz
-    sim_times = start_jd + np.arange(ntimes) * time_per_integ / SEC_PER_SDAY
+    sim_times = start_jd + old_div(np.arange(ntimes) * time_per_integ, SEC_PER_SDAY)
     sim_pols = pols
     lat, lon, alt = telescope_lat_lon_alt
-    sim_lsts = get_lst_for_time(sim_times, lat*180/np.pi, lon*180/np.pi, alt)
+    sim_lsts = get_lst_for_time(sim_times, old_div(lat*180,np.pi), old_div(lon*180,np.pi), alt)
 
     # Basic telescope metadata
     uvd.instrument = instrument
@@ -68,8 +78,8 @@ def empty_uvdata(nfreq, ntimes, ants, antpairs=None, pols=['xx', ],
     uvd.vis_units = vis_units
 
     # Fill-in array layout using dish positions
-    nants = len(ants.keys())
-    uvd.antenna_numbers = np.array([int(antid) for antid in ants.keys()],
+    nants = len(list(ants.keys()))
+    uvd.antenna_numbers = np.array([int(antid) for antid in list(ants.keys())],
                                    dtype=np.int)
     uvd.antenna_names = [str(antid) for antid in uvd.antenna_numbers]
     uvd.antenna_positions = np.zeros((nants, 3))
@@ -88,7 +98,7 @@ def empty_uvdata(nfreq, ntimes, ants, antpairs=None, pols=['xx', ],
         indices = np.unique(arr, return_index=True)[1]
         return np.array([arr.flatten()[i] for i in sorted(indices)])
 
-    defined_ants = ants.keys()
+    defined_ants = list(ants.keys())
     ants_not_found = []
     for _ant in np.unique((ant1, ant2)):
         if _ant not in defined_ants:
@@ -162,11 +172,11 @@ def _get_antpairs(ants, antpairs):
     # Generate antpairs
     if antpairs is None:
         # Use all pairs (including auto-correlations)
-        antpairs = [(ant, ant) for ant in ants] + list(itertools.combinations(ants.keys(), 2))
+        antpairs = [(ant, ant) for ant in ants] + list(itertools.combinations(list(ants.keys()), 2))
     elif isinstance(antpairs, str):
         if antpairs == "cross":
             # Use all cross-pairs but no autos
-            antpairs = list(itertools.combinations(ants.keys(), 2))
+            antpairs = list(itertools.combinations(list(ants.keys()), 2))
         elif antpairs == 'autos':
             antpairs = [(ant, ant) for ant in ants]
         elif antpairs == "EW":
@@ -180,7 +190,7 @@ def _get_antpairs(ants, antpairs):
                 for ant2 in antnums[i:]:
                     pos2 = ants[ant2]
 
-                    if ant1 == ant2 or np.abs(pos1[1] - pos2[1]) / np.abs(pos1[0] - pos2[0]) < 0.1:
+                    if ant1 == ant2 or old_div(np.abs(pos1[1] - pos2[1]), np.abs(pos1[0] - pos2[0])) < 0.1:
                         antpairs += [(ant1, ant2)]
 
         elif antpairs == 'redundant':
@@ -207,7 +217,7 @@ def _get_antpairs(ants, antpairs):
 
     # Check that baselines only involve antennas that have been defined
     try:
-        ant1, ant2 = zip(*antpairs)
+        ant1, ant2 = list(zip(*antpairs))
     except (TypeError, ValueError):
         raise TypeError("antpairs must be a list of 2-tuples")
 
