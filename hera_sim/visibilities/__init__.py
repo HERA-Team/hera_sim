@@ -13,12 +13,11 @@ from .conversions import *
 # Registered Simulators
 from .vis_cpu import VisCPU
 
-from .healvis_wrapper import HealVis
 
-#try:
-#    from .healvis_wrapper import HealVis
-#except ImportError:
-#    pass
+try:
+    from .healvis_wrapper import HealVis
+except (ImportError, NameError) as e: # NameError arises bc healvis is not Python 3 compliant
+    pass
 
 try:
     from .prisim_wrapper import PRISim
