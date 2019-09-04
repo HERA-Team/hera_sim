@@ -5,7 +5,7 @@ channels:
   - conda-forge
   - defaults
 dependencies:
-  - aipy=3.0.0rc2
+  - aipy>=3.0
   - attrs
   - h5py
   - hdf5

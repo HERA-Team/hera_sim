@@ -55,7 +55,7 @@ setup_args = {
         'cached_property',
         'pyuvsim',
         'pyuvdata',
-        'aipy>=3.0.0rc2'
+        'aipy>=3.0'
     ],
     "version": version.version,
     "package_data": {"hera_sim": data_files},
