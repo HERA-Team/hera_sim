@@ -6,7 +6,7 @@ import yaml
 import inspect
 from . import interpolators
 
-def make_constructor(tag, interpolator):
+def make_interp_constructor(tag, interpolator):
     """Wrapper for yaml.add_constructor to easily make new YAML tags."""
     def constructor(loader, node):
         params = loader.construct_mapping(node, deep=True)
@@ -21,4 +21,4 @@ def predicate(obj):
 
 interps = dict(inspect.getmembers(interpolators, predicate))
 for tag, interp in interps.items():
-    make_constructor("!%s"%tag, interp)
+    make_interp_constructor("!%s"%tag, interp)

@@ -47,7 +47,7 @@ if defaults._version_is_compatible:
         defaults.deactivate()
         assert not defaults._use_season_defaults
 
-    @raises(AssertionError)
+    @raises(ValueError, FileNotFoundError, AssertionError)
     def test_bad_config():
         # pass non-string
         not_a_string = 1
@@ -55,3 +55,7 @@ if defaults._version_is_compatible:
         
         # pass nonexistent file
         defaults.set('not_a_file')
+
+        # pass a wrongly formatted dict
+        defaults.set({'bad':'format'})
+        defaults.set({'another':{'bad':'format'}})

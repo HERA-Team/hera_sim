@@ -51,17 +51,19 @@ class _Defaults:
     hera_sim.defaults(module, model)
     """
 
-    def __init__(self, config_file='h1c'):
-        self._config = self._get_config(config_file)
+    def __init__(self, config='h1c'):
+        self._config = self._get_config(config)
         self._check_config()
         self._use_season_defaults = False
     """Load in a configuration and check its formatting.
 
     Parameters
     ----------
-    config_file : str, optional (default 'h1c') 
-        May either be an absolute path to a configuration YAML or one of
-        the observing season keywords: {}
+    config : str or dict, optional (default 'h1c') 
+        May either be an absolute path to a configuration YAML, one of
+        the observing season keywords ({}), or a dictionary with the
+        appropriate format.
+
         The loaded YAML file is intended to have the following form:
         {module: {model: {param: default}}}, where 'module' is any one
         of the `hera_sim` modules, `model` is any of the functions within
@@ -84,17 +86,19 @@ class _Defaults:
 
     def __call__(self, module, model):
         """Return the defaults for the given `model` in `module`."""
-        with open(self._config, 'r') as config:
-            defaults = yaml.load(config.read(), Loader=yaml.FullLoader)[module][model]
-        return defaults
+        return self._config[module][model]
+        #with open(self._config, 'r') as config:
+        #    defaults = yaml.load(config.read(), Loader=yaml.FullLoader)[module][model]
+        #return defaults
 
     def set(self, new_config):
         """Set the defaults to those specified in `new_config`.
 
         Parameters
         ----------
-        new_config : str
-            Absolute path to configuration file.
+        new_config : str or dict
+            Absolute path to configuration file or dictionary of configuration
+            parameters formatted in the same way a configuration would be loaded.
 
         Notes
         -----
@@ -112,24 +116,43 @@ class _Defaults:
         """Revert to function defaults."""
         self._use_season_defaults = False
 
-    def _get_config(self, config_file):
+    def _get_config(self, config):
         """Validate the choice of configuration file."""
-        assert isinstance(config_file, str), \
-                "Default configurations are set by passing a path to a " \
-                "configuration file or one of the season keys. The " \
-                "currently supported season configurations are " \
-                "{}.".format(SEASON_CONFIGS.keys())
-
-        if config_file in SEASON_CONFIGS.keys():
-            return SEASON_CONFIGS[config_file]
+        #assert isinstance(config, str), \
+        #        "Default configurations are set by passing a path to a " \
+        #        "configuration file or one of the season keys. The " \
+        #        "currently supported season configurations are " \
+        #        "{}.".format(SEASON_CONFIGS.keys())
+        if isinstance(config, str):
+            if config in SEASON_CONFIGS.keys():
+                config = SEASON_CONFIGS[config]
+                # return SEASON_CONFIGS[config]
+            with open(config, 'r') as conf:
+                defaults = yaml.load(conf.read(), Loader=yaml.FullLoader)
+            return defaults
+        elif isinstance(config, dict):
+            return config
         else:
-            return config_file
+            raise ValueError(
+                    "The configuration must be a dictionary or an absolute " \
+                    "path to a configuration YAML." )
+        #else:
+        #    return config
 
     def _check_config(self):
         """Confirm that the specified configuration file can be found."""
-        assert path.exists(self._config), \
-                "Please ensure that a path to the specified configuration " \
-                "file exists. {} could not be found".format(self._config)
+        #assert path.exists(self._config), \
+        #        "Please ensure that a path to the specified configuration " \
+        #        "file exists. {} could not be found".format(self._config)
+        error_message = "Your configuration should be formatted as a nested " \
+                "dictionary: {module: {model: {params: values}}}"
+        try:
+            module = list(self._config.keys())[0]
+            model = list(self._config[module].keys())[0]
+        except KeyError:
+            raise AssertionError(error_message)
+        # seems a little stupid to use self._config rather than self()
+        assert isinstance(self._config[module][model], dict), error_message
 
     @property
     def _version_is_compatible(self):
@@ -159,16 +182,9 @@ class _Defaults:
                 # get the full argspec
                 argspec = inspect.getfullargspec(func)
 
-                # find out how many required arguments there are
+                # get dictionary of kwargs and their defaults
                 try:
                     offset = len(argspec.args) - len(argspec.defaults)
-                except TypeError:
-                    # this will be raised if there are no defaults; really
-                    # the only thing that raises this is io.empty_uvdata (I think?)
-                    offset = 0
-
-                # make a dictionary of the function kwargs and their defaults
-                try:
                     old_kwargs = {arg : default for arg, default 
                                   in zip(argspec.args[offset:], argspec.defaults)}
                 except TypeError:
