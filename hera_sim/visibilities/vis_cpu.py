@@ -3,6 +3,9 @@ vis_cpu visibility simulator.
 
 This is a fast, simple visibility simulator that is intended to be replaced by vis_gpu
 """
+from __future__ import division
+from builtins import range
+from past.utils import old_div
 import numpy as np
 from scipy.interpolate import RectBivariateSpline
 import healpy
@@ -245,7 +248,7 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube, real_dtype=np.float32
         # Calculate delays
         np.dot(antpos, crd_top, out=tau)
         #TAU = (b * s) / c
-        tau = tau/c
+        tau = old_div(tau,c)
         
         
         np.exp(1.0j * (ang_freq * tau), out=v)

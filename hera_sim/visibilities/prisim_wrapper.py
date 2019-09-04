@@ -1,3 +1,9 @@
+from __future__ import division
+from __future__ import print_function
+from builtins import zip
+from builtins import str
+from builtins import range
+from past.utils import old_div
 import os
 import warnings
 
@@ -54,14 +60,14 @@ class PRISim(VisibilitySimulator):
 
         antpairs = self.uvdata.get_antpairs()
         baseline_vectors = np.array([antpos[ant[0]] - antpos[ant[1]] for ant in antpairs]) ### ASK
-        print "BASELINE VECTORS", baseline_vectors
-        print "ANTPOS SHAPE", antpos.shape
+        print("BASELINE VECTORS", baseline_vectors)
+        print("ANTPOS SHAPE", antpos.shape)
          
 
-        print "LABELS", labels
-        print "DTYPE", labels.dtype
-        print "TYPE", type(labels)
-        print "SHAPE", labels.shape
+        print("LABELS", labels)
+        print("DTYPE", labels.dtype)
+        print("TYPE", type(labels))
+        print("SHAPE", labels.shape)
         ###################################################################
 
         return intf.InterferometerArray(
@@ -205,7 +211,7 @@ class PRISim(VisibilitySimulator):
         for i, (ind, time) in enumerate(zip(indices, self.times)):
             if len(ind) == 0:
                 roi.append_settings(
-                    None, self.uvdata.freq_array[0] / 1e9,
+                    None, old_div(self.uvdata.freq_array[0], 1e9),
                     telescope=self._prisim_telescope,
                     freq_scale="GHz"
                 )
@@ -237,7 +243,7 @@ class PRISim(VisibilitySimulator):
                     beam = self.beams[0].data_array[0, 0, 0 if self.beam_pol == 'x' else 1, :, :].T
                     freqs = self.beams[0].freq_array.ravel()
                     theta_phi = np.array([
-                        np.pi / 2 - np.radians(src_altaz[:, 0]),
+                        old_div(np.pi, 2) - np.radians(src_altaz[:, 0]),
                         np.radians(src_altaz[:, 1])
                     ])
                     interp_logbeam = mathops.healpix_interp_along_axis(
@@ -260,7 +266,7 @@ class PRISim(VisibilitySimulator):
                 roiinfo['center_coords'] = 'radec'
 
                 roi.append_settings(
-                    self.sky_model, self.uvdata.freq_array[0] / 1e9,
+                    self.sky_model, old_div(self.uvdata.freq_array[0], 1e9),
                     pinfo=pbinfo,
                     lst=self._astropy_times[i].sidereal_time('apparent').deg,
                     time_jd=time,
@@ -328,7 +334,7 @@ class PRISim(VisibilitySimulator):
         # Reshape array into UVData.data_array format
         vis = self.interferometer.skyvis_freq.conj() ###############333333
 
-        print "VIS SHAPE", vis.shape
+        print("VIS SHAPE", vis.shape)
 
         '''
         # (Nbls, Nfreqs, Ntimes) -> (Ntimes, Nbls, Nfreqs) ->

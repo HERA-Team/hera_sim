@@ -2,7 +2,9 @@
 Wrapper around the healvis package for producing visibilities from
 healpix maps.
 """
+from __future__ import division
 
+from past.utils import old_div
 import healpy
 import numpy as np
 from cached_property import cached_property
@@ -67,7 +69,7 @@ class HealVis(VisibilitySimulator):
 
         # convert from Jy/sr to K
         intensity = 10**-26 * self.sky_intensity.T
-        intensity *= (cnst.c.to("m/s").value/self.sky_freqs)**2 / (2 * cnst.k_B.value)
+        intensity *= old_div((old_div(cnst.c.to("m/s").value,self.sky_freqs))**2, (2 * cnst.k_B.value))
 
         sky.data = intensity[np.newaxis, :, :]
         sky._update()

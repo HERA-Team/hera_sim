@@ -5,7 +5,10 @@ import pytest
 
 from hera_sim import visibilities as vis, io
 
-SIMULATORS = (vis.HealVis, vis.VisCPU)
+try:
+    SIMULATORS = (vis.HealVis, vis.VisCPU)
+except AttributeError: # If healvis is not imported
+    SIMULATORS = (vis.VisCPU, vis.VisCPU)
 
 np.random.seed(0)
 NTIMES = 10
