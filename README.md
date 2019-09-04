@@ -21,7 +21,7 @@ future.
 If you are using conda, the following command will install all dependencies which it
 can handle natively:
 
-``$ conda install -c conda-forge numpy scipy pyuvdata aipy=3.0.0rc2 attrs h5py healpy pyyaml``
+``$ conda install -c conda-forge numpy scipy pyuvdata aipy>=3.0 attrs h5py healpy pyyaml``
 
 If you are creating a new development environment, consider using the included environment
 file:
@@ -46,15 +46,10 @@ reads the ``setup.py`` file for each package before installing anything).
 
 First install the basic dependencies:
 
-``$ pip install numpy scipy h5py scikit-learn``
+``$ pip install numpy``
 
-Then install the following:
-
-```bash
-$ pip install git+https://github.com/HERA-Team/uvtools.git
-$ pip install pyuvdata
-$ pip install pyuvsim
-```
+The [pyuvsim](https://github.com/RadioAstronomySoftwareGroup/pyuvsim) module is required for simulation setup in this module. For use without installing the `mpi4py` module it is recommended to install this repo manually or through pip by excuting 
+```pip install git+https://github.com/RadioAstronomySoftwareGroup/pyuvsim.git```
 
 Then to install this repo, either download and run ``pip install -e .`` or
 run
