@@ -7,7 +7,7 @@ from hera_sim import visibilities as vis, io
 
 try:
     SIMULATORS = (vis.HealVis, vis.VisCPU)
-except AttributeError:
+except AttributeError: # If healvis is not imported
     SIMULATORS = (vis.VisCPU, vis.VisCPU)
 
 np.random.seed(0)

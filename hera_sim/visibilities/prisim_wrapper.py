@@ -206,7 +206,7 @@ class PRISim(VisibilitySimulator):
         for i, (ind, time) in enumerate(zip(indices, self.times)):
             if len(ind) == 0:
                 roi.append_settings(
-                    None, self.uvdata.freq_array[0] / 1e9,
+                    None, old_div(self.uvdata.freq_array[0], 1e9),
                     telescope=self._prisim_telescope,
                     freq_scale="GHz"
                 )
@@ -238,7 +238,7 @@ class PRISim(VisibilitySimulator):
                     beam = self.beams[0].data_array[0, 0, 0 if self.beam_pol == 'x' else 1, :, :].T
                     freqs = self.beams[0].freq_array.ravel()
                     theta_phi = np.array([
-                        np.pi / 2 - np.radians(src_altaz[:, 0]),
+                        old_div(np.pi, 2) - np.radians(src_altaz[:, 0]),
                         np.radians(src_altaz[:, 1])
                     ])
                     interp_logbeam = mathops.healpix_interp_along_axis(
@@ -261,7 +261,7 @@ class PRISim(VisibilitySimulator):
                 roiinfo['center_coords'] = 'radec'
 
                 roi.append_settings(
-                    self.sky_model, self.uvdata.freq_array[0] / 1e9,
+                    self.sky_model, old_div(self.uvdata.freq_array[0], 1e9),
                     pinfo=pbinfo,
                     lst=self._astropy_times[i].sidereal_time('apparent').deg,
                     time_jd=time,
