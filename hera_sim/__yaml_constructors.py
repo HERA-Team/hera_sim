@@ -4,6 +4,10 @@ objects. This may need to be updated if the `interpolators` module is updated.
 """
 import yaml
 import inspect
+import warnings
+
+import astropy.units as u
+
 from . import interpolators
 
 def make_interp_constructor(tag, interpolator):
@@ -22,3 +26,24 @@ def predicate(obj):
 interps = dict(inspect.getmembers(interpolators, predicate))
 for tag, interp in interps.items():
     make_interp_constructor("!%s"%tag, interp)
+
+def astropy_unit_constructor(loader, node):
+    params = loader.construct_mapping(node, deep=True)
+    value = params.get("value", None)
+    units = params.get("units", None)
+    # do we want to add handling of values of the form x*np.pi?
+    if value is None:
+        return None
+    elif units is None:
+        warnings.warn(
+                "You have not specified the units for this item. Returning None.")
+        return None
+    else:
+        try:
+            return value*getattr(u, units)
+        except AttributeError:
+            raise ValueError(
+                    "You have selected units that are not an astropy " \
+                    "Quantity. Please check your configuration file.")
+
+yaml.add_constructor("!dimensionful", astropy_unit_constructor, yaml.FullLoader)
