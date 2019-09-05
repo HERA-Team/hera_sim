@@ -26,3 +26,5 @@ dependencies:
     - git+https://github.com/RadioAstronomySoftwareGroup/pyuvsim.git
     - git+https://github.com/HERA-Team/uvtools.git
     - git+https://github.com/radioastronomysoftwaregroup/healvis
+    - pip install git+https://github.com/RadioAstronomySoftwareGroup/pyuvsim.git
+
