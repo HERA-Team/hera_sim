@@ -1,6 +1,5 @@
 from __future__ import division
 from builtins import object
-from past.utils import old_div
 import warnings
 
 import healpy
@@ -156,9 +155,9 @@ class VisibilitySimulator(object):
         hmap = np.zeros((len(point_source_flux), healpy.nside2npix(nside)))
 
         # Get which pixel every point source lies in.
-        pix = healpy.ang2pix(nside, old_div(np.pi,2) - point_source_pos[:, 1], point_source_pos[:, 0])
+        pix = healpy.ang2pix(nside, np.pi/2 - point_source_pos[:, 1], point_source_pos[:, 0])
 
-        hmap[:, pix] += old_div(point_source_flux, healpy.nside2pixarea(nside))
+        hmap[:, pix] += point_source_flux / healpy.nside2pixarea(nside)
 
         return hmap
 
@@ -177,7 +176,7 @@ class VisibilitySimulator(object):
         nside = healpy.get_nside(hmap[0])
         ra, dec = healpy.pix2ang(nside, np.arange(len(hmap[0])), lonlat=True)
         flux = hmap * healpy.nside2pixarea(nside)
-        return np.array([old_div(ra*np.pi,180), old_div(dec*np.pi,180)]).T, flux
+        return np.array([ra*np.pi/180, dec*np.pi/180]).T, flux
 
     def simulate(self):
         """Perform the visibility simulation"""
