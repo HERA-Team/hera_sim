@@ -65,14 +65,12 @@ def uvbeam_to_lm(uvbeam, freqs, n_pix_lm=63, trunc_at_horizon=False, **kwargs):
     az = -np.arctan2(m, l)
     za = np.arcsin(n)
 
-    # Ensure that interp gives us the power values, not e-field.
     uvbeam.efield_to_power()
-    res = uvbeam.interp(az, za, freqs, **kwargs)[0]
-
+    power_beam = uvbeam.interp(az, za, freqs, **kwargs)[0]
+    powerXX = power_beam[0,0,0]    
+    
     # Get the relevant indices of res
     bm = np.zeros((len(freqs), len(l)))
-    
-    powerXX = res[0, 0, 1]**2 + res[1, 0, 1]**2
     
     if trunc_at_horizon:
         bm[:, n >= 0] = powerXX[:, n >= 0]
