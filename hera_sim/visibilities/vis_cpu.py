@@ -12,11 +12,12 @@ import healpy
 from . import conversions
 from .simulators import VisibilitySimulator
 
+from astropy.constants import c
 
 class VisCPU(VisibilitySimulator):
 
     def __init__(self, bm_pix=100, real_dtype=np.float32,
-                 complex_dtype=np.complex64, c=299792458.0, **kwargs):
+                 complex_dtype=np.complex64, **kwargs):
         """
         Fast visibility simulator on the CPU.
 
@@ -32,14 +33,11 @@ class VisCPU(VisibilitySimulator):
         self._real_dtype = real_dtype
         self._complex_dtype = complex_dtype
         self.bm_pix = bm_pix
-        self.c = c
-
 
         super(VisCPU, self).__init__(**kwargs)
 
         # Convert some of our arguments to forms more simple for vis_cpu
-        self.antpos = self.uvdata.get_ENU_antpos()[0].astype(self._real_dtype)        
-        
+        self.antpos = self.uvdata.get_ENU_antpos()[0].astype(self._real_dtype)
         self.freqs = self.uvdata.freq_array[0]
 
     @property
@@ -121,7 +119,6 @@ class VisCPU(VisibilitySimulator):
                 bm_cube=beam_lm[:, i],
                 real_dtype=self._real_dtype,
                 complex_dtype=self._complex_dtype,
-                c=self.c
             )
             
             visfull[:, 0, i, 0] = vis.flatten()
@@ -150,7 +147,7 @@ class VisCPU(VisibilitySimulator):
 
 
 def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube, real_dtype=np.float32,
-            complex_dtype=np.complex64, c=299792458.0):
+            complex_dtype=np.complex64):
     """
     Calculate visibility from an input intensity map and beam model.
 
@@ -220,7 +217,7 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube, real_dtype=np.float32
 
         # Calculate delays, where TAU = (b * s) / c
         np.dot(antpos, crd_top, out=tau)
-        tau /= c
+        tau /= c.value
         
         np.exp(1.0j * (ang_freq * tau), out=v)
 
