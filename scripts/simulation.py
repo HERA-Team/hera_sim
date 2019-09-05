@@ -5,6 +5,7 @@ hera_sim to create, populate, and save to disk a UVData object.
 import hera_sim
 import sys
 import os
+import yaml
 
 # syntax for running from command line:
 # python simulation.py path_to_config path_to_save verbose 
@@ -24,9 +25,9 @@ import os
 config, save_path = sys.argv[1:3]
 
 # confirm that config and simulation parameter paths exist
-assert os.path.exists(path), \
+assert os.path.exists(config), \
         "The config file could not be found. Please ensure a path to the file " \
-        "exists. The provided path is: {}".format(path)
+        "exists. The provided path is: {}".format(config)
 
 # verbose option?
 verbose = True if "verbose" in sys.argv else False
@@ -39,19 +40,31 @@ assert save_type != '', \
         "extension as the desired file type."
 # assert save_type in allowed_save_types
 
-# this is a little complicated, but maybe parse config file and make new files
+# load in config, split into different components
+with open(config, 'r') as f:
+    yaml_contents = yaml.load(f.read(), Loader=yaml.FullLoader)
 
-# apply the configuration
-hera_sim.defaults.set(config)
+bda_params = yaml_contents.get("bda", {})
+apply_bda = bda_params.pop("apply_bda", False)
+# figure out a good way to load in configuration parameters
+# in particular, the current version of hera_sim has a fair amount of redundancy
+# in how defaults and run_sim are handled
+defaults = yaml_contents.get("defaults", {})
+override_defaults = defaults.pop("override_defaults", False)
+if override_defaults and defaults:
+    hera_sim.defaults.set(**defaults)
 
-# figure out how to allow this command to initialize a Simulator object
-# with parameters specified in the configuration file
-sim = hera_sim.Simulator()
+sim_params = yaml_contents.get("sim_params", {})
+antennas = sim_params.pop("antennas")
+# pull number of freq channels, number of times from configuration file
+# have all the other stuff (integration time, channel width, etc.) set by defaults
+sim = hera_sim.Simulator(n_freq=n_freq, n_times=n_times, antennas=antennas)
 
 # now run the simulation
-sim.run_sim(sim_params)
+sim.run_sim(**sim_params)
 
-
+if apply_bda:
+    sim.data = bda_tools.apply_bda(sim.data, **bda_params)
 
 # save the simulation
 # note that we may want to allow the functionality for the user to choose some
