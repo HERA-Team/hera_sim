@@ -2,12 +2,15 @@ import unittest
 
 import numpy as np
 import pytest
+import warnings
 
-from hera_sim import visibilities as vis, io
+from hera_sim import visibilities as vis
+from hera_sim import io
 
 try:
     SIMULATORS = (vis.HealVis, vis.VisCPU)
 except AttributeError: # If healvis is not imported
+    warnings.warn("healvis failed to import in the package constructor.")
     SIMULATORS = (vis.VisCPU, vis.VisCPU)
 
 np.random.seed(0)
