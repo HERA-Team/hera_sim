@@ -10,6 +10,8 @@ of simulators.
 from .simulators import VisibilitySimulator
 from .conversions import *
 
+import warnings
+
 # Registered Simulators
 from .vis_cpu import VisCPU
 
@@ -17,6 +19,7 @@ from .vis_cpu import VisCPU
 try:
     from .healvis_wrapper import HealVis
 except (ImportError, NameError) as e: # NameError arises bc healvis is not Python 3 compliant
+    warnings.warn("healvis failed to import.")
     pass
 
 try:
