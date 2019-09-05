@@ -48,27 +48,14 @@ class PRISim(VisibilitySimulator):
         An instance of `prisim.interferometry.InterferometerArray`
         """
 
-        ###################################################################
         antpos, ants = self.uvdata.get_ENU_antpos()
-
         labels=np.asarray(self.uvdata.get_antpairs(), dtype=[("A2", int), ("A1", int)])
-
         antpairs = self.uvdata.get_antpairs()
-        baseline_vectors = np.array([antpos[ant[0]] - antpos[ant[1]] for ant in antpairs]) ### ASK
-        print("BASELINE VECTORS", baseline_vectors)
-        print("ANTPOS SHAPE", antpos.shape)
-         
-
-        print("LABELS", labels)
-        print("DTYPE", labels.dtype)
-        print("TYPE", type(labels))
-        print("SHAPE", labels.shape)
-        ###################################################################
+        baseline_vectors = np.array([antpos[ant[0]] - antpos[ant[1]] for ant in antpairs])
 
         return intf.InterferometerArray(
-            #labels=list(np.asarray(self.uvdata.get_antpairs(), dtype=[("A2", int), ("A1", int)])), ##################### CAST AS LIST/TUPLE?
             labels = [("A"+str(i), str(baseline_vectors[i])) for i in range(len(antpairs))],
-            baselines=baseline_vectors,   ###################antpos#####################################self.uvdata.get,  # (N,3) array ENU ask bryna IS IT ACTUALLY (N^2/2, 3)???
+            baselines=baseline_vectors,   
             channels=self.uvdata.freq_array[0],
             telescope=None,  # TODO: new class
             latitude=np.degrees(self.uvdata.telescope_lat_lon_alt[0]),
@@ -306,7 +293,7 @@ class PRISim(VisibilitySimulator):
                 timeobj=self._astropy_times[j],
                 Tsysinfo={"Tnet": 0},
                 bandpass=bandpass,
-                pointing_center=np.array([90.0, 270.0]), ### ASK      
+                pointing_center=np.array([90.0, 270.0]),      
                 skymodel=self.sky_model,
                 t_acc=self.uvdata.integration_time[0],
                 pb_info={
@@ -327,7 +314,7 @@ class PRISim(VisibilitySimulator):
 
 
         # Reshape array into UVData.data_array format
-        vis = self.interferometer.skyvis_freq.conj() ###############333333
+        vis = self.interferometer.skyvis_freq.conj()
 
         print("VIS SHAPE", vis.shape)
 
