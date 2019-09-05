@@ -1,7 +1,5 @@
 # This document is intended to serve as a template for constructing new
-# configuration YAMLs for use with the `simulate.py` script. This version
-# is intended to be used with the version 0.x.x release of `hera_sim`. For
-# v1.x.x, please use the other template in this directory.
+# configuration YAMLs for use with the `simulation.py` script.
 
 # XXX do we want this to be an exhaustive template (all possible things
 # specified), or do we want this to be a minimal template?
@@ -21,17 +19,22 @@ bda:
     corr_int_time: !dimensionful
         value: !!null
         units: 's'
+defaults:
+    apply_defaults: False
+    default_config: 'h2c'
 filing:
     outdir: '.'
     outfile_name: 'quick_and_dirty_sim'
     output_format: 'uvh5'
     clobber: False
+    kwargs: {}
+# freq and time entries currently configured for hera_sim use
 freq:
-    Nfreqs: 1024
+    n_freq: 1024
     channel_width: 122070.3125
     start_freq: 46920776.3671875
 time:
-    Ntimes: 10
+    n_times: 10
     integration_time: 8.59
     start_time: 2457458.1738949567
 telescope:

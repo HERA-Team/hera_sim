@@ -6,6 +6,7 @@ import hera_sim
 import sys
 import os
 import yaml
+from bda import bda_tools
 
 # syntax for running from command line:
 # python simulation.py path_to_config path_to_save verbose 
@@ -22,46 +23,64 @@ import yaml
 # how to handle verbose?
 
 # get configuration path, simulation parameter path, save path
-config, save_path = sys.argv[1:3]
+config = sys.argv[1]
 
 # confirm that config and simulation parameter paths exist
 assert os.path.exists(config), \
         "The config file could not be found. Please ensure a path to the file " \
         "exists. The provided path is: {}".format(config)
 
-# verbose option?
-verbose = True if "verbose" in sys.argv else False
-
-# make sure save path has an appropriate extension
-save_type = os.path.splitext(save_path)[1]
-assert save_type != '', \
-        "Please specify the file type you would like to use for for saving " \
-        "the simulated data by ensuring that the save path has the same " \
-        "extension as the desired file type."
-# assert save_type in allowed_save_types
-
-# load in config, split into different components
+# load in config
 with open(config, 'r') as f:
     yaml_contents = yaml.load(f.read(), Loader=yaml.FullLoader)
 
-bda_params = yaml_contents.get("bda", {})
-apply_bda = bda_params.pop("apply_bda", False)
-# figure out a good way to load in configuration parameters
-# in particular, the current version of hera_sim has a fair amount of redundancy
-# in how defaults and run_sim are handled
+# verbose option?
+verbose = True if "verbose" in sys.argv else False
+
+# extract parameters for saving to disk
+filing_params = yaml_contents["filing"]
+outfile = os.path.join(filing_params["outdir"], filing_params["outfile_name"])
+save_path = "{}.{}".format(outfile, filing_params["output_format"])
+clobber = filing_params["clobber"]
+
+# XXX add a check to make sure the save type is OK?
+
+# determine whether to use season defaults
 defaults = yaml_contents.get("defaults", {})
-override_defaults = defaults.pop("override_defaults", False)
-if override_defaults and defaults:
-    hera_sim.defaults.set(**defaults)
+apply_defaults = defaults.pop("apply_defaults", False)
+if apply_defaults and defaults:
+    if isinstance(defaults["default_config"], str):
+        hera_sim.defaults.set(defaults["default_config"])
+    elif isinstance(defaults["default_config"], dict):
+        hera_sim.defaults.set(**defaults["default_config"])
+    else:
+        raise ValueError("If you wish to override function defaults, then " \
+                "you must do so by either specifying a path to the default " \
+                "configuration file or specifying an appropriately formatted " \
+                "dictionary of default values.")
 
-sim_params = yaml_contents.get("sim_params", {})
+
+# TODO: figure out how to specify antennas
+# extract instrument parameters
 antennas = sim_params.pop("antennas")
-# pull number of freq channels, number of times from configuration file
-# have all the other stuff (integration time, channel width, etc.) set by defaults
-sim = hera_sim.Simulator(n_freq=n_freq, n_times=n_times, antennas=antennas)
+instrument_params = {"antennas" : antennas}
+for parameter in ("freq", "time", ):
+    for key, value in yaml_contents[parameter].items():
+        instrument_params[key] = value
 
+sim = hera_sim.Simulator(**instrument_params)
+
+# extract simulation parameters
+sim_params = {}
+for component in ("systematics", "analysis", ):
+    for key, value in yaml_contents[component].items():
+        sim_params[key] = value
 # now run the simulation
 sim.run_sim(**sim_params)
+
+# figure out whether or not to do BDA, and do it if so
+bda_params = yaml_contents.get("bda", {})
+apply_bda = bda_params.pop("apply_bda", False)
 
 if apply_bda:
     sim.data = bda_tools.apply_bda(sim.data, **bda_params)
@@ -69,7 +88,9 @@ if apply_bda:
 # save the simulation
 # note that we may want to allow the functionality for the user to choose some
 # kwargs to pass to the write method
-sim.write_data(save_path, file_type=save_type)
+sim.write_data(save_path, 
+               file_type=filing_params["output_format"],
+               **filing_params["kwargs"])
 
 # should be done now
 
