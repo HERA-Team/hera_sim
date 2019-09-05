@@ -47,7 +47,7 @@ class VisCPU(VisibilitySimulator):
         try:
             return self.__lsts
         except AttributeError:      
-            self.__lsts = self.uvdata.lst_array[::self.uvdata.Nbls] ####np.unique(self.uvdata.lst_array)
+            self.__lsts = self.uvdata.lst_array[::self.uvdata.Nbls]
 
             return self.__lsts
 
@@ -76,16 +76,11 @@ class VisCPU(VisibilitySimulator):
             method can be modified to only return one matrix for each beam.
 
         """
-        #print ("self.freqs", self.freqs)
-        #print("self.bm_pix", self.bm_pix)
-
-        ##############################
         return np.array([
             conversions.uvbeam_to_lm(
                 self.beams[self.beam_ids[i]], self.freqs, self.bm_pix
             ) for i in range(self.n_ant)
         ])
-        ###############################
 
     def get_diffuse_crd_eq(self):
         """Calculate the equatorial co-ordinates of the healpix sky pixels (in Cartesian co-ords)."""
@@ -101,14 +96,11 @@ class VisCPU(VisibilitySimulator):
         coords to topocentric at each LST.
         """
 
-        sid_time = self.uvdata.lst_array[::self.uvdata.Nbls]
+        sid_time = self.lsts
         eq2tops = np.empty((len(sid_time), 3, 3), dtype=self._real_dtype)
         
-        #ra, dec = self.point_source_pos.T
-        
-        
         for i, st in enumerate(sid_time):
-            eq2tops[i] = conversions.eq2top_m(st, self.uvdata.telescope_lat_lon_alt[0]) ######### WAS -st
+            eq2tops[i] = conversions.eq2top_m(st, self.uvdata.telescope_lat_lon_alt[0]) # WAS -st
 
         return eq2tops
 
@@ -122,7 +114,7 @@ class VisCPU(VisibilitySimulator):
 
             vis = vis_cpu(
                 antpos=self.antpos,
-                freq=self.freqs[i],
+                freq=freq,
                 eq2tops=eq2tops,
                 crd_eq=crd_eq,
                 I_sky=I[i],
@@ -184,23 +176,7 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube, real_dtype=np.float32
     Returns:
         array_like, shape(NTIMES, NANTS, NANTS): visibilities
     """
-    
-    ####################################################################
-    #print("I_sky", I_sky)
-    #print("antpos", antpos)
-    #print("freq", freq)
-    #print("eq2tops", eq2tops)
-    #print("crd_eq", crd_eq)
-#     print("bm_cube", bm_cube)
-#     print "bm_cube max", np.max(bm_cube)
-#     print "bm_cube min", np.min(bm_cube)
 
-    #bm_cube = np.ones_like(bm_cube)
-
-    ####################################################################
-    
-    
-    
     nant, ncrd = antpos.shape
     assert ncrd == 3, "antpos must have shape (NANTS, 3)"
     ntimes, ncrd1, ncrd2 = eq2tops.shape
@@ -235,8 +211,6 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube, real_dtype=np.float32
     for t, eq2top in enumerate(eq2tops.astype(real_dtype)):
         tx, ty, tz = crd_top = np.dot(eq2top, crd_eq)
         
-        #print "VISCPU CRD_TOP", crd_top
-        
         for i in range(nant):
             # Linear interpolation of primary beam pattern
             spline = RectBivariateSpline(bm_pix_y, bm_pix_x, bm_cube[i], kx=1, ky=1)
@@ -244,15 +218,11 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube, real_dtype=np.float32
 
         A_s = np.where(tz > 0, A_s, 0)
 
-        # Calculate delays
+        # Calculate delays, where TAU = (b * s) / c
         np.dot(antpos, crd_top, out=tau)
-        #TAU = (b * s) / c
-        tau = tau/c
-        
+        tau /= c
         
         np.exp(1.0j * (ang_freq * tau), out=v)
-        
-        #print "VISCPU ARGUMENT OF EXPONENTIAL", ang_freq * tau[1][0]
 
         # Complex voltages
         v *= A_s * Isqrt
@@ -260,8 +230,6 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube, real_dtype=np.float32
         # Compute visibilities (upper triangle only)
         for i in range(len(antpos)):
             np.dot(v[i: i + 1].conj(), v[i:].T, out=vis[t, i: i + 1, i:])
-
-        #print("A_s at time t=", t, "is", A_s)
 
 
     # Conjugate visibilities

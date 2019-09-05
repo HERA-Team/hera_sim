@@ -20,7 +20,6 @@ except ImportError:
 from .simulators import VisibilitySimulator
 from astropy import constants as cnst
 
-
 class HealVis(VisibilitySimulator):
     point_source_ability = False
 
@@ -31,9 +30,7 @@ class HealVis(VisibilitySimulator):
 
         # A bit of a hack here because healvis uses its own AnalyticBeam,
         # and doesn't check if you are using pyuvsim's one. This should be fixed.
-        
-
-        
+                
         if "beams" not in kwargs:
             kwargs['beams'] = [AnalyticBeam("uniform")]
             
@@ -78,11 +75,9 @@ class HealVis(VisibilitySimulator):
     @cached_property
     def observatory(self):
         """A healvis :class:`healvis.observatory.Observatory` instance"""
-        obs =  setup_observatory_from_uvdata(
+        return setup_observatory_from_uvdata(
             self.uvdata, fov=self.fov, beam=self.beams[0]
         )
-        
-        return obs
 
     def _simulate(self):
         """

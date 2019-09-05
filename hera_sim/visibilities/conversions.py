@@ -54,7 +54,7 @@ def uvbeam_to_lm(uvbeam, freqs, n_pix_lm=63, trunc_at_horizon=False, **kwargs):
         ndarray, shape[nfreq, beam_px, beam_px]: the beam map cube.
     """
     
-    l = np.linspace(-1, 1, n_pix_lm, dtype=np.float64)
+    l = np.linspace(-1, 1, n_pix_lm, dtype=np.float32)
     l, m = np.meshgrid(l, l)
     l = l.flatten()
     m = m.flatten()
