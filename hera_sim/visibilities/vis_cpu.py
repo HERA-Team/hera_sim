@@ -1,8 +1,10 @@
 """
-``vis_cpu`` visibility simulator.
+vis_cpu visibility simulator.
 
-This is a fast, simple visibility simulator that
+This is a fast, simple visibility simulator that is intended to be replaced by vis_gpu
 """
+from __future__ import division
+from builtins import range
 import numpy as np
 from scipy.interpolate import RectBivariateSpline
 import healpy
@@ -10,6 +12,7 @@ import healpy
 from . import conversions
 from .simulators import VisibilitySimulator
 
+from astropy.constants import c
 
 class VisCPU(VisibilitySimulator):
 
@@ -41,8 +44,9 @@ class VisCPU(VisibilitySimulator):
     def lsts(self):
         try:
             return self.__lsts
-        except AttributeError:
-            self.__lsts = np.unique(self.uvdata.lst_array)
+        except AttributeError:      
+            self.__lsts = self.uvdata.lst_array[::self.uvdata.Nbls]
+
             return self.__lsts
 
     def validate(self):
@@ -90,11 +94,11 @@ class VisCPU(VisibilitySimulator):
         coords to topocentric at each LST.
         """
 
-        sid_time = np.unique(self.uvdata.lst_array)
+        sid_time = self.lsts
         eq2tops = np.empty((len(sid_time), 3, 3), dtype=self._real_dtype)
-
+        
         for i, st in enumerate(sid_time):
-            eq2tops[i] = conversions.eq2top_m(-st, self.uvdata.telescope_lat_lon_alt[0])
+            eq2tops[i] = conversions.eq2top_m(st, self.uvdata.telescope_lat_lon_alt[0]) # WAS -st
 
         return eq2tops
 
@@ -105,6 +109,7 @@ class VisCPU(VisibilitySimulator):
         visfull = np.zeros_like(self.uvdata.data_array, dtype=self._complex_dtype)
 
         for i, freq in enumerate(self.freqs):
+
             vis = vis_cpu(
                 antpos=self.antpos,
                 freq=freq,
@@ -113,11 +118,11 @@ class VisCPU(VisibilitySimulator):
                 I_sky=I[i],
                 bm_cube=beam_lm[:, i],
                 real_dtype=self._real_dtype,
-                complex_dtype=self._complex_dtype
+                complex_dtype=self._complex_dtype,
             )
-
+            
             visfull[:, 0, i, 0] = vis.flatten()
-
+            
         return visfull
 
     def _simulate_diffuse(self):
@@ -168,6 +173,7 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube, real_dtype=np.float32
     Returns:
         array_like, shape(NTIMES, NANTS, NANTS): visibilities
     """
+
     nant, ncrd = antpos.shape
     assert ncrd == 3, "antpos must have shape (NANTS, 3)"
     ntimes, ncrd1, ncrd2 = eq2tops.shape
@@ -185,6 +191,7 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube, real_dtype=np.float32
     # Intensity distribution (sqrt) and antenna positions
     Isqrt = np.sqrt(I_sky).astype(real_dtype)  # XXX does not support negative sky
     antpos = antpos.astype(real_dtype)
+    
     ang_freq = 2 * np.pi * freq
 
     # Empty arrays: beam pattern, visibilities, delays, complex voltages
@@ -200,6 +207,7 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube, real_dtype=np.float32
     # Loop over time samples
     for t, eq2top in enumerate(eq2tops.astype(real_dtype)):
         tx, ty, tz = crd_top = np.dot(eq2top, crd_eq)
+        
         for i in range(nant):
             # Linear interpolation of primary beam pattern
             spline = RectBivariateSpline(bm_pix_y, bm_pix_x, bm_cube[i], kx=1, ky=1)
@@ -207,9 +215,11 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube, real_dtype=np.float32
 
         A_s = np.where(tz > 0, A_s, 0)
 
-        # Calculate delays
+        # Calculate delays, where TAU = (b * s) / c
         np.dot(antpos, crd_top, out=tau)
-        np.exp((1.0j * ang_freq) * tau, out=v)
+        tau /= c.value
+        
+        np.exp(1.0j * (ang_freq * tau), out=v)
 
         # Complex voltages
         v *= A_s * Isqrt
@@ -218,11 +228,12 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube, real_dtype=np.float32
         for i in range(len(antpos)):
             np.dot(v[i: i + 1].conj(), v[i:].T, out=vis[t, i: i + 1, i:])
 
+
     # Conjugate visibilities
     np.conj(vis, out=vis)
 
     # Fill in whole visibility matrix from upper triangle
     for i in range(nant):
         vis[:, i + 1:, i] = vis[:, i, i + 1:].conj()
-
+    
     return vis

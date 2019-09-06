@@ -10,15 +10,25 @@ of simulators.
 from .simulators import VisibilitySimulator
 from .conversions import *
 
+import warnings
+
 # Registered Simulators
 from .vis_cpu import VisCPU
 
+
 try:
     from .healvis_wrapper import HealVis
-except ImportError:
+except (ImportError, NameError) as e: # NameError arises bc healvis is not Python 3 compliant
+    warnings.warn("healvis failed to import.")
     pass
 
 try:
     from .prisim_wrapper import PRISim
+except ImportError:
+    pass
+
+# GPU version of VisCPU
+try:
+    from .vis_gpu import VisGPU
 except ImportError:
     pass

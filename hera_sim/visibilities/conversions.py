@@ -53,7 +53,7 @@ def uvbeam_to_lm(uvbeam, freqs, n_pix_lm=63, trunc_at_horizon=False, **kwargs):
     Returns:
         ndarray, shape[nfreq, beam_px, beam_px]: the beam map cube.
     """
-
+    
     l = np.linspace(-1, 1, n_pix_lm, dtype=np.float32)
     l, m = np.meshgrid(l, l)
     l = l.flatten()
@@ -65,17 +65,23 @@ def uvbeam_to_lm(uvbeam, freqs, n_pix_lm=63, trunc_at_horizon=False, **kwargs):
     az = -np.arctan2(m, l)
     za = np.arcsin(n)
 
-    # Ensure that interp gives us the power values, not e-field.
     uvbeam.efield_to_power()
-    res = uvbeam.interp(az, za, freqs, **kwargs)[0]
-
+    power_beam = uvbeam.interp(az, za, freqs, **kwargs)[0]
+    powerXX = power_beam[0,0,0]    
+    
     # Get the relevant indices of res
     bm = np.zeros((len(freqs), len(l)))
-
+    
     if trunc_at_horizon:
-        bm[:, n >= 0] = res[0, 0, 0][:, n >= 0]
+        bm[:, n >= 0] = powerXX[:, n >= 0]
     else:
-        bm = res[0, 0, 0]
+        bm = powerXX
+    
+
+#     if trunc_at_horizon:
+#         bm[:, n >= 0] = res[0, 0, 1][:, n >= 0]**2 + res[1, 0, 1][:, n>=0]**2
+#     else:
+#         bm = res[0, 0, 1]**2 + res[1, 0, 1]**2
 
     if np.max(bm) > 0:
         bm /= np.max(bm)

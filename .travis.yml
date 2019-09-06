@@ -36,8 +36,9 @@ install:
   - conda create -q -n test-env python=$TRAVIS_PYTHON_VERSION
   - conda env update -q -n test-env -f environment.yml
   - conda activate test-env
+  - pip install -e .
 
-script: nosetests hera_sim --with-coverage --cover-package=hera_sim --verbose
+script: pytest hera_sim --cov=hera_sim --verbose
 
 after_success:
   - coveralls

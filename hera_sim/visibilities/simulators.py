@@ -1,3 +1,5 @@
+from __future__ import division
+from builtins import object
 import warnings
 
 import healpy
@@ -66,7 +68,6 @@ class VisibilitySimulator(object):
                 raise ValueError("if obsparams is not given, uvdata must be")
 
             self.uvdata = uvdata
-
             self.beams = [ab.AnalyticBeam("uniform")] if beams is None else beams
             self.beam_ids = np.zeros(self.n_ant, dtype=np.int) if beam_ids is None else beam_ids
 

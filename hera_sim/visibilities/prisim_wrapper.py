@@ -1,3 +1,8 @@
+from __future__ import division
+from __future__ import print_function
+from builtins import zip
+from builtins import str
+from builtins import range
 import os
 import warnings
 
@@ -46,9 +51,15 @@ class PRISim(VisibilitySimulator):
         """
         An instance of `prisim.interferometry.InterferometerArray`
         """
+
+        antpos, ants = self.uvdata.get_ENU_antpos()
+        labels=np.asarray(self.uvdata.get_antpairs(), dtype=[("A2", int), ("A1", int)])
+        antpairs = self.uvdata.get_antpairs()
+        baseline_vectors = np.array([antpos[ant[0]] - antpos[ant[1]] for ant in antpairs])
+
         return intf.InterferometerArray(
-            labels=np.asarray(self.uvdata.get_antpairs(), dtype=[("A2", int), ("A1", int)]),
-            baselines=self.uvdata.get,  # (N,3) array ENU ask bryna
+            labels = [("A"+str(i), str(baseline_vectors[i])) for i in range(len(antpairs))],
+            baselines=baseline_vectors,   
             channels=self.uvdata.freq_array[0],
             telescope=None,  # TODO: new class
             latitude=np.degrees(self.uvdata.telescope_lat_lon_alt[0]),
@@ -218,7 +229,7 @@ class PRISim(VisibilitySimulator):
                     beam = self.beams[0].data_array[0, 0, 0 if self.beam_pol == 'x' else 1, :, :].T
                     freqs = self.beams[0].freq_array.ravel()
                     theta_phi = np.array([
-                        np.pi / 2 - np.radians(src_altaz[:, 0]),
+                        np.pi/ 2 - np.radians(src_altaz[:, 0]),
                         np.radians(src_altaz[:, 1])
                     ])
                     interp_logbeam = mathops.healpix_interp_along_axis(
@@ -279,11 +290,14 @@ class PRISim(VisibilitySimulator):
                 roi_ind_snap = np.array([])
                 roi_pbeam_snap = np.array([])
 
+            # UVData has a bandpass_array, but AnalyticBeams do not
+            bandpass = getattr(self.beams[0], "bandpass_array", np.ones_like(self.uvdata.freq_array[0]))
+
             self.interferometer.observe(
                 timeobj=self._astropy_times[j],
                 Tsysinfo={"Tnet": 0},
-                bandpass=self.beams[0].bandpass_array,
-                pointing_center=np.array([90.0, 270.0]),
+                bandpass=bandpass,
+                pointing_center=np.array([90.0, 270.0]),      
                 skymodel=self.sky_model,
                 t_acc=self.uvdata.integration_time[0],
                 pb_info={
@@ -299,9 +313,16 @@ class PRISim(VisibilitySimulator):
                 vmemavail=None
             )
 
+        #interData = intf.InterferometerData(prisim_object=self.interferometer)
+        #return interData.createUVData()
+
+
         # Reshape array into UVData.data_array format
         vis = self.interferometer.skyvis_freq.conj()
 
+        print("VIS SHAPE", vis.shape)
+
+        '''
         # (Nbls, Nfreqs, Ntimes) -> (Ntimes, Nbls, Nfreqs) ->
         # (Nblts, Nfreqs, Nspws=1, Npols=1) ->
         # (Nblts, Nspws=1, Nfreqs, Npols=1)
@@ -309,3 +330,9 @@ class PRISim(VisibilitySimulator):
             np.transpose(vis['noiseless'], (2, 0, 1)).reshape(
                 self.uvdata.Nblts, self.uvdata.Nfreqs, (0, 2, 1, 3))
         )
+        '''
+        #vis = vis['noiseless']
+        vis = np.moveaxis(vis, [0,1,2], [2,0,1])
+        vis = vis.reshape(self.uvdata.Nblts, self.uvdata.Nfreqs, 1, 1)
+        vis = np.moveaxis(vis, [0,1,2,3], [0,2,1,3])
+        return vis

@@ -82,7 +82,7 @@ def empty_uvdata(nfreq, ntimes, ants, antpairs=None, pols=['xx', ],
 
     # Generate the antpairs if they are not given explicitly.
     antpairs, ant1, ant2 = _get_antpairs(ants, antpairs)
-
+    
     defined_ants = ants.keys()
     ants_not_found = []
     for _ant in np.unique((ant1, ant2)):
