@@ -53,7 +53,7 @@ setup_args = {
         'scipy',
         'cached_property',
         'mpi4py',   # this is a dependency of pyuvsim which currently is not automatically installed. Remove when possible.
-        'pyuvsim',
+        'pyuvsim @ git+git://github.com/RadioAstronomySoftwareGroup/pyuvsim.git',
         'pyuvdata',
         'aipy'
     ],

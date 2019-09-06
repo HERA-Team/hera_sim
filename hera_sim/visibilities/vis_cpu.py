@@ -94,9 +94,12 @@ class VisCPU(VisibilitySimulator):
         coords to topocentric at each LST.
         """
 
+
         sid_time = self.lsts
         eq2tops = np.empty((len(sid_time), 3, 3), dtype=self._real_dtype)
-        
+
+        # TODO: ensure that LST is converted to HA correctly (
+        #  https://en.wikipedia.org/wiki/Hour_angle#Relation_with_the_right_ascension)
         for i, st in enumerate(sid_time):
             eq2tops[i] = conversions.eq2top_m(st, self.uvdata.telescope_lat_lon_alt[0]) # WAS -st
 
