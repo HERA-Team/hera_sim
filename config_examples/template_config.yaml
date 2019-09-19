@@ -5,7 +5,6 @@
 # specified), or do we want this to be a minimal template?
 
 bda:
-    apply_bda: True
     max_decorr: 0
     pre_fs_int_time: !dimensionful 
         value: 0.1
@@ -20,7 +19,6 @@ bda:
         value: 2
         units: 's'
 defaults:
-    apply_defaults: False
     default_config: 'h2c'
 filing:
     outdir: '.'
