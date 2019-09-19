@@ -10,8 +10,7 @@ from __future__ import absolute_import
 
 from future import standard_library
 standard_library.install_aliases()
-from builtins import *
-from past.utils import old_div
+# from builtins import *
 import numpy as np
 from builtins import range
 
@@ -57,12 +56,12 @@ def hex_array(hex_num, sep=14.6, split_core=True, outriggers=2):
     ):  # the + split_core deletes a row
         for col in range(0, 2 * hex_num - abs(row) - 1):
             x_pos = sep * ((-(2 * hex_num - abs(row)) + 2) / 2.0 + col)
-            y_pos = old_div(row * sep * 3 ** 0.5, 2)
+            y_pos = row * sep * 3 ** 0.5 / 2
             positions.append([x_pos, y_pos, 0])
 
     # unit vectors
-    up_right = sep * np.asarray([0.5, old_div(3 ** 0.5, 2), 0])
-    up_left = sep * np.asarray([-0.5, old_div(3 ** 0.5, 2), 0])
+    up_right = sep * np.asarray([0.5, 3 ** 0.5 / 2, 0])
+    up_left = sep * np.asarray([-0.5, 3 ** 0.5 / 2, 0])
 
     # Split the core into 3 pieces
     if split_core:
@@ -71,10 +70,10 @@ def hex_array(hex_num, sep=14.6, split_core=True, outriggers=2):
             theta = np.arctan2(pos[1], pos[0])
             if pos[0] == 0 and pos[1] == 0:
                 new_pos.append(pos)
-            elif old_div(-np.pi, 3) < theta < old_div(np.pi, 3):
-                new_pos.append(np.asarray(pos) + old_div((up_right + up_left), 3))
-            elif old_div(np.pi, 3) <= theta < np.pi:
-                new_pos.append(np.asarray(pos) + up_left - old_div((up_right + up_left), 3))
+            elif -np.pi / 3 < theta < np.pi / 3:
+                new_pos.append(np.asarray(pos) + (up_right + up_left) / 3)
+            elif np.pi / 3 <= theta < np.pi:
+                new_pos.append(np.asarray(pos) + up_left - (up_right + up_left) / 3)
             else:
                 new_pos.append(pos)
         positions = new_pos
@@ -89,23 +88,23 @@ def hex_array(hex_num, sep=14.6, split_core=True, outriggers=2):
                         * sep
                         * (hex_num - 1)
                 )
-                y_pos = old_div(row * sep * (hex_num - 1) * 3 ** 0.5, 2)
+                y_pos = row * sep * (hex_num - 1) * 3 ** 0.5 / 2
                 theta = np.arctan2(y_pos, x_pos)
                 if (x_pos ** 2 + y_pos ** 2) ** 0.5 > sep * (hex_num + 1):
                     # These specific displacements of the outrigger sectors are designed specifically
                     # for redundant calibratability and "complete" uv-coverage, but also to avoid
                     # specific obstacles on the HERA site (e.g. a road to a MeerKAT antenna).
-                    if 0 < theta <= old_div(2 * np.pi, 3) + 0.01:
+                    if 0 < theta <= 2 * np.pi / 3 + 0.01:
                         positions.append(
-                            np.asarray([x_pos, y_pos, 0]) - old_div(4 * (up_right + up_left), 3)
+                            np.asarray([x_pos, y_pos, 0]) - 4 * (up_right + up_left) / 3
                         )
-                    elif 0 >= theta > old_div(-2 * np.pi, 3):
+                    elif 0 >= theta > -2 * np.pi / 3:
                         positions.append(
-                            np.asarray([x_pos, y_pos, 0]) - old_div(2 * (up_right + up_left), 3)
+                            np.asarray([x_pos, y_pos, 0]) - 2 * (up_right + up_left) / 3
                         )
                     else:
                         positions.append(
-                            np.asarray([x_pos, y_pos, 0]) - old_div(3 * (up_right + up_left), 3)
+                            np.asarray([x_pos, y_pos, 0]) - 3 * (up_right + up_left) / 3
                         )
 
     return {i: pos for i, pos in enumerate(np.array(positions))}

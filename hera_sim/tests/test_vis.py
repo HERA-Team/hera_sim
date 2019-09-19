@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 import warnings
 
+from astropy.units import sday
 from hera_sim import visibilities as vis
 from hera_sim import io
 
@@ -24,7 +25,7 @@ NFREQ = 5
 def uvdata():
     return io.empty_uvdata(
         nfreq=NFREQ,
-        time_per_integ=io.SEC_PER_SDAY / NTIMES,
+        time_per_integ=sday.to('s') / NTIMES,
         ntimes=NTIMES,
         ants={
             0: (0, 0, 0),
@@ -35,7 +36,7 @@ def uvdata():
 def uvdataJD():
     return io.empty_uvdata(
         nfreq=NFREQ,
-        time_per_integ=io.SEC_PER_SDAY / NTIMES,
+        time_per_integ=sday.to('s') / NTIMES,
         ntimes=NTIMES,
         ants={
             0: (0, 0, 0),
@@ -50,7 +51,7 @@ def test_JD(uvdata, uvdataJD):
     freqs = np.unique(uvdata.freq_array)
 
     # put a point source in
-    point_source_pos = np.array([[0, uvdata.telescope_lat_lon_alt[0]]])
+    point_source_pos = np.array([[0, uvdata.telescope_location_lat_lon_alt[0]]])
     point_source_flux = np.array([[1.0]] * len(freqs))
 
     viscpu1 = vis.VisCPU(
@@ -76,7 +77,7 @@ def test_JD(uvdata, uvdataJD):
 def uvdata2():
     return io.empty_uvdata(
         nfreq=NFREQ,
-        time_per_integ=io.SEC_PER_SDAY / NTIMES,
+        time_per_integ=sday.to('s') / NTIMES,
         ntimes=NTIMES,
         ants={
             0: (0, 0, 0),
@@ -177,7 +178,7 @@ def test_single_source_autocorr(uvdata, simulator):
     freqs = np.unique(uvdata.freq_array)
 
     # put a point source in that will go through zenith.
-    point_source_pos = np.array([[0, uvdata.telescope_lat_lon_alt[0]]])
+    point_source_pos = np.array([[0, uvdata.telescope_location_lat_lon_alt[0]]])
     point_source_flux = np.array([[1.0]] * len(freqs))
 
     v = simulator(
@@ -199,7 +200,7 @@ def test_single_source_autocorr_past_horizon(uvdata, simulator):
     freqs = np.unique(uvdata.freq_array)
 
     # put a point source in that will never be up
-    point_source_pos = np.array([[0, uvdata.telescope_lat_lon_alt[0] + 1.1 * np.pi / 2]])
+    point_source_pos = np.array([[0, uvdata.telescope_location_lat_lon_alt[0] + 1.1 * np.pi / 2]])
     point_source_flux = np.array([[1.0]] * len(freqs))
 
     v = simulator(

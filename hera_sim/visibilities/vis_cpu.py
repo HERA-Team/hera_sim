@@ -101,7 +101,7 @@ class VisCPU(VisibilitySimulator):
         # TODO: ensure that LST is converted to HA correctly (
         #  https://en.wikipedia.org/wiki/Hour_angle#Relation_with_the_right_ascension)
         for i, st in enumerate(sid_time):
-            eq2tops[i] = conversions.eq2top_m(st, self.uvdata.telescope_lat_lon_alt[0]) # WAS -st
+            eq2tops[i] = conversions.eq2top_m(st, self.uvdata.telescope_location_lat_lon_alt[0]) # WAS -st
 
         return eq2tops
 

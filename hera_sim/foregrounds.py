@@ -11,9 +11,8 @@ from __future__ import absolute_import
 
 from future import standard_library
 standard_library.install_aliases()
-from builtins import *
+# from builtins import *
 from builtins import zip
-from past.utils import old_div
 import numpy as np
 from aipy.const import sidereal_day
 from builtins import range
@@ -61,7 +60,7 @@ def diffuse_foreground(lsts, fqs, bl_vec, Tsky_mdl=None, omega_p=None,
 
     # generate a Tsky visibility in time and freq space, convert from K to Jy
     Tsky = Tsky_mdl(lsts, fqs)
-    mdl = np.asarray(old_div(Tsky * 1e3, noise.jy2T(fqs, omega_p)), np.complex)
+    mdl = np.asarray(Tsky * 1e3 / noise.jy2T(fqs, omega_p), np.complex)
 
     # If an auto-correlation, return the beam-weighted integrated sky.
     if np.isclose(np.linalg.norm(bl_vec), 0):
@@ -119,7 +118,7 @@ def pntsrc_foreground(lsts, fqs, bl_vec, nsrcs=1000, Smin=0.3, Smax=300,
     ras = np.random.uniform(0, 2 * np.pi, nsrcs)
     indices = np.random.normal(spectral_index_mean, spectral_index_std, size=nsrcs)
     mfreq = reference_freq
-    beam_width = old_div((40 * 60.) * (old_div(mfreq, fqs)), sidereal_day * 2 * np.pi)  # XXX hardcoded HERA
+    beam_width = ((40 * 60.) * (mfreq / fqs)) / (sidereal_day * 2 * np.pi)  # XXX hardcoded HERA
 
     # Draw flux densities from a power law between Smin and Smax with a slope of beta.
     flux_densities = ((Smax ** (beta + 1) - Smin ** (beta + 1)) * np.random.uniform(size=nsrcs) + Smin ** (
@@ -129,11 +128,11 @@ def pntsrc_foreground(lsts, fqs, bl_vec, nsrcs=1000, Smin=0.3, Smax=300,
     for ra, flux, index in zip(ras, flux_densities, indices):
         t = np.argmin(np.abs(utils.compute_ha(lsts, ra)))
         dtau = np.random.uniform(-.1 * bl_len_ns, .1 * bl_len_ns)  # XXX adds a bit to total delay, increasing bl_len_ns
-        vis[t, :] += flux * (old_div(fqs, mfreq)) ** index * np.exp(2j * np.pi * fqs * dtau)
+        vis[t, :] += flux * (fqs / mfreq) ** index * np.exp(2j * np.pi * fqs * dtau)
     ha = utils.compute_ha(lsts, 0)
     for fi in range(fqs.size):
-        bm = np.exp(old_div(-ha ** 2, (2 * beam_width[fi] ** 2)))
-        bm = np.where(np.abs(ha) > old_div(np.pi, 2), 0, bm)
+        bm = np.exp(-ha ** 2 / (2 * beam_width[fi] ** 2))
+        bm = np.where(np.abs(ha) > np.pi / 2 , 0, bm)
         w = .9 * bl_len_ns * np.sin(ha) * fqs[fi]  # XXX .9 to offset increase from dtau above
 
         phs = np.exp(2j * np.pi * w)

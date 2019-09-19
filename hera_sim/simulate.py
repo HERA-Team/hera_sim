@@ -9,9 +9,8 @@ from __future__ import absolute_import
 
 from future import standard_library
 standard_library.install_aliases()
-from builtins import *
+# from builtins import *
 from builtins import zip
-from past.utils import old_div
 from builtins import object
 import functools
 import inspect
@@ -27,7 +26,6 @@ from collections import OrderedDict
 
 from . import io
 from . import sigchain
-from .interpolators import Tsky
 from .version import version
 
 
@@ -118,6 +116,10 @@ class _model(object):
                     method_name=method,
                     kwargs=kwargs,
                 )
+
+                # history *must* be str, so encode it if it is unicode in py2
+                if sys.version_info[0] == 2:
+                    obj.data.history = obj.data.history.encode('utf8')
 
                 # Add this particular model to a cache of "added models" for this sim.
                 # This can be gotten from history, but easier just to keep it here.
@@ -241,7 +243,7 @@ class Simulator(object):
                     self.data.data_array[:] = 0.0
                     self.data.flag_array[:] = False
                     self.data.nsample_array[:] = 1.0
-            elif self.data is not None:
+            elif data is not None:
                 self.data = data
 
         # Assume the phase type is drift unless otherwise specified.
@@ -318,7 +320,7 @@ class Simulator(object):
 
         for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols():
             lsts = self.data.lst_array[blt_ind]
-            bl_vec = old_div((self.antpos[ant1] - self.antpos[ant2]) * 1e9, const.c.value)
+            bl_vec = (self.antpos[ant1] - self.antpos[ant2]) * 1e9 / const.c.value
             vis = model(lsts=lsts, fqs=fqs, bl_vec=bl_vec, **kwargs)
             self.data.data_array[blt_ind, 0, :, pol_ind] += vis
 
@@ -341,7 +343,7 @@ class Simulator(object):
 
         for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols():
             lsts = self.data.lst_array[blt_ind]
-            bl_vec = old_div((self.antpos[ant1] - self.antpos[ant2]) * 1e9, const.c.value)
+            bl_vec = (self.antpos[ant1] - self.antpos[ant2]) * 1e9 / const.c.value
             vis = model(lsts, fqs, bl_vec, **kwargs)
             self.data.data_array[blt_ind, 0, :, pol_ind] += vis
 
