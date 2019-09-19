@@ -8,16 +8,16 @@ bda:
     apply_bda: True
     max_decorr: 0
     pre_fs_int_time: !dimensionful 
-        value: 0
+        value: 0.1
         units: 's'
     corr_FoV_angle: !dimensionful
-        value: 0
+        value: 20
         units: 'deg'
     max_time: !dimensionful
-        value: 0
+        value: 16
         units: 's'
     corr_int_time: !dimensionful
-        value: !!null
+        value: 2
         units: 's'
 defaults:
     apply_defaults: False
@@ -38,10 +38,54 @@ time:
     integration_time: 8.59
     start_time: 2457458.1738949567
 telescope:
-    array_layout: 'antenna_layout.csv'
-    # TODO: allow use with hera_sim.antpos
-    # alternatively can specify how to construct it with hera_sim.antpos
+    # generate from an antenna layout csv
+    # array_layout: 'antenna_layout.csv'
+    # generate using hera_sim.antpos
+    array_layout: !antpos
+        array_type: "hex"
+        hex_num: 7
+        sep: 14.6
+        split_core: True
+        outriggers: 2
 systematics:
     # TODO: fill out what should go in here
 analysis:
     # TODO: fill out what should go in here
+simulation:
+    eor:
+        noiselike_eor:
+            eor_amp: 0.00001
+            min_delay: !!null
+            max_delay: !!null
+            fringe_filter_type: "tophat"
+            fringe_filter_kwargs: {}
+    foregrounds:
+        diffuse_foreground:
+            standoff: 0
+            delay_filter_type: "tophat"
+            delay_filter_normalize: !!null
+            fringe_filter_type: "tophat"
+            fringe_filter_kwargs: {}
+        pntsrc_foreground:
+            nsrcs: 1000
+            Smin: 0.3
+            Smax: 300
+            beta: -1.5
+            spectral_index_mean: -1.0
+            spectral_index_std: 0.5
+            reference_freq: 0.15
+    noise:
+        thermal_noise:
+            Trx: 0
+            inttime: 10.7
+            resample_Tsky_kwargs: {}
+    rfi:
+        # TODO: fill in
+    sigchain:
+        gains:
+            # TODO: fill in
+        reflection_gains:
+            # TODO: fill in
+        xtalk:
+            type: "cross_coupling_xtalk"
+            # TODO: fill in

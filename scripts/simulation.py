@@ -2,14 +2,17 @@
 The purpose of this script is to provide an interface for the user to use 
 hera_sim to create, populate, and save to disk a UVData object.
 """
-import hera_sim
 import sys
 import os
 import yaml
+
+from pyuvsim.simsetup import _parse_layout_csv
 from bda import bda_tools
 
+import hera_sim
+
 # syntax for running from command line:
-# python simulation.py path_to_config path_to_save verbose 
+# python simulation.py path_to_config verbose 
 # anything else we need to specify?
 # notes: 
 # path_to_config should be an absolute path to a configuration YAML
@@ -17,8 +20,6 @@ from bda import bda_tools
 # parameters (to be applied with defaults and run_sim)
 # the decision to perform BDA or not (and which parameters to use) will also
 # be made in the config file
-#
-# path_to_save should be an absolute path specifying the save location with an extension
 #
 # how to handle verbose?
 
@@ -60,9 +61,13 @@ if apply_defaults and defaults:
                 "dictionary of default values.")
 
 
-# TODO: figure out how to specify antennas
 # extract instrument parameters
-antennas = sim_params.pop("antennas")
+if isinstance(yaml_contents["telescope"]["array_layout"], str):
+    # assume it's an antenna layout csv
+    antennas = _parse_layout_csv(yaml_contents["telescope"]["array_layout"])
+else:
+    # assume it's constructed using antpos and the YAML tag !antpos
+    antennas = yaml_contents["telescope"]["array_layout"]
 instrument_params = {"antennas" : antennas}
 for parameter in ("freq", "time", ):
     for key, value in yaml_contents[parameter].items():
@@ -70,12 +75,18 @@ for parameter in ("freq", "time", ):
 
 sim = hera_sim.Simulator(**instrument_params)
 
-# extract simulation parameters
-sim_params = {}
+config_params = {}
+# need to figure out a mapping of this to how defaults works
 for component in ("systematics", "analysis", ):
     for key, value in yaml_contents[component].items():
-        sim_params[key] = value
-# now run the simulation
+        config_params[key] = value
+if not apply_defaults and config_params:
+    hera_sim.defaults.set(**config_params)
+
+sim_params = {}
+for key, value in yaml_contents["simulation"].items():
+    sim_params[key] = value
+
 sim.run_sim(**sim_params)
 
 # figure out whether or not to do BDA, and do it if so
@@ -91,6 +102,4 @@ if apply_bda:
 sim.write_data(save_path, 
                file_type=filing_params["output_format"],
                **filing_params["kwargs"])
-
-# should be done now
 

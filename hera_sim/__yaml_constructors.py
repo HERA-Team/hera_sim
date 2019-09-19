@@ -9,6 +9,7 @@ import warnings
 import astropy.units as u
 
 from . import interpolators
+from . import antpos
 
 def make_interp_constructor(tag, interpolator):
     """Wrapper for yaml.add_constructor to easily make new YAML tags."""
@@ -47,3 +48,12 @@ def astropy_unit_constructor(loader, node):
                     "Quantity. Please check your configuration file.")
 
 yaml.add_constructor("!dimensionful", astropy_unit_constructor, yaml.FullLoader)
+
+def antpos_constructor(loader, node):
+    params = loader.construct_mapping(node, deep=True)
+    array_type = params.pop("array_type") + "_array"
+    antpos_func = getattr(antpos, array_type)
+    return antpos_func(**params)
+
+yaml.add_constructor("!antpos", antpos_constructor, yaml.FullLoader)
+

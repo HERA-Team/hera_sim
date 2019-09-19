@@ -11,7 +11,6 @@ import warnings
 
 from os import path
 from .config import CONFIG_PATH
-from .interpolators import _check_path
 
 SEASON_CONFIGS = {'h1c': path.join(CONFIG_PATH, 'HERA_H1C_CONFIG.yaml'),
                   'h2c': path.join(CONFIG_PATH, 'HERA_H2C_CONFIG.yaml'),
@@ -61,8 +60,8 @@ class _Defaults:
     ----------
     config : str or dict, optional (default 'h1c') 
         May either be an absolute path to a configuration YAML, one of
-        the observing season keywords ({}), or a dictionary with the
-        appropriate format.
+        the observing season keywords ('h1c', 'h2c'), or a dictionary 
+        with the appropriate format.
 
         The loaded YAML file is intended to have the following form:
         {module: {model: {param: default}}}, where 'module' is any one
@@ -87,9 +86,6 @@ class _Defaults:
     def __call__(self, module, model):
         """Return the defaults for the given `model` in `module`."""
         return self._config[module][model]
-        #with open(self._config, 'r') as config:
-        #    defaults = yaml.load(config.read(), Loader=yaml.FullLoader)[module][model]
-        #return defaults
 
     def set(self, new_config):
         """Set the defaults to those specified in `new_config`.
@@ -117,16 +113,10 @@ class _Defaults:
         self._use_season_defaults = False
 
     def _get_config(self, config):
-        """Validate the choice of configuration file."""
-        #assert isinstance(config, str), \
-        #        "Default configurations are set by passing a path to a " \
-        #        "configuration file or one of the season keys. The " \
-        #        "currently supported season configurations are " \
-        #        "{}.".format(SEASON_CONFIGS.keys())
+        """Retrieve the configuration specified."""
         if isinstance(config, str):
             if config in SEASON_CONFIGS.keys():
                 config = SEASON_CONFIGS[config]
-                # return SEASON_CONFIGS[config]
             with open(config, 'r') as conf:
                 defaults = yaml.load(conf.read(), Loader=yaml.FullLoader)
             return defaults
@@ -136,14 +126,9 @@ class _Defaults:
             raise ValueError(
                     "The configuration must be a dictionary or an absolute " \
                     "path to a configuration YAML." )
-        #else:
-        #    return config
 
     def _check_config(self):
-        """Confirm that the specified configuration file can be found."""
-        #assert path.exists(self._config), \
-        #        "Please ensure that a path to the specified configuration " \
-        #        "file exists. {} could not be found".format(self._config)
+        """Confirm that the specified configuration is formatted correctly."""
         error_message = "Your configuration should be formatted as a nested " \
                 "dictionary: {module: {model: {params: values}}}"
         try:
@@ -151,8 +136,7 @@ class _Defaults:
             model = list(self._config[module].keys())[0]
         except KeyError:
             raise AssertionError(error_message)
-        # seems a little stupid to use self._config rather than self()
-        assert isinstance(self._config[module][model], dict), error_message
+        assert isinstance(self(module, model), dict), error_message
 
     @property
     def _version_is_compatible(self):
