@@ -23,7 +23,7 @@ import hera_sim
 #
 # how to handle verbose?
 
-# get configuration path, simulation parameter path, save path
+# get configuration path
 config = sys.argv[1]
 
 # confirm that config and simulation parameter paths exist
@@ -48,17 +48,17 @@ clobber = filing_params["clobber"]
 
 # determine whether to use season defaults
 defaults = yaml_contents.get("defaults", {})
-apply_defaults = defaults.pop("apply_defaults", False)
-if apply_defaults and defaults:
+if defaults:
     if isinstance(defaults["default_config"], str):
         hera_sim.defaults.set(defaults["default_config"])
     elif isinstance(defaults["default_config"], dict):
         hera_sim.defaults.set(**defaults["default_config"])
     else:
-        raise ValueError("If you wish to override function defaults, then " \
-                "you must do so by either specifying a path to the default " \
-                "configuration file or specifying an appropriately formatted " \
-                "dictionary of default values.")
+        raise ValueError("If you wish to override function defaults, then "
+                "you must do one of the following:\n"
+                "specify a path to the default configuration file\n"
+                "specify the name of a set of defaults ('h1c' or 'h2c')\n"
+                "specify an appropriately formatted dictionary of default values.")
 
 
 # extract instrument parameters
@@ -80,7 +80,12 @@ config_params = {}
 for component in ("systematics", "analysis", ):
     for key, value in yaml_contents[component].items():
         config_params[key] = value
-if not apply_defaults and config_params:
+# this currently isn't ideal. there should be checks to see if there
+# is any overlap between defaults and config_params; if there is
+# an overlap, a warning should be raised. if there is no overlap,
+# then the defaults and config_params dictionaries should be merged
+# and the resulting dictionary should be applied as the new defaults
+if not defaults and config_params:
     hera_sim.defaults.set(**config_params)
 
 sim_params = {}
@@ -91,9 +96,8 @@ sim.run_sim(**sim_params)
 
 # figure out whether or not to do BDA, and do it if so
 bda_params = yaml_contents.get("bda", {})
-apply_bda = bda_params.pop("apply_bda", False)
 
-if apply_bda:
+if bda_params:
     sim.data = bda_tools.apply_bda(sim.data, **bda_params)
 
 # save the simulation
