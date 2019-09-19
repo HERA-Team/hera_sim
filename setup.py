@@ -57,7 +57,7 @@ setup_args = {
         'pyuvsim',
         'pyuvdata',
         'aipy>=3.0',
-        'hera_sim'
+        'click'
     ],
     "version": version.version,
     "package_data": {"hera_sim": data_files},
