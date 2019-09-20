@@ -7,7 +7,12 @@ import os
 import yaml
 
 from pyuvsim.simsetup import _parse_layout_csv
-from bda import bda_tools
+
+try:
+    import bda
+    from bda import bda_tools
+except ImportError:
+    bda = None
 
 import hera_sim
 
@@ -34,6 +39,12 @@ assert os.path.exists(config), \
 # load in config
 with open(config, 'r') as f:
     yaml_contents = yaml.load(f.read(), Loader=yaml.FullLoader)
+
+# figure out whether or not to do BDA, and do it if so
+bda_params = yaml_contents.get("bda", {})
+if bda_params and bda is None:
+    raise ImportError("You have set parameters for doing BDA but do not have "
+                      "bda installed in your environment. Please install bda.")
 
 # verbose option?
 verbose = True if "verbose" in sys.argv else False
@@ -94,9 +105,7 @@ for key, value in yaml_contents["simulation"].items():
 
 sim.run_sim(**sim_params)
 
-# figure out whether or not to do BDA, and do it if so
-bda_params = yaml_contents.get("bda", {})
-
+# do BDA if BDA parameters are set
 if bda_params:
     sim.data = bda_tools.apply_bda(sim.data, **bda_params)
 
