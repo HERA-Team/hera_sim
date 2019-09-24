@@ -53,7 +53,9 @@ class VisCPU(VisibilitySimulator):
         super(VisCPU, self).validate()
 
         # This one in particular requires that every baseline is used!
-        if len(self.uvdata.get_antpairs()) != len(self.uvdata.antenna_numbers) ** 2:
+        N = len(self.uvdata.antenna_numbers)
+        # N(N-1)/2 unique cross-correlations + N autocorrelations
+        if len(self.uvdata.get_antpairs()) != N * (N + 1) / 2:
             raise ValueError("VisCPU requires using every pair of antennas, but the UVData object does not comply")
 
         if len(self.uvdata.data_array) != len(self.uvdata.get_antpairs()) * len(self.lsts):

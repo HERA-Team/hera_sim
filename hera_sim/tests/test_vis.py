@@ -30,7 +30,6 @@ def uvdata():
         ants={
             0: (0, 0, 0),
         },
-        antpairs=[(0, 0)]
     )
 @pytest.fixture
 def uvdataJD():
@@ -41,7 +40,6 @@ def uvdataJD():
         ants={
             0: (0, 0, 0),
         },
-        antpairs=[(0, 0)],
         start_jd=2458150
     )
 
