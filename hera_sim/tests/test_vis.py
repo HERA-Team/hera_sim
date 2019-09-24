@@ -40,7 +40,7 @@ def uvdataJD():
         ants={
             0: (0, 0, 0),
         },
-        start_jd=2458150
+        start_time=2458150
     )
 
 
