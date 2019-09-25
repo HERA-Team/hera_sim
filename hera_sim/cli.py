@@ -84,7 +84,7 @@ def run(input, outfile, verbose):
 
     config_params = {}
     # need to figure out a mapping of this to how defaults works
-    for component in ("systematics", "analysis",):
+    for component in ("analysis", "systematics",):
         for key, value in yaml_contents[component].items():
             config_params[key] = value
     # this currently isn't ideal. there should be checks to see if there
