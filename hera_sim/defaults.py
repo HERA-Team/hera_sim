@@ -11,7 +11,6 @@ import warnings
 
 from os import path
 from .config import CONFIG_PATH
-from .interpolators import _check_path
 
 SEASON_CONFIGS = {'h1c': path.join(CONFIG_PATH, 'HERA_H1C_CONFIG.yaml'),
                   'h2c': path.join(CONFIG_PATH, 'HERA_H2C_CONFIG.yaml'),
@@ -51,17 +50,23 @@ class _Defaults:
     hera_sim.defaults(module, model)
     """
 
-    def __init__(self, config_file='h1c'):
-        self._config = self._get_config(config_file)
-        self._check_config()
-        self._use_season_defaults = False
+    def __init__(self, config='h1c'):
+        self._raw_config = {}
+        self._config = {}
+        self._config_name = None
+        self._set_config(config)
+        self._override_defaults = False
     """Load in a configuration and check its formatting.
 
     Parameters
     ----------
-    config_file : str, optional (default 'h1c') 
-        May either be an absolute path to a configuration YAML or one of
-        the observing season keywords: {}
+    config : str or dict, optional (default 'h1c') 
+        May either be an absolute path to a configuration YAML, one of
+        the observing season keywords ('h1c', 'h2c'), or a dictionary 
+        with the appropriate format.
+
+        TODO: rewrite the following bit in accordance w/ new config format
+
         The loaded YAML file is intended to have the following form:
         {module: {model: {param: default}}}, where 'module' is any one
         of the `hera_sim` modules, `model` is any of the functions within
@@ -82,54 +87,71 @@ class _Defaults:
         ...
     """
 
-    def __call__(self, module, model):
-        """Return the defaults for the given `model` in `module`."""
-        with open(self._config, 'r') as config:
-            defaults = yaml.load(config.read(), Loader=yaml.FullLoader)[module][model]
-        return defaults
+    def __call__(self, component=None):
+        """Return the defaults dictionary, or just a component if specified."""
+        if component is not None:
+            try:
+                return self._config[component]
+            except KeyError:
+                raise KeyError("{} not found in configuration.".format(component))
+        else:
+            return self._config
 
     def set(self, new_config):
         """Set the defaults to those specified in `new_config`.
 
         Parameters
         ----------
-        new_config : str
-            Absolute path to configuration file.
+        new_config : str or dict
+            Absolute path to configuration file or dictionary of configuration
+            parameters formatted in the same way a configuration would be loaded.
 
         Notes
         -----
         Calling this method also activates the defaults.
         """
-        self._config = self._get_config(new_config)
-        self._check_config()
+        self._set_config(new_config)
         self.activate()
 
     def activate(self):
         """Activate the defaults."""
-        self._use_season_defaults = True
+        self._override_defaults = True
 
     def deactivate(self):
         """Revert to function defaults."""
-        self._use_season_defaults = False
+        self._override_defaults = False
 
-    def _get_config(self, config_file):
-        """Validate the choice of configuration file."""
-        assert isinstance(config_file, str), \
-                "Default configurations are set by passing a path to a " \
-                "configuration file or one of the season keys. The " \
-                "currently supported season configurations are " \
-                "{}.".format(SEASON_CONFIGS.keys())
-
-        if config_file in SEASON_CONFIGS.keys():
-            return SEASON_CONFIGS[config_file]
+    def _set_config(self, config):
+        """Retrieve the configuration specified."""
+        if isinstance(config, str):
+            if config in SEASON_CONFIGS.keys():
+                self._config_name = config
+                config = SEASON_CONFIGS[config]
+            with open(config, 'r') as conf:
+                self._raw_config = yaml.load(conf.read(), Loader=yaml.FullLoader)
+            # raw configuration dictionary should be nested; this line pulls
+            # out the individual terms in the nested dictionary
+            self._unpack_raw_config()
+        elif isinstance(config, dict):
+            # set the raw configuration dictionary to config
+            self._raw_config = config
+            # check if config is formatted like a config file
+            isnested = all([isinstance(entry, dict) for entry in config.values()])
+            # if it's formatted like a config file, then unpack it
+            if isnested:
+                self._unpack_raw_config()
+            else:
+                self._config = config
+            self._config_name = "custom"
         else:
-            return config_file
+            raise ValueError(
+                    "The configuration must be a dictionary, an absolute " \
+                    "path to a configuration YAML, or a season keyword." )
 
-    def _check_config(self):
-        """Confirm that the specified configuration file can be found."""
-        assert path.exists(self._config), \
-                "Please ensure that a path to the specified configuration " \
-                "file exists. {} could not be found".format(self._config)
+    def _unpack_raw_config(self):
+        """Extract individual components from raw configuration dictionary."""
+        self._config = {param : value for component in self._raw_config.values()
+                                      for param, value in component.items()}
 
     @property
     def _version_is_compatible(self):
@@ -149,51 +171,49 @@ class _Defaults:
         if self._version_is_compatible:
             @functools.wraps(func)
             def new_func(*args, **kwargs):
-                # get model name and module name
-                model = func.__name__
-                module = func.__module__
-
-                # peel off the actual module name
-                module = module[module.index('.')+1:]
-
                 # get the full argspec
                 argspec = inspect.getfullargspec(func)
 
-                # find out how many required arguments there are
+                # get dictionary of kwargs and their defaults
                 try:
                     offset = len(argspec.args) - len(argspec.defaults)
-                except TypeError:
-                    # this will be raised if there are no defaults; really
-                    # the only thing that raises this is io.empty_uvdata (I think?)
-                    offset = 0
-
-                # make a dictionary of the function kwargs and their defaults
-                try:
                     old_kwargs = {arg : default for arg, default 
                                   in zip(argspec.args[offset:], argspec.defaults)}
                 except TypeError:
                     # if there are no defaults in the argspec
                     old_kwargs = {}
 
-                # get the season defaults
-                season_kwargs = self(module, model).copy()
+                # make the args list into a dictionary
+                args = {argspec.args[i] : arg for i, arg in enumerate(args)}
+                
+                # make a dictionary of everything passed to func
+                passed_args = {param : value for args in (args, kwargs)
+                                             for param, value in args.items()}
 
-                # choose which set of kwargs will be used
-                if self._use_season_defaults:
-                    keys = set(list(season_kwargs.keys()) + list(kwargs.keys()))
+                # get the new defaults
+                new_args = self()
+                # keep only the parameters from the function signature
+                new_args = {param : value for param, value in new_args.items()
+                                          if param in argspec.args}
+                # add the variable kwargs if they're there
+                if argspec.varkw is not None and argspec.varkw in self().keys():
+                    for kwarg, value in self(argspec.varkw).items():
+                        new_args[kwarg] = value
+
+                # choose which set of args will be used
+                if self._override_defaults:
+                    keys = set(list(new_args.keys()) + list(passed_args.keys()))
                 else:
-                    keys = set(list(old_kwargs.keys()) + list(kwargs.keys()))
+                    keys = set(list(old_kwargs.keys()) + list(passed_args.keys()))
 
-                # make a new dictionary of kwargs to pass to func
-                new_kwargs = {
-                        kwarg: (
-                            kwargs[kwarg] if kwarg in kwargs.keys() else
-                            season_kwargs[kwarg] if self._use_season_defaults else
-                            old_kwargs[kwarg]
-                            )
-                        for kwarg in keys}
-                # return the function using the new kwargs
-                return func(*args, **new_kwargs)
+                # make a final dictionary to pass to func
+                final_args = {arg: (
+                            passed_args[arg] if arg in passed_args.keys() else
+                            new_args[arg] if self._override_defaults else
+                            old_kwargs[arg]) for arg in keys}
+
+                # use the final set of arguments/kwargs
+                return func(**final_args)
         else:
             @functools.wraps(func)
             def new_func(*args, **kwargs):
