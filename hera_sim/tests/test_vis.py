@@ -25,7 +25,7 @@ NFREQ = 5
 def uvdata():
     return io.empty_uvdata(
         nfreq=NFREQ,
-        time_per_integ=sday.to('s') / NTIMES,
+        integration_time=sday.to('s') / NTIMES,
         ntimes=NTIMES,
         ants={
             0: (0, 0, 0),
@@ -35,7 +35,7 @@ def uvdata():
 def uvdataJD():
     return io.empty_uvdata(
         nfreq=NFREQ,
-        time_per_integ=sday.to('s') / NTIMES,
+        integration_time=sday.to('s') / NTIMES,
         ntimes=NTIMES,
         ants={
             0: (0, 0, 0),

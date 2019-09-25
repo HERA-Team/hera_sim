@@ -103,7 +103,7 @@ class VisCPU(VisibilitySimulator):
         # TODO: ensure that LST is converted to HA correctly (
         #  https://en.wikipedia.org/wiki/Hour_angle#Relation_with_the_right_ascension)
         for i, st in enumerate(sid_time):
-            eq2tops[i] = conversions.eq2top_m(st, self.uvdata.telescope_location_lat_lon_alt[0]) # WAS -st
+            eq2tops[i] = conversions.eq2top_m(-st, self.uvdata.telescope_location_lat_lon_alt[0]) # WAS -st
 
         return eq2tops
 
@@ -126,7 +126,11 @@ class VisCPU(VisibilitySimulator):
                 complex_dtype=self._complex_dtype,
             )
             
-            visfull[:, 0, i, 0] = vis.flatten()
+            # 
+            indices = np.triu_indices(vis.shape[1])
+            vis_upper_tri = vis[:, indices[0], indices[1]]
+            
+            visfull[:, 0, i, 0] = vis_upper_tri.flatten()
             
         return visfull
 
@@ -237,8 +241,8 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube, real_dtype=np.float32
     # Conjugate visibilities
     np.conj(vis, out=vis)
 
-    # Fill in whole visibility matrix from upper triangle
-    for i in range(nant):
-        vis[:, i + 1:, i] = vis[:, i, i + 1:].conj()
+    # Filling in the whole visibility matrix from upper triangle not needed anymore
+    # for i in range(nant):
+        # vis[:, i + 1:, i] = vis[:, i, i + 1:].conj()
     
     return vis
