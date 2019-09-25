@@ -15,51 +15,45 @@ Fixed
 Changed
 -------
 
-v0.1.0 [DATE]
-=============
+v0.1.0 [2019.08.28]
+===================
 
 Added
 -----
 
-- :module: interpolators
-  - :class: Tsky
-    - A class for generating a sky temperature interpolation object from
-      an appropriately formatted `.npz` file. See docstring for details
-      on how these `.npz` files must be formatted.
-    - Behaves just like an interpolation object; is basically a wrapper
-      for `scipy.interpolate.RectBivariateSpline`.
-  - :class: freq_interp1d
-    - A class for generating a one-dimensional interpolation object which
-      is assumed to be a function of frequency. Intended to be used to model
-      frequency-dependent beam sizes and noiseless bandpass gain responses.
-    - Currently supports use of either polynomial interpolators (`numpy.poly1d`)
-      or spline interpolators (`scipy.interpolate.interp1d`). See class docstring
-      for details on how to generate these objects.
+- New module `interpolators`
+  - Classes intended to be interfaced with by end-users:
+    - `Tsky`
+      - Provides an interface for generating a sky temperature interpolation
+        object when provided with a `.npz` file and interpolation kwargs.
+    - `Beam`, `Bandpass`
+      - Provides an interface for generating either a `poly1d` or `interp1d` 
+        interpolation object when provided with an appropriate datafile.
 
-- :module: defaults
-  - :class: _Defaults
-    - A class for handling the dynamic switching of function kwarg default values
-      in an interactive environment; kwarg defaults are specified in a configuration
-      YAML file. Interpolation objects may be specified by providing a path to
-      the `.npy` or `.npz` file, along with any interpolation kwargs, needed to
-      instantiate one of the interpolation objects in :module: interpolators. See
-      one of the configuration files in the `config` directory for an example of how
-      to format a configuration YAML.
-    - This class is intended to exist as a singleton; as such, it is not accessible 
-      the end-user. The end-user must interface with an instance of this class, which
-      is accessible via `hera_sim.defaults`.
+- New module `defaults`
+  - Provides an interface which allows the user to dynamically adjust default
+    parameter settings for various `hera_sim` functions.
 
-- :module: __yaml_constructors
-  - A helper module that creates new YAML tags which may be used to specify 
-    interpolation objects in a configuration YAML. This module is not intended to 
-    be interfaced with by the end-user.
+- New module `__yaml_constructors`
+  - Not intended to be interfaced with by the end user; this module just
+    provides a location for defining new YAML tags to be used in conjunction
+    with the `defaults` module features and the `Simulator.run_sim` method.
 
-- Added various `.npy` and `.npz` files which contain parameters for HERA-specific
-  variables to the `data` directory.
+- New directory `config`
+  - Provides a location to store configuration files.
 
-- Added a `config` directory which stores configuration YAMLs
+Fixed
+-----
 
-v0.0.1 [???]
-============
+Changed
+-------
+
+- HERA-specific variables had their definitions removed from the codebase.
+  Objects storing these variables still exist in the codebase, but their
+  definitions now come from loading in data stored in various new files
+  added to the `data` directory.
+
+v0.0.1
+======
 
 - Initial released version

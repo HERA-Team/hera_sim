@@ -576,7 +576,7 @@ class Simulator:
                 uses_no_model.append(key)
 
         assert sim_file is not None or sim_params, \
-                'Either a path to a simulation file or a dictionary of ' \
+                'Either a path to a simulation file or a dictionary of ' + \
                 'simulation parameters must be provided.'
 
         assert sim_file is None or not sim_params, \

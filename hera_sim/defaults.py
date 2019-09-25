@@ -18,74 +18,104 @@ SEASON_CONFIGS = {'h1c': path.join(CONFIG_PATH, 'HERA_H1C_CONFIG.yaml'),
                   }
 
 class _Defaults:
-    """
+    """Class for dynamically changing hera_sim parameter defaults.
+
     This class handles the retreival of simulation default parameters from
     YAML files and the ability to switch the default settings while in an
     interactive environment. This class is intended to exist as a singleton;
     as such, an instance is created at the end of this module, and that
-    instance is what is imported in the hera_sim __init__ script. See below
+    instance is what is imported in the hera_sim constructor. See below
     for example usage within hera_sim.
 
-    Examples:
-        To set the default parameters to those appropriate for the H2C
-        observing season (and activate the use of those defaults):
+    Examples
+    --------
+    To set the default parameters to those appropriate for the H2C
+    observing season (and activate the use of those defaults):
         
-        hera_sim.defaults.set('h2c')
+    hera_sim.defaults.set('h2c')
 
-        To set the defaults to a custom set of defaults, you must first
-        create a configuration YAML. Assuming the path to the YAML is
-        stored in the variable `config_path`, these defaults would be set
-        via the following line:
+    To set the defaults to a custom set of defaults, you must first
+    create a configuration YAML. Assuming the path to the YAML is
+    stored in the variable `config_path`, these defaults would be set
+    via the following line:
 
-        hera_sim.defaults.set(config_path)
+    hera_sim.defaults.set(config_path)
 
-        To revert back to using defaults defined in function signatures:
+    To revert back to using defaults defined in function signatures:
 
-        hera_sim.defaults.deactivate()
+    hera_sim.defaults.deactivate()
 
-        To view what the default parameter values for a model in a given
-        module are:
+    To view what the default parameter values for a `model` in a given
+    `module` are:
 
-        hera_sim.defaults(module, model)
+    hera_sim.defaults(module, model)
     """
 
     def __init__(self, config_file='h1c'):
         self._config = self._get_config(config_file)
         self._check_config()
         self._use_season_defaults = False
+    """Load in a configuration and check its formatting.
 
-    """
-    Instantiate a Defaults object with a hook to a configuration file.
+    Parameters
+    ----------
+    config_file : str, optional (default 'h1c') 
+        May either be an absolute path to a configuration YAML or one of
+        the observing season keywords: {}
+        The loaded YAML file is intended to have the following form:
+        {module: {model: {param: default}}}, where 'module' is any one
+        of the `hera_sim` modules, `model` is any of the functions within
+        the specified module, and `param` is any of the model function's 
+        default parameters.
 
-    Args:
-        config_file (str, optional): hook to a YAML file or a season name
-            The currently supported observing seasons are 'h1c' and 'h2c'.
-            The loaded YAML file is intended to have the following form:
-            {module: {model: {param: default}}}, where 'module' is any one
-            of the modules
+    Examples
+    --------
+    An example configuration YAML should be formatted as follows:
+    module1:
+        model1:
+            param1: default1
+            param2: default2
+            ...
+        model2:
+            ...
+    module2:
+        ...
     """
 
     def __call__(self, module, model):
+        """Return the defaults for the given `model` in `module`."""
         with open(self._config, 'r') as config:
             defaults = yaml.load(config.read(), Loader=yaml.FullLoader)[module][model]
-        # handle instances where default parameters are related to interpolators
-#        return self._retrieve_models(defaults)
         return defaults
 
     def set(self, new_config):
+        """Set the defaults to those specified in `new_config`.
+
+        Parameters
+        ----------
+        new_config : str
+            Absolute path to configuration file.
+
+        Notes
+        -----
+        Calling this method also activates the defaults.
+        """
         self._config = self._get_config(new_config)
         self._check_config()
         self.activate()
 
     def activate(self):
+        """Activate the defaults."""
         self._use_season_defaults = True
 
     def deactivate(self):
+        """Revert to function defaults."""
         self._use_season_defaults = False
 
     def _get_config(self, config_file):
+        """Validate the choice of configuration file."""
         assert isinstance(config_file, str), \
-                "Default configurations are set by passing a hook to a " \
+                "Default configurations are set by passing a path to a " \
                 "configuration file or one of the season keys. The " \
                 "currently supported season configurations are " \
                 "{}.".format(SEASON_CONFIGS.keys())
@@ -96,12 +126,14 @@ class _Defaults:
             return config_file
 
     def _check_config(self):
+        """Confirm that the specified configuration file can be found."""
         assert path.exists(self._config), \
                 "Please ensure that a path to the specified configuration " \
                 "file exists. {} could not be found".format(self._config)
 
     @property
     def _version_is_compatible(self):
+        """Check that the version of Python used is sufficiently new."""
         version = sys.version_info
         if version.major < 3 or version.major > 3 and version.minor < 4:
             warnings.warn("You are using a version of Python that is not " \
@@ -113,6 +145,7 @@ class _Defaults:
             return True
 
     def _handler(self, func, *args, **kwargs):
+        """Decorator for applying new function parameter defaults."""
         if self._version_is_compatible:
             @functools.wraps(func)
             def new_func(*args, **kwargs):

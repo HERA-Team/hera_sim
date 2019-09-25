@@ -5,12 +5,11 @@ channels:
   - conda-forge
   - defaults
 dependencies:
-  - aipy=3.0.0rc2
+  - aipy>=3.0
   - attrs
   - h5py
   - hdf5
   - healpy
-  - mpi4py
   - nose
   - numpy
   - pip
@@ -19,7 +18,6 @@ dependencies:
   - scipy
   - pyyaml
   - future # only for python 2
-  - psutil
   - pip:
     - cached-property
     - git+https://github.com/RadioAstronomySoftwareGroup/pyuvsim.git
