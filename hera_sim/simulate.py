@@ -243,7 +243,7 @@ class Simulator:
         self.data.baseline_array
 
         # add redundant bl groups to UVData object's extra keywords
-        self.data.extra_keywords['reds'] = self.data.get_baseline_redundancies()[0]
+        #self.data.extra_keywords['reds'] = self.data.get_baseline_redundancies()[0]
 
         # Check if the created/read data is compatible with the assumptions of
         # this class.
@@ -273,10 +273,14 @@ class Simulator:
                 :class:`pyuvdata.UVData`) which determines which write method to call.
             **kwargs: keyword arguments sent directly to the write method chosen.
         """
+        ret_seeds = kwargs.pop('ret_seeds', False)
+        seeds = self.data.extra_keywords.pop('seeds', {})
         try:
             getattr(self.data, "write_%s" % file_type)(filename, **kwargs)
         except AttributeError:
             raise ValueError("The file_type must correspond to a write method in UVData.")
+        if ret_seeds:
+            return seeds
 
     def _check_compatibility(self):
         """
@@ -303,16 +307,21 @@ class Simulator:
         vis = model(lsts=lsts, fqs=fqs, bl_vec=bl_vec, **kwargs)
         self.data.data_array[blt_ind, 0, :, pol_ind] += vis
 
+    def _get_reds(self):
+        return self.data.get_baseline_redundancies()[0]
+
     def _generate_seeds(self, model):
+        if 'seeds' not in self.data.extra_keywords.keys():
+            self.data.extra_keywords['seeds'] = {}
         np.random.seed(int(time.time()))
-        seeds = np.random.randint(2**32, size=len(self.data.extra_keywords['reds']))
-        self.data.extra_keywords["{}_seeds".format(str(model))] = seeds
+        seeds = np.random.randint(2**32, size=len(self._get_reds()))
+        self.data.extra_keywords['seeds'][model.__name__] = seeds
     
     def _get_seed(self, ant1, ant2, model):
-        seeds = self.data.extra_keywords["{}_seeds".format(str(model))]
+        seeds = self.data.extra_keywords['seeds'][model.__name__]
         bl = self.data.antnums_to_baseline(ant1, ant2)
         key = []
-        for reds in self.data.extra_keywords['reds']:
+        for reds in self._get_reds():
             key.append(bl in reds)
         return seeds[key.index(True)]
 
