@@ -36,11 +36,12 @@ def run(input, outfile, verbose):
     # figure out whether or not to do BDA
     bda_params = yaml_contents.get("bda", {})
     # make sure bda is installed if the user wants to do BDA
-    if bda_params and bda is None:
+    if bda_params:
         raise ImportError("You have defined BDA parameters but do not have "
                           "bda installed. Please install bda to proceed.")
 
     # extract parameters for saving to disk
+    # XXX: either click options need to be changed, or this does
     filing_params = yaml_contents["filing"]
     if outfile is None:
         outfile = os.path.join(filing_params["outdir"], filing_params["outfile_name"])
@@ -52,25 +53,27 @@ def run(input, outfile, verbose):
         print("Nothing to do: %s already exists and clobber=False"%outfile)
         return
 
-    # XXX add a check to make sure the save type is OK?
+    # TODO: add check for validity of save type; see pyuvdata documentation
 
     # determine whether to use season defaults
     defaults = yaml_contents.get("defaults", {})
     if defaults:
-        if isinstance(defaults["default_config"], str):
-            hera_sim.defaults.set(defaults["default_config"])
-        elif isinstance(defaults["default_config"], dict):
-            hera_sim.defaults.set(**defaults["default_config"])
-        else:
-            raise ValueError("If you wish to override function defaults, then "
-                             "you must do one of the following:\n"
-                             "specify a path to the default configuration file\n"
-                             "specify the name of a set of defaults ('h1c' or 'h2c')\n"
-                             "specify an appropriately formatted dictionary of default values.")
+        # this assertion is made to keep the configuration file as neat as
+        # possible; it is confusing to have a full configuration nested
+        # inside another configuration
+        assert isinstance(defaults["default_config"], str), \
+               "If a default configuration is set with the default_config " \
+               "option in the configuration YAML, then it must be specified " \
+               "by a string which is either an absolute path to a config " \
+               "file compatible with hera_sim.defaults, or one of the season " \
+               "configuration keywords."
+        hera_sim.defaults.set(defaults["default_config"])
 
     # extract instrument parameters
     if isinstance(yaml_contents["telescope"]["array_layout"], str):
         # assume it's an antenna layout csv
+        # XXX: revisit _parse_layout_csv documentation to see how
+        # beams are handled with this
         antennas = _parse_layout_csv(yaml_contents["telescope"]["array_layout"])
     else:
         # assume it's constructed using antpos and the YAML tag !antpos
@@ -82,22 +85,31 @@ def run(input, outfile, verbose):
 
     sim = hera_sim.Simulator(**instrument_params)
 
+    # XXX: this section will take careful thought to implement correctly
     config_params = {}
-    # need to figure out a mapping of this to how defaults works
-    for component in ("analysis", "systematics",):
-        for key, value in yaml_contents[component].items():
-            config_params[key] = value
-    # this currently isn't ideal. there should be checks to see if there
-    # is any overlap between defaults and config_params; if there is
-    # an overlap, a warning should be raised. if there is no overlap,
-    # then the defaults and config_params dictionaries should be merged
-    # and the resulting dictionary should be applied as the new defaults
-    if not defaults and config_params:
-        hera_sim.defaults.set(**config_params)
+    # the following choice of syntax was scrapped and will be temporarily
+    # commented out before being removed entirely
+    #for component in ("analysis", "systematics",):
+    #    for key, value in yaml_contents[component].items():
+    #        config_params[key] = value
+    # default behavior should be such that anything specified in the
+    # configuration parameters will override whatever the current default
+    # settings are, but perhaps warn the user that something is being
+    # specified multiple times if defaults have been set and some of the
+    # defaults conflict with the configuration settings
+    # in the end, we want to handle the configuration stuff with the
+    # functionality offered by defaults
+    hera_sim.defaults.set(**config_params)
 
+    # extract the simulation parameters from the configuration file
+    # the configuration file should only specify any particular parameter once
+    # i.e. the same sky temperature model should be used throughout
     sim_params = {}
-    for key, value in yaml_contents["simulation"].items():
-        sim_params[key] = value
+    for component in yaml_contents["simulation"]["include"]:
+        for content in yaml_contents.values():
+            if component in content.keys():
+                for particular_component, parameters in content[component].items():
+                    sim_params[particular_component] = parameters
 
     sim.run_sim(**sim_params)
 
@@ -111,3 +123,4 @@ def run(input, outfile, verbose):
     sim.write_data(outfile,
                    file_type=filing_params["output_format"],
                    **filing_params["kwargs"])
+
