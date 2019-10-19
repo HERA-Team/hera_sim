@@ -60,9 +60,9 @@ setup_args = {
         'aipy>=3.0',
         'click'
     ],
-    "extras_require" : [
-        'bda @ git+git://github.com/HERA-Team/baseline_dependent_averaging'
-    ],
+    "extras_require" : {
+        "bda" : "bda @ git+git://github.com/HERA-Team/baseline_dependent_averaging"
+        },
     "version": version.version,
     "package_data": {"hera_sim": data_files},
     "zip_safe": False,

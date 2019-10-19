@@ -41,19 +41,37 @@ def run(input, outfile, verbose):
                           "bda installed. Please install bda to proceed.")
 
     # extract parameters for saving to disk
-    # XXX: either click options need to be changed, or this does
-    filing_params = yaml_contents["filing"]
+    filing_params = yaml_contents.get("filing", {})
+
+    # construct outfile name if not passed from command line
     if outfile is None:
         outfile = os.path.join(filing_params["outdir"], filing_params["outfile_name"])
-    fmt = filing_params["output_format"]
-    if not outfile.endswith('.%s'%fmt):
+    
+    # get the filing format
+    fmt = filing_params.get("output_format", None)
+    assert fmt is not None, \
+        "The output file format must be specified in the configuration file " \
+        "under the 'filing' section."
+    
+    # assume miriad files have the extension "uv"; others are same as name
+    fmt_to_ext = {"miriad" : "uv", "uvfits" : "uvfits", "uvh5" : "uvh5"}
+    
+    # make sure the output format is supported; only miriad, uvfits, uvh5
+    # are currently supported by UVData objects
+    supported_fmts = tuple(fmt_to_ext.keys())
+    assert fmt in supported_fmts, \
+        "UVData objects currently only support writing to the following " \
+        "datatypes: {}".format(supported_fmts)
+    
+    # add appropriate extension if not specified already
+    if not outfile.endswith('.%s'%fmt_to_ext[fmt]):
         outfile += ".%s"%fmt
 
+    # XXX consider adding clobber as a click option
     if os.path.exists(outfile) and not filing_params['clobber']:
         print("Nothing to do: %s already exists and clobber=False"%outfile)
         return
 
-    # TODO: add check for validity of save type; see pyuvdata documentation
 
     # determine whether to use season defaults
     defaults = yaml_contents.get("defaults", {})
@@ -85,20 +103,14 @@ def run(input, outfile, verbose):
 
     sim = hera_sim.Simulator(**instrument_params)
 
-    # XXX: this section will take careful thought to implement correctly
     config_params = {}
-    # the following choice of syntax was scrapped and will be temporarily
-    # commented out before being removed entirely
-    #for component in ("analysis", "systematics",):
-    #    for key, value in yaml_contents[component].items():
-    #        config_params[key] = value
-    # default behavior should be such that anything specified in the
-    # configuration parameters will override whatever the current default
-    # settings are, but perhaps warn the user that something is being
-    # specified multiple times if defaults have been set and some of the
-    # defaults conflict with the configuration settings
-    # in the end, we want to handle the configuration stuff with the
-    # functionality offered by defaults
+    # 
+    # warn the user if both defaults and configuration parameters specified
+    if defaults and config_params:
+        warnings.warn("You have chosen to use a default configuration in "
+                      "addition to listing configuration parameters. The "
+                      "configuration parameters will override the default "
+                      "parameters.")
     hera_sim.defaults.set(**config_params)
 
     # extract the simulation parameters from the configuration file

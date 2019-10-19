@@ -58,6 +58,8 @@ telescope:
 defaults:
     # behavior of specifying default config and some other
     # parameters (e.g. omega_p, Tsky_mdl) currently unknown
+    # XXX: THIS MUST BE A STRING SPECIFYING A DEFAULT CONFIG FILE
+    # OR ONE OF THE SEASON DEFAULTS
     default_config: 'h2c'
 systematics:
     # XXX: perhaps change include section of simulation to just list rfi
@@ -161,3 +163,4 @@ simulation:
               gains, 
               reflections, 
               crosstalk]
+
