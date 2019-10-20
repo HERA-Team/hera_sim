@@ -1,8 +1,5 @@
 # This document is intended to serve as a template for constructing new
-# configuration YAMLs for use with the `simulation.py` script.
-
-# XXX do we want this to be an exhaustive template (all possible things
-# specified), or do we want this to be a minimal template?
+# configuration YAMLs for use with the command-line interface.
 
 bda:
     max_decorr: 0
@@ -46,7 +43,8 @@ telescope:
     # TODO: check how pyuvsim handles beams, see if YAML constructor needs
     # to be updated/modified.
     omega_p: !Beam
-        # TODO: add support for specifying directory containing beam file
+        # XXX non-absolute paths are assumed to be specified relative to the
+        # hera_sim data path
         datafile: HERA_H2C_BEAM_MODEL.npz
         interp_kwargs:
             interpolator: interp1d
@@ -54,16 +52,11 @@ telescope:
             # if you want to use a polynomial interpolator instead, then
             # interpolator: poly1d
             # kwargs not accepted for this; see numpy.poly1d documentation
-    Trx: 0.0 # receiver temperature for thermal noise
 defaults:
-    # behavior of specifying default config and some other
-    # parameters (e.g. omega_p, Tsky_mdl) currently unknown
     # XXX: THIS MUST BE A STRING SPECIFYING A DEFAULT CONFIG FILE
     # OR ONE OF THE SEASON DEFAULTS
     default_config: 'h2c'
 systematics:
-    # XXX: perhaps change include section of simulation to just list rfi
-    # and include all the specified rfi effects if rfi is listed
     rfi:
         # see hera_sim.rfi documentation for details on parameter names
         rfi_stations:
@@ -86,39 +79,41 @@ systematics:
         gains:
             gain_spread: 0.1
             dly_rng: (-20, 20)
+            bp_poly: HERA_H1C_BANDPASS.npy
         # XXX: the gen_reflection_gains function is somewhat difficult
         # to work with in a general way at the moment; this should be
         # addressed in the future, since there currently is not a neat
         # way of handling this from a configuration file
-        reflections: # TODO: make a YAML constructor for this?
+        sigchain_reflections: # TODO: make a YAML constructor for this?
             amp: !!null
             dly: !!null
             phs: !!null
     crosstalk:
         # only one of the two crosstalk methods should be specified
-        whitenoise_xtalk:
+        gen_whitenoise_xtalk:
             amplitude: 3.0
-        # cross_coupling_xtalk:
+        # gen_cross_coupling_xtalk:
             # the following parameters are all floats, but it's a little
             # unclear what the best way to handle this for an array is;
             # the current implementation would treat all antennas the same
             # amp: !!null
             # dly: !!null
             # phs: !!null
+    noise:
+        thermal_noise:
+            Trx: 0
 sky:
     Tsky_mdl: !Tsky
-        # TODO: add entry for directory the file is stored in
-        # need to update YAML constructor for this functionality
-        # the current assumption is that the file is in the hera_sim/data
-        # folder if an absolute path is not specified
+        # XXX non-absolute paths are assumed to be relative to the hera_sim
+        # data folder
         datafile: HERA_Tsky_Reformatted.npz
         # interp kwargs are passed to scipy.interp.RectBivariateSpline
-        interp_kwargs: {}
+        interp_kwargs: 
+            pol: xx # this is popped when making a Tsky object
         # TODO: add functionality for handling multiple polarizations
-        # this involves updating both the YAML constructor and Simulator
+        # this involves updating the YAML constructor, Simulator, and 
+        # Tsky Interpolator object
         #
-    # TODO: investigate how to properly handle EoR here, since this
-    # won't work without modifying some things. 
     eor:
         noiselike_eor:
             eor_amp: 0.00001
@@ -154,13 +149,12 @@ simulation:
     # is the simulator being used. this will necessarily look different
     # if other simulators are used, but that's not implemented yet
     #
-    # XXX: some of this is written semantically and needs a little extra
-    # handling if it's going to work as intended
-    include: [foregrounds,  
-              thermal_noise, 
-              eor, 
-              rfi, 
-              gains, 
-              reflections, 
-              crosstalk]
+    components: [foregrounds,  
+                 noise, 
+                 eor, 
+                 rfi, 
+                 sigchain, ]
+    # list particular model components to exclude from simulation
+    exclude: [sigchain_reflections,
+              gen_whitenoise_xtalk,]
 

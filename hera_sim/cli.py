@@ -54,7 +54,9 @@ def run(input, outfile, verbose):
         "under the 'filing' section."
     
     # assume miriad files have the extension "uv"; others are same as name
-    fmt_to_ext = {"miriad" : "uv", "uvfits" : "uvfits", "uvh5" : "uvh5"}
+    fmt_to_ext = {"miriad" : "uv", 
+                  "uvfits" : "uvfits", 
+                  "uvh5" : "uvh5"}
     
     # make sure the output format is supported; only miriad, uvfits, uvh5
     # are currently supported by UVData objects
@@ -103,8 +105,19 @@ def run(input, outfile, verbose):
 
     sim = hera_sim.Simulator(**instrument_params)
 
+    # for this application, we only want the sky temperature model and
+    # beam size; this will need to be updated in the future when the
+    # defaults handling is changed, but we'll leave that to the version
+    # 1 release
     config_params = {}
-    # 
+    # look for Tsky_mdl, omega_p, and integration_time; extract these
+    for content in yaml_contents.values():
+        if "Tsky_mdl" in content.keys():
+            config_params["Tsky_mdl"] = content["Tsky_mdl"]
+        if "omega_p" in content.keys():
+            config_params["omega_p"] = content["omega_p"]
+        if "integration_time" in content.keys():
+            config_params["inttime"] = content["integration_time"]
     # warn the user if both defaults and configuration parameters specified
     if defaults and config_params:
         warnings.warn("You have chosen to use a default configuration in "
@@ -117,11 +130,15 @@ def run(input, outfile, verbose):
     # the configuration file should only specify any particular parameter once
     # i.e. the same sky temperature model should be used throughout
     sim_params = {}
-    for component in yaml_contents["simulation"]["include"]:
+    sim_details = yaml_contents["simulation"]
+    for component in sim_details["components"]:
         for content in yaml_contents.values():
             if component in content.keys():
-                for particular_component, parameters in content[component].items():
-                    sim_params[particular_component] = parameters
+                for model, params in content[component].items():
+                    if model in sim_details["exclude"]:
+                        continue
+                    sim_params[model] = params
+            continue
 
     sim.run_sim(**sim_params)
 

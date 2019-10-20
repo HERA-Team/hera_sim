@@ -40,6 +40,8 @@ def gen_bandpass(fqs, ants, gain_spread=0.1, bp_poly=None):
     """
     if bp_poly is None:
         bp_poly = _get_hera_bandpass()
+    elif isinstance(bp_poly, str):
+        bp_poly = _get_hera_bandpass(bp_poly)
     bp_base = np.polyval(bp_poly, fqs)
     window = aipy.dsp.gen_window(fqs.size, 'blackman-harris')
     _modes = np.abs(np.fft.fft(window * bp_base))
@@ -76,7 +78,7 @@ def gen_delay_phs(fqs, ants, dly_rng=(-20, 20)):
     return phs
 
 
-def gen_gains(fqs, ants, gain_spread=0.1, dly_rng=(-20, 20)):
+def gen_gains(fqs, ants, gain_spread=0.1, dly_rng=(-20, 20), bp_poly=None):
     """
     Produce a set of mock bandpasses perturbed around a HERA_NRAO_BANDPASS model
     and complex phasors corresponding to cables delays.
@@ -100,7 +102,7 @@ def gen_gains(fqs, ants, gain_spread=0.1, dly_rng=(-20, 20)):
     See Also:
         :meth:`~apply_gains`: apply gains from this function to a visibility
     """
-    bp = gen_bandpass(fqs, ants, gain_spread)
+    bp = gen_bandpass(fqs, ants, gain_spread, bp_poly)
     phs = gen_delay_phs(fqs, ants, dly_rng)
     return {ai: bp[ai] * phs[ai] for ai in ants}
 
