@@ -8,6 +8,7 @@ import yaml
 import warnings
 
 from pyuvsim.simsetup import _parse_layout_csv
+from astropy.coordinates import Angle
 try:
     import bda
     from bda import bda_tools
@@ -29,6 +30,9 @@ def run(input, outfile, verbose):
     """
     Run a full simulation with systematics.
     """
+    if verbose:
+        print("Loading configuration file...")
+
     # load in config
     with open(input, 'r') as fl:
         yaml_contents = yaml.load(fl.read(), Loader=yaml.FullLoader)
@@ -40,6 +44,9 @@ def run(input, outfile, verbose):
     if bda_params and bda is None:
         raise ImportError("You have defined BDA parameters but do not have "
                           "bda installed. Please install bda to proceed.")
+
+    if verbose:
+        print("Checking validity of filing parameters...")
 
     # extract parameters for saving to disk
     filing_params = yaml_contents.get("filing", {})
@@ -75,6 +82,8 @@ def run(input, outfile, verbose):
         print("Nothing to do: %s already exists and clobber=False"%outfile)
         return
 
+    if verbose:
+        print("Determining whether to use a default configuration...")
 
     # determine whether to use season defaults
     defaults = yaml_contents.get("defaults", {})
@@ -89,6 +98,9 @@ def run(input, outfile, verbose):
                "file compatible with hera_sim.defaults, or one of the season " \
                "configuration keywords."
         hera_sim.defaults.set(defaults["default_config"])
+
+    if verbose:
+        print("Constructing Simulator object...")
 
     # extract instrument parameters
     if isinstance(yaml_contents["telescope"]["array_layout"], str):
@@ -125,8 +137,10 @@ def run(input, outfile, verbose):
                       "addition to listing configuration parameters. The "
                       "configuration parameters will override the default "
                       "parameters.")
-    hera_sim.defaults.set(**config_params)
+    hera_sim.defaults.set(config_params)
 
+    if verbose:
+        print("Extracting simulation parameters...")
     # extract the simulation parameters from the configuration file
     # the configuration file should only specify any particular parameter once
     # i.e. the same sky temperature model should be used throughout
@@ -141,16 +155,27 @@ def run(input, outfile, verbose):
                     sim_params[model] = params
             continue
 
+    if verbose:
+        print("Running simulation...")
     sim.run_sim(**sim_params)
 
     # if the user wants to do BDA, then apply BDA
     if bda_params:
+        # convert corr_FoV_angle to an Angle object
+        bda_params["corr_FoV_angle"] = Angle(bda_params["corr_FoV_angle"])
+        if verbose:
+            print("Performing BDA...")
         sim.data = bda_tools.apply_bda(sim.data, **bda_params)
 
     # save the simulation
     # note that we may want to allow the functionality for the user to choose some
     # kwargs to pass to the write method
+    if verbose:
+        print("Writing simulation results to disk...")
     sim.write_data(outfile,
                    file_type=filing_params["output_format"],
                    **filing_params["kwargs"])
 
+    if verbose:
+        print("Simulation complete.")
+    return

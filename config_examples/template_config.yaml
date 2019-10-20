@@ -23,7 +23,7 @@ filing:
     kwargs: {}
 # freq and time entries currently configured for hera_sim use
 freq:
-    n_freq: 1024
+    n_freq: 100
     channel_width: 122070.3125
     start_freq: 46920776.3671875
 time:
@@ -36,10 +36,10 @@ telescope:
     # generate using hera_sim.antpos
     array_layout: !antpos
         array_type: "hex"
-        hex_num: 7
+        hex_num: 3
         sep: 14.6
-        split_core: True
-        outriggers: 2
+        split_core: False
+        outriggers: 0
     # TODO: check how pyuvsim handles beams, see if YAML constructor needs
     # to be updated/modified.
     omega_p: !Beam
@@ -78,7 +78,7 @@ systematics:
     sigchain:
         gains:
             gain_spread: 0.1
-            dly_rng: (-20, 20)
+            dly_rng: [-20, 20]
             bp_poly: HERA_H1C_BANDPASS.npy
         # XXX: the gen_reflection_gains function is somewhat difficult
         # to work with in a general way at the moment; this should be
