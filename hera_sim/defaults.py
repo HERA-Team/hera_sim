@@ -147,11 +147,35 @@ class _Defaults:
             raise ValueError(
                     "The configuration must be a dictionary, an absolute " \
                     "path to a configuration YAML, or a season keyword." )
+        self._check_config()
 
     def _unpack_raw_config(self):
         """Extract individual components from raw configuration dictionary."""
         self._config = {param : value for component in self._raw_config.values()
                                       for param, value in component.items()}
+
+    def _check_config(self):
+        """Check if any keys in the configuration are repeated, warn if so."""
+        counts = {key : 0 for key in self().keys()}
+        values = {key : [] for key in self().keys()}
+        for param, value in self._raw_config.items():
+            if isinstance(value, dict):
+                for key, val in value.items():
+                    counts[key] += 1
+                    values[key].append(val)
+            else:
+                counts[param] += 1
+                values[param].append(value)
+        flags = {key : (1 if count > 1 else 0) for key, count in counts.items()}
+        if any(flags.values()):
+            warning = "The following parameters have multiple values defined " \
+                      "in the configuration:\n"
+            for param, flag in flags.items():
+                if flag:
+                    warning += "{}\n".format(param)
+            warning += "Please check your configuration, as only the last " \
+                       "value specified for each parameter will be used."
+            warnings.warn(warning)
 
     @property
     def _version_is_compatible(self):
