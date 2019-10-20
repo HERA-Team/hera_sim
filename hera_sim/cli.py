@@ -5,6 +5,7 @@ CLI for hera_sim
 import click
 import os
 import yaml
+import warnings
 
 from pyuvsim.simsetup import _parse_layout_csv
 try:
@@ -19,8 +20,8 @@ main = click.Group()
 
 
 @main.command()
-@click.argument('input', type=click.Path(exists=True, dir_okay=False),
-                help="input YAML configuration file")
+@click.argument('input', type=click.Path(exists=True, dir_okay=False))
+#                help="input YAML configuration file")
 @click.option('-o', '--outfile', type=click.Path(dir_okay=False),
                 help='path to output file. Over-rides config if passed.', default=None)
 @click.option("-v", '--verbose', count=True)
@@ -36,7 +37,7 @@ def run(input, outfile, verbose):
     # figure out whether or not to do BDA
     bda_params = yaml_contents.get("bda", {})
     # make sure bda is installed if the user wants to do BDA
-    if bda_params:
+    if bda_params and bda is None:
         raise ImportError("You have defined BDA parameters but do not have "
                           "bda installed. Please install bda to proceed.")
 

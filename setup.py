@@ -49,7 +49,7 @@ setup_args = {
     "package_dir": {"hera_sim": "hera_sim"},
     "packages": find_packages(),
     "include_package_data": True,
-    "scripts": ['scripts/simulation.py'],
+#    "scripts": ['scripts/simulation.py'],
     "install_requires": [
         'numpy>=1.14',
         'scipy',

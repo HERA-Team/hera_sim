@@ -19,7 +19,7 @@ filing:
     outdir: '.'
     outfile_name: 'quick_and_dirty_sim'
     output_format: 'uvh5'
-    clobber: False
+    clobber: True
     kwargs: {}
 # freq and time entries currently configured for hera_sim use
 freq:
