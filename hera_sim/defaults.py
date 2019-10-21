@@ -176,6 +176,13 @@ class _Defaults:
             warning += "Please check your configuration, as only the last " \
                        "value specified for each parameter will be used."
             warnings.warn(warning)
+        # unpack config if it's still nested
+        isnested = all([isinstance(entry, dict) for entry in self._config.values()])
+        while isnested:
+            self._raw_config = self._config
+            self._unpack_raw_config()
+            isnested = all([isinstance(entry, dict) for entry in self._config.values()])
+
 
     @property
     def _version_is_compatible(self):

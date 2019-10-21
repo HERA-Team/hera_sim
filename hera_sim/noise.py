@@ -18,12 +18,12 @@ HERA_Tsky_mdl['xx'] = Tsky(HERA_TSKY_VS_LST_NPZ, pol='xx')
 HERA_Tsky_mdl['yy'] = Tsky(HERA_TSKY_VS_LST_NPZ, pol='yy')
 
 @_defaults
-def _get_hera_bm_poly(datafile='HERA_H1C_BEAM_POLY.npy'):
+def _get_hera_bm_poly(bm_poly='HERA_H1C_BEAM_POLY.npy'):
     """
     Method for getting HERA bandpass polynomial coefficients. This should be
     replaced in the future.
     """
-    return _read_npy(datafile)
+    return _read_npy(bm_poly)
 
 # turns out that this will just return the H1C beam polynomial. See
 # HERA Memo #27 for info on how the polyfit was obtained.

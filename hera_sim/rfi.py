@@ -12,11 +12,11 @@ import warnings
 # XXX code in
 
 @_defaults
-def _get_hera_stations(datafile="HERA_H1C_RFI_STATIONS.npy"):
+def _get_hera_stations(rfi_stations="HERA_H1C_RFI_STATIONS.npy"):
     """
     Accept a .npy file and return an array of HERA RFI station parameters.
     """
-    return _read_npy(datafile)
+    return _read_npy(rfi_stations)
 
 # this will just return the RFI Station parameters relevant for the H1C
 # observing season.

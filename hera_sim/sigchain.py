@@ -10,8 +10,8 @@ from .defaults import _defaults
 
 
 @_defaults
-def _get_hera_bandpass(datafile="HERA_H1C_BANDPASS.npy"):
-    return _read_npy(datafile)
+def _get_hera_bandpass(bandpass="HERA_H1C_BANDPASS.npy"):
+    return _read_npy(bandpass)
 
 # turns out this will fix HERA_NRAO_BANDPASS as the H1C bandpass
 # see "HERA's Passband to First Order" for info on how the
