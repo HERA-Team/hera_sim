@@ -22,7 +22,6 @@ main = click.Group()
 
 @main.command()
 @click.argument('input', type=click.Path(exists=True, dir_okay=False))
-#                help="input YAML configuration file")
 @click.option('-o', '--outfile', type=click.Path(dir_okay=False),
                 help='path to output file. Over-rides config if passed.', default=None)
 @click.option("-v", '--verbose', count=True)

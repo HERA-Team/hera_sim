@@ -53,8 +53,8 @@ telescope:
             # interpolator: poly1d
             # kwargs not accepted for this; see numpy.poly1d documentation
 defaults:
-    # XXX: THIS MUST BE A STRING SPECIFYING A DEFAULT CONFIG FILE
-    # OR ONE OF THE SEASON DEFAULTS
+    # This must be a string specifying an absolute path to a default
+    # configuration file or one of the season default keywords
     default_config: 'h2c'
 systematics:
     rfi:
