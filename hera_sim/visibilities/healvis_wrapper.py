@@ -76,7 +76,7 @@ class HealVis(VisibilitySimulator):
     def observatory(self):
         """A healvis :class:`healvis.observatory.Observatory` instance"""
         return setup_observatory_from_uvdata(
-            self.uvdata, fov=self.fov, beam=self.beams[0]
+            self.uvdata, fov=self.fov, beam=self.beams[0],
         )
 
     def _simulate(self):

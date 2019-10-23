@@ -8,6 +8,8 @@ from astropy.units import sday
 from hera_sim import visibilities as vis
 from hera_sim import io
 
+import healpy
+
 try:
     SIMULATORS = (vis.HealVis, vis.VisCPU)
 except AttributeError: # If healvis is not imported
@@ -221,125 +223,131 @@ def test_single_source_autocorr_past_horizon(uvdata, simulator):
     #         v[:, 0, 1], 1 + np.exp(-2j * np.pi * np.sqrt(0.5)), 7
     #     )
 
-###### COMMENTING OUT COMPARISON TESTS FOR NOW #####
-
-# def test_simulator_comparison(uvdata):
-#     freqs = np.unique(uvdata.freq_array)
-
-#     # put a point source in
-#     point_source_pos = np.array([[0, uvdata.telescope_lat_lon_alt[0]]])
-#     point_source_flux = np.array([[1.0]] * len(freqs))
-
-#     viscpu = vis.VisCPU(
-#         uvdata=uvdata,
-#         sky_freqs=np.unique(uvdata.freq_array),
-#         point_source_flux=point_source_flux,
-#         point_source_pos=point_source_pos,
-#         nside=2**4,
-#         real_dtype=np.float64,
-#         complex_dtype=np.complex128
-#     ).simulate()
-
-#     healvis = vis.HealVis(
-#         uvdata=uvdata,
-#         sky_freqs=np.unique(uvdata.freq_array),
-#         point_source_flux=point_source_flux,
-#         point_source_pos=point_source_pos,
-#         nside=2 ** 4
-#     ).simulate()
-
-#     print("SHAPE", healvis.shape)
-
-#     print("HEALVIS SUM", np.sum(healvis))
-#     print("VISCPU SUM", np.sum(viscpu))
-#     print("HEALVIS NUM NONZERO", np.count_nonzero(healvis))
-#     print("VISCPU NUM NONZERO", np.count_nonzero(viscpu))
-
-#     print "HEALVIS", healvis
-#     print "VISCPU", viscpu
-   
-#     assert viscpu.shape == healvis.shape
-#     assert np.testing.assert_allclose(viscpu, healvis, atol=1e-7) 
-
-# def test_simulator_comparison2(uvdata):
-#     freqs = np.unique(uvdata.freq_array)
-
-#     # put a point source in
-#     point_source_pos = np.array([[0, uvdata.telescope_lat_lon_alt[0] + np.pi/4]])
-#     point_source_flux = np.array([[1.0]] * len(freqs))
-
-#     viscpu = vis.VisCPU(
-#         uvdata=uvdata,
-#         sky_freqs=np.unique(uvdata.freq_array),
-#         point_source_flux=point_source_flux,
-#         point_source_pos=point_source_pos,
-#         real_dtype=np.float64,
-#         complex_dtype=np.complex128,
-#         nside=2**4
-#     ).simulate()
-
-#     healvis = vis.HealVis(
-#         uvdata=uvdata,
-#         sky_freqs=np.unique(uvdata.freq_array),
-#         point_source_flux=point_source_flux,
-#         point_source_pos=point_source_pos,
-#         nside=2 ** 4
-#     ).simulate()
-
-#     print("SHAPE2", healvis.shape)
-
-#     print("HEALVIS SUM2", np.sum(healvis))
-#     print("VISCPU SUM2", np.sum(viscpu))
-#     print("HEALVIS NUM NONZERO2", np.count_nonzero(healvis))
-#     print("VISCPU NUM NONZERO2", np.count_nonzero(viscpu))
-
-#     print "HEALVIS2", healvis
-#     print "VISCPU2", viscpu
-   
-#     assert viscpu.shape == healvis.shape
-#     assert np.testing.assert_allclose(viscpu, healvis, atol=1e-7)
-
-# def test_simulator_comparison3(uvdata2):
-#     freqs = np.unique(uvdata2.freq_array)
-
-#     # put a point source in
-#     point_source_pos = np.array([[0, uvdata2.telescope_lat_lon_alt[0] + np.pi/4]])
-#     point_source_flux = np.array([[1.0]] * len(freqs))
-
-#     viscpu = vis.VisCPU(
-#         uvdata=uvdata2,
-#         sky_freqs=np.unique(uvdata2.freq_array),
-#         point_source_flux=point_source_flux,
-#         point_source_pos=point_source_pos,
-#         nside=2**4,
-#         real_dtype=np.float64,
-#         complex_dtype=np.complex128, 
-#     ).simulate()
-
-#     healvis = vis.HealVis(
-#         uvdata=uvdata2,
-#         sky_freqs=np.unique(uvdata2.freq_array),
-#         point_source_flux=point_source_flux,
-#         point_source_pos=point_source_pos,
-#         nside=2 ** 4
-#     ).simulate()
-
-#     print("SHAPE3", healvis.shape)
-
-#     print("HEALVIS SUM3", np.sum(healvis))
-#     print("VISCPU SUM3", np.sum(viscpu))
-#     print("HEALVIS NUM NONZERO3", np.count_nonzero(healvis))
-#     print("VISCPU NUM NONZERO3", np.count_nonzero(viscpu))
-   
-#     print("HEALVIS MAX3", np.max(healvis))
-#     print("VISCPU MAX3", np.max(viscpu))
-
-#     print("HEALVIS MIN3", np.min(healvis))
-#     print("VISCPU MIN3", np.min(viscpu))
-
+def align_src_to_healpix(point_source_pos, point_source_flux, nside=2**4):
+    """Where the point sources will be placed when converted to healpix model
     
-#     assert viscpu.shape == healvis.shape
-#     assert np.testing.assert_allclose(viscpu, healvis, atol=1e-7) 
+    Parameters
+    ----------
+    point_source_pos : ndarray
+        Positions of point sources to be passed to a Simulator.
+    point_source_flux : ndarray
+        Corresponding fluxes of point sources at each frequency.
+    nside : int
+        Healpy nside parameter.
+        
+
+    Returns
+    -------
+    new_pos: ndarray
+        Point sources positioned at their nearest healpix centers.
+    new_flux: ndarray
+        Corresponding new flux values.       
+    """
+    
+    hmap = np.zeros((len(point_source_flux), healpy.nside2npix(nside)))
+
+    # Get which pixel every point source lies in.
+    pix = healpy.ang2pix(nside, np.pi/2 - point_source_pos[:, 1], point_source_pos[:, 0])
+
+    hmap[:, pix] += point_source_flux / healpy.nside2pixarea(nside)
+    nside = healpy.get_nside(hmap[0])
+    ra, dec = healpy.pix2ang(nside, np.arange(len(hmap[0])), lonlat=True)
+    flux = hmap * healpy.nside2pixarea(nside)
+    return np.array([ra*np.pi/180, dec*np.pi/180]).T, flux
+
+def test_comparison_zenith(uvdata2):
+    freqs = np.unique(uvdata2.freq_array)
+
+    # put a point source in
+    point_source_pos = np.array([[0, uvdata2.telescope_location_lat_lon_alt[0]]])
+    point_source_flux = np.array([[1.0]] * len(freqs))
+    
+    # align to healpix center for direct comparision
+    point_source_pos, point_source_flux = align_src_to_healpix(point_source_pos, point_source_flux)
+
+    viscpu = vis.VisCPU(
+        uvdata=uvdata2,
+        sky_freqs=freqs,
+        point_source_flux=point_source_flux,
+        point_source_pos=point_source_pos,
+        nside=2**4,
+        real_dtype=np.float64,
+        complex_dtype=np.complex128
+    ).simulate()
+
+    healvis = vis.HealVis(
+        uvdata=uvdata2,
+        sky_freqs=freqs,
+        point_source_flux=point_source_flux,
+        point_source_pos=point_source_pos,
+        nside=2 ** 4
+    ).simulate()
+   
+    assert viscpu.shape == healvis.shape
+    np.testing.assert_allclose(viscpu, healvis, atol=1e-5) 
+
+def test_comparision_horizon(uvdata2):
+    freqs = np.unique(uvdata2.freq_array)
+
+    # put a point source in
+    point_source_pos = np.array([[0, uvdata2.telescope_location_lat_lon_alt[0] + np.pi/2]])
+    point_source_flux = np.array([[1.0]] * len(freqs))
+
+    # align to healpix center for direct comparision
+    point_source_pos, point_source_flux = align_src_to_healpix(point_source_pos, point_source_flux)    
+    
+    viscpu = vis.VisCPU(
+        uvdata=uvdata2,
+        sky_freqs=freqs,
+        point_source_flux=point_source_flux,
+        point_source_pos=point_source_pos,
+        real_dtype=np.float64,
+        complex_dtype=np.complex128,
+        nside=2**4
+    ).simulate()
+
+    healvis = vis.HealVis(
+        uvdata=uvdata2,
+        sky_freqs=freqs,
+        point_source_flux=point_source_flux,
+        point_source_pos=point_source_pos,
+        nside=2 ** 4
+    ).simulate()
+   
+    assert viscpu.shape == healvis.shape
+    np.testing.assert_allclose(viscpu, healvis, atol=1e-5)
+
+def test_comparison_multiple(uvdata2):
+    freqs = np.unique(uvdata2.freq_array)
+
+    # put a point source in
+    point_source_pos = np.array([[0, uvdata2.telescope_location_lat_lon_alt[0] + np.pi/4],
+                                 [0, uvdata2.telescope_location_lat_lon_alt[0]]])
+    point_source_flux = np.array([[1.0, 1.0]] * len(freqs))
+
+    # align to healpix center for direct comparision
+    point_source_pos, point_source_flux = align_src_to_healpix(point_source_pos, point_source_flux)
+    
+    viscpu = vis.VisCPU(
+        uvdata=uvdata2,
+        sky_freqs=freqs,
+        point_source_flux=point_source_flux,
+        point_source_pos=point_source_pos,
+        nside=2**4,
+        real_dtype=np.float64,
+        complex_dtype=np.complex128, 
+    ).simulate()
+
+    healvis = vis.HealVis(
+        uvdata=uvdata2,
+        sky_freqs=freqs,
+        point_source_flux=point_source_flux,
+        point_source_pos=point_source_pos,
+        nside=2 ** 4
+    ).simulate()
+
+    assert viscpu.shape == healvis.shape
+    np.testing.assert_allclose(viscpu, healvis, atol=1e-5) 
 
 
 if __name__ == "__main__":
