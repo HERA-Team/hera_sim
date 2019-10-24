@@ -36,6 +36,8 @@ install:
   - conda create -q -n test-env python=$TRAVIS_PYTHON_VERSION
   - conda env update -q -n test-env -f environment.yml
   - conda activate test-env
+  # install BDA for testing CLI script
+  - pip install git+https://github.com/HERA-Team/baseline_dependent_averaging
 
 script: nosetests hera_sim --with-coverage --cover-package=hera_sim --verbose
 
