@@ -5,6 +5,7 @@ effects produced by this package.
 
 import functools
 import inspect
+import os
 import sys
 import warnings
 import yaml
@@ -280,14 +281,14 @@ class Simulator:
             getattr(self.data, "write_%s" % file_type)(filename, **kwargs)
         except AttributeError:
             raise ValueError("The file_type must correspond to a write method in UVData.")
-        if ret_seeds:
-            return seeds
         if save_seeds:
             seed_file = os.path.splitext(filename)[0]
             np.save(seed_file, seeds)
         # put seeds back into extra keywords
         if seeds:
             self.data.extra_keywords['seeds'] = seeds
+        if ret_seeds:
+            return seeds
 
     def _check_compatibility(self):
         """
