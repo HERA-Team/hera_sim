@@ -8,6 +8,7 @@ import inspect
 import sys
 import warnings
 import yaml
+import time
 
 import numpy as np
 from cached_property import cached_property
@@ -219,7 +220,7 @@ class Simulator:
             )
 
         else:
-            if type(data) == str:
+            if type(data) is str:
                 self.data_filename = data
 
             if self.data_filename is not None:
@@ -231,14 +232,19 @@ class Simulator:
                     self.data.data_array[:] = 0.0
                     self.data.flag_array[:] = False
                     self.data.nsample_array[:] = 1.0
-            elif self.data is not None:
+            else:
                 self.data = data
 
         # Assume the phase type is drift unless otherwise specified.
         if self.data.phase_type == "unknown":
             self.data.set_drift()
 
+        # what does this line do?
         self.data.baseline_array
+
+        # add redundant bl groups to UVData object's extra keywords
+        #self.data.extra_keywords['reds'] = self.data.get_baseline_redundancies()[0]
+
         # Check if the created/read data is compatible with the assumptions of
         # this class.
         self._check_compatibility()
@@ -267,10 +273,14 @@ class Simulator:
                 :class:`pyuvdata.UVData`) which determines which write method to call.
             **kwargs: keyword arguments sent directly to the write method chosen.
         """
+        ret_seeds = kwargs.pop('ret_seeds', False)
+        seeds = self.data.extra_keywords.pop('seeds', {})
         try:
             getattr(self.data, "write_%s" % file_type)(filename, **kwargs)
         except AttributeError:
             raise ValueError("The file_type must correspond to a write method in UVData.")
+        if ret_seeds:
+            return seeds
 
     def _check_compatibility(self):
         """
@@ -289,6 +299,32 @@ class Simulator:
             pol_ind = self.data.get_pols().index(pol)
             yield ant1, ant2, pol, blt_inds, pol_ind
 
+    def _apply_vis(self, model, ant1, ant2, blt_ind, pol_ind, **kwargs):
+        # get freqs from zeroth spectral window
+        fqs = self.data.freq_array[0] * 1e-9
+        lsts = self.data.lst_array[blt_ind]
+        bl_vec = (self.antpos[ant1] - self.antpos[ant2]) * 1e9 / const.c.value
+        vis = model(lsts=lsts, fqs=fqs, bl_vec=bl_vec, **kwargs)
+        self.data.data_array[blt_ind, 0, :, pol_ind] += vis
+
+    def _get_reds(self):
+        return self.data.get_baseline_redundancies()[0]
+
+    def _generate_seeds(self, model):
+        if 'seeds' not in self.data.extra_keywords.keys():
+            self.data.extra_keywords['seeds'] = {}
+        np.random.seed(int(time.time()))
+        seeds = np.random.randint(2**32, size=len(self._get_reds()))
+        self.data.extra_keywords['seeds'][model.__name__] = seeds
+    
+    def _get_seed(self, ant1, ant2, model):
+        seeds = self.data.extra_keywords['seeds'][model.__name__]
+        bl = self.data.antnums_to_baseline(ant1, ant2)
+        key = []
+        for reds in self._get_reds():
+            key.append(bl in reds)
+        return seeds[key.index(True)]
+
     @_model()
     def add_eor(self, model, **kwargs):
         """
@@ -303,14 +339,16 @@ class Simulator:
                 Default True.
             **kwargs: keyword arguments sent to the EoR model function, other than `lsts`, `fqs` and `bl_vec`.
         """
-        # frequencies come from zeroths spectral window
-        fqs = self.data.freq_array[0] * 1e-9
+        seed_redundantly = kwargs.pop("seed_redundantly", False)
+        if seed_redundantly:
+            self._generate_seeds(model)
 
         for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols():
-            lsts = self.data.lst_array[blt_ind]
-            bl_vec = (self.antpos[ant1] - self.antpos[ant2]) * 1e9 / const.c.value
-            vis = model(lsts=lsts, fqs=fqs, bl_vec=bl_vec, **kwargs)
-            self.data.data_array[blt_ind, 0, :, pol_ind] += vis
+            if seed_redundantly:
+                seed = self._get_seed(ant1, ant2, model)
+                np.random.seed(seed)
+
+            self._apply_vis(model, ant1, ant2, blt_ind, pol_ind, **kwargs)
 
     @_model()
     def add_foregrounds(self, model, **kwargs):
@@ -326,14 +364,38 @@ class Simulator:
                 Default True.
             **kwargs: keyword arguments sent to the foregournd model function, other than `lsts`, `fqs` and `bl_vec`.
         """
-        # frequencies come from zeroth spectral window
-        fqs = self.data.freq_array[0] * 1e-9
+        seed_redundantly = kwargs.pop("seed_redundantly", False)
+        if seed_redundantly:
+            self._generate_seeds(model)
+
+        # account for multiple polarizations if effect is polarized
+        check_pol = True if "Tsky_mdl" in inspect.signature(model).parameters \
+                         and len(self.data.get_pols()) > 1 \
+                         else False
+
+        if check_pol:
+            assert "pol" in kwargs.keys(), \
+                    "Please specify which polarization the sky temperature " \
+                    "model corresponds to by passing in a value for the " \
+                    "kwarg 'pol'."
+            vis_pol = kwargs.pop("pol")
+            assert vis_pol in self.data.get_pols(), \
+                    "You are attempting to use a polarization not included " \
+                    "in the Simulator object you are working with. You tried " \
+                    "to use the polarization {}, but the Simulator object you " \
+                    "are working with only has the following polarizations: " \
+                    "{}".format(vis_pol, self.data.get_pols())
 
         for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols():
-            lsts = self.data.lst_array[blt_ind]
-            bl_vec = (self.antpos[ant1] - self.antpos[ant2]) * 1e9 / const.c.value
-            vis = model(lsts, fqs, bl_vec, **kwargs)
-            self.data.data_array[blt_ind, 0, :, pol_ind] += vis
+            if seed_redundantly:
+                seed = self._get_seed(ant1, ant2, model)
+                np.random.seed(seed)
+
+            if check_pol:
+                if pol == vis_pol:
+                    self._apply_vis(model, ant1, ant2, blt_ind, pol_ind, **kwargs)
+            else:
+                self._apply_vis(model, ant1, ant2, blt_ind, pol_ind, **kwargs)
 
     @_model()
     def add_noise(self, model, **kwargs):
@@ -350,6 +412,7 @@ class Simulator:
             **kwargs: keyword arguments sent to the noise model function, other than `lsts`, `fqs` and `bl_len_ns`.
         """
         for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols():
+            # this doesn't need to be seeded, does it?
             lsts = self.data.lst_array[blt_ind]
 
             self.data.data_array[blt_ind, 0, :, pol_ind] += model(
@@ -372,6 +435,8 @@ class Simulator:
         """
         for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols():
             lsts = self.data.lst_array[blt_ind]
+
+            # XXX this should be seeded according to the time corresponding to blt_ind
 
             # RFI added in-place (giving rfi= does not seem to work here)
             self.data.data_array[blt_ind, 0, :, 0] += model(
@@ -515,8 +580,8 @@ class Simulator:
                 'simulation parameters must be provided.'
 
         assert sim_file is None or not sim_params, \
-                'Either a simulation configuration file or a dictionary ' + \
-                'of simulation parameters may be passed, but not both. ' + \
+                'Either a simulation configuration file or a dictionary ' \
+                'of simulation parameters may be passed, but not both. ' \
                 'Please choose only one of the two to pass as an argument.'
 
         # if a path to a simulation file is provided, then read it in
@@ -530,11 +595,11 @@ class Simulator:
 
         for model, params in sim_params.items():
             assert model in self.SIMULATION_COMPONENTS.keys(), \
-                    'Models must be supported by hera_sim. ' + \
+                    'Models must be supported by hera_sim. ' \
                     "'{}' is currently not supported.".format(model)
 
             assert isinstance(params, dict), \
-                    'Values of sim_params must be dictionaries. ' + \
+                    'Values of sim_params must be dictionaries. ' \
                     "The values for '{}' do not comply.".format(model)
 
             # since this currently only supports python 3.4 or newer, we can
