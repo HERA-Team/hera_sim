@@ -274,6 +274,7 @@ class Simulator:
             **kwargs: keyword arguments sent directly to the write method chosen.
         """
         ret_seeds = kwargs.pop('ret_seeds', False)
+        save_seeds = kwargs.pop('save_seeds', False)
         seeds = self.data.extra_keywords.pop('seeds', {})
         try:
             getattr(self.data, "write_%s" % file_type)(filename, **kwargs)
@@ -281,6 +282,12 @@ class Simulator:
             raise ValueError("The file_type must correspond to a write method in UVData.")
         if ret_seeds:
             return seeds
+        if save_seeds:
+            seed_file = os.path.splitext(filename)[0]
+            np.save(seed_file, seeds)
+        # put seeds back into extra keywords
+        if seeds:
+            self.data.extra_keywords['seeds'] = seeds
 
     def _check_compatibility(self):
         """
