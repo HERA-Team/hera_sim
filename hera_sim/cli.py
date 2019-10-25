@@ -3,6 +3,7 @@ CLI for hera_sim
 """
 
 import click
+import copy
 import os
 import yaml
 import warnings
@@ -25,6 +26,8 @@ main = click.Group()
 @click.option('-o', '--outfile', type=click.Path(dir_okay=False),
                 help='path to output file. Over-rides config if passed.', default=None)
 @click.option("-v", '--verbose', count=True)
+@click.option("-sa", "--save_all", count=True,
+                help="Choose whether to save all data products.")
 def run(input, outfile, verbose):
     """
     Run a full simulation with systematics.
@@ -72,9 +75,9 @@ def run(input, outfile, verbose):
         "UVData objects currently only support writing to the following " \
         "datatypes: {}".format(supported_fmts)
     
-    # add appropriate extension if not specified already
-    if not outfile.endswith('.%s'%fmt_to_ext[fmt]):
-        outfile += ".%s"%fmt
+    # add appropriate extension if not specified already, but allow custom ext
+    if os.path.splitext(outfile) == '':
+        outfile += ".%s"%fmt_to_ext[fmt]
 
     # XXX consider adding clobber as a click option
     if os.path.exists(outfile) and not filing_params['clobber']:
@@ -106,6 +109,7 @@ def run(input, outfile, verbose):
         # assume it's an antenna layout csv
         # XXX: revisit _parse_layout_csv documentation to see how
         # beams are handled with this
+        # TODO: write new YAML constructor to simplify this section
         antennas = _parse_layout_csv(yaml_contents["telescope"]["array_layout"])
     else:
         # assume it's constructed using antpos and the YAML tag !antpos
@@ -123,6 +127,7 @@ def run(input, outfile, verbose):
     # 1 release
     config_params = {}
     # look for Tsky_mdl, omega_p, and integration_time; extract these
+    # note that this may not be an exhaustive list
     for content in yaml_contents.values():
         if "Tsky_mdl" in content.keys():
             config_params["Tsky_mdl"] = content["Tsky_mdl"]
@@ -145,18 +150,49 @@ def run(input, outfile, verbose):
     # i.e. the same sky temperature model should be used throughout
     sim_params = {}
     sim_details = yaml_contents["simulation"]
+    if verbose and save_all:
+        print("Running simulation...")
     for component in sim_details["components"]:
         for content in yaml_contents.values():
             if component in content.keys():
                 for model, params in content[component].items():
                     if model in sim_details["exclude"]:
                         continue
-                    sim_params[model] = params
+                    if save_all:
+                        # we need to do this piecemeal
+                        sim_params = {model : params}
+                        # make sure new component is returned
+                        sim_params[model]["ret_vis"] = True
+                        # make a copy of the Simulator object
+                        sim_copy = copy.deepcopy(sim)
+
+                        # TODO: figure out how to do gains correctly
+                        # we'll bother with this later, since the "gains"
+                        # we'd be returning are bogus anyway (at least for now)
+                        #if model in ("gains", "sigchain_reflections"):
+                        #    sim_params[model]["ret_gains"] = True
+                        #    vis, gains = sim.run_sim(**sim_params)
+                        
+                        # write component vis to copy's data array
+                        sim_copy.data.data_array = sim.run_sim(**sim_params)
+                        # update the history to only note this component
+                        sim_copy.data.history = \
+                            sim.data.history.replace(sim_copy.data.history, '')
+                        # update the filename
+                        base, ext = os.path.splitext(outfile)
+                        copy_out = '.'.join((base,model)) + ext
+                        # save the component
+                        sim_copy.write_data(copy_out, 
+                                            file_type=filing_params["output_format"],
+                                            **filing_params['kwargs'])
+                    else:
+                        sim_params[model] = params
             continue
 
-    if verbose:
+    if verbose and not save_all:
         print("Running simulation...")
-    sim.run_sim(**sim_params)
+    if not save_all:
+        sim.run_sim(**sim_params)
 
     # if the user wants to do BDA, then apply BDA
     if bda_params:
@@ -171,6 +207,9 @@ def run(input, outfile, verbose):
     # kwargs to pass to the write method
     if verbose:
         print("Writing simulation results to disk...")
+    # before writing to disk, update the history to note the config file used
+    sim.data.history += "\nSimulation from configuration file: {cfg}".format(
+                            cfg=input)
     sim.write_data(outfile,
                    file_type=filing_params["output_format"],
                    **filing_params["kwargs"])

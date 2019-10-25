@@ -13,6 +13,7 @@ from hera_sim import run
 # in the same directory. check that the uvh5 file has the correct properties
 
 def construct_base_config(outdir, outfile_name, output_format):
+    """Create a minimal working configuration file."""
     base_config = """
 filing:
     outdir: %s
@@ -40,6 +41,7 @@ telescope:
         interp_kwargs:
             interpolator: interp1d
             fill_value: extrapolate
+    
 """ % (outdir, outfile_name, output_format)
     return base_config[1:]
 

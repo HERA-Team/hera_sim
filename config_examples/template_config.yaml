@@ -20,7 +20,8 @@ filing:
     outfile_name: 'quick_and_dirty_sim'
     output_format: 'uvh5'
     clobber: True
-    kwargs: {}
+    kwargs:
+        save_seeds: True # if seeding RNG by redundant group
 # freq and time entries currently configured for hera_sim use
 freq:
     n_freq: 100
@@ -119,17 +120,20 @@ sky:
             eor_amp: 0.00001
             min_delay: !!null
             max_delay: !!null
+            seed_redundantly: True # so redundant baselines see same sky
             fringe_filter_type: tophat
             fringe_filter_kwargs: {}
     foregrounds:
         # if using hera_sim.foregrounds
         diffuse_foreground:
+            seed_redundantly: True # redundant baselines see same sky
             standoff: 0
             delay_filter_type: tophat
             delay_filter_normalize: !!null
             fringe_filter_type: tophat
             fringe_filter_kwargs: {}
         pntsrc_foreground:
+            seed_redundantly: True
             nsrcs: 1000
             Smin: 0.3
             Smax: 300
@@ -141,7 +145,12 @@ sky:
         # need not be implemented until support for other simulators is added
         # it might be possible to solve this with a simple YAML constructor,
         # but this won't be a worry until we support other simulators
-
+        #
+        # Note regarding seed_redundantly:
+        # This ensures that baselines within a redundant group see the same sky;
+        # however, this does not ensure that the sky is actually consistent. So,
+        # while the data produced can be absolutely calibrated, it cannot be 
+        # used to make sensible images (at least, I don't *think* it can be).
 
 simulation:
     # specify which components to simulate in desired order
