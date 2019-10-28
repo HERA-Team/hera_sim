@@ -65,6 +65,56 @@ bda:
 """
     return bda_config[1:] + base_config
 
+def set_defaults(config, defaults):
+    """Choose to use a default set of function parameters."""
+    new_config = """
+defaults:
+    default_config: {defaults}
+""".format(defaults=defaults)
+    return config + new_config[1:]
+
+def add_systematics(config):
+    """Add systematics to a config file, using default settings."""
+    sim_config = """
+systematics:
+    rfi:
+        rfi_stations: {}
+        rfi_impulse: {}
+        rfi_scatter: {}
+        rfi_dtv: {}
+    sigchain:
+        gains: {}
+    crosstalk:
+        gen_whitenoise_xtalk: {}
+"""
+    return config + sim_config[1:]
+
+def add_sky(config):
+    """Add sky temperature model, EoR, and foregrounds, using defaults."""
+    sky_config = """
+sky:
+    Tsky_mdl: !Tsky
+        datafile: HERA_Tsky_Reformatted.npz
+        interp_kwargs:
+            pol: xx
+    eor:
+        noiselike_eor: {}
+    foregrounds:
+        diffuse_foreground: {}
+        pntsrc_foreground: {}
+"""
+    return config + sky_config[1:]
+
+def set_simulation(config, components, exclude):
+    """Choose which components to simulate, and which parts to exclude."""
+    sim_config = """
+simulation:
+    components: [{components}]
+    exclude: [{exclude}]
+""".format(components=", ".join(components),
+           exclude=", ".join(exclude))
+    return config + sim_config[1:]
+
 # make a temporary directory to write files to
 tempdir = tempfile.mkdtemp()
 
@@ -78,3 +128,7 @@ def test_bad_formats():
     results = runner.invoke(run, [config_file])
     if results.exit_code:
         raise results.exception
+
+def test_verbose_statements():
+    # there are 7 verbose statements, plus one if BDA is used
+

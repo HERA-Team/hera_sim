@@ -28,7 +28,7 @@ main = click.Group()
 @click.option("-v", '--verbose', count=True)
 @click.option("-sa", "--save_all", count=True,
                 help="Choose whether to save all data products.")
-def run(input, outfile, verbose):
+def run(input, outfile, verbose, save_all):
     """
     Run a full simulation with systematics.
     """

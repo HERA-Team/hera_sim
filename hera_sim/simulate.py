@@ -136,7 +136,7 @@ class _model(object):
 
             # reset the visibility array if we don't want to add the visibilities
             if not add_vis:
-                obj_data.data_array = initial_vis
+                obj.data.data_array = initial_vis
 
             # determine what to return, if anything at all
             if ret_vis or ret_gains:
