@@ -60,10 +60,10 @@ def uvbeam_to_lm(uvbeam, freqs, n_pix_lm=63, trunc_at_horizon=False, **kwargs):
     m = m.flatten()
 
     lsqr = l ** 2 + m ** 2
-    n = np.where(lsqr < 1, np.sqrt(1 - lsqr), 0)
+    n = np.where(lsqr < 1, np.sqrt(1 - lsqr), -1)
 
     az = -np.arctan2(m, l)
-    za = np.pi/2 - np.arcsin(n)
+    za = np.arcsin(n)
 
     uvbeam.efield_to_power()
     power_beam = uvbeam.interp(az, za, freqs, **kwargs)[0]
