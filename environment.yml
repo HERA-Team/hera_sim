@@ -14,16 +14,16 @@ dependencies:
   - numpy
   - pip
   - pytest-cov
-  - pyuvdata
   - scipy
   - pyyaml
   - psutil
-  - astropy
+  - astropy>=2.0.16 #IERS bug
   - numba
   - future #only for python 2
   - pip:
     - cached-property
     - git+https://github.com/RadioAstronomySoftwareGroup/pyuvsim.git
+    - git+https://github.com/RadioAstronomySoftwareGroup/pyuvdata.git
     - git+https://github.com/HERA-Team/uvtools.git
     - git+https://github.com/radioastronomysoftwaregroup/healvis 
     - astropy-healpix
