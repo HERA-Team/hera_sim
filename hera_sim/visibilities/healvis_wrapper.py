@@ -38,14 +38,18 @@ class HealVis(VisibilitySimulator):
         if isinstance(kwargs['beams'][0], pyuvsim.analyticbeam.AnalyticBeam):
             old_args = kwargs['beams'][0].__dict__
             
+            gauss_width = None
             if old_args['type'] == "gaussian":
-                raise NotImplementedError("HEALVIS DOES NOT PERMIT GAUSSIAN BEAM + DIAMETER")
+                if old_args['sigma'] == None:
+                    raise NotImplementedError("HEALVIS DOES NOT PERMIT GAUSSIAN BEAM + DIAMETER")
+                gauss_width = old_args['sigma'] * 180 / np.pi # Healvis expects degrees
             
             beam_type=old_args['type']
             ref_freq=old_args['ref_freq']
             spectral_index=old_args['spectral_index']
             diameter=old_args['diameter']
-            kwargs['beams'] = [AnalyticBeam(beam_type=beam_type, ref_freq=ref_freq, spectral_index=spectral_index, diameter=diameter)]
+            kwargs['beams'] = [AnalyticBeam(beam_type=beam_type, gauss_width=gauss_width,
+                                            diameter=diameter, spectral_index=spectral_index)]
             
         super(HealVis, self).__init__(**kwargs)
 
