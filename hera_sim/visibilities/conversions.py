@@ -64,9 +64,9 @@ def uvbeam_to_lm(uvbeam, freqs, n_pix_lm=63, trunc_at_horizon=False, **kwargs):
 
     az = -np.arctan2(m, l)
     za = np.pi/2 - np.arcsin(n)
-
+    
     efield_beam = uvbeam.interp(az, za, freqs, **kwargs)[0]
-    efieldXX = efield_beam[0,0,1]   
+    efieldXX = efield_beam[0,0,1]
     
     # Get the relevant indices of res
     bm = np.zeros((len(freqs), len(l)))

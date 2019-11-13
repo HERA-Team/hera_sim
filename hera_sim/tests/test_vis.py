@@ -77,13 +77,12 @@ def test_JD(uvdata, uvdataJD):
 def uvdata2():
     return io.empty_uvdata(
         nfreq=NFREQ,
-        time_per_integ=sday.to('s') / NTIMES,
+        integration_time=sday.to('s') / NTIMES,
         ntimes=NTIMES,
         ants={
             0: (0, 0, 0),
-            1: (1, 1, 0),
+            1: (1, 1, 0)
         },
-        antpairs=[(0, 0), (1, 1), (1, 0), (0, 1)]
     )
 
 
@@ -150,7 +149,7 @@ def test_autocorr_flat_beam(uvdata, simulator):
         sky_intensity=I_sky,
     ).simulate()
 
-    np.testing.assert_allclose(np.abs(v), np.mean(v), rtol=1e-3)
+    np.testing.assert_allclose(np.abs(v), np.mean(v), rtol=1e-5)
     np.testing.assert_almost_equal(np.abs(v), 0.5, 2)
 
 ### NEED TO CONSIDER WHETHER THIS TEST IS APPROPRIATE###
@@ -270,9 +269,7 @@ def test_comparison_zenith(uvdata2):
         sky_freqs=freqs,
         point_source_flux=point_source_flux,
         point_source_pos=point_source_pos,
-        nside=2**4,
-        real_dtype=np.float64,
-        complex_dtype=np.complex128
+        nside=2**4
     ).simulate()
 
     healvis = vis.HealVis(
@@ -284,7 +281,7 @@ def test_comparison_zenith(uvdata2):
     ).simulate()
    
     assert viscpu.shape == healvis.shape
-    np.testing.assert_allclose(viscpu, healvis, atol=1e-5) 
+    np.testing.assert_allclose(viscpu, healvis, rtol=0.05) 
 
 def test_comparision_horizon(uvdata2):
     freqs = np.unique(uvdata2.freq_array)
@@ -301,8 +298,6 @@ def test_comparision_horizon(uvdata2):
         sky_freqs=freqs,
         point_source_flux=point_source_flux,
         point_source_pos=point_source_pos,
-        real_dtype=np.float64,
-        complex_dtype=np.complex128,
         nside=2**4
     ).simulate()
 
@@ -315,7 +310,7 @@ def test_comparision_horizon(uvdata2):
     ).simulate()
    
     assert viscpu.shape == healvis.shape
-    np.testing.assert_allclose(viscpu, healvis, atol=1e-5)
+    np.testing.assert_allclose(viscpu, healvis, rtol=0.05)
 
 def test_comparison_multiple(uvdata2):
     freqs = np.unique(uvdata2.freq_array)
@@ -333,9 +328,7 @@ def test_comparison_multiple(uvdata2):
         sky_freqs=freqs,
         point_source_flux=point_source_flux,
         point_source_pos=point_source_pos,
-        nside=2**4,
-        real_dtype=np.float64,
-        complex_dtype=np.complex128, 
+        nside=2**4
     ).simulate()
 
     healvis = vis.HealVis(
@@ -347,7 +340,37 @@ def test_comparison_multiple(uvdata2):
     ).simulate()
 
     assert viscpu.shape == healvis.shape
-    np.testing.assert_allclose(viscpu, healvis, atol=1e-5) 
+    np.testing.assert_allclose(viscpu, healvis, rtol=0.05)
+    
+def test_comparison_half(uvdata2):
+    freqs = np.unique(uvdata2.freq_array)
+    nbase = 4
+    nside = 2**nbase
+
+    I_sky = create_uniform_sky(nbase=nbase)
+
+    vec = healpy.ang2vec(np.pi/2, 0)
+    # Zero out values within pi/2 of (theta=pi/2, phi=0)
+    ipix_disc = healpy.query_disc(nside=nside, vec=vec, radius=np.pi/2)
+    for i in range(len(freqs)):
+        I_sky[i][ipix_disc] = 0
+        
+    viscpu = vis.VisCPU(
+        uvdata=uvdata2,
+        sky_freqs=freqs,
+        sky_intensity=I_sky,
+        nside=nside
+    ).simulate()
+
+    healvis = vis.HealVis(
+        uvdata=uvdata2,
+        sky_freqs=freqs,
+        sky_intensity=I_sky,
+        nside=nside
+    ).simulate()
+    
+    assert viscpu.shape == healvis.shape
+    np.testing.assert_allclose(viscpu, healvis, rtol=0.05)
 
 
 if __name__ == "__main__":

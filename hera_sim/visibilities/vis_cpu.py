@@ -239,7 +239,7 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube, real_dtype=np.float32
 
 
     # Conjugate visibilities
-    np.conj(vis, out=vis)
+    # np.conj(vis, out=vis)
 
     # Filling in the whole visibility matrix from upper triangle not needed anymore
     # for i in range(nant):
