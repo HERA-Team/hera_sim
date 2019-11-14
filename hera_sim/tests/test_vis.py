@@ -5,6 +5,7 @@ import pytest
 import warnings
 
 from astropy.units import sday
+from pyuvsim.analyticbeam import AnalyticBeam
 from hera_sim import visibilities as vis
 from hera_sim import io
 
@@ -371,7 +372,38 @@ def test_comparison_half(uvdata2):
     
     assert viscpu.shape == healvis.shape
     np.testing.assert_allclose(viscpu, healvis, rtol=0.05)
+    
+def test_comparision_airy(uvdata2):
+    freqs = np.unique(uvdata2.freq_array)
+    nbase = 4
+    nside = 2**nbase
 
+    I_sky = create_uniform_sky(nbase=nbase)
 
+    vec = healpy.ang2vec(np.pi/2, 0)
+    # Zero out values within pi/2 of (theta=pi/2, phi=0)
+    ipix_disc = healpy.query_disc(nside=nside, vec=vec, radius=np.pi/2)
+    for i in range(len(freqs)):
+        I_sky[i][ipix_disc] = 0
+        
+    viscpu = vis.VisCPU(
+        uvdata=uvdata2,
+        sky_freqs=freqs,
+        sky_intensity=I_sky,
+        beams=[AnalyticBeam("airy", diameter=1.75)],
+        nside=nside
+    ).simulate()
+
+    healvis = vis.HealVis(
+        uvdata=uvdata2,
+        sky_freqs=freqs,
+        sky_intensity=I_sky,
+        beams=[AnalyticBeam("airy", diameter=1.75)],
+        nside=nside
+    ).simulate()
+    
+    assert viscpu.shape == healvis.shape
+    np.testing.assert_allclose(viscpu, healvis, rtol=0.05)
+    
 if __name__ == "__main__":
     unittest.main()
