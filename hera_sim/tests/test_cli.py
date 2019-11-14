@@ -178,3 +178,19 @@ def test_save_all():
     assert "test.pntsrc_foreground.uvh5" in dir_contents
     assert "test.gains.uvh5" in dir_contents
     assert "test.rfi_impulse.uvh5" in dir_contents
+
+def test_no_clobber():
+    config = construct_base_config(tempdir, "test", "uvh5").replace("True", "False")
+    config = set_defaults(config, 'h1c')
+    sim_cmp = ["foregrounds",]
+    exclude = []
+    config = set_simulation(config, sim_cmp, exclude)
+
+    config_file = os.path.join(tempdir, "test_clobber.yaml")
+    with open(config_file, 'w') as cfg:
+        cfg.write(config)
+
+    runner = CliRunner()
+    results = runner.invoke(run, [config_file,])
+    stdout = results.stdout
+    assert "Nothing to do:" in stdout

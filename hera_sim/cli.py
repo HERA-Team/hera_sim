@@ -146,7 +146,13 @@ def run(input, outfile, verbose, save_all, clobber):
                       "addition to listing configuration parameters. The "
                       "configuration parameters will override the default "
                       "parameters.")
-    hera_sim.defaults.set(config_params)
+    if config_params:
+        hera_sim.defaults.set(config_params)
+
+    if not config_params and not defaults:
+        warnings.warn("You have specified neither defaults nor configuration "
+                      "parameters. This may result in the simulation erroring "
+                      "at some point.")
 
     if verbose:
         print("Extracting simulation parameters...")
