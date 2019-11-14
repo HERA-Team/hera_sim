@@ -31,6 +31,7 @@ install:
   - source ~/.bashrc
   # Useful for debugging any issues with conda
   - conda info -a
+  - conda list
 
   # create environment and install dependencies
   - conda create -q -n test-env python=$TRAVIS_PYTHON_VERSION
