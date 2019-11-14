@@ -29,6 +29,12 @@ class CompatibilityException(ValueError):
 def _get_model(mod, name):
     return getattr(sys.modules["hera_sim." + mod], name)
 
+def _generator_to_list(func, *args, **kwargs):
+    @functools.wraps(func)
+    def new_func(*args, **kwargs):
+        result = list(func(*args, **kwargs))
+        return None if result == [] else result
+    return new_func
 
 class _model(object):
     """
@@ -144,7 +150,6 @@ class _model(object):
                   else residual if ret_vis else gains
 
         return new_func
-
 
 class Simulator:
     """
@@ -542,6 +547,7 @@ class Simulator:
             )
     
     
+    @_generator_to_list
     def run_sim(self, sim_file=None, **sim_params):
         """
         Accept a dictionary or YAML file of simulation parameters and add in
@@ -629,7 +635,10 @@ class Simulator:
             add_component = getattr(self, self.SIMULATION_COMPONENTS[model])
             params = sim_params[model]
             if model in uses_no_model:
-                add_component(**params)
+                vis = add_component(**params)
             else:
-                add_component(model, **params)
-
+                vis = add_component(model, **params)
+            # vis is either None, or it's the visibility desired from using
+            # the ret_vis feature, so we can yield the result to return visibilities
+            if vis is not None:
+                yield (model, vis)

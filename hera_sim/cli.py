@@ -28,9 +28,11 @@ main = click.Group()
 @click.option("-v", '--verbose', count=True)
 @click.option("-sa", "--save_all", count=True,
                 help="Choose whether to save all data products.")
-def run(input, outfile, verbose, save_all):
-    """
-    Run a full simulation with systematics.
+@click.option("-c", "--clobber", count=True,
+                help="Choose whether to overwrite files that share the same name.")
+def run(input, outfile, verbose, save_all, clobber):
+    """Run a full simulation with systematics.
+    
     """
     if verbose:
         print("Loading configuration file...")
@@ -76,10 +78,13 @@ def run(input, outfile, verbose, save_all):
         "datatypes: {}".format(supported_fmts)
     
     # add appropriate extension if not specified already, but allow custom ext
-    if os.path.splitext(outfile) == '':
+    if os.path.splitext(outfile)[1] == '':
         outfile += ".%s"%fmt_to_ext[fmt]
 
-    # XXX consider adding clobber as a click option
+    # add clobber to filing parameters if it's not already in there
+    # also choose to clobber if told to do so from command line
+    if filing_params.get("clobber", None) is None or clobber:
+        filing_params["clobber"] = clobber
     if os.path.exists(outfile) and not filing_params['clobber']:
         print("Nothing to do: %s already exists and clobber=False"%outfile)
         return
@@ -172,9 +177,10 @@ def run(input, outfile, verbose, save_all):
                         #if model in ("gains", "sigchain_reflections"):
                         #    sim_params[model]["ret_gains"] = True
                         #    vis, gains = sim.run_sim(**sim_params)
-                        
+                                                
                         # write component vis to copy's data array
-                        sim_copy.data.data_array = sim.run_sim(**sim_params)
+                        vis = sim.run_sim(**sim_params)[0][1]
+                        sim_copy.data.data_array = vis
                         # update the history to only note this component
                         sim_copy.data.history = \
                             sim.data.history.replace(sim_copy.data.history, '')
@@ -207,6 +213,7 @@ def run(input, outfile, verbose, save_all):
     # kwargs to pass to the write method
     if verbose:
         print("Writing simulation results to disk...")
+    
     # before writing to disk, update the history to note the config file used
     sim.data.history += "\nSimulation from configuration file: {cfg}".format(
                             cfg=input)
@@ -216,4 +223,5 @@ def run(input, outfile, verbose, save_all):
 
     if verbose:
         print("Simulation complete.")
+    
     return

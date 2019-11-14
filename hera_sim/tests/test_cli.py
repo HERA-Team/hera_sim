@@ -130,5 +130,51 @@ def test_bad_formats():
         raise results.exception
 
 def test_verbose_statements():
-    # there are 7 verbose statements, plus one if BDA is used
+    config = construct_base_config(tempdir, "test", "uvh5")
+    config = set_defaults(config, "h1c")
+    sim_cmp = ["foregrounds", ]
+    exclude = []
+    config = set_simulation(config, sim_cmp, exclude)
+    
+    config_file = os.path.join(tempdir, "test_verbose.yaml")
+    with open(config_file, 'w') as cfg:
+        cfg.write(config)
 
+    runner = CliRunner()
+    # test with --verbose
+    results = runner.invoke(run, [config_file, "--verbose"])
+    stdout = results.stdout
+    # check that the output has some expected statements
+    assert "Loading configuration file..." in stdout
+    assert "Checking validity of filing parameters..." in stdout
+
+    # test with -v
+    results = runner.invoke(run, [config_file, "-v"])
+    stdout = results.stdout
+    # check for some expected output
+    assert "Constructing Simulator object..." in stdout
+    assert "Running simulation..." in stdout
+
+def test_save_all():
+    # set up config
+    config = construct_base_config(tempdir, "test", "uvh5")
+    config = add_systematics(add_sky(config))
+    sim_cmp = ["foregrounds", "rfi", "sigchain"]
+    exclude = []
+    config = set_simulation(config, sim_cmp, exclude)
+    
+    # write to file
+    config_file = os.path.join(tempdir, "test_save_all.yaml")
+    with open(config_file, 'w') as cfg:
+        cfg.write(config)
+
+    # CliRunner does not ever reach the save phase for some reason
+    # so let's do this using os.system
+    os.system("hera_sim run --save_all %s" % config_file)
+
+    # now check that all of the correct files are saved
+    dir_contents = os.listdir(tempdir)
+    assert "test.diffuse_foreground.uvh5" in dir_contents
+    assert "test.pntsrc_foreground.uvh5" in dir_contents
+    assert "test.gains.uvh5" in dir_contents
+    assert "test.rfi_impulse.uvh5" in dir_contents
