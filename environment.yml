@@ -7,6 +7,7 @@ channels:
 dependencies:
   - aipy=3.0.0rc2
   - attrs
+  - click
   - h5py
   - hdf5
   - healpy
