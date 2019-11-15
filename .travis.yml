@@ -2,20 +2,12 @@ language: python
 dist: xenial
 
 python:
-  # We don't actually use the Travis Python, but this keeps it organized.
-  - "2.7"
   - '3.6'
   - '3.7'
 
 # Cache pip-installed dependencies
 cache:
     pip: true
-
-    # Test against known version of pyuvdata and current version
-env:
-  - PYUVDATA_VERSION=""
-
-allow_failures:
 
 install:
   # ensure that we have the full tag information available for version.py
