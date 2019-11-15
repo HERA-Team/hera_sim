@@ -152,26 +152,6 @@ def test_autocorr_flat_beam(uvdata, simulator):
     np.testing.assert_allclose(np.abs(v), np.mean(v), rtol=1e-5)
     np.testing.assert_almost_equal(np.abs(v), 0.5, 2)
 
-### NEED TO CONSIDER WHETHER THIS TEST IS APPROPRIATE###
-# def test_viscpu_res_autocorr(uvdata):
-#     I_sky = create_uniform_sky(nbase=5)
-#     v = vis.VisCPU(
-#         uvdata=uvdata,
-#         sky_freqs=np.unique(uvdata.freq_array),
-#         sky_intensity=I_sky,
-#     ).simulate()
-
-#     I_sky = create_uniform_sky(nbase=6)
-#     v2 = vis.VisCPU(
-#         uvdata=uvdata,
-#         sky_freqs=np.unique(uvdata.freq_array),
-#         sky_intensity=I_sky,
-#     ).simulate()
-
-#     # Ensure that increasing sky resolution smooths out
-#     # any 'wiggles' in the auto-correlations of a flat sky.
-#     assert np.std(np.abs(v)) >= np.std(np.abs(v2))
-
 @pytest.mark.parametrize("simulator", SIMULATORS)
 def test_single_source_autocorr(uvdata, simulator):
     freqs = np.unique(uvdata.freq_array)
@@ -211,16 +191,6 @@ def test_single_source_autocorr_past_horizon(uvdata, simulator):
     ).simulate()
 
     assert np.abs(np.mean(v)) == 0
-
-    # def test_exact_value_two_sources(self):
-    #
-    #     # For ant[0] at (0,0,1), ant[1] at (1,1,1), src[0] at (0,0,1) and src[1] at (0,.707,.707)
-    #     antpos[0, 0] = 0
-    #     antpos[0, 1] = 0
-    #     v = simulators.vis_cpu(antpos, 1.0, eq2tops, crd_eq, I_sky, bm_cube)
-    #     np.testing.assert_almost_equal(
-    #         v[:, 0, 1], 1 + np.exp(-2j * np.pi * np.sqrt(0.5)), 7
-    #     )
 
 def align_src_to_healpix(point_source_pos, point_source_flux, nside=2**4):
     """Where the point sources will be placed when converted to healpix model
