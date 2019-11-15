@@ -20,6 +20,7 @@ dependencies:
   - pyyaml
   - future # only for python 2
   - psutil
+  - astropy-healpix
   - pip:
     - cached-property
     - git+https://github.com/RadioAstronomySoftwareGroup/pyuvsim.git
