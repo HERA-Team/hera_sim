@@ -47,7 +47,7 @@ def empty_uvdata(nfreq, ntimes, ants, **kwargs):
         A :class:`pyuvdata.UVData` object, unfilled.
 
     """
-    start_time = kwargs.pop("start_time", 2458119.5)
+    start_time = kwargs.pop("start_time", 2456658.5) # January 1 2014
     integration_time = kwargs.pop("integration_time", 10.7)
 
     uv = initialize_uvdata_from_keywords(
