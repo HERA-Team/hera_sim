@@ -75,6 +75,8 @@ class VisibilitySimulator(object):
         self.sky_intensity = sky_intensity
 
         self.sky_freqs = sky_freqs
+        if sky_freqs is None:
+            self.sky_freqs = np.unique(uvdata.freq_array)
 
         self.point_source_pos = point_source_pos
         self.point_source_flux = point_source_flux
