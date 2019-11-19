@@ -49,7 +49,6 @@ setup_args = {
     "package_dir": {"hera_sim": "hera_sim"},
     "packages": find_packages(),
     "include_package_data": True,
-#    "scripts": ['scripts/simulation.py'],
     "install_requires": [
         'numpy>=1.14',
         'scipy',
@@ -58,7 +57,8 @@ setup_args = {
         'pyuvsim',
         'pyuvdata',
         'aipy>=3.0',
-        'click'
+        'click',
+        'astropy-healpix' # same note as for mpi4py
     ],
     "extras_require" : {
         "bda" : "bda @ git+git://github.com/HERA-Team/baseline_dependent_averaging"
