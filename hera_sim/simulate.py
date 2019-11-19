@@ -280,7 +280,8 @@ class Simulator:
         uv.read(filename, read_data=True, **kwargs)
         return uv
 
-    def write_data(self, filename, file_type="uvh5", **kwargs):
+    def write_data(self, filename, file_type="uvh5", ret_seeds=False, 
+                   save_seeds=False, **kwargs):
         """
         Write current UVData object to file.
 
@@ -290,8 +291,6 @@ class Simulator:
                 :class:`pyuvdata.UVData`) which determines which write method to call.
             **kwargs: keyword arguments sent directly to the write method chosen.
         """
-        ret_seeds = kwargs.pop('ret_seeds', False)
-        save_seeds = kwargs.pop('save_seeds', False)
         seeds = self.data.extra_keywords.pop('seeds', {})
         try:
             getattr(self.data, "write_%s" % file_type)(filename, **kwargs)
