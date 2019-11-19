@@ -259,9 +259,6 @@ class Simulator:
         if self.data.phase_type == "unknown":
             self.data.set_drift()
 
-        # what does this line do?
-        self.data.baseline_array
-
         # add redundant bl groups to UVData object's extra keywords
         #self.data.extra_keywords['reds'] = self.data.get_baseline_redundancies()[0]
 

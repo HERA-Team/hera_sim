@@ -97,8 +97,6 @@ def test_io():
     sim.add_foregrounds("pntsrc_foreground")
     sim.add_gains()
 
-    # why is this print statement here?
-    print(sim.data.antenna_names)
     sim.write_data(path.join(direc, 'tmp_data.uvh5'))
 
     sim2 = Simulator(
