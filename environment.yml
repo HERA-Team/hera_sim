@@ -5,13 +5,12 @@ channels:
   - conda-forge
   - defaults
 dependencies:
-  - aipy=3.0.0rc2
+  - aipy>=3.0
   - attrs
   - click
   - h5py
   - hdf5
   - healpy
-  - mpi4py
   - nose
   - numpy
   - pip

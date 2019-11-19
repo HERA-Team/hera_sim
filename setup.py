@@ -53,12 +53,11 @@ setup_args = {
         'numpy>=1.14',
         'scipy',
         'cached_property',
-        'mpi4py',   # this is a dependency of pyuvsim which currently is not automatically installed. Remove when possible.
         'pyuvsim',
         'pyuvdata',
         'aipy>=3.0',
         'click',
-        'astropy-healpix' # same note as for mpi4py
+        'astropy-healpix' # pyuvsim depenency not automatically installed
     ],
     "extras_require" : {
         "bda" : "bda @ git+git://github.com/HERA-Team/baseline_dependent_averaging"
