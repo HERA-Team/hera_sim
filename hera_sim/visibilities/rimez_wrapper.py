@@ -18,6 +18,8 @@ from RIMEz import sky_models, beam_models, rime_funcs, utils, management
 class RIMEz(VisibilitySimulator):
 
     def __init__(self,  **kwargs):
+        
+        raise notImplementedError("To be implemented.")
 
         # A bit of a hack here because healvis uses its own AnalyticBeam,
         # and doesn't check if you are using pyuvsim's one. This should be fixed.

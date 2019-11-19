@@ -27,6 +27,9 @@ class PRISim(VisibilitySimulator):
 
     def __init__(self, aux_file_loc='prisim_roi_file', fov_radius=90.0,
                  beam_pol='x', beam_interp='cubic', precision='single', **kwargs):
+        
+        raise notImplementedError("To be implemented.")
+        
         self.fov_radius = fov_radius
         self.beam_pol = beam_pol
         self.beam_interp = beam_interp
