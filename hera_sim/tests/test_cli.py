@@ -172,6 +172,8 @@ def test_save_all():
     # so let's do this using os.system
     os.system("hera_sim run --save_all %s" % config_file)
 
+    print("TEMPDIR: ", tempdir)
+
     # now check that all of the correct files are saved
     dir_contents = os.listdir(tempdir)
     assert "test.diffuse_foreground.uvh5" in dir_contents
