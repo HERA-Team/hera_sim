@@ -112,9 +112,6 @@ def run(input, outfile, verbose, save_all, clobber):
     # extract instrument parameters
     if isinstance(yaml_contents["telescope"]["array_layout"], str):
         # assume it's an antenna layout csv
-        # XXX: revisit _parse_layout_csv documentation to see how
-        # beams are handled with this
-        # TODO: write new YAML constructor to simplify this section
         antennas = _parse_layout_csv(yaml_contents["telescope"]["array_layout"])
     else:
         # assume it's constructed using antpos and the YAML tag !antpos
@@ -177,13 +174,6 @@ def run(input, outfile, verbose, save_all, clobber):
                         # make a copy of the Simulator object
                         sim_copy = copy.deepcopy(sim)
 
-                        # TODO: figure out how to do gains correctly
-                        # we'll bother with this later, since the "gains"
-                        # we'd be returning are bogus anyway (at least for now)
-                        #if model in ("gains", "sigchain_reflections"):
-                        #    sim_params[model]["ret_gains"] = True
-                        #    vis, gains = sim.run_sim(**sim_params)
-                                                
                         # write component vis to copy's data array
                         vis = sim.run_sim(**sim_params)[0][1]
                         sim_copy.data.data_array = vis

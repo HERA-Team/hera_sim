@@ -134,9 +134,6 @@ class _model(object):
                 residual = obj.data.data_array - initial_vis
 
             # get the gains if we want to return them
-            # XXX this isn't exactly what we want to return...
-            # we'd ideally like a dictionary {(ant, pol) : gains} to return, but
-            # it's not obvious how to *easily* make that dictionary
             if ret_gains:
                 gains = obj.data.data_array / initial_vis
 
