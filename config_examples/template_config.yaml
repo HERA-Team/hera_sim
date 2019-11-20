@@ -41,10 +41,8 @@ telescope:
         sep: 14.6
         split_core: False
         outriggers: 0
-    # TODO: check how pyuvsim handles beams, see if YAML constructor needs
-    # to be updated/modified.
     omega_p: !Beam
-        # XXX non-absolute paths are assumed to be specified relative to the
+        # non-absolute paths are assumed to be specified relative to the
         # hera_sim data path
         datafile: HERA_H2C_BEAM_MODEL.npz
         interp_kwargs:
@@ -81,11 +79,7 @@ systematics:
             gain_spread: 0.1
             dly_rng: [-20, 20]
             bp_poly: HERA_H1C_BANDPASS.npy
-        # XXX: the gen_reflection_gains function is somewhat difficult
-        # to work with in a general way at the moment; this should be
-        # addressed in the future, since there currently is not a neat
-        # way of handling this from a configuration file
-        sigchain_reflections: # TODO: make a YAML constructor for this?
+        sigchain_reflections: 
             amp: !!null
             dly: !!null
             phs: !!null
@@ -94,9 +88,6 @@ systematics:
         gen_whitenoise_xtalk:
             amplitude: 3.0
         # gen_cross_coupling_xtalk:
-            # the following parameters are all floats, but it's a little
-            # unclear what the best way to handle this for an array is;
-            # the current implementation would treat all antennas the same
             # amp: !!null
             # dly: !!null
             # phs: !!null
@@ -105,16 +96,12 @@ systematics:
             Trx: 0
 sky:
     Tsky_mdl: !Tsky
-        # XXX non-absolute paths are assumed to be relative to the hera_sim
+        # non-absolute paths are assumed to be relative to the hera_sim
         # data folder
         datafile: HERA_Tsky_Reformatted.npz
         # interp kwargs are passed to scipy.interp.RectBivariateSpline
         interp_kwargs: 
             pol: xx # this is popped when making a Tsky object
-        # TODO: add functionality for handling multiple polarizations
-        # this involves updating the YAML constructor, Simulator, and 
-        # Tsky Interpolator object
-        #
     eor:
         noiselike_eor:
             eor_amp: 0.00001
@@ -141,11 +128,6 @@ sky:
             spectral_index_mean: -1.0
             spectral_index_std: 0.5
             reference_freq: 0.5
-        # TODO: add support for specifying catalogs here, e.g. GLEAM, eGSM
-        # need not be implemented until support for other simulators is added
-        # it might be possible to solve this with a simple YAML constructor,
-        # but this won't be a worry until we support other simulators
-        #
         # Note regarding seed_redundantly:
         # This ensures that baselines within a redundant group see the same sky;
         # however, this does not ensure that the sky is actually consistent. So,
