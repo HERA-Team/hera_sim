@@ -141,8 +141,8 @@ def run(input, outfile, verbose, save_all, clobber):
     if defaults and config_params:
         warnings.warn("You have chosen to use a default configuration in "
                       "addition to listing configuration parameters. The "
-                      "configuration parameters will override the default "
-                      "parameters.")
+                      "configuration parameters will override any default "
+                      "parameters that show up in both places.")
     if config_params:
         hera_sim.defaults.set(config_params)
 
