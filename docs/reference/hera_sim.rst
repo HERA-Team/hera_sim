@@ -11,12 +11,15 @@ hera_sim
 
     hera_sim.vis
     hera_sim.antpos
+    hera_sim.defaults
     hera_sim.eor
     hera_sim.foregrounds
+    hera_sim.interpolators
     hera_sim.io
     hera_sim.noise
     hera_sim.rfi
     hera_sim.sigchain
+    hera_sim.Simulator
     hera_sim.utils
 
 
