@@ -44,51 +44,104 @@ class _Defaults:
 
     hera_sim.defaults.deactivate()
 
-    To view what the default parameter values for a `model` in a given
-    `module` are:
+    To view what the default value is for a particular parameter, do: 
 
-    hera_sim.defaults(module, model)
+    hera_sim.defaults(parameter),
+
+    where `parameter` is a string with the name of the parameter as 
+    listed in the configuration file. To view the entire set of default 
+    parameters, use:
+
+    hera_sim.defaults()
     """
 
     def __init__(self, config='h1c'):
+        """Load in a configuration and check its formatting.
+
+        Parameters
+        ----------
+        
+        config : str or dict, optional (default 'h1c') 
+            May either be an absolute path to a configuration YAML, one of
+            the observing season keywords ('h1c', 'h2c'), or a dictionary 
+            with the appropriate format.
+
+        Notes
+        -----
+        
+        The configuration file may be formatted in practically any way, 
+        as long as it is parsable by `pyyaml`. That said, the resulting 
+        configuration will *always* take the form {param : value} for 
+        every item (param, value) such that `value` is not a dict. A 
+        consequence of this is that any parameters whose names are not 
+        unique will take on the value specified last in the config. The 
+        raw configuration is kept in memory, but it currently is not 
+        used for overriding any default values.
+
+        Examples
+        --------
+
+        Consider the following contents of a configuration file:
+
+        foregrounds:
+            Tsky_mdl: !Tsky
+                datafile: HERA_Tsky_Reformatted.npz
+            seed_redundantly: True
+            nsrcs: 500
+        gains:
+            gain_spread: 0.1
+            dly_rng: [-10, 10]
+            bp_poly: HERA_H1C_BANDPASS.npy
+
+        This would result in the following set of defaults:
+
+        {Tsky_mdl: <hera_sim.interpolators.Tsky instance>,
+         seed_redundantly: True,
+         nsrcs: 500, 
+         gain_spread: 0.1,
+         dly_rng: [-10,10]
+         bp_poly: HERA_H1C_BANDPASS.npy
+         }
+
+        Now consider a different configuration file:
+
+        sky:
+            eor:
+                eor_amp: 0.001
+        systematics:
+            rfi:
+                rfi_stations:
+                    stations: !!null
+                rfi_impulse:
+                    chance: 0.01
+                rfi_scatter:
+                    chance: 0.35
+            crosstalk:
+                amplitude: 1.25
+            gains:
+                gain_spread: 0.2
+            noise:
+                Trx: 150
+
+        Since the parser recursively unpacks the raw configuration 
+        dictionary until no entry is nested, the resulting config is:
+
+        {eor_amp: 0.001,
+         stations: None,
+         chance: 0.35,
+         amplitude: 1.25,
+         gain_spread: 0.2,
+         Trx: 150
+         }
+        """
         self._raw_config = {}
         self._config = {}
         self._config_name = None
         self._set_config(config)
         self._override_defaults = False
-    """Load in a configuration and check its formatting.
-
-    Parameters
-    ----------
-    config : str or dict, optional (default 'h1c') 
-        May either be an absolute path to a configuration YAML, one of
-        the observing season keywords ('h1c', 'h2c'), or a dictionary 
-        with the appropriate format.
-
-        TODO: rewrite the following bit in accordance w/ new config format
-
-        The loaded YAML file is intended to have the following form:
-        {module: {model: {param: default}}}, where 'module' is any one
-        of the `hera_sim` modules, `model` is any of the functions within
-        the specified module, and `param` is any of the model function's 
-        default parameters.
-
-    Examples
-    --------
-    An example configuration YAML should be formatted as follows:
-    module1:
-        model1:
-            param1: default1
-            param2: default2
-            ...
-        model2:
-            ...
-    module2:
-        ...
-    """
 
     def __call__(self, component=None):
-        """Return the defaults dictionary, or just a component if specified."""
+        """Return the defaults dictionary, or just a component."""
         if component is not None:
             try:
                 return self._config[component]
@@ -97,19 +150,26 @@ class _Defaults:
         else:
             return self._config
 
-    def set(self, new_config):
+    def set(self, new_config, refresh=False):
         """Set the defaults to those specified in `new_config`.
 
         Parameters
         ----------
         new_config : str or dict
-            Absolute path to configuration file or dictionary of configuration
-            parameters formatted in the same way a configuration would be loaded.
+            Absolute path to configuration file or dictionary of 
+            configuration parameters formatted in the same way a 
+            configuration would be loaded.
+
+        refresh : bool, optional
+            Choose whether to completely overwrite the old config or 
+            just add new values to it.
 
         Notes
         -----
         Calling this method also activates the defaults.
         """
+        if refresh:
+            self._config = {}
         self._set_config(new_config)
         self.activate()
 
@@ -124,49 +184,91 @@ class _Defaults:
     def _set_config(self, config):
         """Retrieve the configuration specified."""
         if isinstance(config, str):
+            # set the name of the configuration used
+            self._config_name = config
+            # retrieve the season configuration file if appropriate
             if config in SEASON_CONFIGS.keys():
                 self._config_name = config
                 config = SEASON_CONFIGS[config]
+            # load in the raw configuration
             with open(config, 'r') as conf:
                 self._raw_config = yaml.load(conf.read(), Loader=yaml.FullLoader)
-            # raw configuration dictionary should be nested; this line pulls
-            # out the individual terms in the nested dictionary
-            self._unpack_raw_config()
         elif isinstance(config, dict):
             # set the raw configuration dictionary to config
             self._raw_config = config
-            # check if config is formatted like a config file
-            isnested = all([isinstance(entry, dict) for entry in config.values()])
-            # if it's formatted like a config file, then unpack it
-            if isnested:
-                self._unpack_raw_config()
-            else:
-                self._config = config
+            # unpack the raw configuration dictionary
+            self._config = self._unpack_dict(self._raw_config, self._config)
+            # note that a custom configuration is used
             self._config_name = "custom"
         else:
             raise ValueError(
                     "The configuration must be a dictionary, an absolute " \
                     "path to a configuration YAML, or a season keyword." )
+        
+        # unpack the raw configuration dictionary
+        self._config = self._unpack_dict(self._raw_config, self._config)
+        # check if any items are repeated
         self._check_config()
 
-    def _unpack_raw_config(self):
-        """Extract individual components from raw configuration dictionary."""
-        self._config = {param : value for component in self._raw_config.values()
-                                      for param, value in component.items()}
+    def _unpack_dict(self, nested_dict, new_dict):
+        """Extract individual components from a (partially) nested dictionary.
+        
+        Parameters
+        ----------
+        nested_dict : dict
+            A dictionary that may either be fully, partially, or not 
+            nested. May have any degree of nesting.
+
+        new_dict : dict
+            A dictionary, empty or not, to fill with the (key, value) 
+            pairs in `nested_dict` such that `value` is not a dict.
+
+        Returns
+        -------
+        new_dict : dict
+            The fully unpacked dictionary of (key, value) pairs from
+            `nested_dict`. No values in this dictionary will be 
+            dictionaries themselves.
+
+        Examples
+        --------
+        Input: nested_dict = {key1 : {k1 : v1, k2 : v2}, key2 : val2}
+               new_dict = {}
+        Output: new_dict = {k1 : v1, k2 : v2, key2 : val2}
+
+        Input: nested_dict = {key1 : val1, key2 : val2}
+               new_dict = {key0 : val0}
+        Output: new_dict = {key0 : val0, key1 : val1, key2 : val2}
+        """
+        for key, value in nested_dict.items():
+            if isinstance(value, dict):
+                self._unpack_dict(value, new_dict)
+            else:
+                new_dict[key] = value
+        return new_dict
+
+    def _recursive_enumerate(self, counts, values, dictionary):
+        """Recursively enumerate the entries in `dictionary`."""
+        for key, value in dictionary.items():
+            if isinstance(value, dict):
+                self._recursive_enumerate(counts, values, value)
+            else:
+                counts[key] += 1
+                values[key].append(value)
 
     def _check_config(self):
-        """Check if any keys in the configuration are repeated, warn if so."""
+        """Check and warn if any keys in the configuration are repeated."""
+        # initialize dictionaries that enumerate the key, value pairs
+        # in the raw configuration dictionary
         counts = {key : 0 for key in self().keys()}
         values = {key : [] for key in self().keys()}
-        for param, value in self._raw_config.items():
-            if isinstance(value, dict):
-                for key, val in value.items():
-                    counts[key] += 1
-                    values[key].append(val)
-            else:
-                counts[param] += 1
-                values[param].append(value)
+        
+        # actually do the enumeration
+        self._recursive_enumerate(counts, values, self._raw_config)
+
+        # flag any parameters that show up more than once
         flags = {key : (1 if count > 1 else 0) for key, count in counts.items()}
+        # warn the user if any configuration parameters are repeated
         if any(flags.values()):
             warning = "The following parameters have multiple values defined " \
                       "in the configuration:\n"
@@ -176,13 +278,6 @@ class _Defaults:
             warning += "Please check your configuration, as only the last " \
                        "value specified for each parameter will be used."
             warnings.warn(warning)
-        # unpack config if it's still nested
-        isnested = all([isinstance(entry, dict) for entry in self._config.values()])
-        while isnested:
-            self._raw_config = self._config
-            self._unpack_raw_config()
-            isnested = all([isinstance(entry, dict) for entry in self._config.values()])
-
 
     @property
     def _version_is_compatible(self):
