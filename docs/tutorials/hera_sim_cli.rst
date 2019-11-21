@@ -69,7 +69,7 @@ Setup
 -----
 
 The following block of text contains three sections: ``freq``, ``time``, 
-and ``telescope``; these sections are used to initialize the ``Simulator`` 
+and ``telescope``. These sections are used to initialize the ``Simulator`` 
 object that is used to perform the simulation. Note that the config YAML 
 shows all of the options that may be specified, but not all options are 
 necessarily required.
@@ -98,4 +98,100 @@ intended to produce super-realistic simulations, but rather perform
 simulations quickly and give somewhat realistic results). This entry 
 defines an interpolation object to be used for various ``hera_sim`` 
 functions which require such an object; please refer to the documentation 
-for ``hera_sim.interpolators.Beam`` for more information.
+for ``hera_sim.interpolators.Beam`` for more information. Future versions 
+of ``hera_sim`` will provide support for specifying the beam in an 
+antenna layout file, similar to how it is done by ``pyuvsim``.
+
+Defaults
+--------
+
+This section of the configuration file is optional to include. This 
+section gives the user the option to use a default configuration to 
+specify different parameters throughout the codebase. Users may define 
+their own default configuration files, or they may use one of the 
+provided season default configurations, located in the ``config`` folder. 
+The currently supported season configurations are ``h1c`` and ``h2c``. 
+Please see the ``defaults`` module/documentation for more information.
+
+.. runblock:: console
+
+   $ sed -n 54,57p ../config_examples/template_config.yaml
+
+Systematics
+-----------
+
+This is the section where any desired systematic effects can be specified. 
+The block of text shown below details all of the possible options for 
+systematic effects. Note that currently the ``sigchain_reflections`` and 
+``gen_cross_coupling_xtalk`` sections cannot easily be worked with; in 
+fact, ``gen_cross_coupling_xtalk`` does not work as intended (each 
+baseline has crosstalk show up at the same phase and delay, with the same 
+amplitude, but uses a different autocorrelation visibility). Also note 
+that the ``rfi`` section is subject to change, pending a rework of the 
+``rfi`` module. 
+
+.. runblock:: console
+
+   $ sed -n 58,96p ../config_examples/template_config.yaml
+
+Note that although these simulation components are listed under 
+``systematics``, they do not necessarily need to be listed here; the 
+configuration file is formatted as such just for semantic clarity. For 
+information on any particular simulation component listed here, please 
+refer to the corresponding function's documentation. For those who may 
+not know what it means, ``!!null`` is how ``NoneType`` objects are 
+specified using ``pyyaml``.
+
+Sky
+---
+
+This section specifies both the sky temperature model to be used 
+throughout the simulation as well as any simulation components which are 
+best interpreted as being associated with the sky (rather than as a 
+systematic effect). Just like the ``systematics`` section, these do not 
+necessarily need to exist in the ``sky`` section (however, the 
+``Tsky_mdl`` entry *must* be placed in this section, as that's where the 
+script looks for it).
+
+.. runblock:: console
+
+   $ sed -n 97,130p ../config_examples/template_config.yaml
+
+As of now, ``run`` only supports simulating effects using the functions 
+in ``hera_sim``; however, we intend to provide support for using 
+different simulators in the future. If you would like more information 
+regarding the ``Tsky_mdl`` entry, please refer to the documentation for 
+the ``hera_sim.interpolators.Tsky`` class. Finally, note that the 
+``seed_redundantly`` parameter is specified for each entry in ``eor`` 
+and ``foregrounds``; this parameter is used to ensure that baselines 
+within a redundant group all measure the same visibility, which is a 
+necessary feature for data to be absolutely calibrated. Please refer 
+to the documentation for ``hera_sim.eor`` and ``hera_sim.foregrounds`` 
+for more information on the parameters and functions listed above.
+
+Simulation
+----------
+
+This section is used to specify which of the simulation components to 
+include in or exclude from the simulation. There are only two entries 
+in this section: ``components`` and ``exclude``. The ``components`` 
+entry should be a list specifying which of the groups from the ``sky`` 
+and ``systematics`` sections should be included in the simulation. The 
+``exclude`` entry should be a list specifying which of the particular 
+models should not be simulated. Here's an example:
+
+.. runblock:: console
+
+   $ sed -n -e 137,138p -e 143,150p ../config_examples/template_config.yaml
+
+The entries listed above would result in a simulation that includes all 
+models contained in the ``foregrounds``, ``noise``, ``eor``, ``rfi``, 
+and ``sigchain`` dictionaries, except for the ``sigchain_reflections`` 
+and ``gen_whitenoise_xtalk`` models. So the simulation would consist of 
+diffuse and point source foregrounds, thermal noise, noiselike EoR, all 
+types of RFI modeled by ``hera_sim``, and bandpass gains, with the 
+effects simulated in that order. It is important to make sure that 
+effects which enter multiplicatively (i.e. models from ``sigchain``) 
+are simulated *after* effects that enter additively, since the order 
+that the simulation components are listed in is the same as the order 
+of execution.
