@@ -19,7 +19,7 @@ hera_sim
     hera_sim.noise
     hera_sim.rfi
     hera_sim.sigchain
-    hera_sim.Simulator
+    hera_sim.simulate
     hera_sim.utils
 
 

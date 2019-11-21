@@ -16,7 +16,7 @@ SEASON_CONFIGS = {'h1c': path.join(CONFIG_PATH, 'HERA_H1C_CONFIG.yaml'),
                   'h2c': path.join(CONFIG_PATH, 'HERA_H2C_CONFIG.yaml'),
                   }
 
-class _Defaults:
+class Defaults:
     """Class for dynamically changing hera_sim parameter defaults.
 
     This class handles the retreival of simulation default parameters from
@@ -350,6 +350,6 @@ class _Defaults:
         
         return new_func
 
-defaults = _Defaults()
+defaults = Defaults()
 _defaults = defaults._handler
 
