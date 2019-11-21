@@ -10,9 +10,9 @@ from hera_sim.interpolators import Tsky, Beam
 if defaults._version_is_compatible:
     def test_config_swap():
         defaults.set('h1c')
-        config1 = defaults._config
+        config1 = defaults().copy()
         defaults.set('h2c')
-        assert config1 != defaults._config
+        assert config1 != defaults()
 
     def test_direct_config_path():
         config = join(CONFIG_PATH, 'HERA_H2C_CONFIG.yaml')
