@@ -1,0 +1,151 @@
+# This document is intended to serve as a template for constructing new
+# configuration YAMLs for use with the command-line interface.
+
+bda:
+    max_decorr: 0
+    pre_fs_int_time: !dimensionful 
+        value: 0.1
+        units: 's'
+    corr_FoV_angle: !dimensionful
+        value: 20
+        units: 'deg'
+    max_time: !dimensionful
+        value: 16
+        units: 's'
+    corr_int_time: !dimensionful
+        value: 2
+        units: 's'
+filing:
+    outdir: '.'
+    outfile_name: 'quick_and_dirty_sim'
+    output_format: 'uvh5'
+    clobber: True
+    kwargs:
+        save_seeds: True # if seeding RNG by redundant group
+# freq and time entries currently configured for hera_sim use
+freq:
+    n_freq: 100
+    channel_width: 122070.3125
+    start_freq: 46920776.3671875
+time:
+    n_times: 10
+    integration_time: 8.59
+    start_time: 2457458.1738949567
+telescope:
+    # generate from an antenna layout csv
+    # array_layout: 'antenna_layout.csv'
+    # generate using hera_sim.antpos
+    array_layout: !antpos
+        array_type: "hex"
+        hex_num: 3
+        sep: 14.6
+        split_core: False
+        outriggers: 0
+    omega_p: !Beam
+        # non-absolute paths are assumed to be specified relative to the
+        # hera_sim data path
+        datafile: HERA_H2C_BEAM_MODEL.npz
+        interp_kwargs:
+            interpolator: interp1d
+            fill_value: extrapolate
+            # if you want to use a polynomial interpolator instead, then
+            # interpolator: poly1d
+            # kwargs not accepted for this; see numpy.poly1d documentation
+defaults:
+    # This must be a string specifying an absolute path to a default
+    # configuration file or one of the season default keywords
+    default_config: 'h2c'
+systematics:
+    rfi:
+        # see hera_sim.rfi documentation for details on parameter names
+        rfi_stations:
+            stations: !!null
+        rfi_impulse:
+            chance: 0.001
+            strength: 20.0
+        rfi_scatter:
+            chance: 0.0001
+            strength: 10.0
+            std: 10.0
+        rfi_dtv:
+            freq_min: 0.174
+            freq_max: 0.214
+            width: 0.008
+            chance: 0.0001
+            strength: 10.0
+            strength_std: 10.0
+    sigchain:
+        gains:
+            gain_spread: 0.1
+            dly_rng: [-20, 20]
+            bp_poly: HERA_H1C_BANDPASS.npy
+        sigchain_reflections: 
+            amp: !!null
+            dly: !!null
+            phs: !!null
+    crosstalk:
+        # only one of the two crosstalk methods should be specified
+        gen_whitenoise_xtalk:
+            amplitude: 3.0
+        # gen_cross_coupling_xtalk:
+            # amp: !!null
+            # dly: !!null
+            # phs: !!null
+    noise:
+        thermal_noise:
+            Trx: 0
+sky:
+    Tsky_mdl: !Tsky
+        # non-absolute paths are assumed to be relative to the hera_sim
+        # data folder
+        datafile: HERA_Tsky_Reformatted.npz
+        # interp kwargs are passed to scipy.interp.RectBivariateSpline
+        interp_kwargs: 
+            pol: xx # this is popped when making a Tsky object
+    eor:
+        noiselike_eor:
+            eor_amp: 0.00001
+            min_delay: !!null
+            max_delay: !!null
+            seed_redundantly: True # so redundant baselines see same sky
+            fringe_filter_type: tophat
+            fringe_filter_kwargs: {}
+    foregrounds:
+        # if using hera_sim.foregrounds
+        diffuse_foreground:
+            seed_redundantly: True # redundant baselines see same sky
+            standoff: 0
+            delay_filter_type: tophat
+            delay_filter_normalize: !!null
+            fringe_filter_type: tophat
+            fringe_filter_kwargs: {}
+        pntsrc_foreground:
+            seed_redundantly: True
+            nsrcs: 1000
+            Smin: 0.3
+            Smax: 300
+            beta: -1.5
+            spectral_index_mean: -1.0
+            spectral_index_std: 0.5
+            reference_freq: 0.5
+        # Note regarding seed_redundantly:
+        # This ensures that baselines within a redundant group see the same sky;
+        # however, this does not ensure that the sky is actually consistent. So,
+        # while the data produced can be absolutely calibrated, it cannot be 
+        # used to make sensible images (at least, I don't *think* it can be).
+
+simulation:
+    # specify which components to simulate in desired order
+    # this should be a complete list of the things to include if hera_sim
+    # is the simulator being used. this will necessarily look different
+    # if other simulators are used, but that's not implemented yet
+    #
+    components: [foregrounds,  
+                 noise, 
+                 eor, 
+                 rfi, 
+                 sigchain, ]
+    # list particular model components to exclude from simulation
+    exclude: [sigchain_reflections,
+              gen_whitenoise_xtalk,]
+

@@ -97,8 +97,6 @@ def test_io():
     sim.add_foregrounds("pntsrc_foreground")
     sim.add_gains()
 
-    # why is this print statement here?
-    print(sim.data.antenna_names)
     sim.write_data(path.join(direc, 'tmp_data.uvh5'))
 
     sim2 = Simulator(
@@ -195,6 +193,21 @@ def test_consistent_across_reds():
     key1 = sim.data.baseline_to_antnums(reds[0]) + ('xx',)
     key2 = sim.data.baseline_to_antnums(reds[1]) + ('xx',)
     assert np.all(np.isclose(sim.data.get_data(key1),sim.data.get_data(key2)))
+
+def test_return_and_save_seeds():
+    ants = hex_array(2, split_core=False, outriggers=0)
+    sim = Simulator(n_freq=50, n_times=20, antennas=ants)
+    sim.add_foregrounds('diffuse_foreground', Tsky_mdl=HERA_Tsky_mdl['xx'],
+            seed_redundantly=True)
+    tempdir = tempfile.mkdtemp()
+    vis_file = path.join(tempdir, "test.uvh5")
+    seeds = sim.data.extra_keywords['seeds']
+    alt_seeds = sim.write_data(vis_file, ret_seeds=True, save_seeds=True)
+    saved_seeds = np.load(vis_file.replace(".uvh5", ".npy"), allow_pickle=True)
+    saved_seeds = saved_seeds[None][0]
+    assert seeds==alt_seeds
+    assert seeds==sim.data.extra_keywords['seeds']
+    assert np.all(seeds['diffuse_foreground']==saved_seeds['diffuse_foreground'])
 
 if sys.version_info.major < 3 or \
    sys.version_info.major > 3 and sys.version_info.minor < 4:

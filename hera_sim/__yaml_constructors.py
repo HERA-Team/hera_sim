@@ -32,7 +32,6 @@ def astropy_unit_constructor(loader, node):
     params = loader.construct_mapping(node, deep=True)
     value = params.get("value", None)
     units = params.get("units", None)
-    # do we want to add handling of values of the form x*np.pi?
     if value is None:
         return None
     elif units is None:

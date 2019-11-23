@@ -5,6 +5,7 @@ effects produced by this package.
 
 import functools
 import inspect
+import os
 import sys
 import warnings
 import yaml
@@ -28,6 +29,12 @@ class CompatibilityException(ValueError):
 def _get_model(mod, name):
     return getattr(sys.modules["hera_sim." + mod], name)
 
+def _generator_to_list(func, *args, **kwargs):
+    @functools.wraps(func)
+    def new_func(*args, **kwargs):
+        result = list(func(*args, **kwargs))
+        return None if result == [] else result
+    return new_func
 
 class _model(object):
     """
@@ -54,27 +61,32 @@ class _model(object):
 
         @functools.wraps(func)
         def new_func(obj, *args, **kwargs):
-
-            # If "ret_vis" is set, then we want to return the visibilities
-            # that are being added to the base. If add_vis is set to False,
-            # we need to
+            # add new kwargs for adding/returning visibilities
             add_vis = kwargs.pop("add_vis", True)
-
             ret_vis = kwargs.pop("ret_vis", False)
+
+            # add kwarg for returning gains
+            ret_gains = kwargs.pop("ret_gains", False)
+
+            # assume the user wants visibilities returned if not added
             if not add_vis:
                 ret_vis = True
 
-            if ret_vis:
+            # if we want to return something, need initial visibilities
+            if ret_vis or ret_gains:
                 initial_vis = obj.data.data_array.copy()
 
             # If this is a multiplicative model, and *no* additive models
             # have been called, raise a warning.
             if self.multiplicative and np.all(obj.data.data_array == 0):
-                warnings.warn("You are trying to determine visibilities that depend on preceding visibilities, but " +
-                              "no previous vis have been created.")
-            elif not self.multiplicative and (hasattr(obj, "_added_models") and any([x[1] for x in obj._added_models])):
+                warnings.warn("You are trying to determine visibilities that "
+                              "depend on preceding visibilities, but "
+                              "no previous visibilities have been created.")
+            elif not self.multiplicative and (hasattr(obj, "_added_models") \
+                     and any([x[1] for x in obj._added_models])):
                 # some of the previous models were multiplicative, and now we're trying to add.
-                warnings.warn("You are adding absolute visibilities _after_ determining visibilities that should " +
+                warnings.warn("You are adding absolute visibilities _after_ "
+                              "determining visibilities that should " 
                               "depend on these. Please re-consider.")
 
             if "model" in inspect.getargspec(func)[0]: # TODO: needs to be updated for python 3
@@ -102,13 +114,13 @@ class _model(object):
                 func(obj, *args, **kwargs)
 
             if add_vis:
-                msg = "\nhera_sim v{version}: Added {component} {method_name}with kwargs: {kwargs}"
-                obj.data.history += msg.format(
-                    version=version,
-                    component="".join(name.split("_")[1:]),
-                    method_name=method,
-                    kwargs=kwargs,
-                )
+                msg = "hera_sim v{version}: Added {component} " \
+                      "{method_name}with kwargs: {kwargs}\n".format(
+                              version=version,
+                              component=" ".join(name.split("_")[1:]),
+                              method_name=method,
+                              kwargs=kwargs)
+                obj.data.history += msg
 
                 # Add this particular model to a cache of "added models" for this sim.
                 # This can be gotten from history, but easier just to keep it here.
@@ -117,19 +129,24 @@ class _model(object):
                 else:
                     obj._added_models += [(name, self.multiplicative)]
 
-            # Here actually return something.
+            # get new visibilities added if returning this component's visibilities
             if ret_vis:
-                res = obj.data.data_array - initial_vis
+                residual = obj.data.data_array - initial_vis
 
-                # If we don't want to add the visibilities, set them back
-                # to the original before returning.
-                if not add_vis:
-                    obj.data.data_array[:] = initial_vis[:]
+            # get the gains if we want to return them
+            if ret_gains:
+                gains = obj.data.data_array / initial_vis
 
-                return res
+            # reset the visibility array if we don't want to add the visibilities
+            if not add_vis:
+                obj.data.data_array = initial_vis
+
+            # determine what to return, if anything at all
+            if ret_vis or ret_gains:
+                return (residual, gains) if ret_vis and ret_gains \
+                  else residual if ret_vis else gains
 
         return new_func
-
 
 class Simulator:
     """
@@ -239,9 +256,6 @@ class Simulator:
         if self.data.phase_type == "unknown":
             self.data.set_drift()
 
-        # what does this line do?
-        self.data.baseline_array
-
         # add redundant bl groups to UVData object's extra keywords
         #self.data.extra_keywords['reds'] = self.data.get_baseline_redundancies()[0]
 
@@ -263,7 +277,8 @@ class Simulator:
         uv.read(filename, read_data=True, **kwargs)
         return uv
 
-    def write_data(self, filename, file_type="uvh5", **kwargs):
+    def write_data(self, filename, file_type="uvh5", ret_seeds=False, 
+                   save_seeds=False, **kwargs):
         """
         Write current UVData object to file.
 
@@ -273,12 +288,17 @@ class Simulator:
                 :class:`pyuvdata.UVData`) which determines which write method to call.
             **kwargs: keyword arguments sent directly to the write method chosen.
         """
-        ret_seeds = kwargs.pop('ret_seeds', False)
         seeds = self.data.extra_keywords.pop('seeds', {})
         try:
             getattr(self.data, "write_%s" % file_type)(filename, **kwargs)
         except AttributeError:
             raise ValueError("The file_type must correspond to a write method in UVData.")
+        if save_seeds:
+            seed_file = os.path.splitext(filename)[0]
+            np.save(seed_file, seeds)
+        # put seeds back into extra keywords
+        if seeds:
+            self.data.extra_keywords['seeds'] = seeds
         if ret_seeds:
             return seeds
 
@@ -520,6 +540,7 @@ class Simulator:
             )
     
     
+    @_generator_to_list
     def run_sim(self, sim_file=None, **sim_params):
         """
         Accept a dictionary or YAML file of simulation parameters and add in
@@ -607,7 +628,10 @@ class Simulator:
             add_component = getattr(self, self.SIMULATION_COMPONENTS[model])
             params = sim_params[model]
             if model in uses_no_model:
-                add_component(**params)
+                vis = add_component(**params)
             else:
-                add_component(model, **params)
-
+                vis = add_component(model, **params)
+            # vis is either None, or it's the visibility desired from using
+            # the ret_vis feature, so we can yield the result to return visibilities
+            if vis is not None:
+                yield (model, vis)

@@ -55,11 +55,17 @@ setup_args = {
         'cached_property',
         'pyuvsim',
         'pyuvdata',
-        'aipy>=3.0'
+        'aipy>=3.0',
+        'click',
+        'astropy-healpix' # pyuvsim depenency not automatically installed
     ],
+    "extras_require" : {
+        "bda" : "bda @ git+git://github.com/HERA-Team/baseline_dependent_averaging"
+        },
     "version": version.version,
     "package_data": {"hera_sim": data_files},
     "zip_safe": False,
+    "entry_points": {"console_scripts": ["hera_sim = hera_sim.cli:main"]},
 }
 
 
