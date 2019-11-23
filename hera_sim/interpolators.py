@@ -29,93 +29,93 @@ class Interpolator:
     """Base interpolator class"""
 
     def __init__(self, datafile, **interp_kwargs):
+        """Initialize an `Interpolator` object with necessary attributes.
+
+        Parameters
+        ----------
+        datafile : str
+            Path to the file to be used to generate the interpolation object.
+            Must be either a .npy or .npz file, depending on which type of
+            interpolation object is desired. If path is not absolute, then the 
+            file is assumed to exist in the `data` directory of `hera_sim` and 
+            is modified to reflect this assumption.
+
+        interp_kwargs : unpacked dict, optional
+            Passed to the interpolation method used to make the interpolator.
+        """
         self._datafile = _check_path(datafile)
         self._data = np.load(self._datafile, allow_pickle=True)
         self._interp_kwargs = interp_kwargs
-    """Initialize an `Interpolator` object with necessary attributes.
-
-    Parameters
-    ----------
-    datafile : str
-        Path to the file to be used to generate the interpolation object.
-        Must be either a .npy or .npz file, depending on which type of
-        interpolation object is desired. If path is not absolute, then the 
-        file is assumed to exist in the `data` directory of `hera_sim` and 
-        is modified to reflect this assumption.
-
-    interp_kwargs : unpacked dict, optional
-        Passed to the interpolation method used to make the interpolator.
-    """
 
 class Tsky(Interpolator):
     """Sky temperature interpolator; subclass of `Interpolator`."""
 
     def __init__(self, datafile, **interp_kwargs):
+        """Extend the `Interpolator` constructor.
+
+        Parameters
+        ----------
+        datafile : str
+            Passed to superclass constructor. Must be a `.npz` file with the
+            following archives:
+                'tsky':
+                    Array of sky temperature values in units of Kelvin; must
+                    have shape=(NPOLS, NLSTS, NFREQS).
+
+                'freqs':
+                    Array of frequencies at which the tsky model is evaluated,
+                    in units of GHz; must have shape=(NFREQS,).
+
+                'lsts':
+                    Array of LSTs at which the tsky model is evaulated, in
+                    units of radians; must have shape=(NLSTS,).
+
+                'meta':
+                    Dictionary of metadata describing the data stored in the npz
+                    file. Currently it only needs to contain an entry 'pols', 
+                    which lists the polarizations such that their order agrees
+                    with the ordering of arrays along the tsky axis-0. The user
+                    may choose to also save the units of the frequency, lst, and
+                    tsky arrays as strings in this dictionary.
+
+        interp_kwargs : unpacked dict, optional
+            Extend interp_kwargs parameter for superclass to allow for the 
+            specification of which polarization to use via the key 'pol'. If 
+            'pol' is specified, then it must be one of the polarizations listed 
+            in the 'meta' dictionary.
+
+        Attributes
+        ----------
+        freqs : np.ndarray
+            Frequency array used to construct the interpolator object. Has 
+            units of GHz and shape=(NFREQS,).
+
+        lsts : np.ndarray
+            LST array used to construct the interpolator object. Has units of 
+            radians and shape=(NLSTS,).
+
+        tsky : np.ndarray
+            Sky temperature array used to construct the interpolator object. 
+            Has units of Kelvin and shape=(NPOLS, NLSTS, NFREQS).
+
+        meta : dict
+            Dictionary containing some metadata relevant to the interpolator.
+
+        pol : str, default 'xx'
+            Polarization appropriate for the sky temperature model. Must be 
+            one of the polarizations stored in the 'meta' dictionary.
+
+        Raises
+        ------
+
+        AssertionError: 
+            Raised if any of the required npz keys are not found or if the 
+            tsky array does not have shape=(NPOLS, NLSTS, NFREQS).
+        """
         Interpolator.__init__(self, datafile, **interp_kwargs)
         self._check_npz_format()
         self.pol = self._interp_kwargs.pop("pol", "xx")
         self._check_pol(self.pol)
-    """Extend the `Interpolator` constructor.
-
-    Parameters
-    ----------
-    datafile : str
-        Passed to superclass constructor. Must be a `.npz` file with the
-        following archives:
-            'tsky':
-                Array of sky temperature values in units of Kelvin; must
-                have shape=(NPOLS, NLSTS, NFREQS).
-
-            'freqs':
-                Array of frequencies at which the tsky model is evaluated,
-                in units of GHz; must have shape=(NFREQS,).
-
-            'lsts':
-                Array of LSTs at which the tsky model is evaulated, in
-                units of radians; must have shape=(NLSTS,).
-
-            'meta':
-                Dictionary of metadata describing the data stored in the npz
-                file. Currently it only needs to contain an entry 'pols', 
-                which lists the polarizations such that their order agrees
-                with the ordering of arrays along the tsky axis-0. The user
-                may choose to also save the units of the frequency, lst, and
-                tsky arrays as strings in this dictionary.
-
-    interp_kwargs : unpacked dict, optional
-        Extend interp_kwargs parameter for superclass to allow for the 
-        specification of which polarization to use via the key 'pol'. If 
-        'pol' is specified, then it must be one of the polarizations listed 
-        in the 'meta' dictionary.
-
-    Attributes
-    ----------
-    freqs : np.ndarray
-        Frequency array used to construct the interpolator object. Has 
-        units of GHz and shape=(NFREQS,).
-
-    lsts : np.ndarray
-        LST array used to construct the interpolator object. Has units of 
-        radians and shape=(NLSTS,).
-
-    tsky : np.ndarray
-        Sky temperature array used to construct the interpolator object. 
-        Has units of Kelvin and shape=(NPOLS, NLSTS, NFREQS).
-
-    meta : dict
-        Dictionary containing some metadata relevant to the interpolator.
-
-    pol : str, default 'xx'
-        Polarization appropriate for the sky temperature model. Must be 
-        one of the polarizations stored in the 'meta' dictionary.
-
-    Raises
-    ------
-
-    AssertionError: 
-        Raised if any of the required npz keys are not found or if the 
-        tsky array does not have shape=(NPOLS, NLSTS, NFREQS).
-    """
 
     def __call__(self, lsts, freqs):
         """Evaluate the Tsky model at the specified lsts and freqs."""
@@ -195,34 +195,33 @@ class Tsky(Interpolator):
 class FreqInterpolator(Interpolator):
     """Frequency interpolator; subclass of `Interpolator`."""
     def __init__(self, datafile, **interp_kwargs):
+        """Extend the `Interpolator` constructor.
+
+        Parameters
+        ----------
+        datafile : str
+            Passed to the superclass constructor.
+
+        interp_kwargs : unpacked dict, optional
+            Extends superclass interp_kwargs parameter by checking for the key
+            'interpolator' in the dictionary. The 'interpolator' key should 
+            have the value 'poly1d' or 'interp1d'; these correspond to the 
+            `np.poly1d` and `scipy.interpolate.interp1d` objects, respectively.
+            If the 'interpolator' key is not found, then it is assumed that 
+            a `np.poly1d` object is to be used for the interpolator object.
+
+        Raises
+        ------
+        AssertionError:
+            This is raised if the choice of interpolator and the required type
+            of the ref_file do not agree (i.e. trying to make a 'poly1d' object
+            using a .npz file as a reference). An AssertionError is also raised
+            if the .npz for generating an 'interp1d' object does not have the
+            correct arrays in its archive.
+        """
         Interpolator.__init__(self, datafile, **interp_kwargs)
         self._interp_type = self._interp_kwargs.pop("interpolator", "poly1d")
         self._obj = None
-    
-    """Extend the `Interpolator` constructor.
-
-    Parameters
-    ----------
-    datafile : str
-        Passed to the superclass constructor.
-
-    interp_kwargs : unpacked dict, optional
-        Extends superclass interp_kwargs parameter by checking for the key
-        'interpolator' in the dictionary. The 'interpolator' key should 
-        have the value 'poly1d' or 'interp1d'; these correspond to the 
-        `np.poly1d` and `scipy.interpolate.interp1d` objects, respectively.
-        If the 'interpolator' key is not found, then it is assumed that 
-        a `np.poly1d` object is to be used for the interpolator object.
-
-    Raises
-    ------
-    AssertionError:
-        This is raised if the choice of interpolator and the required type
-        of the ref_file do not agree (i.e. trying to make a 'poly1d' object
-        using a .npz file as a reference). An AssertionError is also raised
-        if the .npz for generating an 'interp1d' object does not have the
-        correct arrays in its archive.
-    """
 
     def __call__(self, freqs):
         """Evaluate the interpolation object at the given frequencies."""
@@ -270,34 +269,34 @@ class FreqInterpolator(Interpolator):
 class Beam(FreqInterpolator):
     """Beam interpolation object; subclass of `FreqInterpolator`."""
     def __init__(self, datafile, **interp_kwargs):
+        """Extend the `FreqInterpolator` constructor.
+
+        Parameters
+        ----------
+        datafile : str
+            Passed to the superclass constructor.
+
+        interp_kwargs : unpacked dict, optional
+            Passed to the superclass constructor.
+        """
         FreqInterpolator.__init__(self, datafile, **interp_kwargs)
         self._obj = "beam"
         self._check_format()
-    """Extend the `FreqInterpolator` constructor.
-
-    Parameters
-    ----------
-    datafile : str
-        Passed to the superclass constructor.
-
-    interp_kwargs : unpacked dict, optional
-        Passed to the superclass constructor.
-    """
 
 class Bandpass(FreqInterpolator):
     """Bandpass interpolation object; subclass of `FreqInterpolator`."""
     def __init__(self, datafile, **interp_kwargs):
+        """Extend the `FreqInterpolator` constructor.
+        
+        Parameters
+        ----------
+        datafile : str
+            Passed to the superclass constructor.
+
+        interp_kwargs : unpacked dict, optional
+            Passed to the superclass constructor.
+        """
         FreqInterpolator.__init__(self, datafile, **interp_kwargs)
         self._obj = "bandpass"
         self._check_format()
-    """Extend the `FreqInterpolator` constructor.
-    
-    Parameters
-    ----------
-    datafile : str
-        Passed to the superclass constructor.
-
-    interp_kwargs : unpacked dict, optional
-        Passed to the superclass constructor.
-    """
 

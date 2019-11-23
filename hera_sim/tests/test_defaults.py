@@ -10,19 +10,18 @@ from hera_sim.interpolators import Tsky, Beam
 if defaults._version_is_compatible:
     def test_config_swap():
         defaults.set('h1c')
-        config1 = defaults._config
+        config1 = defaults().copy()
         defaults.set('h2c')
-        assert config1 != defaults._config
+        assert config1 != defaults()
 
     def test_direct_config_path():
         config = join(CONFIG_PATH, 'HERA_H2C_CONFIG.yaml')
         defaults.set(config)
         # check some of the parameters
-        assert defaults('io', 'empty_uvdata')['integration_time'] == 8.59
-        assert defaults('noise', 'thermal_noise')['inttime'] == 8.59
-        assert isinstance(defaults('foregrounds', 'diffuse_foreground')['Tsky_mdl'],
-                          Tsky)
-        assert isinstance(defaults('noise', 'thermal_noise')['omega_p'], Beam)
+        assert defaults()['integration_time'] == 8.59
+        assert defaults()['inttime'] == 8.59
+        assert isinstance(defaults()['Tsky_mdl'], Tsky)
+        assert isinstance(defaults()['omega_p'], Beam)
 
     def test_beam_poly_changes():
         defaults.set('h1c')
@@ -43,15 +42,16 @@ if defaults._version_is_compatible:
 
     def test_activate_and_deactivate():
         defaults.activate()
-        assert defaults._use_season_defaults
+        assert defaults._override_defaults
         defaults.deactivate()
-        assert not defaults._use_season_defaults
+        assert not defaults._override_defaults
 
-    @raises(AssertionError)
+    @raises(ValueError, FileNotFoundError)
     def test_bad_config():
-        # pass non-string
+        # pass bad type
         not_a_string = 1
         defaults.set(not_a_string)
         
         # pass nonexistent file
         defaults.set('not_a_file')
+
