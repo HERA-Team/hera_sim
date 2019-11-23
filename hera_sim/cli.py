@@ -41,7 +41,6 @@ def run(input, outfile, verbose, save_all, clobber):
     with open(input, 'r') as fl:
         yaml_contents = yaml.load(fl.read(), Loader=yaml.FullLoader)
 
-
     # figure out whether or not to do BDA
     bda_params = yaml_contents.get("bda", {})
     # make sure bda is installed if the user wants to do BDA
