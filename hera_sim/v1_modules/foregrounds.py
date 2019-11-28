@@ -1,21 +1,35 @@
 """Reimagining of the foregrounds module, using an object-oriented approach."""
 
 import numpy as np
+import astropy.constants as const
+import astropy.units as u
 from aipy.const import sidereal_day
 from abc import abstractmethod
 from cached_property import cached_property
 
 from . import noise
 from . import utils
-from .components import ComponentBase
+from .components import track
 
-class Foreground(ComponentBase):
+@track
+class Foreground:
     def __init__(self, **kwargs):
-        print("Calling Foreground initializor.")
-        super().__init__(**kwargs)
+        kwargs.pop("self", None)
+        kwargs.pop("__class__", None)
+        self.kwargs = kwargs
 
+    @abstractmethod
     def __call__(self, **kwargs):
-        return super().__call__(**kwargs)
+        self._check_kwargs(**kwargs)
+        use_kwargs = self.kwargs.copy()
+        use_kwargs.update(kwargs)
+        return use_kwargs.values()
+
+    def _check_kwargs(self, **kwargs):
+        if any([key not in self.kwargs.keys() for key in kwargs.keys()]):
+            raise ValueError("The following keywords are not supported: "
+                             ", ".join([key for key in kwargs.keys()
+                                        if key not in self.kwargs.keys()]))
 
 class DiffuseForeground(Foreground):
     # TODO: fill in docstring
@@ -31,18 +45,20 @@ class DiffuseForeground(Foreground):
 
         """
         print("Calling DiffuseForeground initializor.")
-        kwargs = locals()
-        kwargs.pop("self")
-        super().__init__(**kwargs)
+        super().__init__(
+            Tsky_mdl=Tsky_mdl,
+            omega_p=omega_p,
+            delay_filter_kwargs=delay_filter_kwargs,
+            fringe_filter_kwargs=fringe_filter_kwargs)
 
     def __call__(self, lsts, freqs, bl_vec, **kwargs):
         # TODO: fill in docstring
         """
         
         """
-        (Tsky_mdl, omega_p, delay_filter_kwargs, 
-                   fringe_filter_kwargs) = super().__call__(**kwargs)
-        
+        (Tsky_mdl, omega_p, delay_filter_kwargs,
+            fringe_filter_kwargs) = super().__call__(**kwargs)
+
         if Tsky_mdl is None:
             if self.Tsky_mdl is None:
                 raise ValueError(
@@ -95,9 +111,10 @@ class PointSourceForeground(Foreground):
 
         """
         print("Calling PointSourceForeground initializor.")
-        kwargs = locals()
-        kwargs.pop("self")
-        super().__init__(**kwargs)
+        super().__init__(nsrcs=nsrcs, Smin=Smin, Smax=Smax, beta=beta,
+                         spectral_index_mean=spectral_index_mean,
+                         spectral_index_std=spectral_index_std,
+                         reference_freq=reference_freq)
 
     def __call__(self, lsts, freqs, bl_vec, **kwargs):
         # TODO: fill in docstring
