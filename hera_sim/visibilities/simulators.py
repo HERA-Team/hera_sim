@@ -48,7 +48,7 @@ class VisibilitySimulator(object):
             are defined in [Hz]. Defaults to the unique frequencies in
             `uvdata` Shape=(NFREQS,).
         beams : array_like of `pyuvsim.analyticbeam.AnalyticBeam`,
-            optional
+                optional
             UVBeam models for as many antennae as have unique beams.
             Initialized from `obsparams`, if included. Defaults to a
             single uniform beam is applied for every antenna.
@@ -109,6 +109,7 @@ class VisibilitySimulator(object):
         self.validate()
 
     def validate(self):
+        """Checks for correct input format."""
         if (self.point_source_pos is None) != (self.point_source_flux is None):
             raise ValueError("Either both or neither of point_source_pos and "
                              "point_source_flux must be given.")
