@@ -13,23 +13,7 @@ from .components import registry
 
 @registry
 class Foreground:
-    def __init__(self, **kwargs):
-        kwargs.pop("self", None)
-        kwargs.pop("__class__", None)
-        self.kwargs = kwargs
-
-    @abstractmethod
-    def __call__(self, **kwargs):
-        self._check_kwargs(**kwargs)
-        use_kwargs = self.kwargs.copy()
-        use_kwargs.update(kwargs)
-        return use_kwargs.values()
-
-    def _check_kwargs(self, **kwargs):
-        if any([key not in self.kwargs.keys() for key in kwargs.keys()]):
-            raise ValueError("The following keywords are not supported: "
-                             ", ".join([key for key in kwargs.keys()
-                                        if key not in self.kwargs.keys()]))
+    pass
 
 class DiffuseForeground(Foreground):
     # TODO: fill in docstring
@@ -55,8 +39,12 @@ class DiffuseForeground(Foreground):
         """
         
         """
+        # validate the kwargs
+        self._check_kwargs(**kwargs)
+
+        # unpack the kwargs
         (Tsky_mdl, omega_p, delay_filter_kwargs,
-            fringe_filter_kwargs) = super().__call__(**kwargs)
+            fringe_filter_kwargs) = self._extract_kwarg_values(**kwargs)
 
         if Tsky_mdl is None:
             if self.Tsky_mdl is None:
@@ -119,8 +107,12 @@ class PointSourceForeground(Foreground):
         """
         
         """
+        # validate the kwargs
+        self._check_kwargs(**kwargs)
+
+        # unpack the kwargs
         (nsrcs, Smin, Smax, beta, spectral_index_mean, 
-         spectral_index_std, f0) = super().__call__(**kwargs)
+         spectral_index_std, f0) = self._extract_kwarg_values(**kwargs)
 
 
         # get baseline length in nanoseconds
