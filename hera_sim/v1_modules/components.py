@@ -26,7 +26,7 @@ def registry(cls):
 
         @abstractmethod
         def __call__(self, **kwargs):
-            self._check_kwargs(**kwargs)
+            pass
 
         def _check_kwargs(self, **kwargs):
             if any([key not in self.kwargs for key in kwargs]):
