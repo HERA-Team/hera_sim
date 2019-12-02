@@ -35,6 +35,7 @@ class Simulator:
         self._initialize_uvd(data, **uvdata_kwargs)
         # might not actually want to handle defaults this way
         self.defaults = Defaults(default_config, **default_kwargs)
+        self._components = {}
         self.extras = {}
 
 
@@ -52,12 +53,21 @@ class Simulator:
     def _read_datafile(self, datafile):
         pass
 
-    def add(self, component, **kwargs):
+    def add(self, component, conserve_memory=False, **kwargs):
         # search for the appropriate class
         # make an instance of the class w/ appropriate parameters
         # calculate the effect
+        # log it in the components dictionary if not conserving memory
+        # there might be a trick to get around this:
+        # just log the parameters used to generate the component, then
+        # re-calculate the component in the ``get`` class method
         # check if it's multiplicative
         # add it to the data array appropriately
+        pass
+
+    def get(self, component):
+        # find which component to return
+        # return the component
         pass
 
     def write(self, save_format="uvh5", save_seeds=True):
