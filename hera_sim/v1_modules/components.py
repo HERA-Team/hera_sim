@@ -30,8 +30,8 @@ def registry(cls):
 
         def _check_kwargs(self, **kwargs):
             if any([key not in self.kwargs for key in kwargs]):
-                raise ValueError("The following keywords are not "
-                                 "supported: "
-                                 ", ".join([key for key in kwargs
-                                            if key not in self.kwargs]))
+                error_msg = "The following keywords are not supported: "
+                error_msg += ", ".join([key for key in kwargs 
+                                        if key not in self.kwargs])
+                raise ValueError(error_msg)
     return NewClass
