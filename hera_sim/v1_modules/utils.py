@@ -293,3 +293,20 @@ def compute_ha(lsts, ra):
     ha = np.where(ha > np.pi, ha - 2 * np.pi, ha)
     ha = np.where(ha < -np.pi, ha + 2 * np.pi, ha)
     return ha
+
+def gen_white_noise(size=1):
+    """Produce complex Gaussian noise with unity variance.
+
+    Parameters
+    ----------
+        size : int or tuple, optional
+            Shape of output array.
+
+    Returns
+    -------
+        noise : ndarray
+            White noise realization with specified shape.
+    """
+    std = 1 / np.sqrt(2)
+    return np.random.normal(scale=std, size=size) \
+           + 1j*np.random.normal(scale=std, size=size)
