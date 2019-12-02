@@ -7,18 +7,27 @@ from . import utils
 
 @registry
 class EoR:
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+    pass
 
 class NoiselikeEoR(EoR):
     def __init__(self, eor_amp=1e-5, 
                  min_delay=None, max_delay=None, 
                  fringe_filter_type="tophat",
-                 fringe_filter_kwargs={}, **kwargs):
-        super().__init__(**kwargs)
+                 fringe_filter_kwargs={}):
+        super().__init__(eor_amp=eor_amp, 
+                         min_delay=min_delay, max_delay=max_delay, 
+                         fringe_filter_type=fringe_filter_type,
+                         fringe_filter_kwargs=fringe_filter_kwargs)
     # TODO: docstrings
 
     def __call__(self, lsts, freqs, bl_vec, **kwargs):
+        # validate the kwargs
+        self._check_kwargs(**kwargs)
+
+        # unpack the kwargs
+        (eor_amp, min_delay, max_delay, fringe_filter_type, 
+         fringe_filter_kwargs) = self._extract_kwarg_values(**kwargs)
+
         # make white noise in freq/time
         # XXX: original says in frate/freq, not sure why
         data = utils.gen_white_noise(size=(len(lsts), len(freqs)))
