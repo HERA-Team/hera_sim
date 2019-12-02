@@ -1,5 +1,5 @@
 # TODO: write module docstring
-from abc import ABCMeta
+from abc import ABCMeta, abstractmethod
 
 class SimulationComponent(metaclass=ABCMeta):
     def __init_subclass__(cls, **kwargs):
