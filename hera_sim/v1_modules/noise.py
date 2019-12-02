@@ -1,11 +1,37 @@
 """Make some noise."""
 
+import astropy.constants as const
+import astropy.units as u
 from .components import registry
+from . import utils
 
 @registry
 class Noise:
-    pass
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
 class ThermalNoise(Noise):
-    pass
+    def __init__(self, Tsky_mdl=None, omega_p=None, 
+                 integration_time=None, channel_width=None,
+                 Trx=0):
+        super().__init__()
+    # XXX update this
 
+    def __call__(self, lsts, freqs, **kwargs):
+        if channel_width is None:
+            channel_width = np.mean(np.diff(freqs))
+        # TODO: check units
+        if integration_time is None:
+            integration_time = np.mean(np.diff(lsts)) / (2*np.pi)
+            integration_time *= u.sday.to("s")
+        Tsky = Tsky_mdl(lsts, freqs)
+        # calculate noise visibility in units of K, assuming Tsky
+        # is in units of K
+        vis = Tsky / np.sqrt(integration_time * channel_width)
+        # add receiver temperature
+        vis += Trx
+        # convert vis to Jy
+        # XXX why the reshape?
+        vis /= utils.Jy2T(freqs, omega_p).reshape(1, -1)
+        # make it noisy
+        return utils.gen_white_noise(size=vis.shape) * vis
