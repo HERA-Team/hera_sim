@@ -1,9 +1,9 @@
 """ Utility module """
 
 import numpy as np
-from scipy import interpolate
-import aipy
-from aipy.const import sidereal_day
+import astropy.constants as const
+import astropy.units as u
+from scipy.interpolate import RectBivariateSpline
 
 
 def _get_bl_len_vec(bl_len_ns):
@@ -182,7 +182,7 @@ def gen_fringe_filter(lsts, fqs, ew_bl_len_ns, filter_type='tophat', **filter_kw
             fringe filter is identically one.
     """
     # setup
-    times = lsts / (2 * np.pi) * aipy.const.sidereal_day
+    times = lsts / (2 * np.pi) * u.sday.to("s")
     frates = np.fft.fftfreq(times.size, times[1] - times[0])
 
     if filter_type in [None, 'none', 'None']:
@@ -201,8 +201,8 @@ def gen_fringe_filter(lsts, fqs, ew_bl_len_ns, filter_type='tophat', **filter_kw
         assert 'FR_frates' in filter_kwargs, "If filter_type=='custom', must feed 1D FR_frates array"
         assert 'FR_freqs' in filter_kwargs, "If filter_type=='custom', must feed 1D FR_freqs array"
         # interpolate FR_filter at frates and fqs
-        mdl = interpolate.RectBivariateSpline(filter_kwargs['FR_frates'], filter_kwargs['FR_freqs'],
-                                              filter_kwargs['FR_filter'], kx=3, ky=3)
+        mdl = RectBivariateSpline(filter_kwargs['FR_frates'], filter_kwargs['FR_freqs'],
+                                  filter_kwargs['FR_filter'], kx=3, ky=3)
         fringe_filter = np.fft.ifftshift(mdl(np.fft.fftshift(frates), fqs), axes=0)
         # set things close to zero to zero
         fringe_filter[np.isclose(fringe_filter, 0.0)] = 0.0
@@ -271,7 +271,7 @@ def calc_max_fringe_rate(fqs, ew_bl_len_ns):
         fr_max (float): fringe rate [Hz]
     """
     bl_wavelen = fqs * ew_bl_len_ns
-    fr_max = 2 * np.pi / aipy.const.sidereal_day * bl_wavelen
+    fr_max = 2 * np.pi / u.sday.to("s") * bl_wavelen
     return fr_max
 
 
@@ -299,14 +299,35 @@ def gen_white_noise(size=1):
 
     Parameters
     ----------
-        size : int or tuple, optional
-            Shape of output array.
+    size : int or tuple, optional
+        Shape of output array.
 
     Returns
     -------
-        noise : ndarray
-            White noise realization with specified shape.
+    noise : ndarray
+        White noise realization with specified shape.
     """
     std = 1 / np.sqrt(2)
     return np.random.normal(scale=std, size=size) \
            + 1j*np.random.normal(scale=std, size=size)
+
+def Jy2T(freqs, omega_p):
+    """Return Kelvin -> Jy conversion as a function of frequency.
+
+    Parameters
+    ----------
+    freqs : ndarray
+        Frequencies for which to calculate the conversion. Units of Hz.
+    omega_p : ndarray
+        Beam area as a function of frequency. Must have the same shape 
+        as ``freqs``.
+
+    Returns
+    -------
+    Jy_to_K : ndarray
+        Array for converting Jy to K, same shape as ``freqs``.
+    """
+    wavelengths = const.c.value / freqs
+    # scaling went from 1e-23 -> 1e-34 in converting to SI
+    # what is the point of this multiplicative constant?
+    return 1e-34 * wavelengths ** 2 / (2 * const.k_B * omega_p)
