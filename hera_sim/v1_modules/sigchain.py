@@ -12,19 +12,24 @@ class Gain:
     pass
 
 class Bandpass(Gain, is_multiplicative=True):
-    pass
+    def __call__(self):
+        pass
 
 class Reflections(Gain, is_multiplicative=True):
-    pass
+    def __call__(self):
+        pass
 
-class Crosstalk(Gain, is_abstract=True):
+@registry
+class Crosstalk:
     pass
 
 class CrossCouplingCrosstalk(Crosstalk):
-    pass
+    def __call__(self):
+        pass
 
 class WhiteNoiseCrosstalk(Crosstalk):
-    pass
+    def __call__(self):
+        pass
 
 gen_gains = Bandpass()
 gen_sigchain_reflections = Reflections()
