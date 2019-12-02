@@ -327,6 +327,9 @@ def Jy2T(freqs, omega_p):
     Jy_to_K : ndarray
         Array for converting Jy to K, same shape as ``freqs``.
     """
+    # get actual values of omega_p if it's an interpolation object
+    if callable(omega_p):
+        omega_p = omega_p(freqs)
     wavelengths = const.c.value / freqs
     # scaling went from 1e-23 -> 1e-34 in converting to SI
     # what is the point of this multiplicative constant?
