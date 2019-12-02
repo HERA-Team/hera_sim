@@ -5,7 +5,6 @@ from .components import registry
 # since this is mainly used as part of an initialization routine, 
 # do we really want to make a registry for it?
 
-@registry
 class Array:
     """Base class for constructing telescope array objects."""
 
