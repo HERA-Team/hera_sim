@@ -9,9 +9,9 @@ from cached_property import cached_property
 
 from . import noise
 from . import utils
-from .components import track
+from .components import registry
 
-@track
+@registry
 class Foreground:
     def __init__(self, **kwargs):
         kwargs.pop("self", None)
@@ -44,7 +44,6 @@ class DiffuseForeground(Foreground):
         """
 
         """
-        print("Calling DiffuseForeground initializor.")
         super().__init__(
             Tsky_mdl=Tsky_mdl,
             omega_p=omega_p,
@@ -110,7 +109,6 @@ class PointSourceForeground(Foreground):
         """
 
         """
-        print("Calling PointSourceForeground initializor.")
         super().__init__(nsrcs=nsrcs, Smin=Smin, Smax=Smax, beta=beta,
                          spectral_index_mean=spectral_index_mean,
                          spectral_index_std=spectral_index_std,
@@ -184,7 +182,6 @@ class PointSourceForeground(Foreground):
             vis[:, j] = np.fft.ifft(np.fft.fft(kernel) * np.fft.fft(vis[:, j]))
 
         return vis
-print("Creating diffuse_foreground instance of DiffuseForeground.")
+
 diffuse_foreground = DiffuseForeground()
-print("Creating pntsrc_foreground instance of PointSourceForeground.")
 pntsrc_foreground = PointSourceForeground()

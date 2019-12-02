@@ -7,10 +7,12 @@ class SimulationComponent(metaclass=ABCMeta):
         cls._models = {}
 
 # class decorator for tracking subclasses
-def track(cls):
+def registry(cls):
     class NewClass(cls, SimulationComponent):
-        def __init_subclass__(cls, is_abstract=False, **kwargs):
+        def __init_subclass__(cls, is_abstract=False, 
+                              is_multiplicative=False, **kwargs):
             super().__init_subclass__(**kwargs)
+            cls.is_multiplicative = is_multiplicative
             if not is_abstract:
                 cls.__base__._models[cls.__name__] = cls
     return NewClass
