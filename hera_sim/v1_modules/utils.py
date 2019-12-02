@@ -318,9 +318,10 @@ def Jy2T(freqs, omega_p):
     ----------
     freqs : ndarray
         Frequencies for which to calculate the conversion. Units of Hz.
-    omega_p : ndarray
+    omega_p : ndarray or interpolators.Beam
         Beam area as a function of frequency. Must have the same shape 
-        as ``freqs``.
+        as ``freqs`` if an ndarray. Otherwise, must be an interpolation 
+        object which converts frequencies (in Hz) to beam size.
 
     Returns
     -------
