@@ -181,10 +181,9 @@ def sim_red_data(reds, gains=None, shape=(10, 10), gain_scatter=0.1):
         dict: true underlying visibilities in the {(ind1,ind2,pol): np.array} format
         dict: simulated visibilities in the {(ind1,ind2,pol): np.array} format
     """
+    from hera_cal.utils import split_bl
     data, true_vis = {}, {}
-    ants = sorted(list(set([ant for bls in reds for bl in bls for ant in 
-                            [(bl[0], jnum2str(jstr2num(bl[2][0]))), 
-                             (bl[1], jnum2str(jstr2num(bl[2][1])))]])))
+    ants = sorted(list(set([ant for bls in reds for bl in bls for ant in split_bl(bl)])))
     if gains is None:
         gains = {}
     else:
@@ -194,7 +193,6 @@ def sim_red_data(reds, gains=None, shape=(10, 10), gain_scatter=0.1):
                       np.ones(shape, dtype=np.complex))
     for bls in reds:
         true_vis[bls[0]] = noise.white_noise(shape)
-        for (i, j, pol) in bls:
-            data[(i, j, pol)] = (true_vis[bls[0]] * gains[(i, jnum2str(jstr2num(pol[0])))] * \
-                                 gains[(j, jnum2str(jstr2num(pol[1])))].conj())
+        for bl in bls:
+            data[bl] = true_vis[bls[0]] * gains[split_bl(bl)[0]] * gains[split_bl(bl)[1]].conj()
     return gains, true_vis, data

@@ -1,5 +1,6 @@
 import unittest
 from hera_sim import vis
+from hera_sim.antpos import linear_array
 import numpy as np
 
 np.random.seed(0)
@@ -98,45 +99,24 @@ class TestSimRedData(unittest.TestCase):
 
     def test_sim_red_data(self):
         # Test that redundant baselines are redundant up to the gains in single pol mode
-        #antpos = build_linear_array(5)
-        #reds = om.get_reds(antpos, pols=['xx'], pol_mode='1pol')
-        # Hard code redundancies to eliminate dependence on hera_cal
-        reds = [[(0, 1, 'xx'), (1, 2, 'xx'), (2, 3, 'xx'), (3, 4, 'xx')], 
-                [(0, 2, 'xx'), (1, 3, 'xx'), (2, 4, 'xx')],
-                [(0, 3, 'xx'), (1, 4, 'xx')],
-                [(0, 4, 'xx')]]
+        from hera_cal import redcal as om
+        antpos = linear_array(5)
+        reds = om.get_reds(antpos, pols=['nn'], pol_mode='1pol')
         gains, true_vis, data = vis.sim_red_data(reds)
         assert len(gains) == 5
         assert len(data) == 10
         for bls in reds:
             bl0 = bls[0]
             ai, aj, pol = bl0
-            ans0 = data[bl0] / (gains[(ai, 'Jxx')] * gains[(aj, 'Jxx')].conj())
+            ans0 = data[bl0] / (gains[(ai, 'Jnn')] * gains[(aj, 'Jnn')].conj())
             for bl in bls[1:]:
                 ai, aj, pol = bl
-                ans = data[bl] / (gains[(ai, 'Jxx')] * gains[(aj, 'Jxx')].conj())
+                ans = data[bl] / (gains[(ai, 'Jnn')] * gains[(aj, 'Jnn')].conj())
                 # compare calibrated visibilities knowing the input gains
                 np.testing.assert_almost_equal(ans0, ans, decimal=7)
 
         # Test that redundant baselines are redundant up to the gains in 4-pol mode
-        #reds = om.get_reds(antpos, pols=['xx', 'yy', 'xy', 'yx'], pol_mode='4pol')
-        # Hard code redundancies to eliminate dependence on hera_cal
-        reds = [[(0, 1, 'xx'), (1, 2, 'xx'), (2, 3, 'xx'), (3, 4, 'xx')],
-                [(0, 2, 'xx'), (1, 3, 'xx'), (2, 4, 'xx')],
-                [(0, 3, 'xx'), (1, 4, 'xx')],
-                [(0, 4, 'xx')],
-                [(0, 1, 'yy'), (1, 2, 'yy'), (2, 3, 'yy'), (3, 4, 'yy')],
-                [(0, 2, 'yy'), (1, 3, 'yy'), (2, 4, 'yy')],
-                [(0, 3, 'yy'), (1, 4, 'yy')],
-                [(0, 4, 'yy')],
-                [(0, 1, 'xy'), (1, 2, 'xy'), (2, 3, 'xy'), (3, 4, 'xy')],
-                [(0, 2, 'xy'), (1, 3, 'xy'), (2, 4, 'xy')],
-                [(0, 3, 'xy'), (1, 4, 'xy')],
-                [(0, 4, 'xy')],
-                [(0, 1, 'yx'), (1, 2, 'yx'), (2, 3, 'yx'), (3, 4, 'yx')],
-                [(0, 2, 'yx'), (1, 3, 'yx'), (2, 4, 'yx')],
-                [(0, 3, 'yx'), (1, 4, 'yx')],
-                [(0, 4, 'yx')]]
+        reds = om.get_reds(antpos, pols=['xx', 'yy', 'xy', 'yx'], pol_mode='4pol')
         gains, true_vis, data = vis.sim_red_data(reds)
         assert len(gains) == 2 * (5)
         assert len(data) == 4 * (10)
@@ -160,32 +140,7 @@ class TestSimRedData(unittest.TestCase):
                 np.testing.assert_almost_equal(ans0yy, ans_yy, decimal=7)
 
         # Test that redundant baselines are redundant up to the gains in 4-pol minV mode (where Vxy = Vyx)
-        #reds = om.get_reds(antpos, pols=['xx', 'yy', 'xy', 'yX'], pol_mode='4pol_minV')
-        # Hard code redundancies to eliminate dependence on hera_cal
-        reds = [[(0, 1, 'xx'), (1, 2, 'xx'), (2, 3, 'xx'), (3, 4, 'xx')],
-                [(0, 2, 'xx'), (1, 3, 'xx'), (2, 4, 'xx')],
-                [(0, 3, 'xx'), (1, 4, 'xx')],
-                [(0, 4, 'xx')],
-                [(0, 1, 'yy'), (1, 2, 'yy'), (2, 3, 'yy'), (3, 4, 'yy')],
-                [(0, 2, 'yy'), (1, 3, 'yy'), (2, 4, 'yy')],
-                [(0, 3, 'yy'), (1, 4, 'yy')],
-                [(0, 4, 'yy')],
-                [(0, 1, 'xy'),
-                 (1, 2, 'xy'),
-                 (2, 3, 'xy'),
-                 (3, 4, 'xy'),
-                 (0, 1, 'yx'),
-                 (1, 2, 'yx'),
-                 (2, 3, 'yx'),
-                 (3, 4, 'yx')],
-                [(0, 2, 'xy'),
-                 (1, 3, 'xy'),
-                 (2, 4, 'xy'),
-                 (0, 2, 'yx'),
-                 (1, 3, 'yx'),
-                 (2, 4, 'yx')],
-                [(0, 3, 'xy'), (1, 4, 'xy'), (0, 3, 'yx'), (1, 4, 'yx')],
-                [(0, 4, 'xy'), (0, 4, 'yx')]]
+        reds = om.get_reds(antpos, pols=['xx', 'yy', 'xy', 'yX'], pol_mode='4pol_minV')
         gains, true_vis, data = vis.sim_red_data(reds)
         assert len(gains) == 2 * (5)
         assert len(data) == 4 * (10)
