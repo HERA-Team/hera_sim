@@ -51,7 +51,9 @@ class VisibilitySimulator(object):
                 optional
             UVBeam models for as many antennae as have unique beams.
             Initialized from `obsparams`, if included. Defaults to a
-            single uniform beam is applied for every antenna.
+            single uniform beam is applied for every antenna. Each beam
+            is the response of an individual antenna and NOT a 
+            per-baseline response.
             Shape=(N_BEAMS,).
         beam_ids : array_like of int, optional
             List of integers specifying which beam model each antenna
@@ -74,6 +76,13 @@ class VisibilitySimulator(object):
             is incapable of directly dealing with point sources. In this
             case, it sets the resolution of the healpix map to which the
             sources will be allocated.
+            
+        Notes
+        -----
+            Input beam models represent the responses of individual
+            antennas and are NOT the same as per-baseline "primary
+            beams". This interpretation of a "primary beam" would be the
+            product of the responses of two input antenna beams. 
         """
         if obsparams:
             (self.uvdata,

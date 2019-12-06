@@ -54,6 +54,9 @@ class HealVis(VisibilitySimulator):
                 if old_args['sigma'] is None:
                     raise NotImplementedError("Healvis does not permit "
                                               "gaussian beam with diameter.")
+                raise NotImplementedError("Healvis interprets gaussian beams
+                                          "as per-baseline and not per-antenna
+                                          "as required here.")
                 # Healvis expects degrees
                 gauss_width = old_args['sigma'] * 180 / np.pi
 
