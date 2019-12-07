@@ -52,6 +52,13 @@ class Simulator:
         else:
             raise ValueError("Unsupported type.") # make msg better
 
+    def _iterate_antpair_pols(self):
+        # TODO: docstring
+        for ant1, ant2, pol in self.data.get_antpairpols():
+            blt_inds = self.data.antpair2ind((ant1, ant2))
+            pol_ind = self.data.get_pols().index(pol)
+            yield ant1, ant2, pol, blt_inds, pol_ind
+
     def _iteratively_apply(self, model, **seed_model):
         # TODO: docstring
         model_params = inspect.signature(model).parameters
