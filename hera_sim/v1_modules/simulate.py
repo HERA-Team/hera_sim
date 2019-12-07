@@ -84,7 +84,10 @@ class Simulator:
                 # get the seed, and seed the rng
                 pass
             vis = model(*args)
-            self.data.data_array[blt_inds, 0, :, pol_ind] += vis
+            if model.is_multiplicative:
+                self.data.data_array[blt_inds, 0, :, pol_ind] *= vis
+            else:
+                self.data.data_array[blt_inds, 0, :, pol_ind] += vis
 
 
     @staticmethod
