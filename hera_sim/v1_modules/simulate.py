@@ -59,7 +59,7 @@ class Simulator:
             pol_ind = self.data.get_pols().index(pol)
             yield ant1, ant2, pol, blt_inds, pol_ind
 
-    def _iteratively_apply(self, model, **seed_model):
+    def _iteratively_apply(self, model, **kwargs):
         # TODO: docstring
         model_params = inspect.signature(model).parameters
         args = (getattr(self, param) for param in model_params
@@ -70,6 +70,8 @@ class Simulator:
         # for cross-coupling xtalk
         requires_vis = any([param.find("vis") != -1
                             for param in model_params])
+        # figure out whether or not to seed the RNG
+        seed_model = kwargs.pop("seed_model", {})
         # do we really want to do it this way?
         for ant1, ant2, pol, blt_inds, pol_ind in self._iterate_antpair_pols:
             if requires_bl_vec:
@@ -83,7 +85,7 @@ class Simulator:
                 # figure out what way the model is being seeded
                 # get the seed, and seed the rng
                 pass
-            vis = model(*args)
+            vis = model(*args, **kwargs)
             if model.is_multiplicative:
                 self.data.data_array[blt_inds, 0, :, pol_ind] *= vis
             else:
@@ -199,14 +201,9 @@ class Simulator:
                           "introduced.")
 
     def add(self, component, **kwargs):
+        # TODO: docstring
         # log the component and its kwargs
         self._components[component] = kwargs
-        # find out if the component should have its RNG be seeded
-        seed_model = {key : value for key, value in kwargs.items()
-                                  if key.startswith("seed")}
-        if seed_model:
-            for key in seed_model:
-                _ = kwargs.pop(key)
         # get the model for the desired component
         model, is_class = self._get_component(component)
         if is_class:
@@ -215,13 +212,12 @@ class Simulator:
         # check that there isn't an issue with component ordering
         self._sanity_check(model)
         # calculate the effect
-        self._iteratively_apply(model, **seed_model)
-        # re-add the seed_model to the kwargs
-        kwargs.update(seed_model)
+        self._iteratively_apply(model, **kwargs)
         # update the history
         self._update_history(model, **kwargs)
 
     def get(self, component):
+        # TODO: docstring
         assert component in self._components.keys()
         model, _ = self._get_component(component)(**self._components[component])
         pass
