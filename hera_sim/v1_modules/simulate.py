@@ -52,16 +52,20 @@ class Simulator:
 
     @staticmethod
     def _read_datafile(datafile, **kwargs):
+        # TODO: docstring
         uvd = UVData()
         uvd.read(datafile, read_data=True, **kwargs)
         return uvd
 
     @staticmethod
     def _get_component(component):
-        for registry in SimulationComponent.__subclasses__:
-            # update this
-            for model in registry.__subclasses__:
-                if component in (model.__name__, ) + model.__aliases__:
+        # TODO: docstring
+        for registry in SimulationComponent.__subclasses__():
+            for model in registry.__subclasses__():
+                aliases = [model.__name__,]
+                aliases += list(model.get("__aliases__", []))
+                aliases = [alias.lower() for alias in aliases]
+                if component.lower() in aliases:
                     return model
 
     def add(self, component, conserve_memory=False, **kwargs):

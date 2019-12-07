@@ -34,4 +34,6 @@ def registry(cls):
                 error_msg += ", ".join([key for key in kwargs 
                                         if key not in self.kwargs])
                 raise ValueError(error_msg)
+
+    NewClass.__name__ = cls.__name__
     return NewClass

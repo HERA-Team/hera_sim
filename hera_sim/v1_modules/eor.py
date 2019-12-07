@@ -10,6 +10,9 @@ class EoR:
     pass
 
 class NoiselikeEoR(EoR):
+    # TODO: docstring
+    __aliases__ = ("noiselike_eor", "noiselike", )
+
     def __init__(self, eor_amp=1e-5, 
                  min_delay=None, max_delay=None, 
                  fringe_filter_type="tophat",

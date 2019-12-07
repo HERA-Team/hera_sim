@@ -12,10 +12,14 @@ class Gain:
     pass
 
 class Bandpass(Gain, is_multiplicative=True):
+    __aliases__ = ("gen_gains", "bandpass_gain")
+
     def __call__(self):
         pass
 
 class Reflections(Gain, is_multiplicative=True):
+    __aliases__ = ("gen_sigchain_reflections", "sigchain_reflections")
+
     def __call__(self):
         pass
 
@@ -24,10 +28,15 @@ class Crosstalk:
     pass
 
 class CrossCouplingCrosstalk(Crosstalk):
+    __aliases__ = ("gen_cross_coupling_xtalk", "cross_coupling", 
+                   "cross_coupling_xtalk")
+
     def __call__(self):
         pass
 
 class WhiteNoiseCrosstalk(Crosstalk):
+    __aliases__ = ("gen_whitenoise_xtalk", "white_noise_xtalk", )
+
     def __call__(self):
         pass
 
