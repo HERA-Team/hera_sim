@@ -37,6 +37,7 @@ class Simulator:
         self.defaults = Defaults(default_config, **default_kwargs)
         self._components = {}
         self.extras = {}
+        self.seeds = {}
 
 
     def _initialize_uvd(self, data, **uvdata_kwargs):
@@ -82,6 +83,18 @@ class Simulator:
         msg += ", ".join(set(all_aliases))
         msg = msg.format(component=component)
         raise AttributeError(msg)
+
+    def _generate_seeds(self, model):
+        pass
+
+    def _get_seed(self, model, *ants):
+        # TODO: docstring
+        if not isinstance(model, str):
+            try:
+                model = model.__name__
+            except AttributeError:
+                # in case it's an instance
+                model = model.__class__.__name__
         
     def _sanity_check(self, model):
         # TODO: docstring
@@ -102,13 +115,18 @@ class Simulator:
     def add(self, component, **kwargs):
         # log the component and its kwargs
         self._components[component] = kwargs
+        # find out if the component should have its RNG be seeded
+        seed_model = {key : value for key, value in kwargs.items()
+                                  if key.startswith("seed")}
+        if seed_model:
+            for key in seed_model:
+                kwargs.pop(key)
         # make an instance of the component model
         model = self._get_component(component)(**kwargs)
         # check that there isn't an issue with component ordering
         self._sanity_check(model)
         # calculate the effect
-        self._iteratively_apply(model)
-        # update history
+        self._iteratively_apply(model, **seed_model)
         self._update_history(model, **kwargs)
 
     def get(self, component):
@@ -125,7 +143,7 @@ class Simulator:
             raise ValueError(msg)
         if save_seeds:
             seed_file = os.path.splitext(filename)[0] + "_seeds"
-            np.save(seed_file, self.extras.get("seeds", None))
+            np.save(seed_file, self.seeds)
 
     def run_sim(self, config):
         pass
