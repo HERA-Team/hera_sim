@@ -78,6 +78,8 @@ class Simulator:
         # do we really want to do it this way?
         for ant1, ant2, pol, blt_inds, pol_ind in self._iterate_antpair_pols:
             if requires_ants:
+                # alternative: do all the antennas, so then we
+                # only need to seed once (otherwise it gets complicated)
                 antpair = (ant1, ant2)
                 args += antpair
             if requires_bl_vec:
