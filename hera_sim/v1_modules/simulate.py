@@ -41,6 +41,7 @@ class Simulator:
 
 
     def _initialize_uvd(self, data, **uvdata_kwargs):
+        # TODO: docstring
         if data is None:
             self.data = io.empty_uvdata(**uvdata_kwargs)
         elif isinstance(data, str):
@@ -73,7 +74,7 @@ class Simulator:
                 # function or a class instance
                 return component, False
             else:
-                assert isinstance(component, str) \
+                assert isinstance(component, str), \
                         "``component`` must be either a class which " \
                         "derives from ``SimulationComponent`` or an " \
                         "instance of a callable class, or a function, " \

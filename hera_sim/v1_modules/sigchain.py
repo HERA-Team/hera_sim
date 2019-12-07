@@ -28,8 +28,7 @@ class Crosstalk:
     pass
 
 class CrossCouplingCrosstalk(Crosstalk):
-    __aliases__ = ("gen_cross_coupling_xtalk", "cross_coupling", 
-                   "cross_coupling_xtalk")
+    __aliases__ = ("gen_cross_coupling_xtalk", "cross_coupling_xtalk")
 
     def __call__(self):
         pass

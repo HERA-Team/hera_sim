@@ -11,7 +11,7 @@ class EoR:
 
 class NoiselikeEoR(EoR):
     # TODO: docstring
-    __aliases__ = ("noiselike_eor", "noiselike", )
+    __aliases__ = ("noiselike_eor",) 
 
     def __init__(self, eor_amp=1e-5, 
                  min_delay=None, max_delay=None, 
