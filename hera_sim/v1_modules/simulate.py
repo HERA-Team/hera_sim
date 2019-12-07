@@ -43,18 +43,30 @@ class Simulator:
         if data is None:
             self.data = io.empty_uvdata(**uvdata_kwargs)
         elif isinstance(data, str):
-            self._read_datafile(data)
+            self.data = self._read_datafile(data, **uvdata_kwargs)
             self.extras['data_file'] = data
         elif isinstance(data, UVData):
             self.data = data
         else:
             raise ValueError("Unsupported type.") # make msg better
 
-    def _read_datafile(self, datafile):
-        pass
+    @staticmethod
+    def _read_datafile(datafile, **kwargs):
+        uvd = UVData()
+        uvd.read(datafile, read_data=True, **kwargs)
+        return uvd
+
+    @staticmethod
+    def _get_component(component):
+        for registry in SimulationComponent.__subclasses__:
+            # update this
+            for model in registry.__subclasses__:
+                if component in (model.__name__, ) + model.__aliases__:
+                    return model
 
     def add(self, component, conserve_memory=False, **kwargs):
-        # search for the appropriate class
+        self._components[component] = kwargs
+        model = self._get_component(component)(**kwargs)
         # make an instance of the class w/ appropriate parameters
         # calculate the effect
         # log it in the components dictionary if not conserving memory
@@ -66,12 +78,20 @@ class Simulator:
         pass
 
     def get(self, component):
-        # find which component to return
-        # return the component
+        assert component in self._components.keys()
+        model = self._get_component(component)(**self._components[component])
         pass
 
-    def write(self, save_format="uvh5", save_seeds=True):
-        pass
+    def write(self, filename, save_format="uvh5", save_seeds=True, **kwargs):
+        # TODO: docstring
+        try:
+            getattr(self.data, "write_%s" % save_format)(filename, **kwargs)
+        except AttributeError:
+            msg = "The save_format must correspond to a write method in UVData."
+            raise ValueError(msg)
+        if save_seeds:
+            seed_file = os.path.splitext(filename)[0] + "_seeds"
+            np.save(seed_file, self.extras.get("seeds", None))
 
     def run_sim(self, config):
         pass
