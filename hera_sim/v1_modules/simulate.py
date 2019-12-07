@@ -103,6 +103,7 @@ class Simulator:
                 raise AttributeError(msg)
 
     def _generate_seed(self, model, key):
+        # TODO: docstring
         if not isinstance(model, str):
             model = self._get_model_name(model)
         # for the sake of randomness
@@ -111,13 +112,19 @@ class Simulator:
             self.seeds[model] = {}
         self.seeds[model][key] = np.random.randint(2**32)
 
-    def _get_seed(self, model, *ants):
+    def _get_seed(self, model, key):
         # TODO: docstring
         if not isinstance(model, str):
             model = self._get_model_name(model)
+        if model not in self.seeds:
+            self._generate_seed(self, model, key)
+        if key not in self.seeds[model]:
+            self._generate_seed(self, model, key)
+        return self.seeds[model][key]
     
     @staticmethod
     def _get_model_name(model):
+        # TODO: docstring
         try:
             return model.__name__
         except AttributeError:
@@ -161,7 +168,7 @@ class Simulator:
                                   if key.startswith("seed")}
         if seed_model:
             for key in seed_model:
-                kwargs.pop(key)
+                _ = kwargs.pop(key)
         # get the model for the desired component
         model, is_class = self._get_component(component)
         if is_class:
@@ -171,6 +178,9 @@ class Simulator:
         self._sanity_check(model)
         # calculate the effect
         self._iteratively_apply(model, **seed_model)
+        # re-add the seed_model to the kwargs
+        kwargs.update(seed_model)
+        # update the history
         self._update_history(model, **kwargs)
 
     def get(self, component):
