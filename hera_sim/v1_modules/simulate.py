@@ -64,6 +64,9 @@ class Simulator:
         model_params = inspect.signature(model).parameters
         args = (getattr(self, param) for param in model_params
                 if param in ("lsts", "freqs"))
+        # for antenna-based gains
+        requires_ants = any([param.startswith("ant")
+                             for param in model_params])
         # for sky components
         requires_bl_vec = any([param.startswith("bl") 
                                for param in model_params])
@@ -74,6 +77,9 @@ class Simulator:
         seed_model = kwargs.pop("seed_model", {})
         # do we really want to do it this way?
         for ant1, ant2, pol, blt_inds, pol_ind in self._iterate_antpair_pols:
+            if requires_ants:
+                antpair = (ant1, ant2)
+                args += antpair
             if requires_bl_vec:
                 bl_vec = self.antpos[ant1] - self.antpos[ant2]
                 bl_vec_ns = bl_vec * 1e9 / const.c.value
