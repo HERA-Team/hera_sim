@@ -61,28 +61,45 @@ class Simulator:
     @staticmethod
     def _get_component(component):
         # TODO: docstring
-        if issubclass(component, SimulationComponent):
-            # support passing user-defined classes that inherit from
-            # the SimulationComponent base class to add method
-            return component
-        # keep track of all known aliases in case desired component
-        # isn't found in the search
-        all_aliases = []
-        for registry in SimulationComponent.__subclasses__():
-            for model in registry.__subclasses__():
-                aliases = [model.__name__,]
-                aliases += list(getattr(model, "__aliases__", []))
-                aliases = [alias.lower() for alias in aliases]
-                for alias in aliases:
-                    all_aliases.append(alias)
-                if component.lower() in aliases:
-                    return model
-        # if this part is executed, then the model wasn't found, so
-        msg = "The component {component} wasn't found. The following "
-        msg += "aliases are known: "
-        msg += ", ".join(set(all_aliases))
-        msg = msg.format(component=component)
-        raise AttributeError(msg)
+        try:
+            if issubclass(component, SimulationComponent):
+                # support passing user-defined classes that inherit from
+                # the SimulationComponent base class to add method
+                return component, True
+        except TypeError:
+            # this is raised if ``component`` is not a class
+            if callable(component):
+                # if it's callable, then it's either a user-defined 
+                # function or a class instance
+                return component, False
+            else:
+                assert isinstance(component, str) \
+                        "``component`` must be either a class which " \
+                        "derives from ``SimulationComponent`` or an " \
+                        "instance of a callable class, or a function, " \
+                        "whose signature is:\n" \
+                        "func(lsts, freqs, *args, **kwargs)\n" \
+                        "If it is none of the above, then it must be " \
+                        "a string which corresponds to the name of a " \
+                        "``hera_sim`` class or an alias thereof."
+                # keep track of all known aliases in case desired 
+                # component isn't found in the search
+                all_aliases = []
+                for registry in SimulationComponent.__subclasses__():
+                    for model in registry.__subclasses__():
+                        aliases = (model.__name__,)
+                        aliases += getattr(model, "__aliases__", ())
+                        aliases = [alias.lower() for alias in aliases]
+                        for alias in aliases:
+                            all_aliases.append(alias)
+                        if component.lower() in aliases:
+                            return model, True
+                # if this part is executed, then the model wasn't found, so
+                msg = "The component {component} wasn't found. The following "
+                msg += "aliases are known: "
+                msg += ", ".join(set(all_aliases))
+                msg = msg.format(component=component)
+                raise AttributeError(msg)
 
     def _generate_seeds(self, model):
         pass
@@ -121,8 +138,11 @@ class Simulator:
         if seed_model:
             for key in seed_model:
                 kwargs.pop(key)
-        # make an instance of the component model
-        model = self._get_component(component)(**kwargs)
+        # get the model for the desired component
+        model, is_class = self._get_component(component)
+        if is_class:
+            # if the component returned is a class, instantiate it
+            model = model(**kwargs)
         # check that there isn't an issue with component ordering
         self._sanity_check(model)
         # calculate the effect
@@ -131,7 +151,7 @@ class Simulator:
 
     def get(self, component):
         assert component in self._components.keys()
-        model = self._get_component(component)(**self._components[component])
+        model, _ = self._get_component(component)(**self._components[component])
         pass
 
     def write(self, filename, save_format="uvh5", save_seeds=True, **kwargs):
