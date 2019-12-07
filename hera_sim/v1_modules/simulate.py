@@ -83,20 +83,33 @@ class Simulator:
         msg = msg.format(component=component)
         raise AttributeError(msg)
         
+    def _sanity_check(self, model):
+        # TODO: docstring
+        has_data = not np.all(self.data.data_array == 0)
+        is_multiplicative = model.is_multiplicative
+        contains_multiplicative_effect = any([
+                self._get_component(component).is_multiplicative
+                for component in self._components])
+        if is_multiplicative and not has_data:
+            warnings.warn("You are trying to compute a multiplicative "
+                          "effect, but no visibilities have been "
+                          "simulated yet.")
+        elif not is_multiplicative and contains_multiplicative_effect:
+            warnings.warn("You are adding visibilities to a data array "
+                          "*after* multiplicative effects have been "
+                          "introduced.")
 
-    def add(self, component, conserve_memory=False, **kwargs):
+    def add(self, component, **kwargs):
         # log the component and its kwargs
         self._components[component] = kwargs
+        # make an instance of the component model
         model = self._get_component(component)(**kwargs)
-        # make an instance of the class w/ appropriate parameters
+        # check that there isn't an issue with component ordering
+        self._sanity_check(model)
         # calculate the effect
-        # log it in the components dictionary if not conserving memory
-        # there might be a trick to get around this:
-        # just log the parameters used to generate the component, then
-        # re-calculate the component in the ``get`` class method
-        # check if it's multiplicative
-        # add it to the data array appropriately
-        pass
+        self._iteratively_apply(model)
+        # update history
+        self._update_history(model, **kwargs)
 
     def get(self, component):
         assert component in self._components.keys()
