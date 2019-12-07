@@ -96,8 +96,8 @@ class Simulator:
                         if component.lower() in aliases:
                             return model, True
                 # if this part is executed, then the model wasn't found, so
-                msg = "The component {component} wasn't found. The following "
-                msg += "aliases are known: "
+                msg = "The component '{component}' wasn't found. The "
+                msg += "following aliases are known: "
                 msg += ", ".join(set(all_aliases))
                 msg = msg.format(component=component)
                 raise AttributeError(msg)
