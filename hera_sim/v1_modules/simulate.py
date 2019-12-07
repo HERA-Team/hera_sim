@@ -80,6 +80,7 @@ class Simulator:
         msg = "The component {component} wasn't found. The following "
         msg += "aliases are known: "
         msg += ", ".join(set(all_aliases))
+        msg = msg.format(component=component)
         raise AttributeError(msg)
         
 
