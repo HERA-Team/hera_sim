@@ -60,15 +60,31 @@ class Simulator:
     @staticmethod
     def _get_component(component):
         # TODO: docstring
+        if issubclass(component, SimulationComponent):
+            # support passing user-defined classes that inherit from
+            # the SimulationComponent base class to add method
+            return component
+        # keep track of all known aliases in case desired component
+        # isn't found in the search
+        all_aliases = []
         for registry in SimulationComponent.__subclasses__():
             for model in registry.__subclasses__():
                 aliases = [model.__name__,]
                 aliases += list(getattr(model, "__aliases__", []))
                 aliases = [alias.lower() for alias in aliases]
+                for alias in aliases:
+                    all_aliases.append(alias)
                 if component.lower() in aliases:
                     return model
+        # if this part is executed, then the model wasn't found, so
+        msg = "The component {component} wasn't found. The following "
+        msg += "aliases are known: "
+        msg += ", ".join(set(all_aliases))
+        raise AttributeError(msg)
+        
 
     def add(self, component, conserve_memory=False, **kwargs):
+        # log the component and its kwargs
         self._components[component] = kwargs
         model = self._get_component(component)(**kwargs)
         # make an instance of the class w/ appropriate parameters
