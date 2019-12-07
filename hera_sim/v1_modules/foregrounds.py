@@ -92,7 +92,7 @@ class PointSourceForeground(Foreground):
     """
 
     """
-    __aliases__ = ("pntsrc_foreground", "pntsrc", "point_source",)
+    __aliases__ = ("pntsrc_foreground",)
 
     def __init__(self, nsrcs=1000, Smin=0.3, Smax=300, beta=-1.5,
                  spectral_index_mean=-1, spectral_index_std=0.5, 

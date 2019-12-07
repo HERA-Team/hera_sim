@@ -63,7 +63,7 @@ class Simulator:
         for registry in SimulationComponent.__subclasses__():
             for model in registry.__subclasses__():
                 aliases = [model.__name__,]
-                aliases += list(model.get("__aliases__", []))
+                aliases += list(getattr(model, "__aliases__", []))
                 aliases = [alias.lower() for alias in aliases]
                 if component.lower() in aliases:
                     return model
