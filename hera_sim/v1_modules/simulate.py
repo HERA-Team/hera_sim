@@ -102,18 +102,41 @@ class Simulator:
                 msg = msg.format(component=component)
                 raise AttributeError(msg)
 
-    def _generate_seeds(self, model):
-        pass
+    def _generate_seed(self, model, key):
+        if not isinstance(model, str):
+            model = self._get_model_name(model)
+        # for the sake of randomness
+        np.random.seed(int(time.time()))
+        if model not in self.seeds:
+            self.seeds[model] = {}
+        self.seeds[model][key] = np.random.randint(2**32)
 
     def _get_seed(self, model, *ants):
         # TODO: docstring
         if not isinstance(model, str):
-            try:
-                model = model.__name__
-            except AttributeError:
-                # in case it's an instance
-                model = model.__class__.__name__
-        
+            model = self._get_model_name(model)
+    
+    @staticmethod
+    def _get_model_name(model):
+        try:
+            return model.__name__
+        except AttributeError:
+            # check if it's a user defined function
+            if model.__class__.__name__ == "function":
+                # get the name of it if so
+                try:
+                    func_name = [name for name, obj in globals().items()
+                                      if id(obj) == id(model)][0]
+                    return func_name
+                except IndexError:
+                    # it's not in the global namespace
+                    msg = "The model is a function but is not in the "
+                    msg += "global namespace. Please import the "
+                    msg += "function and try again."
+                    raise ValueError(msg)
+            else:
+                return model.__class__.__name__
+
     def _sanity_check(self, model):
         # TODO: docstring
         has_data = not np.all(self.data.data_array == 0)
