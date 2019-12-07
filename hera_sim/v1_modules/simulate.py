@@ -52,6 +52,34 @@ class Simulator:
         else:
             raise ValueError("Unsupported type.") # make msg better
 
+    def _iteratively_apply(self, model, **seed_model):
+        # TODO: docstring
+        model_params = inspect.signature(model).parameters
+        args = (getattr(self, param) for param in model_params
+                if param in ("lsts", "freqs"))
+        # for sky components
+        requires_bl_vec = any([param.startswith("bl") 
+                               for param in model_params])
+        # for cross-coupling xtalk
+        requires_vis = any([param.find("vis") != -1
+                            for param in model_params])
+        # do we really want to do it this way?
+        for ant1, ant2, pol, blt_inds, pol_ind in self._iterate_antpair_pols:
+            if requires_bl_vec:
+                bl_vec = self.antpos[ant1] - self.antpos[ant2]
+                bl_vec_ns = bl_vec * 1e9 / const.c.value
+                args += (bl_vec_ns,)
+            if requires_vis:
+                autovis = self.data.get_data(ant1, ant1, pol)
+                args += (autovis,)
+            if seed_model:
+                # figure out what way the model is being seeded
+                # get the seed, and seed the rng
+                pass
+            vis = model(*args)
+            self.data.data_array[blt_inds, 0, :, pol_ind] += vis
+
+
     @staticmethod
     def _read_datafile(datafile, **kwargs):
         # TODO: docstring
