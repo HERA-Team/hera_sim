@@ -59,14 +59,14 @@ def eq2top_m(ha, dec):
     Parameters
     ----------
     ha : float
-        Hour angle.
+        Hour angle [rad].
     dec : float
-        Declination.
+        Declination [rad].
     Returns
     -------
     ndarray
-            Coordinate transform matrix converting equatorial 
-            coordinates to topocentric coordinates. Shape=(3, 3).
+        Coordinate transform matrix converting equatorial coordinates to
+        topocentric coordinates. Shape=(3, 3).
     """
     sin_H, cos_H = np.sin(ha), np.cos(ha)
     sin_d, cos_d = np.sin(dec), np.cos(dec)
