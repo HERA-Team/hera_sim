@@ -161,18 +161,26 @@ class Simulator:
 
     def _generate_seed(self, model, key):
         # TODO: docstring
-        if not isinstance(model, str):
-            model = self._get_model_name(model)
+        model = self._get_model_name(model)
         # for the sake of randomness
         np.random.seed(int(time.time()))
         if model not in self.seeds:
             self.seeds[model] = {}
         self.seeds[model][key] = np.random.randint(2**32)
 
+    def _generate_redundant_seeds(self, model):
+        # TODO: docstring
+        model = self._get_model_name(model)
+        for j in range(len(self._get_reds())):
+            self._generate_seed(model, j)
+
+    def _get_reds(self):
+        # TODO: docstring
+        return self.data.get_baseline_redundancies()[0]
+
     def _get_seed(self, model, key):
         # TODO: docstring
-        if not isinstance(model, str):
-            model = self._get_model_name(model)
+        model = self._get_model_name(model)
         if model not in self.seeds:
             self._generate_seed(self, model, key)
         if key not in self.seeds[model]:
@@ -182,6 +190,8 @@ class Simulator:
     @staticmethod
     def _get_model_name(model):
         # TODO: docstring
+        if isinstance(model, str):
+            return model
         try:
             return model.__name__
         except AttributeError:
