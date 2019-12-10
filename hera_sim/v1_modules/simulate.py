@@ -39,6 +39,13 @@ class Simulator:
         self.extras = {}
         self.seeds = {}
 
+    @cached_property
+    def antpos(self):
+        # TODO: docstring
+        """
+        """
+        antpos, ants = self.data.get_ENU_antpos(pick_data_ants=True)
+        return dict(zip(ants, antpos))
 
     def _initialize_uvd(self, data, **uvdata_kwargs):
         # TODO: docstring
