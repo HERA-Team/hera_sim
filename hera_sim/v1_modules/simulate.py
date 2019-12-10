@@ -81,31 +81,62 @@ class Simulator:
         requires_vis = any([param.find("vis") != -1
                             for param in model_params])
         # figure out whether or not to seed the RNG
-        seed_model = kwargs.pop("seed_model", {})
+        seed_mode = kwargs.pop("seed_mode", None)
         # do we really want to do it this way?
         for ant1, ant2, pol, blt_inds, pol_ind in self._iterate_antpair_pols:
+            # check if this is an antenna-dependent quantity; should
+            # only ever be true for gains (barring future changes)
             if requires_ants:
-                # alternative: do all the antennas, so then we
-                # only need to seed once (otherwise it gets complicated)
                 ants = self.antpos
                 args += ants
+            # check if this is something requiring a baseline vector
+            # current assumption is that these methods require the
+            # baseline vector to be provided in nanoseconds
             if requires_bl_vec:
                 bl_vec = self.antpos[ant1] - self.antpos[ant2]
                 bl_vec_ns = bl_vec * 1e9 / const.c.value
                 args += (bl_vec_ns,)
+            # check if this is something that depends on another
+            # visibility. as of now, this should only be cross coupling
+            # crosstalk
             if requires_vis:
                 autovis = self.data.get_data(ant1, ant1, pol)
                 args += (autovis,)
-            if seed_model:
-                # figure out what way the model is being seeded
-                # get the seed, and seed the rng
-                pass
+            # determine whether or not to seed the RNG(s) used in 
+            # simulating the model effects
+            if seed_mode is not None:
+                if seed_mode == "redundantly":
+                    # generate seeds for each redundant group
+                    # this does nothing if the seeds already exist
+                    self._generate_redundant_seeds(model)
+                    # get the baseline integer for baseline (ant1, ant2)
+                    bl_int = self.data.antnums_to_baseline(ant1, ant2)
+                    # find out which redundant group the baseline is in
+                    key = [bl_int in reds 
+                           for reds in self._get_reds()].index(True)
+                    # seed the RNG accordingly
+                    np.random.seed(self._get_seed(model, key))
+                elif seed_mode == "once":
+                    # this should only be used for antenna-based gains
+                    # where it's most convenient to just seed the RNG 
+                    # once for the whole array
+                    np.random.seed(self._get_seed(model, 0))
+                else:
+                    raise ValueError("Seeding mode not supported.")
+            # check whether we're simulating a gain or a visibility
             if model.is_multiplicative:
+                # get the gains for the entire array
+                # this is sloppy, but ensures seeding works correctly
                 gains = model(*args, **kwargs)
+                # now get the product g_1g_2*
                 gain = gains[ant1] * np.conj(gains[ant2])
+                # apply the effect to the appropriate part of the data
                 self.data.data_array[blt_inds, 0, :, pol_ind] *= gain
             else:
+                # if it's not multiplicative, then it should be an 
+                # actual visibility, so calculate it
                 vis = model(*args, **kwargs)
+                # and add it in
                 self.data.data_array[blt_inds, 0, :, pol_ind] += vis
 
 
@@ -171,6 +202,8 @@ class Simulator:
     def _generate_redundant_seeds(self, model):
         # TODO: docstring
         model = self._get_model_name(model)
+        if model in self.seeds:
+            return
         for j in range(len(self._get_reds())):
             self._generate_seed(model, j)
 
