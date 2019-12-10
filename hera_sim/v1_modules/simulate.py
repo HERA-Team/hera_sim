@@ -80,8 +80,8 @@ class Simulator:
             if requires_ants:
                 # alternative: do all the antennas, so then we
                 # only need to seed once (otherwise it gets complicated)
-                antpair = (ant1, ant2)
-                args += antpair
+                ants = self.antpos
+                args += ants
             if requires_bl_vec:
                 bl_vec = self.antpos[ant1] - self.antpos[ant2]
                 bl_vec_ns = bl_vec * 1e9 / const.c.value
@@ -93,10 +93,12 @@ class Simulator:
                 # figure out what way the model is being seeded
                 # get the seed, and seed the rng
                 pass
-            vis = model(*args, **kwargs)
             if model.is_multiplicative:
-                self.data.data_array[blt_inds, 0, :, pol_ind] *= vis
+                gains = model(*args, **kwargs)
+                gain = gains[ant1] * np.conj(gains[ant2])
+                self.data.data_array[blt_inds, 0, :, pol_ind] *= gain
             else:
+                vis = model(*args, **kwargs)
                 self.data.data_array[blt_inds, 0, :, pol_ind] += vis
 
 
