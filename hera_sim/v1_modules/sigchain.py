@@ -11,22 +11,38 @@ import aipy
 @registry
 class Gain:
     # TODO: docstring
-
-    @abstractmethod
-    def _generate(self):
-        pass
+    pass
 
 class Bandpass(Gain, is_multiplicative=True):
     __aliases__ = ("gen_gains", "bandpass_gain")
 
-    def __call__(self, freqs, ant1, ant2, **kwargs):
-        gains = self._generate(freqs, (ant1, ant2), **kwargs)
-        return gains[ant1] * np.conj(gains[ant2])
+    def __init__(self, gain_spread=0.1, dly_rng=(-20,20), bp_poly=None):
+        # TODO: docstring
+        """
 
-    def _generate(self, freqs, ants, gain_spread=0.1, 
-                  dly_rng=(-20,20), bp_poly=None):
+        """
+        super().__init__(
+            gain_spread=gain_spread,
+            dly_rng=dly_rng,
+            bp_poly=bp_poly)
+
+    def __call__(self, freqs, ants, **kwargs):
+        # TODO: docstring
+        """
+        """
+        # validate kwargs
+        self._check_kwargs(**kwargs)
+
+        # unpack the kwargs
+        (gain_spread, dly_rng, 
+            bp_poly) = self._extract_kwarg_values(**kwargs)
+
+        # get the bandpass gains
         bandpass = self._gen_bandpass(freqs, ants, gain_spread, bp_poly)
+
+        # get the delay phases
         phase = self._gen_delay_phase(freqs, ants, dly_rng)
+
         return {ant : bandpass[ant] * phase[ant] for ant in ants}
 
     def _gen_bandpass(self, freqs, ants, gain_spread=0.1, bp_poly=None):
@@ -72,7 +88,7 @@ class WhiteNoiseCrosstalk(Crosstalk):
     def __call__(self):
         pass
 
-gen_gains = Bandpass()._generate
-gen_sigchain_reflections = Reflections()._generate
+gen_gains = Bandpass()
+gen_sigchain_reflections = Reflections()
 gen_whitenoise_xtalk = WhiteNoiseCrosstalk()
 gen_cross_coupling_xtalk = CrossCouplingCrosstalk()
