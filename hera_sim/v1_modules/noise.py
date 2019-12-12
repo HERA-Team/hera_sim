@@ -58,3 +58,5 @@ class ThermalNoise(Noise):
         vis /= utils.Jy2T(freqs, omega_p).reshape(1, -1)
         # make it noisy
         return utils.gen_white_noise(size=vis.shape) * vis
+
+thermal_noise = ThermalNoise()
