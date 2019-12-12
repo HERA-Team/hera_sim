@@ -184,7 +184,7 @@ class Reflections(Gain, is_multiplicative=True):
 class Crosstalk:
     pass
 
-class CrossCouplingCrosstalk(Reflections, Crosstalk):
+class CrossCouplingCrosstalk(Crosstalk, Reflections):
     __aliases__ = ("gen_cross_coupling_xtalk", "cross_coupling_xtalk")
 
     def __init__(self, amp=None, dly=None, phs=None, 
