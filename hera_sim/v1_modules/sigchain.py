@@ -5,6 +5,7 @@ from abc import abstractmethod
 
 from . import utils
 from .components import registry
+from .data import DATA_PATH
 
 import aipy
 
@@ -48,9 +49,14 @@ class Bandpass(Gain, is_multiplicative=True):
 
     def _gen_bandpass(self, freqs, ants, gain_spread=0.1, bp_poly=None):
         if bp_poly is None:
-            # figure out how to deal with this
-            pass
-        bp_base = np.polyval(bp_poly, freqs)
+            # default to the H1C bandpass
+            bp_poly = np.load(os.path.join(DATA_PATH, 
+                                           "HERA_H1C_BANDPASS.npy"))
+        if callable(bp_poly):
+            # support for interpolation objects
+            bp_base = bp_poly(freqs)
+        else:
+            bp_base = np.polyval(bp_poly, freqs)
         window = aipy.dsp.gen_window(freqs.size, "blackman-harris")
         modes = np.abs(np.fft.fft(window * bp_base))
         gains = {}
