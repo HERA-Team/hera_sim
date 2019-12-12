@@ -108,8 +108,8 @@ def gen_delay_filter(fqs, bl_len_ns, standoff=0.0, filter_type='gauss', min_dela
     return delay_filter
 
 
-def rough_delay_filter(data, fqs, bl_len_ns, standoff=0.0, filter_type='gauss', min_delay=None,
-                       max_delay=None, normalize=None):
+def rough_delay_filter(data, fqs, bl_len_ns, standoff=0.0, delay_filter_type='gauss', 
+                       min_delay=None, max_delay=None, normalize=None):
     """
     A rough low-pass delay filter of data array along last axis.
 
@@ -137,8 +137,10 @@ def rough_delay_filter(data, fqs, bl_len_ns, standoff=0.0, filter_type='gauss', 
     dfft = np.fft.fft(data, axis=-1)
 
     # get delay filter
-    delay_filter = gen_delay_filter(fqs, bl_len_ns, standoff=standoff, filter_type=filter_type, min_delay=min_delay,
-                                    max_delay=max_delay, normalize=normalize)
+    delay_filter = gen_delay_filter(
+        fqs, bl_len_ns, standoff=standoff, filter_type=delay_filter_type, 
+        min_delay=min_delay, max_delay=max_delay, normalize=normalize
+    )
 
     # apply filtering and fft back
     filt_data = np.fft.ifft(dfft * delay_filter, axis=-1)
@@ -213,7 +215,8 @@ def gen_fringe_filter(lsts, fqs, ew_bl_len_ns, filter_type='tophat', **filter_kw
     return fringe_filter
 
 
-def rough_fringe_filter(data, lsts, fqs, ew_bl_len_ns, filter_type='tophat', **filter_kwargs):
+def rough_fringe_filter(data, lsts, fqs, ew_bl_len_ns, 
+                        fringe_filter_type='tophat', **filter_kwargs):
     """
     A rough fringe rate filter of data along zeroth axis.
 
@@ -251,7 +254,9 @@ def rough_fringe_filter(data, lsts, fqs, ew_bl_len_ns, filter_type='tophat', **f
     dfft = np.fft.fft(data, axis=0)
 
     # get filter
-    fringe_filter = gen_fringe_filter(lsts, fqs, ew_bl_len_ns, filter_type=filter_type, **filter_kwargs)
+    fringe_filter = gen_fringe_filter(
+        lsts, fqs, ew_bl_len_ns, filter_type=fringe_filter_type, **filter_kwargs
+    )
 
     # apply filter
     filt_data = np.fft.ifft(dfft * fringe_filter, axis=0)
