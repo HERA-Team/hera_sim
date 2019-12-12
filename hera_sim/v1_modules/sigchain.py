@@ -184,11 +184,45 @@ class Reflections(Gain, is_multiplicative=True):
 class Crosstalk:
     pass
 
-class CrossCouplingCrosstalk(Crosstalk):
+class CrossCouplingCrosstalk(Reflections, Crosstalk):
     __aliases__ = ("gen_cross_coupling_xtalk", "cross_coupling_xtalk")
 
-    def __call__(self):
-        pass
+    def __init__(self, amp=None, dly=None, phs=None, 
+                       conj=False, randomize=False):
+        # TODO: docstring
+        """
+        """
+        super().__init__(
+            amp=amp,
+            dly=dly,
+            phs=phs,
+            conj=conj,
+            randomize=randomize)
+
+
+    def __call__(self, freqs, autovis, **kwargs):
+        # TODO: docstring
+        """
+        """
+        # check the kwargs
+        self._check_kwargs(**kwargs)
+
+        # now unpack them
+        (amp, dly, phs, conj, 
+            randomize) = self._unpack_kwarg_values(**kwargs)
+
+        # handle the amplitude, phase, and delay
+        amp, dly, phs = self._complete_params([1], amp, dly, phs, randomize)
+
+        # make a reflection coefficient
+        eps = self.gen_reflection_coefficient(freqs, amp, dly, phs, conj=conj)
+
+        # reshape if necessary
+        if eps.ndim == 1:
+            eps = eps.reshape((1,-1))
+
+        # scale it by the autocorrelation and return the result
+        return autovis * eps
 
 class WhiteNoiseCrosstalk(Crosstalk):
     __aliases__ = ("gen_whitenoise_xtalk", "white_noise_xtalk", )
