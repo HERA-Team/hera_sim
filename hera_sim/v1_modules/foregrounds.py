@@ -7,7 +7,6 @@ from aipy.const import sidereal_day
 from abc import abstractmethod
 from cached_property import cached_property
 
-from . import noise
 from . import utils
 from .components import registry
 
@@ -50,35 +49,29 @@ class DiffuseForeground(Foreground):
             fringe_filter_kwargs) = self._extract_kwarg_values(**kwargs)
 
         if Tsky_mdl is None:
-            if self.Tsky_mdl is None:
-                raise ValueError(
-                        "A sky temperature model must be specified in "
-                        "order to use this function.")
-            Tsky_mdl = self.Tsky_mdl
+            raise ValueError(
+                    "A sky temperature model must be specified in "
+                    "order to use this function."
+                    )
 
         if omega_p is None:
-            if self.omega_p is None:
-                raise ValueError(
-                        "A beam area array or interpolation object is "
-                        "required to use this function.")
-            omega_p = self.omega_p
+            raise ValueError(
+                    "A beam area array or interpolation object is "
+                    "required to use this function."
+                    )
 
+        # support passing beam as an interpolator
         if callable(omega_p):
             omega_p = omega_p(freqs)
 
-        if not delay_filter_kwargs:
-            delay_filter_kwargs = self.delay_filter_kwargs
-
-        if not fringe_filter_kwargs:
-            fringe_filter_kwargs = self.fringe_filter_kwargs
-
+        # resample the sky temperature model
         Tsky = Tsky_mdl(lsts, freqs)
         vis = np.asarray(Tsky / utils.Jy2T(freqs, omega_p), np.complex)
 
         if np.isclose(np.linalg.norm(bl_vec), 0):
             return vis
 
-        vis *= white_noise(vis.shape)
+        vis *= utils.white_noise(vis.shape)
 
         vis = utils.rough_fringe_filter(vis, lsts, freqs, bl_vec[0], 
                                         **fringe_filter_kwargs)
