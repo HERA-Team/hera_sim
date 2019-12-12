@@ -193,8 +193,30 @@ class CrossCouplingCrosstalk(Crosstalk):
 class WhiteNoiseCrosstalk(Crosstalk):
     __aliases__ = ("gen_whitenoise_xtalk", "white_noise_xtalk", )
 
-    def __call__(self):
-        pass
+    def __init__(self, amplitude=3.0):
+        # TODO: docstring
+        """
+        """
+        super().__init__(amplitude=amplitude)
+
+    def __call__(self, freqs, **kwargs):
+        # TODO: docstring
+        """
+        """
+        # check the kwargs
+        self._check_kwargs(**kwargs)
+
+        # unpack the kwargs
+        amplitude = self._unpack_kwargs(**kwargs)
+
+        # why choose this size for the convolving kernel?
+        kernel = np.ones(50 if freqs.size > 50 else int(freqs.size/2))
+
+        # generate the crosstalk
+        xtalk = np.convolve(utils.white_noise(freqs.size), kernel, "same")
+
+        # scale the result and return
+        return amplitude * xtalk
 
 # to minimize breaking changes
 gen_gains = Bandpass()
