@@ -112,7 +112,7 @@ class Tsky(Interpolator):
             Raised if any of the required npz keys are not found or if the 
             tsky array does not have shape=(NPOLS, NLSTS, NFREQS).
         """
-        Interpolator.__init__(self, datafile, **interp_kwargs)
+        super().__init__(self, datafile, **interp_kwargs)
         self._check_npz_format()
         self.pol = self._interp_kwargs.pop("pol", "xx")
         self._check_pol(self.pol)
@@ -219,7 +219,7 @@ class FreqInterpolator(Interpolator):
             if the .npz for generating an 'interp1d' object does not have the
             correct arrays in its archive.
         """
-        Interpolator.__init__(self, datafile, **interp_kwargs)
+        super().__init__(self, datafile, **interp_kwargs)
         self._interp_type = self._interp_kwargs.pop("interpolator", "poly1d")
         self._obj = None
 
@@ -279,7 +279,7 @@ class Beam(FreqInterpolator):
         interp_kwargs : unpacked dict, optional
             Passed to the superclass constructor.
         """
-        FreqInterpolator.__init__(self, datafile, **interp_kwargs)
+        super().__init__(self, datafile, **interp_kwargs)
         self._obj = "beam"
         self._check_format()
 
@@ -296,7 +296,7 @@ class Bandpass(FreqInterpolator):
         interp_kwargs : unpacked dict, optional
             Passed to the superclass constructor.
         """
-        FreqInterpolator.__init__(self, datafile, **interp_kwargs)
+        super().__init__(self, datafile, **interp_kwargs)
         self._obj = "bandpass"
         self._check_format()
 
