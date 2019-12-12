@@ -69,8 +69,116 @@ class Bandpass(Gain, is_multiplicative=True):
 class Reflections(Gain, is_multiplicative=True):
     __aliases__ = ("gen_reflection_gains", "sigchain_reflections")
 
-    def __call__(self):
-        pass
+    def __init__(self, amp=None, dly=None, phs=None, 
+                       conj=False, randomize=False):
+        # TODO: docstring
+        """
+        """
+        super().__init__(
+            amp=amp,
+            dly=dly,
+            phs=phs,
+            conj=conj,
+            randomize=randomize)
+
+    def __call__(self, freqs, ants, **kwargs):
+        # TODO: docstring
+        """
+        """
+        # check the kwargs
+        self._check_kwargs(**kwargs)
+
+        # unpack the kwargs
+        (amp, dly, phs, conj, 
+            randomize) = self._extract_kwarg_values(**kwargs)
+
+        # fill in missing kwargs
+        amp, dly, phs = self._complete_params(ants, amp, dly, phs, randomize)
+
+        # determine gains iteratively
+        gains = {}
+        for j, ant in enumerate(ants):
+            # calculate the reflection coefficient
+            eps = self.gen_reflection_coefficient(freqs, amp[j], dly[j],
+                                                  phs[j], conj=conj)
+            gains[ant] = 1 + eps
+
+        return gains
+
+    @staticmethod
+    def gen_reflection_coefficient(freqs, amp, dly, phs, conj=False):
+        # TODO: docstring
+        """
+        """
+        # this is copied directly from the old sigchain module
+        # TODO: make this cleaner
+
+        # helper function for checking type/shape
+        def _type_check(arr):
+            if isinstance(arr, np.ndarray):
+                if arr.ndim == 1 and arr.size > 1:
+                    # reshape the array to (Ntimes, 1)
+                    arr = arr.reshape(-1, 1)
+                    # raise a warning if it's the same length as freqs
+                    if arr.shape[0] == Nfreqs:
+                        warnings.warn("The input array had lengths Nfreqs "
+                                      "and is being reshaped as (Ntimes,1).")
+                elif arr.ndim > 1:
+                    assert arr.shape[1] in (1, Nfreqs), \
+                        "Frequency-dependent reflection coefficients must " \
+                        "match the input frequency array size."
+            return arr
+
+        Nfreqs = freqs.size
+        amp = _type_check(amp)
+        dly = _type_check(dly)
+        phs = _type_check(phs)
+
+        # actually make the reflection coefficient
+        eps = amp * np.exp(1j * (2 * np.pi * freqs * dly + phs))
+
+        # conjugate if desired
+        return np.conj(eps) if conj else eps
+
+    @staticmethod
+    def _complete_params(ants, amp, dly, phs, randomize):
+        # TODO: docstring
+        """
+        """
+        # if we're randomizing, then amp, dly, phs should define which
+        # bounds to use for making random numbers
+        if randomize:
+            # convert these to bounds if they're None
+            if amp is None:
+                amp = (0, 1)
+            if dly is None:
+                dly = (-20, 20)
+            if phs is None:
+                phs = (-np.pi, np.pi)
+            # now make sure that they're all correctly formatted
+            assert all([isinstance(param, (list, tuple))
+                        and len(param) == 2
+                        for param in (amp, dly, phs)]), \
+                "You have chosen to randomize the amplitude, delay, " \
+                "and phase parameters, but at least one parameter " \
+                "was not specified as None or a length-2 tuple or " \
+                "list. Please check your parameter settings."
+
+            # in the future, expand this to allow for freq-dependence?
+            # randomly generate the parameters
+            amp = [np.random.uniform(amp[0], amp[1]) for ant in ants]
+            dly = [np.random.uniform(dly[0], dly[1]) for ant in ants]
+            phs = [np.random.uniform(phs[0], phs[1]) for ant in ants]
+        else:
+            # set the amplitude to 1, delay and phase both to zero
+            if amp is None:
+                amp = [1.0 for ant in ants]
+            if dly is None:
+                dly = [0.0 for ant in ants]
+            if phs is None:
+                phs = [0.0 for ant in ants]
+
+        return amp, dly, phs
 
 @registry
 class Crosstalk:
