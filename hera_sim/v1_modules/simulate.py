@@ -49,6 +49,16 @@ class Simulator:
         antpos, ants = self.data.get_ENU_antpos(pick_data_ants=True)
         return dict(zip(ants, antpos))
 
+    @property
+    def lsts(self):
+        # TODO: docstring
+        return np.unique(self.data.lst_array)
+
+    @property
+    def freqs(self):
+        # TODO: docstring
+        return np.unique(self.data.freq_array)
+
     def apply_defaults(self, default_config, refresh=True, **default_kwargs):
         # TODO: docstring
         """
@@ -91,8 +101,8 @@ class Simulator:
         # TODO: docstring
         model_params = inspect.signature(model).parameters
         # pull the lst and frequency arrays as required
-        args = (getattr(self, param) for param in model_params
-                if param in ("lsts", "freqs"))
+        args = list(getattr(self, param) for param in model_params
+                    if param in ("lsts", "freqs"))
         # for antenna-based gains
         requires_ants = any([param.startswith("ant")
                              for param in model_params])
@@ -105,25 +115,27 @@ class Simulator:
         # figure out whether or not to seed the RNG
         seed_mode = kwargs.pop("seed_mode", None)
         # do we really want to do it this way?
-        for ant1, ant2, pol, blt_inds, pol_ind in self._iterate_antpair_pols:
+        for ant1, ant2, pol, blt_inds, pol_ind in self._iterate_antpair_pols():
             # check if this is an antenna-dependent quantity; should
             # only ever be true for gains (barring future changes)
             if requires_ants:
                 ants = self.antpos
-                args += ants
+                use_args = args + [ants]
             # check if this is something requiring a baseline vector
             # current assumption is that these methods require the
             # baseline vector to be provided in nanoseconds
-            if requires_bl_vec:
+            elif requires_bl_vec:
                 bl_vec = self.antpos[ant1] - self.antpos[ant2]
                 bl_vec_ns = bl_vec * 1e9 / const.c.value
-                args += (bl_vec_ns,)
+                use_args = args + [bl_vec_ns]
             # check if this is something that depends on another
             # visibility. as of now, this should only be cross coupling
             # crosstalk
-            if requires_vis:
+            elif requires_vis:
                 autovis = self.data.get_data(ant1, ant1, pol)
-                args += (autovis,)
+                use_args = args + [autovis]
+            else:
+                use_args = args.copy()
             # determine whether or not to seed the RNG(s) used in 
             # simulating the model effects
             if seed_mode is not None:
@@ -149,7 +161,7 @@ class Simulator:
             if model.is_multiplicative:
                 # get the gains for the entire array
                 # this is sloppy, but ensures seeding works correctly
-                gains = model(*args, **kwargs)
+                gains = model(*use_args, **kwargs)
                 # now get the product g_1g_2*
                 gain = gains[ant1] * np.conj(gains[ant2])
                 # apply the effect to the appropriate part of the data
@@ -157,7 +169,7 @@ class Simulator:
             else:
                 # if it's not multiplicative, then it should be an 
                 # actual visibility, so calculate it
-                vis = model(*args, **kwargs)
+                vis = model(*use_args, **kwargs)
                 # and add it in
                 self.data.data_array[blt_inds, 0, :, pol_ind] += vis
 
@@ -271,7 +283,7 @@ class Simulator:
         has_data = not np.all(self.data.data_array == 0)
         is_multiplicative = model.is_multiplicative
         contains_multiplicative_effect = any([
-                self._get_component(component).is_multiplicative
+                self._get_component(component)[0].is_multiplicative
                 for component in self._components])
         if is_multiplicative and not has_data:
             warnings.warn("You are trying to compute a multiplicative "
@@ -292,8 +304,8 @@ class Simulator:
 
     def add(self, component, **kwargs):
         # TODO: docstring
-        # log the component and its kwargs
-        self._components[component] = kwargs
+        # take out the seed_mode kwarg so as not to break initializor
+        seed_mode = kwargs.pop("seed_mode", -1)
         # get the model for the desired component
         model, is_class = self._get_component(component)
         if is_class:
@@ -301,8 +313,13 @@ class Simulator:
             model = model(**kwargs)
         # check that there isn't an issue with component ordering
         self._sanity_check(model)
+        # re-add the seed_mode kwarg if it was specified
+        if seed_mode != -1:
+            kwargs["seed_mode"] = seed_mode
         # calculate the effect
         self._iteratively_apply(model, **kwargs)
+        # log the component and its kwargs
+        self._components[component] = kwargs
         # update the history
         self._update_history(model, **kwargs)
 
