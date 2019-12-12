@@ -29,7 +29,7 @@ class LinearArray(Array):
         self._check_kwargs(**kwargs)
 
         # unpack the kwargs
-        sep = self._unpack_kwarg_values(**kwargs)
+        sep = self._extract_kwarg_values(**kwargs)
 
         # make an ant : pos dictionary
         antpos = {j : np.array([j * sep, 0, 0]) for j in range(nants)}
@@ -61,7 +61,7 @@ class HexArray(Array):
 
         # now unpack them
         (sep, split_core,
-            outriggers) = self._unpack_kwarg_values(**kwargs)
+            outriggers) = self._extract_kwarg_values(**kwargs)
 
         # construct the main hexagon
         positions = []
@@ -74,7 +74,7 @@ class HexArray(Array):
 
         # basis vectors (normalized to sep)
         up_right = sep * np.asarray([0.5, np.sqrt(3) / 2, 0])
-        up_left = sep * np.asarray
+        up_left = sep * np.asarray([-0.5, np.sqrt(3) / 2, 0])
 
         # split the core if desired
         if split_core:
