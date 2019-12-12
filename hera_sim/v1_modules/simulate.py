@@ -90,6 +90,7 @@ class Simulator:
     def _iteratively_apply(self, model, **kwargs):
         # TODO: docstring
         model_params = inspect.signature(model).parameters
+        # pull the lst and frequency arrays as required
         args = (getattr(self, param) for param in model_params
                 if param in ("lsts", "freqs"))
         # for antenna-based gains
@@ -280,6 +281,14 @@ class Simulator:
             warnings.warn("You are adding visibilities to a data array "
                           "*after* multiplicative effects have been "
                           "introduced.")
+
+    def _update_history(self, model, **kwargs):
+        model = self._get_model_name(model)
+        msg = "hera_sim v{version}: Added {component} using kwargs:\n"
+        for param, value in kwargs.items():
+            msg += "{param} = {value}\n".format(param=param, value=value)
+        msg.format(version=version, component=model)
+        self.data.history += msg
 
     def add(self, component, **kwargs):
         # TODO: docstring
