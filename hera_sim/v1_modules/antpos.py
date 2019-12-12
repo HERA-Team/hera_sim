@@ -46,7 +46,7 @@ class HexArray(Array):
         # TODO: docstring
         """
         """
-        super.__init__(
+        super().__init__(
             sep=sep,
             split_core=split_core,
             outriggers=outriggers
