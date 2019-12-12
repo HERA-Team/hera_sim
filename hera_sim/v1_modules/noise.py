@@ -16,16 +16,37 @@ class ThermalNoise(Noise):
     def __init__(self, Tsky_mdl=None, omega_p=None, 
                  integration_time=None, channel_width=None,
                  Trx=0):
-        super().__init__()
+        # TODO: docstring
+        """
+        """
+        super().__init__(
+            Tsky_mdl=Tsky_mdl,
+            omega_p=omega_p,
+            integration_time=integration_time,
+            channel_width=channel_width,
+            Trx=Trx)
     # XXX update this
 
     def __call__(self, lsts, freqs, **kwargs):
+        # TODO: docstring
+        """
+        """
+        # validate the kwargs
+        self._check_kwargs(**kwargs)
+
+        # unpack the kwargs
+        (Tsky_mdl, omega_p, integration_time, channel_width, 
+            Trx) = self._extract_kwarg_values(**kwargs)
+
+        # get the channel width if not specified
         if channel_width is None:
             channel_width = np.mean(np.diff(freqs))
-        # TODO: check units
+        # get the integration time if not specified
         if integration_time is None:
             integration_time = np.mean(np.diff(lsts)) / (2*np.pi)
             integration_time *= u.sday.to("s")
+
+        # resample the sky temperature model
         Tsky = Tsky_mdl(lsts, freqs)
         # calculate noise visibility in units of K, assuming Tsky
         # is in units of K
