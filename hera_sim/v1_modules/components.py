@@ -1,5 +1,6 @@
 # TODO: write module docstring
 from abc import ABCMeta, abstractmethod
+from .defaults import defaults
 
 class SimulationComponent(metaclass=ABCMeta):
     def __init_subclass__(cls, **kwargs):
@@ -18,6 +19,9 @@ def registry(cls):
 
         def _extract_kwarg_values(self, **kwargs):
             use_kwargs = self.kwargs.copy()
+            # apply new defaults if the defaults class is active
+            if defaults._override_defaults:
+                kwargs = defaults.apply(use_kwargs, **kwargs)
             use_kwargs.update(kwargs)
             return use_kwargs.values()
 

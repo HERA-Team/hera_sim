@@ -350,6 +350,26 @@ class Defaults:
         
         return new_func
 
+    def apply(self, func_kwargs, **kwargs):
+        # TODO: docstring
+        """Just update the kwargs given the function kwargs.
+        """
+        # pull the defaults from the active defaults
+        new_args = self()
+
+        # filter the default kwargs to only include those in the func sig
+        new_args = {param : value for param, value in new_args.items()
+                                  if param in func_kwargs}
+
+        # get the keys to iterate over
+        keys = set(list(new_args.keys()) + list(kwargs.keys()))
+
+        new_kwargs = {arg : (kwargs[arg] if arg in kwargs 
+                             else new_args[arg]
+                            ) for arg in keys}
+
+        return new_kwargs
+
 defaults = Defaults()
 _defaults = defaults._handler
 
