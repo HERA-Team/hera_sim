@@ -15,7 +15,7 @@ class Gain:
     pass
 
 class Bandpass(Gain, is_multiplicative=True):
-    __aliases__ = ("gen_gains", "bandpass_gain")
+    __aliases__ = ("gen_gains", "gains", "bandpass_gain")
 
     def __init__(self, gain_spread=0.1, dly_rng=(-20,20), bp_poly=None):
         # TODO: docstring
@@ -218,7 +218,7 @@ class CrossCouplingCrosstalk(Crosstalk, Reflections):
 
         # now unpack them
         (amp, dly, phs, conj, 
-            randomize) = self._unpack_kwarg_values(**kwargs)
+            randomize) = self._extract_kwarg_values(**kwargs)
 
         # handle the amplitude, phase, and delay
         amp, dly, phs = self._complete_params([1], amp, dly, phs, randomize)
