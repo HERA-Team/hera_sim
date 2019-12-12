@@ -34,7 +34,8 @@ class DiffuseForeground(Foreground):
             Tsky_mdl=Tsky_mdl,
             omega_p=omega_p,
             delay_filter_kwargs=delay_filter_kwargs,
-            fringe_filter_kwargs=fringe_filter_kwargs)
+            fringe_filter_kwargs=fringe_filter_kwargs
+        )
 
     def __call__(self, lsts, freqs, bl_vec, **kwargs):
         # TODO: fill in docstring
@@ -101,10 +102,15 @@ class PointSourceForeground(Foreground):
         """
 
         """
-        super().__init__(nsrcs=nsrcs, Smin=Smin, Smax=Smax, beta=beta,
-                         spectral_index_mean=spectral_index_mean,
-                         spectral_index_std=spectral_index_std,
-                         reference_freq=reference_freq)
+        super().__init__(
+            nsrcs=nsrcs, 
+            Smin=Smin, 
+            Smax=Smax, 
+            beta=beta,
+            spectral_index_mean=spectral_index_mean,
+            spectral_index_std=spectral_index_std,
+            reference_freq=reference_freq
+        )
 
     def __call__(self, lsts, freqs, bl_vec, **kwargs):
         # TODO: fill in docstring
@@ -116,7 +122,7 @@ class PointSourceForeground(Foreground):
 
         # unpack the kwargs
         (nsrcs, Smin, Smax, beta, spectral_index_mean, 
-         spectral_index_std, f0) = self._extract_kwarg_values(**kwargs)
+            spectral_index_std, f0) = self._extract_kwarg_values(**kwargs)
 
 
         # get baseline length in nanoseconds

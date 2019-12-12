@@ -13,15 +13,17 @@ class NoiselikeEoR(EoR):
     # TODO: docstring
     __aliases__ = ("noiselike_eor",) 
 
-    def __init__(self, eor_amp=1e-5, 
-                 min_delay=None, max_delay=None, 
-                 fringe_filter_type="tophat",
-                 fringe_filter_kwargs={}):
-        super().__init__(eor_amp=eor_amp, 
-                         min_delay=min_delay, max_delay=max_delay, 
-                         fringe_filter_type=fringe_filter_type,
-                         fringe_filter_kwargs=fringe_filter_kwargs)
-    # TODO: docstrings
+    def __init__(self, eor_amp=1e-5, min_delay=None, max_delay=None, 
+                 fringe_filter_type="tophat", fringe_filter_kwargs={}):
+        # TODO: docstring
+        """
+        """
+        super().__init__(
+            eor_amp=eor_amp, 
+            min_delay=min_delay, max_delay=max_delay, 
+            fringe_filter_type=fringe_filter_type,
+            fringe_filter_kwargs=fringe_filter_kwargs
+        )
 
     def __call__(self, lsts, freqs, bl_vec, **kwargs):
         # validate the kwargs
@@ -29,7 +31,7 @@ class NoiselikeEoR(EoR):
 
         # unpack the kwargs
         (eor_amp, min_delay, max_delay, fringe_filter_type, 
-         fringe_filter_kwargs) = self._extract_kwarg_values(**kwargs)
+            fringe_filter_kwargs) = self._extract_kwarg_values(**kwargs)
 
         # make white noise in freq/time
         # XXX: original says in frate/freq, not sure why

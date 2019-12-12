@@ -49,7 +49,8 @@ class HexArray(Array):
         super.__init__(
             sep=sep,
             split_core=split_core,
-            outriggers=outriggers)
+            outriggers=outriggers
+        )
 
     def __call__(self, hex_num, **kwargs):
         # TODO: docstring

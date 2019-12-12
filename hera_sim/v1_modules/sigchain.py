@@ -24,7 +24,8 @@ class Bandpass(Gain, is_multiplicative=True):
         super().__init__(
             gain_spread=gain_spread,
             dly_rng=dly_rng,
-            bp_poly=bp_poly)
+            bp_poly=bp_poly
+        )
 
     def __call__(self, freqs, ants, **kwargs):
         # TODO: docstring
@@ -79,7 +80,8 @@ class Reflections(Gain, is_multiplicative=True):
             dly=dly,
             phs=phs,
             conj=conj,
-            randomize=randomize)
+            randomize=randomize
+        )
 
     def __call__(self, freqs, ants, **kwargs):
         # TODO: docstring
@@ -197,7 +199,8 @@ class CrossCouplingCrosstalk(Crosstalk, Reflections):
             dly=dly,
             phs=phs,
             conj=conj,
-            randomize=randomize)
+            randomize=randomize
+        )
 
 
     def __call__(self, freqs, autovis, **kwargs):
