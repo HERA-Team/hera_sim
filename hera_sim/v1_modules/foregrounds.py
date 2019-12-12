@@ -72,7 +72,7 @@ class DiffuseForeground(Foreground):
             fringe_filter_kwargs = self.fringe_filter_kwargs
 
         Tsky = Tsky_mdl(lsts, freqs)
-        vis = np.asarray(Tsky / Jy2T(freqs, omega_p), np.complex)
+        vis = np.asarray(Tsky / utils.Jy2T(freqs, omega_p), np.complex)
 
         if np.isclose(np.linalg.norm(bl_vec), 0):
             return vis
