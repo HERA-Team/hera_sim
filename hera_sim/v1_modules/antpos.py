@@ -84,9 +84,15 @@ class HexArray(Array):
                 if pos[0] == 0 and pos[1] == 0:
                     new_pos.append(pos)
                 elif -np.pi / 3 < theta < np.pi / 3:
-                    new_pos.append(np.asarray(pos) + (up_right + up_left) / 3)
+                    new_pos.append(
+                        np.asarray(pos) 
+                        + (up_right + up_left) / 3
+                    )
                 elif np.pi / 3 <= theta <= np.pi:
-                    new_pos.append(np.asarray(pos) + up_left - (up_right + up_left) / 3)
+                    new_pos.append(
+                        np.asarray(pos) 
+                        + up_left - (up_right + up_left) / 3
+                    )
                 else:
                     new_pos.append(pos)
             # update the positions
