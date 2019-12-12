@@ -14,6 +14,7 @@ from pyuvdata import UVData
 from astropy import constants as const
 
 from . import io
+from .defaults import defaults
 from .version import version
 from .components import SimulationComponent
 
@@ -33,11 +34,12 @@ class Simulator:
 
         """
         self._initialize_uvd(data, **uvdata_kwargs)
-        # might not actually want to handle defaults this way
-        self.defaults = Defaults(default_config, **default_kwargs)
         self._components = {}
         self.extras = {}
         self.seeds = {}
+        # apply and activate defaults if specified
+        if default_config or default_kwargs:
+            self.apply_defaults(default_config, **default_kwargs)
 
     @cached_property
     def antpos(self):
@@ -46,6 +48,25 @@ class Simulator:
         """
         antpos, ants = self.data.get_ENU_antpos(pick_data_ants=True)
         return dict(zip(ants, antpos))
+
+    def apply_defaults(self, default_config, refresh=True, **default_kwargs):
+        # TODO: docstring
+        """
+        """
+        # ensure that only one of these is set
+        assert bool(default_config) ^ bool(default_kwargs), \
+            "If you wish to use a default configuration, please " \
+            "only specify *either* a path to a configuration file " \
+            "*or* a default parameter dictionary. You are seeing " \
+            "this message because you specified both."
+
+        # actually apply the default settings
+        if default_config:
+            defaults.set(default_config, refresh=refresh)
+        else:
+            defaults.set(**default_kwargs, refresh=refresh)
+        # keep track of what the default parameter settings are
+        self.defaults = defaults()
 
     def _initialize_uvd(self, data, **uvdata_kwargs):
         # TODO: docstring
