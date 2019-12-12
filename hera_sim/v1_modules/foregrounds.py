@@ -50,15 +50,15 @@ class DiffuseForeground(Foreground):
 
         if Tsky_mdl is None:
             raise ValueError(
-                    "A sky temperature model must be specified in "
-                    "order to use this function."
-                    )
+                "A sky temperature model must be specified in "
+                "order to use this function."
+            )
 
         if omega_p is None:
             raise ValueError(
-                    "A beam area array or interpolation object is "
-                    "required to use this function."
-                    )
+                "A beam area array or interpolation object is "
+                "required to use this function."
+            )
 
         # support passing beam as an interpolator
         if callable(omega_p):
