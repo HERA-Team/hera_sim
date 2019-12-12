@@ -1,9 +1,11 @@
 """
 """
+import os
 import numpy as np
 from pyuvsim.simsetup import initialize_uvdata_from_keywords
+from .data import DATA_PATH
 
-HERA_LAT_LON_ALT = np.load("./data/HERA_LAT_LON_ALT.npy")
+HERA_LAT_LON_ALT = np.load(os.path.join(DATA_PATH, "HERA_LAT_LON_ALT.npy"))
 
 def empty_uvdata(**kwargs):
     # TODO: docstring
