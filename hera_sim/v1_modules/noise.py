@@ -1,8 +1,10 @@
 """Make some noise."""
 
+import os
 import astropy.constants as const
 import astropy.units as u
 from .components import registry
+from .data import DATA_PATH
 from . import utils
 
 @registry
@@ -24,8 +26,8 @@ class ThermalNoise(Noise):
             omega_p=omega_p,
             integration_time=integration_time,
             channel_width=channel_width,
-            Trx=Trx)
-    # XXX update this
+            Trx=Trx
+        )
 
     def __call__(self, lsts, freqs, **kwargs):
         # TODO: docstring
@@ -38,13 +40,31 @@ class ThermalNoise(Noise):
         (Tsky_mdl, omega_p, integration_time, channel_width, 
             Trx) = self._extract_kwarg_values(**kwargs)
 
+        # make sure a sky temperature model is specified
+        if Tsky_mdl is None:
+            raise ValueError(
+                "A sky temperature model is required "
+                "to use this function."
+            )
+
         # get the channel width if not specified
         if channel_width is None:
             channel_width = np.mean(np.diff(freqs))
+        
         # get the integration time if not specified
         if integration_time is None:
             integration_time = np.mean(np.diff(lsts)) / (2*np.pi)
             integration_time *= u.sday.to("s")
+        
+        # default to H1C beam if not specified
+        if omega_p is None:
+            omega_p = np.load(os.path.join(DATA_PATH,
+                                           "HERA_H1C_BEAM_POLY.npy"))
+            omega_p = np.polyval(omega_p, freqs)
+        
+        # support passing beam as an interpolator
+        if callable(omega_p):
+            omega_p = omega_p(freqs)
 
         # resample the sky temperature model
         Tsky = Tsky_mdl(lsts, freqs)
