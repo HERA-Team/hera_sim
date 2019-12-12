@@ -71,7 +71,7 @@ class DiffuseForeground(Foreground):
         if np.isclose(np.linalg.norm(bl_vec), 0):
             return vis
 
-        vis *= utils.white_noise(vis.shape)
+        vis *= utils.gen_white_noise(vis.shape)
 
         vis = utils.rough_fringe_filter(vis, lsts, freqs, bl_vec[0], 
                                         **fringe_filter_kwargs)
