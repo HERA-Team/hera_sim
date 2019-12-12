@@ -3,6 +3,8 @@
 import os
 import astropy.constants as const
 import astropy.units as u
+import numpy as np
+
 from .components import registry
 from .data import DATA_PATH
 from . import utils
