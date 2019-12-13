@@ -64,10 +64,12 @@ class RfiStation:
 
         return rfi
 
-class RfiStations(RFI):
+class Stations(RFI):
     # TODO: docstring
     """
     """
+    __aliases__ = ("rfi_stations", )
+
     def __init__(self, stations=None):
         # TODO: docstring
         """
@@ -111,3 +113,51 @@ class RfiStations(RFI):
             rfi += station(lsts, freqs)
 
         return rfi
+
+class Impulse(RFI):
+    # TODO: docstring
+    """
+    """
+    __aliases__ = ("rfi_impulse", )
+
+    def __init__(self, impulse_chance=0.001, impulse_strength=20.0):
+        # TODO: docstring
+        """
+        """
+        super().__init__(
+            impulse_chance=impulse_chance,
+            impulse_strength=impulse_strength
+        )
+
+        def __call__(self, lsts, freqs, **kwargs):
+            # TODO: docstring
+            """
+            """
+            # check that the kwargs are okay
+            self._check_kwargs(**kwargs)
+
+            # unpack the kwargs
+            chance, strength = self._extract_kwarg_values(**kwargs)
+
+            # initialize the rfi array
+            rfi = np.zeros((lsts.size, freqs.size), dtype=np.complex)
+
+            # find times when an impulse occurs
+            impulses = np.where(np.random.uniform(size=lsts.size) <= chance)[0]
+
+            # only do something if there are impulses
+            if impulses.size > 0:
+                # randomly generate some delays for each impulse
+                dlys = np.random.uniform(-300, 300, impulses.size) # ns
+
+                # generate the signals
+                signals = strength * np.asarray(
+                    [np.exp(2j * np.pi * dly * freqs) for dly in dlys]
+                )
+
+                rfi[impulses] += signals
+
+            return rfi
+
+
+rfi_stations = Stations()
