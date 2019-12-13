@@ -66,7 +66,7 @@ class Bandpass(Gain, is_multiplicative=True):
         modes = np.abs(np.fft.fft(window * bp_base))
         gains = {}
         for ant in ants:
-            delta_bp = np.fft.ifft(utils.white_noise(freqs.size)
+            delta_bp = np.fft.ifft(utils.gen_white_noise(freqs.size)
                                    * modes * gain_spread)
             gains[ant] = bp_base + delta_bp
         return gains
@@ -261,7 +261,7 @@ class WhiteNoiseCrosstalk(Crosstalk):
         kernel = np.ones(50 if freqs.size > 50 else int(freqs.size/2))
 
         # generate the crosstalk
-        xtalk = np.convolve(utils.white_noise(freqs.size), kernel, "same")
+        xtalk = np.convolve(utils.gen_white_noise(freqs.size), kernel, "same")
 
         # scale the result and return
         return amplitude * xtalk
