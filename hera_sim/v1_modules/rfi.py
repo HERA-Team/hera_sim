@@ -73,3 +73,41 @@ class RfiStations(RFI):
         """
         """
         super().__init__(stations=stations)
+
+    def __call__(self, lsts, freqs, **kwargs):
+        # TODO: docstring
+        """
+        """
+        # kind of silly to use **kwargs with just one optional parameter...
+        self._check_kwargs(**kwargs)
+
+        # but this is where the magic comes in (thanks to defaults)
+        stations = self._extract_kwarg_values(**kwargs)
+
+        # initialize an array to store the rfi in
+        rfi = np.zeros((lsts.size, freqs.size), dtype=np.complex)
+
+        if stations is None:
+            warnings.warn(
+                "You did not specify any stations to simulate."
+            )
+            return rfi
+        elif isinstance(stations, str):
+            # assume that it's a path to a npy file
+            stations = np.load(stations)
+
+        for station in stations:
+            if not isinstance(station, RfiStation):
+                if len(station) != 5:
+                    raise ValueError(
+                        "Stations are specified by 5-tuples. Please "
+                        "check the format of your stations."
+                    )
+                
+                # make an RfiStation if it isn't one
+                station = RfiStation(*station)
+
+            # add the effect
+            rfi += station(lsts, freqs)
+
+        return rfi
