@@ -421,10 +421,42 @@ class Simulator:
         if save_seeds:
             seed_file = os.path.splitext(filename)[0] + "_seeds"
             np.save(seed_file, self.seeds)
-
-    def run_sim(self, config):
+    
+    @_generator_to_list
+    def run_sim(self, sim_file=None, **sim_params):
         # TODO: docstring
         """
         """
-        pass
+        # make sure that only sim_file or sim_params are specified
+        assert bool(sim_file) ^ bool(sim_params), \
+            "Either an absolute path to a simulation configuration " \
+            "file or a dictionary of simulation parameters may be " \
+            "passed, but not both. Please only pass one of the two."
 
+        # read the simulation file if provided
+        if sim_file is not None:
+            with open(sim_file, 'r') as config:
+                try:
+                    sim_params = yaml.load(
+                        config.read(), Loader=yaml.FullLoader
+                    )
+                except:
+                    print("The configuration file was not able to be loaded.")
+                    print("Please fix the file and try again.")
+                    sys.exit()
+
+        # loop over the entries in the configuration dictionary
+        for component, params in sim_params.items():
+            # make sure that the parameters are a dictionary
+            assert isinstance(params, dict), \
+                "The parameters for {component} are not formatted " \
+                "properly. Please ensure that the parameters for " \
+                "each component are specified using a " \
+                "dictionary.".format(component=component)
+            
+            # add the component to the data
+            value = self.add(component, **params)
+        
+            # if the user wanted to return the data, then
+            if value is not None:
+                yield (component, value)
