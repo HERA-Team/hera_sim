@@ -139,24 +139,7 @@ class Simulator:
             # determine whether or not to seed the RNG(s) used in 
             # simulating the model effects
             if seed_mode is not None:
-                if seed_mode == "redundantly":
-                    # generate seeds for each redundant group
-                    # this does nothing if the seeds already exist
-                    self._generate_redundant_seeds(model)
-                    # get the baseline integer for baseline (ant1, ant2)
-                    bl_int = self.data.antnums_to_baseline(ant1, ant2)
-                    # find out which redundant group the baseline is in
-                    key = [bl_int in reds 
-                           for reds in self._get_reds()].index(True)
-                    # seed the RNG accordingly
-                    np.random.seed(self._get_seed(model, key))
-                elif seed_mode == "once":
-                    # this should only be used for antenna-based gains
-                    # where it's most convenient to just seed the RNG 
-                    # once for the whole array
-                    np.random.seed(self._get_seed(model, 0))
-                else:
-                    raise ValueError("Seeding mode not supported.")
+                self._seed_rng(seed_mode)
             # check whether we're simulating a gain or a visibility
             if model.is_multiplicative:
                 # get the gains for the entire array
@@ -177,9 +160,36 @@ class Simulator:
     @staticmethod
     def _read_datafile(datafile, **kwargs):
         # TODO: docstring
+        """
+        """
         uvd = UVData()
         uvd.read(datafile, read_data=True, **kwargs)
         return uvd
+
+    @staticmethod
+    def _seed_rng(seed_mode):
+        # TODO: docstring
+        """
+        """
+        if seed_mode == "redundantly":
+            # generate seeds for each redundant group
+            # this does nothing if the seeds already exist
+            self._generate_redundant_seeds(model)
+            # get the baseline integer for baseline (ant1, ant2)
+            bl_int = self.data.antnums_to_baseline(ant1, ant2)
+            # find out which redundant group the baseline is in
+            key = [bl_int in reds 
+                   for reds in self._get_reds()].index(True)
+            # seed the RNG accordingly
+            np.random.seed(self._get_seed(model, key))
+        elif seed_mode == "once":
+            # this should only be used for antenna-based gains
+            # where it's most convenient to just seed the RNG 
+            # once for the whole array
+            np.random.seed(self._get_seed(model, 0))
+        else:
+            raise ValueError("Seeding mode not supported.")
+
 
     @staticmethod
     def _get_component(component):
