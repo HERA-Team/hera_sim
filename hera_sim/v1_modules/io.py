@@ -34,7 +34,7 @@ def empty_uvdata(Ntimes=None, start_time=None, integration_time=None,
         start_freq=start_freq,
         channel_width=channel_width,
         array_layout=array_layout,
-        polarization_array=polarization_array
+        polarization_array=polarization_array,
         telescope_location=telescope_location,
         telescope_name=telescope_name,
         write_files=write_files,

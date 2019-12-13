@@ -41,6 +41,7 @@ class Simulator:
             sim.defaults -> Defaults object
 
         """
+        uvdata_kwargs.update(kwargs)
         self._initialize_uvd(data, **uvdata_kwargs)
         self._components = {}
         self.extras = {}
@@ -57,15 +58,17 @@ class Simulator:
         antpos, ants = self.data.get_ENU_antpos(pick_data_ants=True)
         return dict(zip(ants, antpos))
 
-    @property
+    @cached_property
     def lsts(self):
         # TODO: docstring
         return np.unique(self.data.lst_array)
 
-    @property
+    @cached_property
     def freqs(self):
         # TODO: docstring
-        return np.unique(self.data.freq_array)
+        """Frequencies in GHz
+        """
+        return np.unique(self.data.freq_array) / 1e9
 
     def apply_defaults(self, default_config, refresh=True, **default_kwargs):
         # TODO: docstring
@@ -321,9 +324,9 @@ class Simulator:
         """
         model = self._get_model_name(model)
         if model not in self.seeds:
-            self._generate_seed(self, model, key)
+            self._generate_seed(model, key)
         if key not in self.seeds[model]:
-            self._generate_seed(self, model, key)
+            self._generate_seed(model, key)
         return self.seeds[model][key]
     
     @staticmethod
@@ -376,9 +379,11 @@ class Simulator:
         """
         model = self._get_model_name(model)
         msg = "hera_sim v{version}: Added {component} using kwargs:\n"
+        if not kwargs and defaults._override_defaults:
+            msg += "defaults ({config})".format(config=defaults._config_name)
         for param, value in kwargs.items():
             msg += "{param} = {value}\n".format(param=param, value=value)
-        msg.format(version=version, component=model)
+        msg = msg.format(version=version, component=model)
         self.data.history += msg
 
     def add(self, component, **kwargs):
