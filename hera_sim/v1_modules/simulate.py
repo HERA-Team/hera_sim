@@ -86,8 +86,6 @@ class Simulator:
             defaults.set(default_config, refresh=refresh)
         else:
             defaults.set(**default_kwargs, refresh=refresh)
-        # keep track of what the default parameter settings are
-        self.defaults = defaults()
 
     def _initialize_uvd(self, data, **uvdata_kwargs):
         # TODO: docstring
@@ -379,8 +377,8 @@ class Simulator:
         """
         model = self._get_model_name(model)
         msg = "hera_sim v{version}: Added {component} using kwargs:\n"
-        if not kwargs and defaults._override_defaults:
-            msg += "defaults ({config})".format(config=defaults._config_name)
+        if defaults._override_defaults:
+            kwargs["defaults"] = defaults._config_name
         for param, value in kwargs.items():
             msg += "{param} = {value}\n".format(param=param, value=value)
         msg = msg.format(version=version, component=model)
