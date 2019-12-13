@@ -18,6 +18,14 @@ from .defaults import defaults
 from .version import version
 from .components import SimulationComponent
 
+# wrapper for the run_sim method, necessary for part of the CLI
+def _generator_to_list(func, *args, **kwargs):
+    @functools.wraps(func)
+    def new_func(*args, **kwargs):
+        result = list(func(*args, **kwargs))
+        return None if result == [] else result
+    return new_func
+
 class Simulator:
     """Class for managing a simulation.
 
