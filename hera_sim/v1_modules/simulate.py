@@ -382,7 +382,6 @@ class Simulator:
         # TODO: docstring
         """
         """
-        assert isinstance(component, str)
         assert component in self._components.keys()
         # retrieve the model
         model, is_class = self._get_component(component)
