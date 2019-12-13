@@ -202,6 +202,92 @@ class Scatter(RFI):
 
         return rfi
 
+class DTV(RFI):
+    # TODO: docstring
+    """
+    """
+    __aliases__ = ("rfi_dtv", )
+
+    def __init__(self, dtv_band=(0.174, 0.214), 
+                 dtv_channel_width=0.008, dtv_chance=0.0001, 
+                 dtv_strength=10.0, dtv_std=10.0):
+        # TODO: docstring
+        """
+        """
+        super().__init__(
+            dtv_band=dtv_band,
+            dtv_channel_width=dtv_channel_width,
+            dtv_chance=dtv_chance,
+            dtv_strength=dtv_strength,
+            dtv_std=dtv_std
+        )
+
+    def __call__(self, lsts, freqs, **kwargs):
+        # TODO: docstring
+        """
+        """
+        # check the kwargs
+        self._check_kwargs(**kwargs)
+
+        # unpack them
+        (dtv_band, width, chance, strength, 
+            std) = self._extract_kwarg_values(**kwargs)
+
+        # make an empty rfi array
+        rfi = np.zeros((lsts.size, freqs.size), dtype=np.complex)
+
+        # get the lower and upper frequencies of the DTV band
+        freq_min, freq_max = dtv_band
+
+        # get the lower frequencies of each subband
+        bands = np.arange(freq_min, freq_max, width)
+
+        # only keep bands which overlap with the passed frequencies
+        overlap = np.logical_and(
+            bands >= freqs.min() - width, bands <= freqs.max()
+        )
+        bands = bands[overlap]
+
+        # raise a warning if there are no remaining bands
+        if len(bands) == 0:
+            warnings.warn(
+                "The DTV band does not overlap with any of the passed "
+                "frequencies. Please ensure that you are passing the "
+                "correct set of parameters."
+            )
+
+        # get the instrument channel width
+        channel_width = np.mean(np.diff(freqs))
+
+        # loop over the DTV bands, generating rfi where appropriate
+        for band in bands:
+            # get the channels affected
+            ch1 = np.argwhere(band <= freqs)[0][0]
+            try:
+                ch2 = np.argwhere(band + width <= freqs)[0][0]
+            except IndexError:
+                # in case the upper edge of the DTV band is outside
+                # the range of observed frequencies
+                ch2 = freqs.size
+
+            # pick out just the channels affected
+            this_rfi = rfi[:, ch1:ch2]
+
+            # find out which times are affected
+            rfis = np.random.uniform(size=lsts.size) <= chance
+
+            # calculate the signal... whomever did this first, tsk tsk...
+            signal = np.atleast_2d(
+                np.random.normal(strength, std, size=rfis.sum())
+                * np.exp(2j * np.pi * np.random.uniform(size=rfis.sum()))
+            ).T # don't ask me why we're taking the transpose...
+
+            # add the signal to the rfi array
+            this_rfi[rfis] += signal
+
+        return rfi
 
 rfi_stations = Stations()
 rfi_impulse = Impulse()
+rfi_scatter = Scatter()
+rfi_dtv = DTV()
