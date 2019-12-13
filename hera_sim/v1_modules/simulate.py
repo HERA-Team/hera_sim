@@ -128,16 +128,21 @@ class Simulator:
             pol_ind = self.data.get_pols().index(pol)
             yield ant1, ant2, pol, blt_inds, pol_ind
 
-    def _iteratively_apply(self, model, **kwargs):
+    def _iteratively_apply(self, model, add_vis=True, ret_vis=False, **kwargs):
         # TODO: docstring
         """
         """
+        # do nothing if neither adding nor returning the effect
+        if not add_vis and not ret_vis:
+            return
         # pull lsts/freqs if required and find out which extra 
         # parameters are required
         (args, requires_ants, requires_bl_vec, 
             requires_vis) = self._initialize_args_from_model(model)
         # figure out whether or not to seed the RNG
         seed_mode = kwargs.pop("seed_mode", None)
+        # get the original data array just in case
+        initial_data = self.data.data_array.copy()
         # do we really want to do it this way?
         for ant1, ant2, pol, blt_inds, pol_ind in self._iterate_antpair_pols():
             use_args = self._update_args(
@@ -163,6 +168,19 @@ class Simulator:
                 vis = model(*use_args, **kwargs)
                 # and add it in
                 self.data.data_array[blt_inds, 0, :, pol_ind] += vis
+
+        # return the component if desired
+        if ret_vis:
+            # return the gain dictionary if gains are simulated
+            if model.is_multiplicative:
+                return gains
+            # otherwise return the actual visibility simulated
+            else:
+                return self.data.data_array - initial_data
+        
+        # reset the data array if not adding the component
+        if not add_vis:
+            self.data.data_array = initial_data
 
 
     @staticmethod
@@ -367,6 +385,9 @@ class Simulator:
         # TODO: docstring
         """
         """
+        # find out whether to add and/or return the component
+        add_vis = kwargs.pop("add_vis", True)
+        ret_vis = kwargs.pop("ret_vis", False)
         # take out the seed_mode kwarg so as not to break initializor
         seed_mode = kwargs.pop("seed_mode", -1)
         # get the model for the desired component
@@ -380,11 +401,17 @@ class Simulator:
         if seed_mode != -1:
             kwargs["seed_mode"] = seed_mode
         # calculate the effect
-        self._iteratively_apply(model, **kwargs)
-        # log the component and its kwargs
-        self._components[component] = kwargs
-        # update the history
-        self._update_history(model, **kwargs)
+        data = self._iteratively_apply(
+            model, add_vis=add_vis, ret_vis=ret_vis, **kwargs
+        )
+        # log the component and its kwargs, if added to data
+        if add_vis:
+            self._components[component] = kwargs
+            # update the history
+            self._update_history(model, **kwargs)
+        # return the data if desired
+        if ret_vis:
+            return data
 
     def get(self, component, ant1=None, ant2=None, pol=None):
         # TODO: docstring
