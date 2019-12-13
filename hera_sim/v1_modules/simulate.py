@@ -90,15 +90,10 @@ class Simulator:
         else:
             raise ValueError("Unsupported type.") # make msg better
 
-    def _iterate_antpair_pols(self):
+    def _initialize_args_from_model(self, model):
         # TODO: docstring
-        for ant1, ant2, pol in self.data.get_antpairpols():
-            blt_inds = self.data.antpair2ind((ant1, ant2))
-            pol_ind = self.data.get_pols().index(pol)
-            yield ant1, ant2, pol, blt_inds, pol_ind
-
-    def _iteratively_apply(self, model, **kwargs):
-        # TODO: docstring
+        """
+        """
         model_params = inspect.signature(model).parameters
         # pull the lst and frequency arrays as required
         args = list(getattr(self, param) for param in model_params
@@ -112,12 +107,31 @@ class Simulator:
         # for cross-coupling xtalk
         requires_vis = any([param.find("vis") != -1
                             for param in model_params])
+        return (args, requires_ants, requires_bl_vec, requires_vis)
+
+    def _iterate_antpair_pols(self):
+        # TODO: docstring
+        """
+        """
+        for ant1, ant2, pol in self.data.get_antpairpols():
+            blt_inds = self.data.antpair2ind((ant1, ant2))
+            pol_ind = self.data.get_pols().index(pol)
+            yield ant1, ant2, pol, blt_inds, pol_ind
+
+    def _iteratively_apply(self, model, **kwargs):
+        # TODO: docstring
+        """
+        """
+        # pull lsts/freqs if required and find out which extra 
+        # parameters are required
+        (args, requires_ants, requires_bl_vec, 
+            requires_vis) = self._initialize_args_from_model(model)
         # figure out whether or not to seed the RNG
         seed_mode = kwargs.pop("seed_mode", None)
         # do we really want to do it this way?
         for ant1, ant2, pol, blt_inds, pol_ind in self._iterate_antpair_pols():
             use_args = self._update_args(
-                requires_ants, requires_bl_vec, requires_vis, args
+                args, requires_ants, requires_bl_vec, requires_vis
             )
             # determine whether or not to seed the RNG(s) used in 
             # simulating the model effects
@@ -173,8 +187,8 @@ class Simulator:
         else:
             raise ValueError("Seeding mode not supported.")
 
-    def _update_args(self, requires_ants, requires_bl_vec,
-                     requires_vis, args):
+    def _update_args(self, args, requires_ants, requires_bl_vec,
+                     requires_vis):
         # TODO: docstring
         """
         """
