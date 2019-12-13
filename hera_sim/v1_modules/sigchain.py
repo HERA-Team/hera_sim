@@ -3,6 +3,7 @@
 import numpy as np
 from abc import abstractmethod
 
+from . import interpolators
 from . import utils
 from .components import registry
 from .data import DATA_PATH
@@ -52,6 +53,9 @@ class Bandpass(Gain, is_multiplicative=True):
             # default to the H1C bandpass
             bp_poly = np.load(os.path.join(DATA_PATH, 
                                            "HERA_H1C_BANDPASS.npy"))
+        elif isinstance(bp_poly, str):
+            # make an interpolation object, assume it's a polyfit
+            bp_poly = interpolators.Bandpass(bp_poly)
         if callable(bp_poly):
             # support for interpolation objects
             bp_base = bp_poly(freqs)
