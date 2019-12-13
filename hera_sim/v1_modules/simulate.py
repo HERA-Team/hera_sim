@@ -133,12 +133,13 @@ class Simulator:
         # do we really want to do it this way?
         for ant1, ant2, pol, blt_inds, pol_ind in self._iterate_antpair_pols():
             use_args = self._update_args(
-                args, requires_ants, requires_bl_vec, requires_vis
+                args, requires_ants, requires_bl_vec, requires_vis,
+                ant1, ant2, pol
             )
             # determine whether or not to seed the RNG(s) used in 
             # simulating the model effects
             if seed_mode is not None:
-                self._seed_rng(seed_mode)
+                self._seed_rng(seed_mode, model, ant1, ant2)
             # check whether we're simulating a gain or a visibility
             if model.is_multiplicative:
                 # get the gains for the entire array
@@ -165,12 +166,12 @@ class Simulator:
         uvd.read(datafile, read_data=True, **kwargs)
         return uvd
 
-    @staticmethod
-    def _seed_rng(seed_mode):
+    def _seed_rng(self, seed_mode, model, ant1=None, ant2=None):
         # TODO: docstring
         """
         """
         if seed_mode == "redundantly":
+            assert ant1 is not None and ant2 is not None
             # generate seeds for each redundant group
             # this does nothing if the seeds already exist
             self._generate_redundant_seeds(model)
@@ -190,7 +191,7 @@ class Simulator:
             raise ValueError("Seeding mode not supported.")
 
     def _update_args(self, args, requires_ants, requires_bl_vec,
-                     requires_vis):
+                     requires_vis, ant1=None, ant2=None, pol=None):
         # TODO: docstring
         """
         """
@@ -377,13 +378,29 @@ class Simulator:
         # update the history
         self._update_history(model, **kwargs)
 
-    def get(self, component):
+    def get(self, component, ant1=None, ant2=None, pol=None):
         # TODO: docstring
         """
         """
+        assert isinstance(component, str)
         assert component in self._components.keys()
-        model, _ = self._get_component(component)(**self._components[component])
-        pass
+        # retrieve the model
+        model, is_class = self._get_component(component)
+        # get the kwargs
+        kwargs = self._components[component]
+        # figure out whether or not to seed the rng
+        seed_mode = kwargs.pop("seed_mode", None)
+        # instantiate the model if it's a class
+        if is_class:
+            model = model(**kwargs)
+        # seed the RNG if desired
+        if seed_mode is not None:
+            self._seed_rng(seed_mode, model, ant1, ant2)
+        # get the arguments necessary for the model
+        init_args = self._initialize_args_from_model(model)
+        use_args = self._update_args(*init_args, ant1, ant2, pol)
+        # now calculate the effect and return it
+        return model(*use_args, **kwargs)
 
     def write(self, filename, save_format="uvh5", save_seeds=True, **kwargs):
         # TODO: docstring
