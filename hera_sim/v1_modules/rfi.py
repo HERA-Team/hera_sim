@@ -159,5 +159,49 @@ class Impulse(RFI):
 
             return rfi
 
+class Scatter(RFI):
+    # TODO: docstring
+    """
+    """
+    __aliases__ = ("rfi_scatter", )
+
+    def __init__(self, scatter_chance=0.0001, scatter_strength=10.0,
+                 scatter_std=10.0):
+        # TODO: docstring
+        """
+        """
+        super().__init__(
+            scatter_chance=scatter_chance,
+            scatter_strength=scatter_strength,
+            scatter_std=scatter_std
+        )
+
+    def __call__(self, lsts, freqs, **kwargs):
+        # TODO: docstring
+        """
+        """
+        # validate the kwargs
+        self._check_kwargs(**kwargs)
+
+        # now unpack them
+        chance, strength, std = self._extract_kwarg_values(**kwargs)
+
+        # make an empty rfi array
+        rfi = np.zeros((lsts.size, freqs.size), dtype=np.complex)
+
+        # find out where to put the rfi
+        rfis = np.where(np.random.uniform(size=rfi.size) <= chance)[0]
+
+        # simulate the rfi; one random amplitude, all random phases
+        signal = np.random.normal(strength, std) * np.exp(
+            2j * np.pi * np.random.uniform(size=rfis.size)
+        )
+
+        # add the signal to the rfi
+        rfi.flat[rfis] += signal
+
+        return rfi
+
 
 rfi_stations = Stations()
+rfi_impulse = Impulse()
