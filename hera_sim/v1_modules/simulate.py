@@ -116,26 +116,9 @@ class Simulator:
         seed_mode = kwargs.pop("seed_mode", None)
         # do we really want to do it this way?
         for ant1, ant2, pol, blt_inds, pol_ind in self._iterate_antpair_pols():
-            # check if this is an antenna-dependent quantity; should
-            # only ever be true for gains (barring future changes)
-            if requires_ants:
-                ants = self.antpos
-                use_args = args + [ants]
-            # check if this is something requiring a baseline vector
-            # current assumption is that these methods require the
-            # baseline vector to be provided in nanoseconds
-            elif requires_bl_vec:
-                bl_vec = self.antpos[ant1] - self.antpos[ant2]
-                bl_vec_ns = bl_vec * 1e9 / const.c.value
-                use_args = args + [bl_vec_ns]
-            # check if this is something that depends on another
-            # visibility. as of now, this should only be cross coupling
-            # crosstalk
-            elif requires_vis:
-                autovis = self.data.get_data(ant1, ant1, pol)
-                use_args = args + [autovis]
-            else:
-                use_args = args.copy()
+            use_args = self._update_args(
+                requires_ants, requires_bl_vec, requires_vis, args
+            )
             # determine whether or not to seed the RNG(s) used in 
             # simulating the model effects
             if seed_mode is not None:
@@ -190,6 +173,32 @@ class Simulator:
         else:
             raise ValueError("Seeding mode not supported.")
 
+    def _update_args(self, requires_ants, requires_bl_vec,
+                     requires_vis, args):
+        # TODO: docstring
+        """
+        """
+        # check if this is an antenna-dependent quantity; should
+        # only ever be true for gains (barring future changes)
+        if requires_ants:
+            ants = self.antpos
+            use_args = args + [ants]
+        # check if this is something requiring a baseline vector
+        # current assumption is that these methods require the
+        # baseline vector to be provided in nanoseconds
+        elif requires_bl_vec:
+            bl_vec = self.antpos[ant1] - self.antpos[ant2]
+            bl_vec_ns = bl_vec * 1e9 / const.c.value
+            use_args = args + [bl_vec_ns]
+        # check if this is something that depends on another
+        # visibility. as of now, this should only be cross coupling
+        # crosstalk
+        elif requires_vis:
+            autovis = self.data.get_data(ant1, ant1, pol)
+            use_args = args + [autovis]
+        else:
+            use_args = args.copy()
+        return use_args
 
     @staticmethod
     def _get_component(component):
