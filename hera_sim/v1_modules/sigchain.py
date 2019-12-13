@@ -1,5 +1,6 @@
 """Object-oriented approach to signal chain systematics."""
 
+import os
 import numpy as np
 from abc import abstractmethod
 
