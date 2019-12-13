@@ -80,6 +80,8 @@ class Simulator:
 
     def _initialize_uvd(self, data, **uvdata_kwargs):
         # TODO: docstring
+        """
+        """
         if data is None:
             self.data = io.empty_uvdata(**uvdata_kwargs)
         elif isinstance(data, str):
@@ -217,6 +219,8 @@ class Simulator:
     @staticmethod
     def _get_component(component):
         # TODO: docstring
+        """
+        """
         try:
             if issubclass(component, SimulationComponent):
                 # support passing user-defined classes that inherit from
@@ -259,6 +263,8 @@ class Simulator:
 
     def _generate_seed(self, model, key):
         # TODO: docstring
+        """
+        """
         model = self._get_model_name(model)
         # for the sake of randomness
         np.random.seed(int(time.time()))
@@ -268,6 +274,8 @@ class Simulator:
 
     def _generate_redundant_seeds(self, model):
         # TODO: docstring
+        """
+        """
         model = self._get_model_name(model)
         if model in self.seeds:
             return
@@ -276,10 +284,14 @@ class Simulator:
 
     def _get_reds(self):
         # TODO: docstring
+        """
+        """
         return self.data.get_baseline_redundancies()[0]
 
     def _get_seed(self, model, key):
         # TODO: docstring
+        """
+        """
         model = self._get_model_name(model)
         if model not in self.seeds:
             self._generate_seed(self, model, key)
@@ -290,6 +302,8 @@ class Simulator:
     @staticmethod
     def _get_model_name(model):
         # TODO: docstring
+        """
+        """
         if isinstance(model, str):
             return model
         try:
@@ -313,6 +327,8 @@ class Simulator:
 
     def _sanity_check(self, model):
         # TODO: docstring
+        """
+        """
         has_data = not np.all(self.data.data_array == 0)
         is_multiplicative = model.is_multiplicative
         contains_multiplicative_effect = any([
@@ -328,6 +344,9 @@ class Simulator:
                           "introduced.")
 
     def _update_history(self, model, **kwargs):
+        # TODO: docstring
+        """
+        """
         model = self._get_model_name(model)
         msg = "hera_sim v{version}: Added {component} using kwargs:\n"
         for param, value in kwargs.items():
@@ -337,6 +356,8 @@ class Simulator:
 
     def add(self, component, **kwargs):
         # TODO: docstring
+        """
+        """
         # take out the seed_mode kwarg so as not to break initializor
         seed_mode = kwargs.pop("seed_mode", -1)
         # get the model for the desired component
@@ -358,12 +379,16 @@ class Simulator:
 
     def get(self, component):
         # TODO: docstring
+        """
+        """
         assert component in self._components.keys()
         model, _ = self._get_component(component)(**self._components[component])
         pass
 
     def write(self, filename, save_format="uvh5", save_seeds=True, **kwargs):
         # TODO: docstring
+        """
+        """
         try:
             getattr(self.data, "write_%s" % save_format)(filename, **kwargs)
         except AttributeError:
@@ -374,5 +399,8 @@ class Simulator:
             np.save(seed_file, self.seeds)
 
     def run_sim(self, config):
+        # TODO: docstring
+        """
+        """
         pass
 
