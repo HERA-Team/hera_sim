@@ -1,7 +1,4 @@
-"""
-Primary interface module for hera_sim, defining a :class:`Simulator` class which provides a common API for all
-effects produced by this package.
-"""
+"""Re-imagining of the simulation module."""
 
 import functools
 import inspect
@@ -15,20 +12,13 @@ import numpy as np
 from cached_property import cached_property
 from pyuvdata import UVData
 from astropy import constants as const
-from collections import OrderedDict
 
 from . import io
-from . import sigchain
-from .interpolators import Tsky
+from .defaults import defaults
 from .version import version
+from .components import SimulationComponent
 
-
-class CompatibilityException(ValueError):
-    pass
-
-def _get_model(mod, name):
-    return getattr(sys.modules["hera_sim." + mod], name)
-
+# wrapper for the run_sim method, necessary for part of the CLI
 def _generator_to_list(func, *args, **kwargs):
     @functools.wraps(func)
     def new_func(*args, **kwargs):
@@ -36,602 +26,555 @@ def _generator_to_list(func, *args, **kwargs):
         return None if result == [] else result
     return new_func
 
-class _model(object):
-    """
-    A decorator that defines a "model" addition for the Simulator class.
-
-    The basic functionality of the model is to:
-
-    1. Provide keywords "add_vis" and "ret_vis" to enable adding the resulting
-       visibilities to the underlying dataset or returning the added visibilities.
-    2. Automatically locate a callable model provided either that callable
-       or a string function name (the module from which the callable is imported
-       can be passed to the decorator, but is by default intepreted as the last
-       part of the model name).
-    3. Add a comment to the `history` of the UVData object concerning what
-       exactly has ben added.
-    """
-
-    def __init__(self, base_module=None, multiplicative=False):
-        self.base_module = base_module
-        self.multiplicative = multiplicative
-
-    def __call__(self, func, *args, **kwargs):
-        name = func.__name__
-
-        @functools.wraps(func)
-        def new_func(obj, *args, **kwargs):
-            # add new kwargs for adding/returning visibilities
-            add_vis = kwargs.pop("add_vis", True)
-            ret_vis = kwargs.pop("ret_vis", False)
-
-            # add kwarg for returning gains
-            ret_gains = kwargs.pop("ret_gains", False)
-
-            # assume the user wants visibilities returned if not added
-            if not add_vis:
-                ret_vis = True
-
-            # if we want to return something, need initial visibilities
-            if ret_vis or ret_gains:
-                initial_vis = obj.data.data_array.copy()
-
-            # If this is a multiplicative model, and *no* additive models
-            # have been called, raise a warning.
-            if self.multiplicative and np.all(obj.data.data_array == 0):
-                warnings.warn("You are trying to determine visibilities that "
-                              "depend on preceding visibilities, but "
-                              "no previous visibilities have been created.")
-            elif not self.multiplicative and (hasattr(obj, "_added_models") \
-                     and any([x[1] for x in obj._added_models])):
-                # some of the previous models were multiplicative, and now we're trying to add.
-                warnings.warn("You are adding absolute visibilities _after_ "
-                              "determining visibilities that should " 
-                              "depend on these. Please re-consider.")
-
-            if "model" in inspect.getargspec(func)[0]: # TODO: needs to be updated for python 3
-                # Cases where there is a choice of model
-                model = args[0] if args else kwargs.pop("model")
-
-                # If the model is a str, get its actual callable.
-                if isinstance(model, str):
-                    if self.base_module is None:
-                        self.base_module = name[4:]  # get the bit after the "add"
-
-                    model = _get_model(self.base_module, model)
-
-                func(obj, model, **kwargs)
-
-                if not isinstance(model, str):
-                    method = model.__name__
-                else:
-                    method = model
-
-                method = "using {} ".format(method)
-            else:
-                # For cases where there is no choice of model.
-                method = ""
-                func(obj, *args, **kwargs)
-
-            if add_vis:
-                msg = "hera_sim v{version}: Added {component} " \
-                      "{method_name}with kwargs: {kwargs}\n".format(
-                              version=version,
-                              component=" ".join(name.split("_")[1:]),
-                              method_name=method,
-                              kwargs=kwargs)
-                obj.data.history += msg
-
-                # Add this particular model to a cache of "added models" for this sim.
-                # This can be gotten from history, but easier just to keep it here.
-                if not hasattr(obj, "_added_models"):
-                    obj._added_models = [(name, self.multiplicative)]
-                else:
-                    obj._added_models += [(name, self.multiplicative)]
-
-            # get new visibilities added if returning this component's visibilities
-            if ret_vis:
-                residual = obj.data.data_array - initial_vis
-
-            # get the gains if we want to return them
-            if ret_gains:
-                gains = obj.data.data_array / initial_vis
-
-            # reset the visibility array if we don't want to add the visibilities
-            if not add_vis:
-                obj.data.data_array = initial_vis
-
-            # determine what to return, if anything at all
-            if ret_vis or ret_gains:
-                return (residual, gains) if ret_vis and ret_gains \
-                  else residual if ret_vis else gains
-
-        return new_func
-
 class Simulator:
+    """Class for managing a simulation.
+
     """
-    Primary interface object for hera_sim.
+    def __init__(self, data=None, uvdata_kwargs={}, 
+                       default_config=None, default_kwargs={},
+                       **kwargs):
+        """Initialize a Simulator object.
 
-    Produces visibility simulations with various independent sky- and instrumental-effects, and offers the resulting
-    visibilities in :class:`pyuvdata.UVData` format.
-    """
- 
-    # make a dictionary whose values point to the various methods
-    # used to add different simulation components
-    SIMULATION_COMPONENTS = OrderedDict(
-                            { 'noiselike_eor':'add_eor',
-                              'diffuse_foreground':'add_foregrounds',
-                              'pntsrc_foreground':'add_foregrounds',
-                              'thermal_noise':'add_noise',
-                              'rfi_stations':'add_rfi',
-                              'rfi_impulse':'add_rfi',
-                              'rfi_scatter':'add_rfi',
-                              'rfi_dtv':'add_rfi',
-                              'gains':'add_gains',
-                              'sigchain_reflections':'add_sigchain_reflections',
-                              'gen_whitenoise_xtalk':'add_xtalk',
-                              'gen_cross_coupling_xtalk':'add_xtalk'
-                              } )
-
-    def __init__(
-            self,
-            data_filename=None,
-            data = None,
-            refresh_data=False,
-            n_freq=None,
-            n_times=None,
-            antennas=None,
-            **kwargs
-    ):
-        """
-        Initialise the object either from file or by creating an empty object.
-
-        Args:
-            data_filename (str, optional): filename of data to be read, in ``pyuvdata``-compatible format. If not
-                given, an empty :class:`pyuvdata.UVdata` object will be created from scratch. *Deprecated since
-                v0.0.1, will be removed in v0.1.0. Use `data` instead*.
-            data (str or :class:`UVData`): either a string pointing to data to be read (i.e. the same as
-                `data_filename`), or a UVData object.
-            refresh_data (bool, optional): if reading data from file, this can be used to manually set the data to zero,
-                and remove flags. This is useful for using an existing file as a template, but not using its data.
-            n_freq (int, optional): if `data_filename` not given, this is required and sets the number of frequency
-                channels.
-            n_times (int, optional): if `data_filename` is not given, this is required and sets the number of obs
-                times.
-            antennas (dict, optional): if `data_filename` not given, this is required. See docs of
-                :func:`~io.empty_uvdata` for more details.
-
-        Other Args:
-            All other arguments are sent either to :func:`~UVData.read` (if `data_filename` is given) or
-            :func:`~io.empty_uvdata` if not. These all have default values as defined in the documentation for those
-            objects, and are therefore optional.
-
-        Raises:
-            :class:`CompatibilityException`: if the created/imported data has attributes which are in conflict
-                with the assumptions made in the models of this Simulator.
+        Idea: Make Simulator object have three major components:
+            sim.data -> UVData object for storing the "measured" data
+                Also keep track of most metadata here
+            sim.defaults -> Defaults object
 
         """
-
-        if data_filename is not None:
-            warnings.warn("`data_filename` is deprecated, please use `data` instead", DeprecationWarning)
-            
-        self.data_filename = data_filename
-
-        if self.data_filename is None and data is None:
-            # Create an empty UVData object.
-
-            # Ensure required parameters have been set.
-            if n_freq is None:
-                raise ValueError("if data_filename and data not given, n_freq must be given")
-            if n_times is None:
-                raise ValueError("if data_filename and data not given, n_times must be given")
-            if antennas is None:
-                raise ValueError("if data_filename and data not given, antennas must be given")
-
-            # Actually create it
-            self.data = io.empty_uvdata(
-                nfreq=n_freq,
-                ntimes=n_times,
-                ants=antennas,
-                **kwargs
-            )
-
-        else:
-            if type(data) is str:
-                self.data_filename = data
-
-            if self.data_filename is not None:
-                # Read data from file.
-                self.data = self._read_data(self.data_filename, **kwargs)
-
-                # Reset data to zero if user desires.
-                if refresh_data:
-                    self.data.data_array[:] = 0.0
-                    self.data.flag_array[:] = False
-                    self.data.nsample_array[:] = 1.0
-            else:
-                self.data = data
-
-        # Assume the phase type is drift unless otherwise specified.
-        if self.data.phase_type == "unknown":
-            self.data.set_drift()
-
-        # add redundant bl groups to UVData object's extra keywords
-        #self.data.extra_keywords['reds'] = self.data.get_baseline_redundancies()[0]
-
-        # Check if the created/read data is compatible with the assumptions of
-        # this class.
-        self._check_compatibility()
+        uvdata_kwargs.update(kwargs)
+        self._initialize_uvd(data, **uvdata_kwargs)
+        self._components = {}
+        self.extras = {}
+        self.seeds = {}
+        # apply and activate defaults if specified
+        if default_config or default_kwargs:
+            self.apply_defaults(default_config, **default_kwargs)
 
     @cached_property
     def antpos(self):
+        # TODO: docstring
         """
-        Dictionary of {antenna: antenna_position} for all antennas in the data.
         """
         antpos, ants = self.data.get_ENU_antpos(pick_data_ants=True)
         return dict(zip(ants, antpos))
 
+    @cached_property
+    def lsts(self):
+        # TODO: docstring
+        return np.unique(self.data.lst_array)
+
+    @cached_property
+    def freqs(self):
+        # TODO: docstring
+        """Frequencies in GHz
+        """
+        return np.unique(self.data.freq_array) / 1e9
+
+    def apply_defaults(self, default_config=None, refresh=True, 
+                       **default_kwargs):
+        # TODO: docstring
+        """
+        """
+        # ensure that only one of these is set
+        assert bool(default_config) ^ bool(default_kwargs), \
+            "If you wish to use a default configuration, please " \
+            "only specify *either* a path to a configuration file " \
+            "*or* a default parameter dictionary. You are seeing " \
+            "this message because you specified both."
+
+        # actually apply the default settings
+        if default_config:
+            defaults.set(default_config, refresh=refresh)
+        else:
+            defaults.set(**default_kwargs, refresh=refresh)
+
     @staticmethod
-    def _read_data(filename, **kwargs):
-        uv = UVData()
-        uv.read(filename, read_data=True, **kwargs)
-        return uv
+    def _apply_filter(vis_filter, ant1, ant2, pol):
+        # TODO: docstring
+        """
+        """
+        # find out whether or not multiple keys are passed
+        multikey = any(
+            [isinstance(key, (list, tuple)) for key in vis_filter]
+        )
+        # iterate over the keys, find if any are okay
+        if multikey:
+            apply_filter = [self._apply_filter(key, ant1, ant2, pol)
+                            for key in vis_filter]
+            # if a single filter says to let it pass, then do so
+            return all(apply_filter)
+        elif len(vis_filter) == 1:
+            # check if the polarization matches, since the only 
+            # string identifiers should be polarization strings
+            if isinstance(vis_filter, str):
+                return not pol == vis_filter[0]
+            # otherwise assume that this is specifying an antenna
+            else:
+                return not vis_filter[0] in (ant1, ant2)
+        elif len(vis_filter) == 2:
+            # there are three cases: two polarizations are specified;
+            # an antpol is specified; a baseline is specified
+            # first, handle the case of two polarizations
+            if all([isinstance(key, str) for key in vis_filter]):
+                return not pol in vis_filter
+            # otherwise it's simple
+            else:
+                return not all(
+                    [key in (ant1, ant2, pol) for key in vis_filter]
+                )
+        elif len(vis_filter) == 3:
+            # assume that this is a proper antpairpol
+            return not all(
+                [key in vis_filter for key in (ant1, ant2, pol)]
+            )
+        else:
+            # assume it's some list of antennas/polarizations
+            return not any(
+                [key in (ant1, ant2, pol) for key in vis_filter]
+            )
 
-    def write_data(self, filename, file_type="uvh5", ret_seeds=False, 
-                   save_seeds=False, **kwargs):
+    def _initialize_uvd(self, data, **uvdata_kwargs):
+        # TODO: docstring
         """
-        Write current UVData object to file.
+        """
+        if data is None:
+            self.data = io.empty_uvdata(**uvdata_kwargs)
+        elif isinstance(data, str):
+            self.data = self._read_datafile(data, **uvdata_kwargs)
+            self.extras['data_file'] = data
+        elif isinstance(data, UVData):
+            self.data = data
+        else:
+            raise ValueError("Unsupported type.") # make msg better
 
-        Args:
-            filename (str): filename to write to.
-            file_type: (str): one of "miriad", "uvfits" or "uvh5" (i.e. any of the supported write methods of
-                :class:`pyuvdata.UVData`) which determines which write method to call.
-            **kwargs: keyword arguments sent directly to the write method chosen.
+    def _initialize_args_from_model(self, model):
+        # TODO: docstring
         """
-        seeds = self.data.extra_keywords.pop('seeds', {})
-        try:
-            getattr(self.data, "write_%s" % file_type)(filename, **kwargs)
-        except AttributeError:
-            raise ValueError("The file_type must correspond to a write method in UVData.")
-        if save_seeds:
-            seed_file = os.path.splitext(filename)[0]
-            np.save(seed_file, seeds)
-        # put seeds back into extra keywords
-        if seeds:
-            self.data.extra_keywords['seeds'] = seeds
-        if ret_seeds:
-            return seeds
-
-    def _check_compatibility(self):
         """
-        Merely checks the compatibility of the data with the assumptions of the simulator class and its modules.
-        """
-        if self.data.phase_type != "drift":
-            raise CompatibilityException("The phase_type of the data must be 'drift'.")
+        model_params = inspect.signature(model).parameters
+        # pull the lst and frequency arrays as required
+        args = list(getattr(self, param) for param in model_params
+                    if param in ("lsts", "freqs"))
+        # for antenna-based gains
+        requires_ants = any([param.startswith("ant")
+                             for param in model_params])
+        # for sky components
+        requires_bl_vec = any([param.startswith("bl") 
+                               for param in model_params])
+        # for cross-coupling xtalk
+        requires_vis = any([param.find("vis") != -1
+                            for param in model_params])
+        return (args, requires_ants, requires_bl_vec, requires_vis)
 
     def _iterate_antpair_pols(self):
+        # TODO: docstring
         """
-        Iterate through antenna pairs and polarizations in the data object
         """
-
         for ant1, ant2, pol in self.data.get_antpairpols():
             blt_inds = self.data.antpair2ind((ant1, ant2))
             pol_ind = self.data.get_pols().index(pol)
             yield ant1, ant2, pol, blt_inds, pol_ind
 
-    def _apply_vis(self, model, ant1, ant2, blt_ind, pol_ind, **kwargs):
-        # get freqs from zeroth spectral window
-        fqs = self.data.freq_array[0] * 1e-9
-        lsts = self.data.lst_array[blt_ind]
-        bl_vec = (self.antpos[ant1] - self.antpos[ant2]) * 1e9 / const.c.value
-        vis = model(lsts=lsts, fqs=fqs, bl_vec=bl_vec, **kwargs)
-        self.data.data_array[blt_ind, 0, :, pol_ind] += vis
+    def _iteratively_apply(self, model, add_vis=True, ret_vis=False, 
+                           vis_filter=None, **kwargs):
+        # TODO: docstring
+        """
+        """
+        # do nothing if neither adding nor returning the effect
+        if not add_vis and not ret_vis:
+            warnings.warn(
+                "You have chosen to neither add nor return the effect "
+                "you are trying to simulate, so nothing will be "
+                "computed. This warning was raised for the model: "
+                "{model}".format(model=self._get_model_name(model))
+            )
+            return
+        
+        # pull lsts/freqs if required and find out which extra 
+        # parameters are required
+        (args, requires_ants, requires_bl_vec, 
+            requires_vis) = self._initialize_args_from_model(model)
+        
+        # figure out whether or not to seed the RNG
+        seed_mode = kwargs.pop("seed_mode", None)
+        
+        # get the original data array just in case
+        initial_data = self.data.data_array.copy()
+        
+        # find out if the model is multiplicative
+        is_multiplicative = getattr(model, "is_multiplicative", None)
+        
+        # handle user-defined functions as the passed model
+        if is_multiplicative is None:
+            warnings.warn(
+                "You are attempting to compute a component but have "
+                "not specified an ``is_multiplicative`` attribute for "
+                "the component. The component will be added under "
+                "the assumption that it is *not* multiplicative."
+            )
+            is_multiplicative = False
+
+        for ant1, ant2, pol, blt_inds, pol_ind in self._iterate_antpair_pols():
+            # filter what's actually having data simulated
+            if vis_filter is not None:
+                if self._apply_filter(utils._listify(vis_filter)):
+                    continue
+
+            use_args = self._update_args(
+                args, requires_ants, requires_bl_vec, requires_vis,
+                ant1, ant2, pol
+            )
+            # determine whether or not to seed the RNG(s) used in 
+            # simulating the model effects
+            if seed_mode is not None:
+                self._seed_rng(seed_mode, model, ant1, ant2)
+            # check whether we're simulating a gain or a visibility
+            if is_multiplicative:
+                # get the gains for the entire array
+                # this is sloppy, but ensures seeding works correctly
+                gains = model(*use_args, **kwargs)
+                # now get the product g_1g_2*
+                gain = gains[ant1] * np.conj(gains[ant2])
+                # apply the effect to the appropriate part of the data
+                self.data.data_array[blt_inds, 0, :, pol_ind] *= gain
+            else:
+                # if it's not multiplicative, then it should be an 
+                # actual visibility, so calculate it
+                vis = model(*use_args, **kwargs)
+                # and add it in
+                self.data.data_array[blt_inds, 0, :, pol_ind] += vis
+
+        # return the component if desired
+        if ret_vis:
+            # return the gain dictionary if gains are simulated
+            if is_multiplicative:
+                return gains
+            # otherwise return the actual visibility simulated
+            else:
+                return self.data.data_array - initial_data
+        
+        # reset the data array if not adding the component
+        if not add_vis:
+            self.data.data_array = initial_data
+
+
+    @staticmethod
+    def _read_datafile(datafile, **kwargs):
+        # TODO: docstring
+        """
+        """
+        uvd = UVData()
+        uvd.read(datafile, read_data=True, **kwargs)
+        return uvd
+
+    def _seed_rng(self, seed_mode, model, ant1=None, ant2=None):
+        # TODO: docstring
+        """
+        """
+        if seed_mode == "redundantly":
+            assert ant1 is not None and ant2 is not None
+            # generate seeds for each redundant group
+            # this does nothing if the seeds already exist
+            self._generate_redundant_seeds(model)
+            # get the baseline integer for baseline (ant1, ant2)
+            bl_int = self.data.antnums_to_baseline(ant1, ant2)
+            # find out which redundant group the baseline is in
+            key = [bl_int in reds 
+                   for reds in self._get_reds()].index(True)
+            # seed the RNG accordingly
+            np.random.seed(self._get_seed(model, key))
+        elif seed_mode == "once":
+            # this should only be used for antenna-based gains
+            # where it's most convenient to just seed the RNG 
+            # once for the whole array
+            np.random.seed(self._get_seed(model, 0))
+        else:
+            raise ValueError("Seeding mode not supported.")
+
+    def _update_args(self, args, requires_ants, requires_bl_vec,
+                     requires_vis, ant1=None, ant2=None, pol=None):
+        # TODO: docstring
+        """
+        """
+        # check if this is an antenna-dependent quantity; should
+        # only ever be true for gains (barring future changes)
+        if requires_ants:
+            ants = self.antpos
+            use_args = args + [ants]
+        # check if this is something requiring a baseline vector
+        # current assumption is that these methods require the
+        # baseline vector to be provided in nanoseconds
+        elif requires_bl_vec:
+            bl_vec = self.antpos[ant1] - self.antpos[ant2]
+            bl_vec_ns = bl_vec * 1e9 / const.c.value
+            use_args = args + [bl_vec_ns]
+        # check if this is something that depends on another
+        # visibility. as of now, this should only be cross coupling
+        # crosstalk
+        elif requires_vis:
+            autovis = self.data.get_data(ant1, ant1, pol)
+            use_args = args + [autovis]
+        else:
+            use_args = args.copy()
+        return use_args
+
+    @staticmethod
+    def _get_component(component):
+        # TODO: docstring
+        """
+        """
+        try:
+            if issubclass(component, SimulationComponent):
+                # support passing user-defined classes that inherit from
+                # the SimulationComponent base class to add method
+                return component, True
+        except TypeError:
+            # this is raised if ``component`` is not a class
+            if callable(component):
+                # if it's callable, then it's either a user-defined 
+                # function or a class instance
+                return component, False
+            else:
+                assert isinstance(component, str), \
+                        "``component`` must be either a class which " \
+                        "derives from ``SimulationComponent`` or an " \
+                        "instance of a callable class, or a function, " \
+                        "whose signature is:\n" \
+                        "func(lsts, freqs, *args, **kwargs)\n" \
+                        "If it is none of the above, then it must be " \
+                        "a string which corresponds to the name of a " \
+                        "``hera_sim`` class or an alias thereof."
+                # keep track of all known aliases in case desired 
+                # component isn't found in the search
+                all_aliases = []
+                for registry in SimulationComponent.__subclasses__():
+                    for model in registry.__subclasses__():
+                        aliases = (model.__name__,)
+                        aliases += getattr(model, "__aliases__", ())
+                        aliases = [alias.lower() for alias in aliases]
+                        for alias in aliases:
+                            all_aliases.append(alias)
+                        if component.lower() in aliases:
+                            return model, True
+                # if this part is executed, then the model wasn't found, so
+                msg = "The component '{component}' wasn't found. The "
+                msg += "following aliases are known: "
+                msg += ", ".join(set(all_aliases))
+                msg = msg.format(component=component)
+                raise AttributeError(msg)
+
+    def _generate_seed(self, model, key):
+        # TODO: docstring
+        """
+        """
+        model = self._get_model_name(model)
+        # for the sake of randomness
+        np.random.seed(int(time.time()))
+        if model not in self.seeds:
+            self.seeds[model] = {}
+        self.seeds[model][key] = np.random.randint(2**32)
+
+    def _generate_redundant_seeds(self, model):
+        # TODO: docstring
+        """
+        """
+        model = self._get_model_name(model)
+        if model in self.seeds:
+            return
+        for j in range(len(self._get_reds())):
+            self._generate_seed(model, j)
 
     def _get_reds(self):
+        # TODO: docstring
+        """
+        """
         return self.data.get_baseline_redundancies()[0]
 
-    def _generate_seeds(self, model):
-        if 'seeds' not in self.data.extra_keywords.keys():
-            self.data.extra_keywords['seeds'] = {}
-        np.random.seed(int(time.time()))
-        seeds = np.random.randint(2**32, size=len(self._get_reds()))
-        self.data.extra_keywords['seeds'][model.__name__] = seeds
+    def _get_seed(self, model, key):
+        # TODO: docstring
+        """
+        """
+        model = self._get_model_name(model)
+        if model not in self.seeds:
+            self._generate_seed(model, key)
+        if key not in self.seeds[model]:
+            self._generate_seed(model, key)
+        return self.seeds[model][key]
     
-    def _get_seed(self, ant1, ant2, model):
-        seeds = self.data.extra_keywords['seeds'][model.__name__]
-        bl = self.data.antnums_to_baseline(ant1, ant2)
-        key = []
-        for reds in self._get_reds():
-            key.append(bl in reds)
-        return seeds[key.index(True)]
-
-    @_model()
-    def add_eor(self, model, **kwargs):
+    @staticmethod
+    def _get_model_name(model):
+        # TODO: docstring
         """
-        Add an EoR-like model to the visibilities.
-
-        Args:
-            model (str or callable): either a string name of a model function existing in :mod:`~hera_sim.eor`, or
-                a callable which has the signature ``fnc(lsts, fqs, bl_vec, **kwargs)``.
-            ret_vis (bool, optional): whether to return the visibilities that are being added to to the base
-                data as a new array. Default False.
-            add_vis (bool, optional): whether to add the calculated visibilities to the underlying data array.
-                Default True.
-            **kwargs: keyword arguments sent to the EoR model function, other than `lsts`, `fqs` and `bl_vec`.
         """
-        seed_redundantly = kwargs.pop("seed_redundantly", False)
-        if seed_redundantly:
-            self._generate_seeds(model)
-
-        for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols():
-            if seed_redundantly:
-                seed = self._get_seed(ant1, ant2, model)
-                np.random.seed(seed)
-
-            self._apply_vis(model, ant1, ant2, blt_ind, pol_ind, **kwargs)
-
-    @_model()
-    def add_foregrounds(self, model, **kwargs):
-        """
-        Add a foreground model to the visibilities.
-
-        Args:
-            model (str or callable): either a string name of a model function existing in :mod:`~hera_sim.foregrounds`,
-                or a callable which has the signature ``fnc(lsts, fqs, bl_vec, **kwargs)``.
-            ret_vis (bool, optional): whether to return the visibilities that are being added to to the base
-                data as a new array. Default False.
-            add_vis (bool, optional): whether to add the calculated visibilities to the underlying data array.
-                Default True.
-            **kwargs: keyword arguments sent to the foregournd model function, other than `lsts`, `fqs` and `bl_vec`.
-        """
-        seed_redundantly = kwargs.pop("seed_redundantly", False)
-        if seed_redundantly:
-            self._generate_seeds(model)
-
-        # account for multiple polarizations if effect is polarized
-        check_pol = True if "Tsky_mdl" in inspect.signature(model).parameters \
-                         and len(self.data.get_pols()) > 1 \
-                         else False
-
-        if check_pol:
-            assert "pol" in kwargs.keys(), \
-                    "Please specify which polarization the sky temperature " \
-                    "model corresponds to by passing in a value for the " \
-                    "kwarg 'pol'."
-            vis_pol = kwargs.pop("pol")
-            assert vis_pol in self.data.get_pols(), \
-                    "You are attempting to use a polarization not included " \
-                    "in the Simulator object you are working with. You tried " \
-                    "to use the polarization {}, but the Simulator object you " \
-                    "are working with only has the following polarizations: " \
-                    "{}".format(vis_pol, self.data.get_pols())
-
-        for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols():
-            if seed_redundantly:
-                seed = self._get_seed(ant1, ant2, model)
-                np.random.seed(seed)
-
-            if check_pol:
-                if pol == vis_pol:
-                    self._apply_vis(model, ant1, ant2, blt_ind, pol_ind, **kwargs)
+        if isinstance(model, str):
+            return model
+        try:
+            return model.__name__
+        except AttributeError:
+            # check if it's a user defined function
+            if model.__class__.__name__ == "function":
+                # get the name of it if so
+                try:
+                    func_name = [name for name, obj in globals().items()
+                                      if id(obj) == id(model)][0]
+                    return func_name
+                except IndexError:
+                    # it's not in the global namespace
+                    msg = "The model is a function but is not in the "
+                    msg += "global namespace. Please import the "
+                    msg += "function and try again."
+                    raise ValueError(msg)
             else:
-                self._apply_vis(model, ant1, ant2, blt_ind, pol_ind, **kwargs)
+                return model.__class__.__name__
 
-    @_model()
-    def add_noise(self, model, **kwargs):
+    def _sanity_check(self, model):
+        # TODO: docstring
         """
-        Add thermal noise to the visibilities.
-
-        Args:
-            model (str or callable): either a string name of a model function existing in :mod:`~hera_sim.noise`,
-                or a callable which has the signature ``fnc(lsts, fqs, bl_len_ns, omega_p, **kwargs)``.
-            ret_vis (bool, optional): whether to return the visibilities that are being added to to the base
-                data as a new array. Default False.
-            add_vis (bool, optional): whether to add the calculated visibilities to the underlying data array.
-                Default True.
-            **kwargs: keyword arguments sent to the noise model function, other than `lsts`, `fqs` and `bl_len_ns`.
         """
-        for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols():
-            # this doesn't need to be seeded, does it?
-            lsts = self.data.lst_array[blt_ind]
+        has_data = not np.all(self.data.data_array == 0)
+        is_multiplicative = model.is_multiplicative
+        contains_multiplicative_effect = any([
+                self._get_component(component)[0].is_multiplicative
+                for component in self._components])
+        if is_multiplicative and not has_data:
+            warnings.warn("You are trying to compute a multiplicative "
+                          "effect, but no visibilities have been "
+                          "simulated yet.")
+        elif not is_multiplicative and contains_multiplicative_effect:
+            warnings.warn("You are adding visibilities to a data array "
+                          "*after* multiplicative effects have been "
+                          "introduced.")
 
-            self.data.data_array[blt_ind, 0, :, pol_ind] += model(
-                lsts=lsts, fqs=self.data.freq_array[0] * 1e-9, **kwargs
-            )
-
-    @_model()
-    def add_rfi(self, model, **kwargs):
+    def _update_history(self, model, **kwargs):
+        # TODO: docstring
         """
-        Add RFI to the visibilities.
-
-        Args:
-            model (str or callable): either a string name of a model function existing in :mod:`~hera_sim.rfi`,
-                or a callable which has the signature ``fnc(lsts, fqs, **kwargs)``.
-            ret_vis (bool, optional): whether to return the visibilities that are being added to to the base
-                data as a new array. Default False.
-            add_vis (bool, optional): whether to add the calculated visibilities to the underlying data array.
-                Default True.
-            **kwargs: keyword arguments sent to the RFI model function, other than `lsts` or `fqs`.
         """
-        for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols():
-            lsts = self.data.lst_array[blt_ind]
+        model = self._get_model_name(model)
+        msg = "hera_sim v{version}: Added {component} using kwargs:\n"
+        if defaults._override_defaults:
+            kwargs["defaults"] = defaults._config_name
+        for param, value in kwargs.items():
+            msg += "{param} = {value}\n".format(param=param, value=value)
+        msg = msg.format(version=version, component=model)
+        self.data.history += msg
 
-            # XXX this should be seeded according to the time corresponding to blt_ind
-
-            # RFI added in-place (giving rfi= does not seem to work here)
-            self.data.data_array[blt_ind, 0, :, 0] += model(
-                lsts=lsts,
-                # Axis 0 is spectral windows, of which at this point there are always 1.
-                fqs=self.data.freq_array[0] * 1e-9,
-                **kwargs
-            )
-
-    @_model(multiplicative=True)
-    def add_gains(self, **kwargs):
+    def add(self, component, **kwargs):
+        # TODO: docstring
         """
-        Apply mock gains to visibilities.
-
-        Currently this consists of a bandpass, and cable delays & phases.
-
-        Args:
-            ret_vis (bool, optional): whether to return the visibilities that are being added to to the base
-                data as a new array. Default False.
-            add_vis (bool, optional): whether to add the calculated visibilities to the underlying data array.
-                Default True.
-            **kwargs: keyword arguments sent to the gen_gains method in :mod:~`hera_sim.sigchain`.
         """
-
-        gains = sigchain.gen_gains(
-            fqs=self.data.freq_array[0] * 1e-9, ants=self.data.get_ants(), **kwargs
+        # find out whether to add and/or return the component
+        add_vis = kwargs.pop("add_vis", True)
+        ret_vis = kwargs.pop("ret_vis", False)
+        # find out whether the data application should be filtered
+        vis_filter = kwargs.pop("vis_filter", None)
+        # take out the seed_mode kwarg so as not to break initializor
+        seed_mode = kwargs.pop("seed_mode", -1)
+        # get the model for the desired component
+        model, is_class = self._get_component(component)
+        if is_class:
+            # if the component returned is a class, instantiate it
+            model = model(**kwargs)
+        # check that there isn't an issue with component ordering
+        self._sanity_check(model)
+        # re-add the seed_mode kwarg if it was specified
+        if seed_mode != -1:
+            kwargs["seed_mode"] = seed_mode
+        # calculate the effect
+        data = self._iteratively_apply(
+            model, add_vis=add_vis, ret_vis=ret_vis, 
+            vis_filter=vis_filter, **kwargs
         )
+        # log the component and its kwargs, if added to data
+        if add_vis:
+            # note the filter used if any
+            if vis_filter is not None:
+                kwargs["vis_filter"] = vis_filter
+            # note the defaults used if any
+            if defaults._override_defaults:
+                kwargs["defaults"] = defaults()
+            # log the component and the settings used
+            self._components[component] = kwargs
+            # update the history
+            self._update_history(model, **kwargs)
+        # return the data if desired
+        if ret_vis:
+            return data
 
-        for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols():
-            self.data.data_array[blt_ind, 0, :, pol_ind] = sigchain.apply_gains(
-                vis=self.data.data_array[blt_ind, 0, :, pol_ind],
-                gains=gains,
-                bl=(ant1, ant2)
-            )
-
-    @_model(multiplicative=True)
-    def add_sigchain_reflections(self, ants=None, **kwargs):
+    def get(self, component, ant1=None, ant2=None, pol=None):
+        # TODO: docstring
         """
-        Apply signal chain reflections to visibilities.
-
-        Args:
-            ants: list of antenna numbers to add reflections to
-            **kwargs: keyword arguments sent to the gen_reflection_gains method in :mod:~`hera_sim.sigchain`.
         """
-        if ants is None:
-            ants = self.data.get_ants()
-            
-        # generate gains
-        gains = sigchain.gen_reflection_gains(self.data.freq_array[0], ants, **kwargs)
+        assert component in self._components.keys()
+        # retrieve the model
+        model, is_class = self._get_component(component)
+        # get the kwargs
+        kwargs = self._components[component]
+        # figure out whether or not to seed the rng
+        seed_mode = kwargs.pop("seed_mode", None)
+        # figure out whether or not to apply defaults
+        use_defaults = kwargs.pop("defaults", {})
+        if use_defaults:
+            self.apply_defaults(**use_defaults)
+        # instantiate the model if it's a class
+        if is_class:
+            model = model(**kwargs)
+        # seed the RNG if desired
+        if seed_mode is not None:
+            self._seed_rng(seed_mode, model, ant1, ant2)
+        # get the arguments necessary for the model
+        init_args = self._initialize_args_from_model(model)
+        use_args = self._update_args(*init_args, ant1, ant2, pol)
+        # now calculate the effect and return it
+        return model(*use_args, **kwargs)
 
-        for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols():
-            self.data.data_array[blt_ind, 0, :, pol_ind] = sigchain.apply_gains(
-                vis=self.data.data_array[blt_ind, 0, :, pol_ind],
-                gains=gains,
-                bl=(ant1, ant2)
-            )
-
-    @_model('sigchain', multiplicative=True)
-    def add_xtalk(self, model='gen_whitenoise_xtalk', bls=None, **kwargs):
+    def write(self, filename, save_format="uvh5", save_seeds=True, **kwargs):
+        # TODO: docstring
         """
-        Add crosstalk to visibilities.
-
-        Args:
-            bls (list of 3-tuples, optional): ant-pair-pols to add xtalk to.
-            **kwargs: keyword arguments sent to the model :meth:~`hera_sim.sigchain.{model}`.
         """
-        freqs = self.data.freq_array[0]
-        for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols():
-            if bls is not None and (ant1, ant2, pol) not in bls:
-                continue
-            if model.__name__ == 'gen_whitenoise_xtalk':
-                xtalk = model(freqs, **kwargs)
-            elif model.__name__ == 'gen_cross_coupling_xtalk':
-                # for now uses ant1 ant1 for auto correlation vis
-                autovis = self.data.get_data(ant1, ant1, pol)
-                xtalk = model(freqs, autovis, **kwargs)
-
-            self.data.data_array[blt_ind, 0, :, pol_ind] = sigchain.apply_xtalk(
-                vis=self.data.data_array[blt_ind, 0, :, pol_ind],
-                xtalk=xtalk
-            )
-    
+        try:
+            getattr(self.data, "write_%s" % save_format)(filename, **kwargs)
+        except AttributeError:
+            msg = "The save_format must correspond to a write method in UVData."
+            raise ValueError(msg)
+        if save_seeds:
+            seed_file = os.path.splitext(filename)[0] + "_seeds"
+            np.save(seed_file, self.seeds)
     
     @_generator_to_list
     def run_sim(self, sim_file=None, **sim_params):
+        # TODO: docstring
         """
-        Accept a dictionary or YAML file of simulation parameters and add in
-        all of the desired simulation components to the Simulator object.
-
-        Args:
-            sim_file (str, optional): string providing a path to a YAML file
-                The YAML file must be configured so that the dictionary
-                generated by yaml.load() will follow the format required of
-                `sim_params`. Note that any simulation components which
-                require a `Tsky_mdl` parameter must have the value
-                corresponding to the `Tsky_mdl` key be formatted as a
-                dictionary such that the :class:~interpolators.Tsky class
-                can construct a `Tsky_mdl` interpolation object from the
-                dictionary items. See the :class:~interpolators.Tsky docstring
-                for details on how the `Tsky_mdl` dictionary should be
-                formatted.
-            
-            **sim_params (dict, optional): dictionary of simulation parameters.
-                Each parameter in this unpacked dictionary must take the form
-                model = {param_name: param_value, ...}, where `model` denotes
-                which simulation component is to be added, and the dictionary
-                provides all the model kwargs that the user wishes to set. Any
-                model kwargs not provided will assume their default values.
-
-        Raises:
-            AssertionError:
-                One (and *only* one) of the above arguments must be provided. If 
-                *both* sim_file and sim_params are provided, then this function
-                will raise an AssertionError.
-
-            KeyError:
-                Raised if the `sim_file` YAML is not configured such that all
-                `Tsky_mdl` entries have a `file` key. The value corresponding
-                to this key should be a `.npz` file from which an interpolation
-                object may be created. See the :class:~interpolators.Tsky
-                docstring for information on how the `.npz` file should be
-                formatted.
-
-            TypeError:
-                Raised if the `sim_file` YAML is not configured such that all
-                `Tsky_mdl` entries have dictionaries as their values.
         """
+        # make sure that only sim_file or sim_params are specified
+        assert bool(sim_file) ^ bool(sim_params), \
+            "Either an absolute path to a simulation configuration " \
+            "file or a dictionary of simulation parameters may be " \
+            "passed, but not both. Please only pass one of the two."
 
-        # keep track of which components don't use models
-        uses_no_model = []
-        for key, val in self.SIMULATION_COMPONENTS.items():
-            func = getattr(self, val)
-            # raise a NotImplementedError if using Py2
-            if sys.version_info.major < 3 or \
-               sys.version_info.major > 3 and sys.version_info.minor < 4:
-                raise NotImplementedError("Please use a version of Python >= 3.4.")
-            if 'model' not in inspect.signature(func).parameters:
-                uses_no_model.append(key)
-
-        assert sim_file is not None or sim_params, \
-                'Either a path to a simulation file or a dictionary of ' + \
-                'simulation parameters must be provided.'
-
-        assert sim_file is None or not sim_params, \
-                'Either a simulation configuration file or a dictionary ' \
-                'of simulation parameters may be passed, but not both. ' \
-                'Please choose only one of the two to pass as an argument.'
-
-        # if a path to a simulation file is provided, then read it in
+        # read the simulation file if provided
         if sim_file is not None:
-            with open(sim_file, 'r') as doc:
+            with open(sim_file, 'r') as config:
                 try:
-                    sim_params = yaml.load(doc.read(), Loader=yaml.FullLoader)
+                    sim_params = yaml.load(
+                        config.read(), Loader=yaml.FullLoader
+                    )
                 except:
-                    print('Check your configuration file. Something broke.')
+                    print("The configuration file was not able to be loaded.")
+                    print("Please fix the file and try again.")
                     sys.exit()
 
-        for model, params in sim_params.items():
-            assert model in self.SIMULATION_COMPONENTS.keys(), \
-                    'Models must be supported by hera_sim. ' \
-                    "'{}' is currently not supported.".format(model)
-
+        # loop over the entries in the configuration dictionary
+        for component, params in sim_params.items():
+            # make sure that the parameters are a dictionary
             assert isinstance(params, dict), \
-                    'Values of sim_params must be dictionaries. ' \
-                    "The values for '{}' do not comply.".format(model)
-
-            # since this currently only supports python 3.4 or newer, we can
-            # assume that all dicts are ordered
-            add_component = getattr(self, self.SIMULATION_COMPONENTS[model])
-            params = sim_params[model]
-            if model in uses_no_model:
-                vis = add_component(**params)
-            else:
-                vis = add_component(model, **params)
-            # vis is either None, or it's the visibility desired from using
-            # the ret_vis feature, so we can yield the result to return visibilities
-            if vis is not None:
-                yield (model, vis)
+                "The parameters for {component} are not formatted " \
+                "properly. Please ensure that the parameters for " \
+                "each component are specified using a " \
+                "dictionary.".format(component=component)
+            
+            # add the component to the data
+            value = self.add(component, **params)
+        
+            # if the user wanted to return the data, then
+            if value is not None:
+                yield (component, value)

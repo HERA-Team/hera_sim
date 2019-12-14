@@ -1,340 +1,274 @@
-"""A module for modeling HERA signal chains."""
+"""Object-oriented approach to signal chain systematics."""
 
+import os
 import numpy as np
+from abc import abstractmethod
+
+from . import interpolators
+from . import utils
+from .components import registry
+from .data import DATA_PATH
+
 import aipy
-import warnings
-
-from . import noise
-from .interpolators import _read_npy
-from .defaults import _defaults
-
-
-@_defaults
-def _get_hera_bandpass(bandpass="HERA_H1C_BANDPASS.npy"):
-    return _read_npy(bandpass)
-
-# turns out this will fix HERA_NRAO_BANDPASS as the H1C bandpass
-# see "HERA's Passband to First Order" for info on how the
-# bandpass was modeled for H1C
-HERA_NRAO_BANDPASS = _get_hera_bandpass()
-
-def gen_bandpass(fqs, ants, gain_spread=0.1, bp_poly=None):
-    """
-    Produce a set of mock bandpass gains with variation based around the
-    HERA_NRAO_BANDPASS model.
-
-    Args:
-        fqs (array-like): shape=(NFREQS,), GHz
-            the spectral frequencies of the bandpasses
-        ants (iterable):
-            the indices/names of the antennas
-        gain_spread (float): default=0.1
-            the fractional variation in gain harmonics
-    Returns:
-        g (dictionary): 
-            a dictionary of ant:bandpass pairs where keys are elements
-            of ants and bandpasses are complex arrays with shape (NFREQS,)
-
-    See Also:
-        :meth:`~gen_gains`: uses this function to generate full gains.
-    """
-    if bp_poly is None:
-        bp_poly = _get_hera_bandpass()
-    elif isinstance(bp_poly, str):
-        bp_poly = _get_hera_bandpass(bp_poly)
-    bp_base = np.polyval(bp_poly, fqs)
-    window = aipy.dsp.gen_window(fqs.size, 'blackman-harris')
-    _modes = np.abs(np.fft.fft(window * bp_base))
-    g = {}
-    for ai in ants:
-        delta_bp = np.fft.ifft(noise.white_noise(fqs.size) * _modes * gain_spread)
-        g[ai] = bp_base + delta_bp
-    return g
-
-
-def gen_delay_phs(fqs, ants, dly_rng=(-20, 20)):
-    """
-    Produce a set of mock complex phasors corresponding to cables delays.
-
-    Args:
-        fqs (array-like): shape=(NFREQS,), GHz
-            the spectral frequencies of the bandpasses
-        ants (iterable):
-            the indices/names of the antennas
-        dly_range (2-tuple): ns
-            the range of the delay
-    Returns:
-        g (dictionary):
-            a dictionary of ant:exp(2pi*i*tau*fqs) pairs where keys are elements
-            of ants and values are complex arrays with shape (NFREQS,)
-
-    See Also:
-        :meth:`~gen_gains`: uses this function to generate full gains.
-    """
-    phs = {}
-    for ai in ants:
-        dly = np.random.uniform(dly_rng[0], dly_rng[1])
-        phs[ai] = np.exp(2j * np.pi * dly * fqs)
-    return phs
-
-
-def gen_gains(fqs, ants, gain_spread=0.1, dly_rng=(-20, 20), bp_poly=None):
-    """
-    Produce a set of mock bandpasses perturbed around a HERA_NRAO_BANDPASS model
-    and complex phasors corresponding to cables delays.
-
-    Args:
-        fqs (array-like): shape=(NFREQS,), GHz
-            the spectral frequencies of the bandpasses
-        ants (iterable): 
-            the indices/names of the antennas
-        gain_spread (float): default=0.1
-            the fractional variation in gain harmonics
-        dly_range (2-tuple): ns
-            the range of the delay
-
-    Returns:
-        g (dictionary):
-            a dictionary of ant:bandpass * exp(2pi*i*tau*fqs) pairs where
-            keys are elements of ants and bandpasses are complex arrays
-            with shape (NFREQS,)
-
-    See Also:
-        :meth:`~apply_gains`: apply gains from this function to a visibility
-    """
-    bp = gen_bandpass(fqs, ants, gain_spread, bp_poly)
-    phs = gen_delay_phs(fqs, ants, dly_rng)
-    return {ai: bp[ai] * phs[ai] for ai in ants}
-
-
-def gen_reflection_coefficient(fqs, amp, dly, phs, conj=False):
-    r"""
-    Generate a reflection coefficient.
-
-    The reflection coefficient is described as
-
-    .. math:: \epsilon = A * \exp(2i\pi\tau\nu + i\phi)
-
-    Args:
-        fqs (1D ndarray): frequencies [GHz]
-        amp (float or ndarray): reflection amplitude
-        dly (float or ndarray): reflection delay [nanosec]
-        phs (float or ndarray): reflection phase [radian]
-        conj (bool, optional): if True, conjugate the reflection coefficient
-
-    Returns:
-        complex ndarray: complex reflection gain
-
-    Notes:
-        If reflection terms (amp, dly, phs) are fed as a float they are assumed to be
-        frequency and time independent. If they are an ndarray, they can take the following
-        shapes: (1,) or (Ntimes,) or (1, Nfreqs) or (Ntimes, Nfreqs).
-    """
-    # type and shape check
-    def _type_check(arr):
-        if isinstance(arr, np.ndarray):
-            if arr.ndim == 1 and arr.size > 1:
-                # resize into (Ntimes, 1)
-                arr = arr.reshape(-1, 1)
-                # if this happens to be of len Nfreqs, raise a warning
-                if arr.shape[0] == Nfreqs:
-                    warnings.warn("Warning: the input array had len Nfreqs, " \
-                                  "but we are reshaping it as (Ntimes, 1)")
-            elif arr.ndim > 1:
-                assert arr.shape[1] in [1, Nfreqs], "frequency-dependent reflection coefficients" \
-                "must match input fqs size"
-        return arr
-    Nfreqs = fqs.size
-    amp = _type_check(amp)
-    dly = _type_check(dly)
-    phs = _type_check(phs)
-
-    # form reflection coefficient
-    eps = amp * np.exp(2j * np.pi * fqs * dly + 1j * phs)
-
-    # conjugate
-    if conj:
-        eps = eps.conj()
-
-    return eps
-
-
-def gen_reflection_gains(fqs, ants, amp=None, dly=None, phs=None, conj=False):
-    r"""
-    Generate a signal chain reflection as an antenna gain.
-
-    A signal chain reflection is a copy of an antenna
-    voltage stream at a boosted delay, and can be incorporated
-    via a gain term
-
-    .. math::   g_1 = (1 + \epsilon_{11})
-
-    where :math:`\epsilon_{11}` is antenna 1's reflection coefficient
-    which can be constructed as
-
-    .. math:: \epsilon_{11} = A_{11} * \exp(2i\pi\tau_{11}\nu + i\phi_{11})
-
-    Args:
-        fqs (1D ndarray): frequencies [GHz]
-        ants (list of integers): antenna numbers
-        amp (list, optional): antenna reflection amplitudes for each antenna. Default is 1.0
-        dly (list, optional): antenna reflection delays [nanosec]. Default is 0.0
-        phs (lists, optional): antenna reflection phases [radian]. Default is 0.0
-        conj (bool, optional): if True, conjugate the reflection coefficients
-
-    Returns:
-        dictionary: keys are antenna numbers and values are complex reflection gains
-
-    Notes:
-        Reflection terms for each antenna can be fed as a list of floats, in which case 
-        the output coefficients are 1D arrays of shape (Nfreqs,) or they can be fed as
-        a list of ndarrays of shape (Ntimes, 1), in which case output coefficients are
-        2D narrays of shape (Ntimes, Nfreqs)
-    """
-    # fill in missing kwargs
-    if amp is None:
-        amp = [0.0 for ai in ants]
-    if dly is None:
-        dly = [0.0 for ai in ants]
-    if phs is None:
-        phs = [0.0 for ai in ants]
-
-    # iterate over antennas
-    gains = {}
-    for i, ai in enumerate(ants):
-        # form reflection coefficient
-        eps = gen_reflection_coefficient(fqs, amp[i], dly[i], phs[i], conj=conj)
-        gains[ai] = (1 + eps)
-
-    return gains
-
-
-def apply_gains(vis, gains, bl):
-    """
-    Apply to a (NTIMES,NFREQS) visibility waterfall the bandpass functions
-    for its constituent antennas.
-
-    Args:
-        vis (array-like): shape=(NTIMES,NFREQS)
-            the visibility waterfall to which gains will be applied
-        gains (dictionary):
-            a dictionary of antenna numbers as keys and
-            complex gain ndarrays as values (e.g. output of :meth:`~gen_gains`)
-            with shape as either (NTIMES,NFREQS) or (NFREQS,)
-        bl (2-tuple):
-            a (i, j) tuple representing the baseline corresponding to
-            this visibility.  g_i * g_j.conj() will be multiplied into vis.
-    Returns:
-        vis (array-like): shape=(NTIMES,NFREQS)
-            the visibility waterfall with gains applied, unless antennas in bl
-            don't exist in gains, then input vis is returned
-    """
-    # if an antenna doesn't exist, set to one
-    if bl[0] not in gains:
-        gi = 1.0
-    else:
-        gi = gains[bl[0]]
-    if bl[1] not in gains:
-        gj = 1.0
-    else:
-        gj = gains[bl[1]]
-
-    # return vis if both antennas don't exist in gains
-    if (bl[0] not in gains) and (bl[1] not in gains):
-        return vis
-
-    # form gain term for bl
-    gij = gi * np.conj(gj)
-
-    # reshape if necessary    
-    if gij.ndim == 1:
-        gij.shape = (1, -1)
-
-    return vis * gij
-
-
-def gen_whitenoise_xtalk(fqs, amplitude=3.0):
-    """
-    Generate a white-noise cross-talk model for specified bls.
-
-    Args:
-        fqs (ndarray): frequencies of observation [GHz]
-        amplitude (float): amplitude of cross-talk in visibility units
-
-    Returns:
-        1D ndarray: xtalk model across frequencies
-
-    See Also:
-        :meth:`~apply_xtalk`: apply the output of this function to a visibility.
-    """
-    xtalk = np.convolve(
-        noise.white_noise(fqs.size),
-        np.ones(50 if fqs.size > 50 else int(fqs.size/2)),
-        'same'
-    )
-
-    return xtalk * amplitude
-
-
-def gen_cross_coupling_xtalk(fqs, autovis, amp=None, dly=None, phs=None, conj=False):
-    r"""
-    Generate a cross coupling systematic (e.g. crosstalk).
-
-    A cross coupling systematic is the auto-correlation visibility multiplied by a
-    coupling coefficient. If :math:`V_{11}` is the auto-correlation visibility of
-    antenna 1, and :math:`\epsilon_{12}` is the coupling coefficient, then cross
-    correlation visibility takes the form
-
-    .. math::   V_{12} = v_1 v_2^\ast + V_{11}\epsilon_{12}^\ast
-
-    where :math:`\epsilon_{12}` is modeled as a reflection coefficient constructed as
-
-    .. math::   \epsilon_{12} = A_{12} * \exp(2i\pi\tau_{12}\nu + i\phi_{12})
-
-     Args:
-        fqs (1D ndarray): frequencies [GHz]
-        autovis (2D ndarray): auto-correlation visibility ndarray of shape (Ntimes, Nfreqs)
-        amp (float): coupling amplitude
-        dly (float): coupling delay [nanosec]
-        phs (float): coupling phase [radian]
-        conj (bool, optional): if True, conjugate the coupling coefficient
-
-    Returns:
-        2D ndarray: xtalk model of shape (Ntimes, Nfreqs)
-    """
-    # fill in missing kwargs
-    if amp is None:
-        amp = 0.0
-    if dly is None:
-        dly = 0.0
-    if phs is None:
-        phs = 0.0
-
-    # generate coupling coefficient
-    eps = gen_reflection_coefficient(fqs, amp, dly, phs, conj=conj)
-    if eps.ndim == 1:
-        eps = np.reshape(eps, (1, -1))
-
-    return autovis * eps
-
-
-def apply_xtalk(vis, xtalk):
-    """
-    Apply to a (NTIMES,NFREQS) visibility waterfall a crosstalk signal
-
-    Args:
-        vis (array-like): shape=(NTIMES,NFREQS)
-            the visibility waterfall to which gains will be applied
-        xtalk (array-like): shape=(NTIMES,NFREQS) or (NFREQS,)
-            the crosstalk signal to be applied.
-
-    Returns:
-        vis (array-like): shape=(NTIMES,NFREQS)
-            the visibility waterfall with crosstalk injected
-    """
-    # if xtalk is a single spectrum, reshape it into 2D array
-    if xtalk.ndim == 1:
-        xtalk = np.reshape(xtalk, (1, -1))
-
-    return vis + xtalk
 
+@registry
+class Gain:
+    # TODO: docstring
+    pass
+
+class Bandpass(Gain, is_multiplicative=True):
+    __aliases__ = ("gen_gains", "gains", "bandpass_gain")
+
+    def __init__(self, gain_spread=0.1, dly_rng=(-20,20), bp_poly=None):
+        # TODO: docstring
+        """
+
+        """
+        super().__init__(
+            gain_spread=gain_spread,
+            dly_rng=dly_rng,
+            bp_poly=bp_poly
+        )
+
+    def __call__(self, freqs, ants, **kwargs):
+        # TODO: docstring
+        """
+        """
+        # validate kwargs
+        self._check_kwargs(**kwargs)
+
+        # unpack the kwargs
+        (gain_spread, dly_rng, 
+            bp_poly) = self._extract_kwarg_values(**kwargs)
+
+        # get the bandpass gains
+        bandpass = self._gen_bandpass(freqs, ants, gain_spread, bp_poly)
+
+        # get the delay phases
+        phase = self._gen_delay_phase(freqs, ants, dly_rng)
+
+        return {ant : bandpass[ant] * phase[ant] for ant in ants}
+
+    def _gen_bandpass(self, freqs, ants, gain_spread=0.1, bp_poly=None):
+        if bp_poly is None:
+            # default to the H1C bandpass
+            bp_poly = np.load(os.path.join(DATA_PATH, 
+                                           "HERA_H1C_BANDPASS.npy"))
+        elif isinstance(bp_poly, str):
+            # make an interpolation object, assume it's a polyfit
+            bp_poly = interpolators.Bandpass(bp_poly)
+        if callable(bp_poly):
+            # support for interpolation objects
+            bp_base = bp_poly(freqs)
+        else:
+            bp_base = np.polyval(bp_poly, freqs)
+        window = aipy.dsp.gen_window(freqs.size, "blackman-harris")
+        modes = np.abs(np.fft.fft(window * bp_base))
+        gains = {}
+        for ant in ants:
+            delta_bp = np.fft.ifft(utils.gen_white_noise(freqs.size)
+                                   * modes * gain_spread)
+            gains[ant] = bp_base + delta_bp
+        return gains
+
+    def _gen_delay_phase(self, freqs, ants, dly_rng=(-20,20)):
+        phases = {}
+        for ant in ants:
+            delay = np.random.uniform(*dly_rng)
+            phases[ant] = np.exp(2j* np.pi * delay * freqs)
+        return phases
+
+class Reflections(Gain, is_multiplicative=True):
+    __aliases__ = ("gen_reflection_gains", "sigchain_reflections")
+
+    def __init__(self, amp=None, dly=None, phs=None, 
+                       conj=False, randomize=False):
+        # TODO: docstring
+        """
+        """
+        super().__init__(
+            amp=amp,
+            dly=dly,
+            phs=phs,
+            conj=conj,
+            randomize=randomize
+        )
+
+    def __call__(self, freqs, ants, **kwargs):
+        # TODO: docstring
+        """
+        """
+        # check the kwargs
+        self._check_kwargs(**kwargs)
+
+        # unpack the kwargs
+        (amp, dly, phs, conj, 
+            randomize) = self._extract_kwarg_values(**kwargs)
+
+        # fill in missing kwargs
+        amp, dly, phs = self._complete_params(ants, amp, dly, phs, randomize)
+
+        # determine gains iteratively
+        gains = {}
+        for j, ant in enumerate(ants):
+            # calculate the reflection coefficient
+            eps = self.gen_reflection_coefficient(freqs, amp[j], dly[j],
+                                                  phs[j], conj=conj)
+            gains[ant] = 1 + eps
+
+        return gains
+
+    @staticmethod
+    def gen_reflection_coefficient(freqs, amp, dly, phs, conj=False):
+        # TODO: docstring
+        """
+        """
+        # this is copied directly from the old sigchain module
+        # TODO: make this cleaner
+
+        # helper function for checking type/shape
+        def _type_check(arr):
+            if isinstance(arr, np.ndarray):
+                if arr.ndim == 1 and arr.size > 1:
+                    # reshape the array to (Ntimes, 1)
+                    arr = arr.reshape(-1, 1)
+                    # raise a warning if it's the same length as freqs
+                    if arr.shape[0] == Nfreqs:
+                        warnings.warn("The input array had lengths Nfreqs "
+                                      "and is being reshaped as (Ntimes,1).")
+                elif arr.ndim > 1:
+                    assert arr.shape[1] in (1, Nfreqs), \
+                        "Frequency-dependent reflection coefficients must " \
+                        "match the input frequency array size."
+            return arr
+
+        Nfreqs = freqs.size
+        amp = _type_check(amp)
+        dly = _type_check(dly)
+        phs = _type_check(phs)
+
+        # actually make the reflection coefficient
+        eps = amp * np.exp(1j * (2 * np.pi * freqs * dly + phs))
+
+        # conjugate if desired
+        return np.conj(eps) if conj else eps
+
+    @staticmethod
+    def _complete_params(ants, amp, dly, phs, randomize):
+        # TODO: docstring
+        """
+        """
+        # if we're randomizing, then amp, dly, phs should define which
+        # bounds to use for making random numbers
+        if randomize:
+            # convert these to bounds if they're None
+            if amp is None:
+                amp = (0, 1)
+            if dly is None:
+                dly = (-20, 20)
+            if phs is None:
+                phs = (-np.pi, np.pi)
+            # now make sure that they're all correctly formatted
+            assert all([isinstance(param, (list, tuple))
+                        and len(param) == 2
+                        for param in (amp, dly, phs)]), \
+                "You have chosen to randomize the amplitude, delay, " \
+                "and phase parameters, but at least one parameter " \
+                "was not specified as None or a length-2 tuple or " \
+                "list. Please check your parameter settings."
+
+            # in the future, expand this to allow for freq-dependence?
+            # randomly generate the parameters
+            amp = [np.random.uniform(amp[0], amp[1]) for ant in ants]
+            dly = [np.random.uniform(dly[0], dly[1]) for ant in ants]
+            phs = [np.random.uniform(phs[0], phs[1]) for ant in ants]
+        else:
+            # set the amplitude to 1, delay and phase both to zero
+            if amp is None:
+                amp = [1.0 for ant in ants]
+            if dly is None:
+                dly = [0.0 for ant in ants]
+            if phs is None:
+                phs = [0.0 for ant in ants]
+
+        return amp, dly, phs
+
+@registry
+class Crosstalk:
+    pass
+
+class CrossCouplingCrosstalk(Crosstalk, Reflections):
+    __aliases__ = ("gen_cross_coupling_xtalk", "cross_coupling_xtalk")
+
+    def __init__(self, amp=None, dly=None, phs=None, 
+                       conj=False, randomize=False):
+        # TODO: docstring
+        """
+        """
+        super().__init__(
+            amp=amp,
+            dly=dly,
+            phs=phs,
+            conj=conj,
+            randomize=randomize
+        )
+
+
+    def __call__(self, freqs, autovis, **kwargs):
+        # TODO: docstring
+        """
+        """
+        # check the kwargs
+        self._check_kwargs(**kwargs)
+
+        # now unpack them
+        (amp, dly, phs, conj, 
+            randomize) = self._extract_kwarg_values(**kwargs)
+
+        # handle the amplitude, phase, and delay
+        amp, dly, phs = self._complete_params([1], amp, dly, phs, randomize)
+
+        # make a reflection coefficient
+        eps = self.gen_reflection_coefficient(freqs, amp, dly, phs, conj=conj)
+
+        # reshape if necessary
+        if eps.ndim == 1:
+            eps = eps.reshape((1,-1))
+
+        # scale it by the autocorrelation and return the result
+        return autovis * eps
+
+class WhiteNoiseCrosstalk(Crosstalk):
+    __aliases__ = ("gen_whitenoise_xtalk", "white_noise_xtalk", )
+
+    def __init__(self, amplitude=3.0):
+        # TODO: docstring
+        """
+        """
+        super().__init__(amplitude=amplitude)
+
+    def __call__(self, freqs, **kwargs):
+        # TODO: docstring
+        """
+        """
+        # check the kwargs
+        self._check_kwargs(**kwargs)
+
+        # unpack the kwargs
+        amplitude = self._unpack_kwargs(**kwargs)
+
+        # why choose this size for the convolving kernel?
+        kernel = np.ones(50 if freqs.size > 50 else int(freqs.size/2))
+
+        # generate the crosstalk
+        xtalk = np.convolve(utils.gen_white_noise(freqs.size), kernel, "same")
+
+        # scale the result and return
+        return amplitude * xtalk
+
+# to minimize breaking changes
+gen_gains = Bandpass()
+gen_reflection_coefficient = Reflections.gen_reflection_coefficient
+gen_reflection_gains = Reflections()
+gen_whitenoise_xtalk = WhiteNoiseCrosstalk()
+gen_cross_coupling_xtalk = CrossCouplingCrosstalk()

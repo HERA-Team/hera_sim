@@ -12,7 +12,7 @@ import warnings
 from os import path
 from .config import CONFIG_PATH
 
-SEASON_CONFIGS = {'h1c': path.join(CONFIG_PATH, 'HERA_H1C_CONFIG.yaml'),
+SEASON_CONFIGS = {'h1c': path.join(CONFIG_PATH, 'H1C.yaml'),
                   'h2c': path.join(CONFIG_PATH, 'HERA_H2C_CONFIG.yaml'),
                   }
 
@@ -243,7 +243,7 @@ class Defaults:
         Output: new_dict = {key0 : val0, key1 : val1, key2 : val2}
         """
         for key, value in nested_dict.items():
-            if isinstance(value, dict):
+            if isinstance(value, dict) and key != "array_layout":
                 self._unpack_dict(value, new_dict)
             else:
                 new_dict[key] = value
@@ -252,7 +252,7 @@ class Defaults:
     def _recursive_enumerate(self, counts, values, dictionary):
         """Recursively enumerate the entries in `dictionary`."""
         for key, value in dictionary.items():
-            if isinstance(value, dict):
+            if isinstance(value, dict) and key != "array_layout":
                 self._recursive_enumerate(counts, values, value)
             else:
                 counts[key] += 1
@@ -349,6 +349,26 @@ class Defaults:
                 return func(*args, **kwargs)
         
         return new_func
+
+    def apply(self, func_kwargs, **kwargs):
+        # TODO: docstring
+        """Just update the kwargs given the function kwargs.
+        """
+        # pull the defaults from the active defaults
+        new_args = self()
+
+        # filter the default kwargs to only include those in the func sig
+        new_args = {param : value for param, value in new_args.items()
+                                  if param in func_kwargs}
+
+        # get the keys to iterate over
+        keys = set(list(new_args.keys()) + list(kwargs.keys()))
+
+        new_kwargs = {arg : (kwargs[arg] if arg in kwargs 
+                             else new_args[arg]
+                            ) for arg in keys}
+
+        return new_kwargs
 
 defaults = Defaults()
 _defaults = defaults._handler

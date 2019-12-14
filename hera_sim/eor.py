@@ -1,48 +1,59 @@
-"""
-A module containing functions for generating EoR-like signals.
+"""EoR from an object-oriented approach."""
 
-Each model may take arbitrary parameters, but must return a 2D complex array containing the visibilities at the
-requested baseline, for the requested lsts and frequencies.
-"""
-
-import numpy as np
-from scipy import interpolate
-import aipy
-from scipy.signal import windows
-from . import noise
+from .components import registry 
+from abc import abstractmethod
+from cached_property import cached_property
 from . import utils
 
+@registry
+class EoR:
+    pass
 
-def noiselike_eor(lsts, fqs, bl_vec, eor_amp=1e-5, min_delay=None, max_delay=None,
-                  fringe_filter_type='tophat', **fringe_filter_kwargs):
-    """
-    Generate a noise-like, fringe-filtered EoR visibility.
+class NoiselikeEoR(EoR):
+    # TODO: docstring
+    __aliases__ = ("noiselike_eor",) 
 
-    Args:
-        lsts (ndarray): LSTs [radians]
-        fqs (ndarray): frequencies [GHz]
-        bl_vec (ndarray): East-North-Up (i.e. Topocentric) baseline vector in nanoseconds [East, North, Up]
-        eor_amp (float): amplitude of EoR signal [arbitrary units]
-        min_delay (float): minimum delay of signal to keep in nanosec (i.e. filter out below this delay)
-        max_delay (float): maximum delay of signal to keep in nanosec (i.e. filter out above this delay)
-        fringe_filter_type (str): type of fringe-rate filter, see utils.gen_fringe_filter()
-        fringe_filter_kwargs: kwargs given fringe_filter_type, see utils.gen_fringe_filter()
+    def __init__(self, eor_amp=1e-5, min_delay=None, max_delay=None, 
+                 fringe_filter_type="tophat", fringe_filter_kwargs={}):
+        # TODO: docstring
+        """
+        """
+        super().__init__(
+            eor_amp=eor_amp, 
+            min_delay=min_delay, max_delay=max_delay, 
+            fringe_filter_type=fringe_filter_type,
+            fringe_filter_kwargs=fringe_filter_kwargs
+        )
 
-    Returns: 
-        vis (ndarray): simulated complex visibility
+    def __call__(self, lsts, freqs, bl_vec, **kwargs):
+        # validate the kwargs
+        self._check_kwargs(**kwargs)
 
-    Notes:
-        Based on the order of operations (delay filter then fringe-rate filter),
-        modes outside of min and max delay will contain some spillover power due
-        to the frequency-dependent nature of the fringe-rate filter.
-    """
-    # generate white noise in frate and freq space
-    data = noise.white_noise((len(lsts), len(fqs))) * eor_amp
+        # unpack the kwargs
+        (eor_amp, min_delay, max_delay, fringe_filter_type, 
+            fringe_filter_kwargs) = self._extract_kwarg_values(**kwargs)
 
-    # filter across frequency if desired
-    data = utils.rough_delay_filter(data, fqs, 1e10, filter_type='tophat', min_delay=min_delay, max_delay=max_delay)
+        # make white noise in freq/time
+        # XXX: original says in frate/freq, not sure why
+        data = utils.gen_white_noise(size=(len(lsts), len(freqs)))
 
-    # fringe filter in frate & freq space
-    data = utils.rough_fringe_filter(data, lsts, fqs, bl_vec[0], filter_type=fringe_filter_type, **fringe_filter_kwargs)
- 
-    return data
+        # scale data by EoR amplitude
+        data *= eor_amp
+
+        # apply delay filter; default does nothing
+        # XXX find out why bl_len_ns is hardcoded as 1e10
+        # XXX also find out why a tophat filter is hardcoded
+        data = utils.rough_delay_filter(data, freqs, 1e10, 
+                                        filter_type="tophat",
+                                        min_delay=min_delay,
+                                        max_delay=max_delay)
+
+        # apply fringe-rate filter
+        data = utils.rough_fringe_filter(data, lsts, freqs, bl_vec[0], 
+                                         filter_type=fringe_filter_type, 
+                                         **fringe_filter_kwargs)
+
+        return data
+
+
+noiselike_eor = NoiselikeEoR()

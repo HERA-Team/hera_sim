@@ -1,9 +1,9 @@
 """ Utility module """
 
 import numpy as np
-from scipy import interpolate
-import aipy
-from aipy.const import sidereal_day
+import astropy.constants as const
+import astropy.units as u
+from scipy.interpolate import RectBivariateSpline
 
 
 def _get_bl_len_vec(bl_len_ns):
@@ -108,8 +108,8 @@ def gen_delay_filter(fqs, bl_len_ns, standoff=0.0, filter_type='gauss', min_dela
     return delay_filter
 
 
-def rough_delay_filter(data, fqs, bl_len_ns, standoff=0.0, filter_type='gauss', min_delay=None,
-                       max_delay=None, normalize=None):
+def rough_delay_filter(data, fqs, bl_len_ns, standoff=0.0, delay_filter_type='gauss', 
+                       min_delay=None, max_delay=None, normalize=None):
     """
     A rough low-pass delay filter of data array along last axis.
 
@@ -137,8 +137,10 @@ def rough_delay_filter(data, fqs, bl_len_ns, standoff=0.0, filter_type='gauss', 
     dfft = np.fft.fft(data, axis=-1)
 
     # get delay filter
-    delay_filter = gen_delay_filter(fqs, bl_len_ns, standoff=standoff, filter_type=filter_type, min_delay=min_delay,
-                                    max_delay=max_delay, normalize=normalize)
+    delay_filter = gen_delay_filter(
+        fqs, bl_len_ns, standoff=standoff, filter_type=delay_filter_type, 
+        min_delay=min_delay, max_delay=max_delay, normalize=normalize
+    )
 
     # apply filtering and fft back
     filt_data = np.fft.ifft(dfft * delay_filter, axis=-1)
@@ -182,7 +184,7 @@ def gen_fringe_filter(lsts, fqs, ew_bl_len_ns, filter_type='tophat', **filter_kw
             fringe filter is identically one.
     """
     # setup
-    times = lsts / (2 * np.pi) * aipy.const.sidereal_day
+    times = lsts / (2 * np.pi) * u.sday.to("s")
     frates = np.fft.fftfreq(times.size, times[1] - times[0])
 
     if filter_type in [None, 'none', 'None']:
@@ -201,8 +203,8 @@ def gen_fringe_filter(lsts, fqs, ew_bl_len_ns, filter_type='tophat', **filter_kw
         assert 'FR_frates' in filter_kwargs, "If filter_type=='custom', must feed 1D FR_frates array"
         assert 'FR_freqs' in filter_kwargs, "If filter_type=='custom', must feed 1D FR_freqs array"
         # interpolate FR_filter at frates and fqs
-        mdl = interpolate.RectBivariateSpline(filter_kwargs['FR_frates'], filter_kwargs['FR_freqs'],
-                                              filter_kwargs['FR_filter'], kx=3, ky=3)
+        mdl = RectBivariateSpline(filter_kwargs['FR_frates'], filter_kwargs['FR_freqs'],
+                                  filter_kwargs['FR_filter'], kx=3, ky=3)
         fringe_filter = np.fft.ifftshift(mdl(np.fft.fftshift(frates), fqs), axes=0)
         # set things close to zero to zero
         fringe_filter[np.isclose(fringe_filter, 0.0)] = 0.0
@@ -213,7 +215,8 @@ def gen_fringe_filter(lsts, fqs, ew_bl_len_ns, filter_type='tophat', **filter_kw
     return fringe_filter
 
 
-def rough_fringe_filter(data, lsts, fqs, ew_bl_len_ns, filter_type='tophat', **filter_kwargs):
+def rough_fringe_filter(data, lsts, fqs, ew_bl_len_ns, 
+                        fringe_filter_type='tophat', **filter_kwargs):
     """
     A rough fringe rate filter of data along zeroth axis.
 
@@ -251,7 +254,9 @@ def rough_fringe_filter(data, lsts, fqs, ew_bl_len_ns, filter_type='tophat', **f
     dfft = np.fft.fft(data, axis=0)
 
     # get filter
-    fringe_filter = gen_fringe_filter(lsts, fqs, ew_bl_len_ns, filter_type=filter_type, **filter_kwargs)
+    fringe_filter = gen_fringe_filter(
+        lsts, fqs, ew_bl_len_ns, filter_type=fringe_filter_type, **filter_kwargs
+    )
 
     # apply filter
     filt_data = np.fft.ifft(dfft * fringe_filter, axis=0)
@@ -271,7 +276,7 @@ def calc_max_fringe_rate(fqs, ew_bl_len_ns):
         fr_max (float): fringe rate [Hz]
     """
     bl_wavelen = fqs * ew_bl_len_ns
-    fr_max = 2 * np.pi / aipy.const.sidereal_day * bl_wavelen
+    fr_max = 2 * np.pi / u.sday.to("s") * bl_wavelen
     return fr_max
 
 
@@ -293,3 +298,67 @@ def compute_ha(lsts, ra):
     ha = np.where(ha > np.pi, ha - 2 * np.pi, ha)
     ha = np.where(ha < -np.pi, ha + 2 * np.pi, ha)
     return ha
+
+def gen_white_noise(size=1):
+    """Produce complex Gaussian noise with unity variance.
+
+    Parameters
+    ----------
+    size : int or tuple, optional
+        Shape of output array.
+
+    Returns
+    -------
+    noise : ndarray
+        White noise realization with specified shape.
+    """
+    std = 1 / np.sqrt(2)
+    return np.random.normal(scale=std, size=size) \
+           + 1j*np.random.normal(scale=std, size=size)
+
+def Jy2T(freqs, omega_p):
+    """Return Kelvin -> Jy conversion as a function of frequency.
+
+    Parameters
+    ----------
+    freqs : ndarray
+        Frequencies for which to calculate the conversion. Units of Hz.
+    omega_p : ndarray or interpolators.Beam
+        Beam area as a function of frequency. Must have the same shape 
+        as ``freqs`` if an ndarray. Otherwise, must be an interpolation 
+        object which converts frequencies (in Hz) to beam size.
+
+    Returns
+    -------
+    Jy_to_K : ndarray
+        Array for converting Jy to K, same shape as ``freqs``.
+    """
+    # get actual values of omega_p if it's an interpolation object
+    if callable(omega_p):
+        omega_p = omega_p(freqs)
+    wavelengths = const.c.value / freqs
+    # scaling went from 1e-23 -> 1e-34 in converting to SI
+    # what is the point of this multiplicative constant?
+    return 1e-34 * wavelengths ** 2 / (2 * const.k_B * omega_p)
+
+def _listify(x):
+    """Ensure a scalar/list is returned as a list.
+
+    Taken from https://stackoverflow.com/a/1416677/1467820
+    
+    Copied from the pre-v1 hera_sim.rfi module.
+    """
+    try:
+        basestring
+    except NameError:
+        basestring = (str, bytes)
+
+    if isinstance(x, basestring):
+        return [x]
+    else:
+        try:
+            iter(x)
+        except TypeError:
+            return [x]
+        else:
+            return list(x)
