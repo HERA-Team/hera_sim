@@ -59,6 +59,7 @@ class ThermalNoise(Noise):
             integration_time *= u.sday.to("s")
         
         # default to H1C beam if not specified
+        # XXX these three lines currently not tested
         if omega_p is None:
             omega_p = np.load(os.path.join(DATA_PATH,
                                            "HERA_H1C_BEAM_POLY.npy"))
