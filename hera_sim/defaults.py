@@ -55,7 +55,7 @@ class Defaults:
     hera_sim.defaults()
     """
 
-    def __init__(self, config='h1c'):
+    def __init__(self, config=None):
         """Load in a configuration and check its formatting.
 
         Parameters
@@ -185,7 +185,11 @@ class Defaults:
 
     def _set_config(self, config):
         """Retrieve the configuration specified."""
-        if isinstance(config, str):
+        if config is None:
+            self._config_name = None
+            self._raw_config = {}
+            self._config = {}
+        elif isinstance(config, str):
             # set the name of the configuration used
             self._config_name = config
             # retrieve the season configuration file if appropriate
