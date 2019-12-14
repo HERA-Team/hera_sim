@@ -340,3 +340,25 @@ def Jy2T(freqs, omega_p):
     # scaling went from 1e-23 -> 1e-34 in converting to SI
     # what is the point of this multiplicative constant?
     return 1e-34 * wavelengths ** 2 / (2 * const.k_B * omega_p)
+
+def _listify(x):
+    """Ensure a scalar/list is returned as a list.
+
+    Taken from https://stackoverflow.com/a/1416677/1467820
+    
+    Copied from the pre-v1 hera_sim.rfi module.
+    """
+    try:
+        basestring
+    except NameError:
+        basestring = (str, bytes)
+
+    if isinstance(x, basestring):
+        return [x]
+    else:
+        try:
+            iter(x)
+        except TypeError:
+            return [x]
+        else:
+            return list(x)
