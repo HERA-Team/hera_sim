@@ -7,7 +7,14 @@ import numpy as np
 
 from .components import registry
 from .data import DATA_PATH
+from .interpolators import Tsky
 from . import utils
+
+# to minimize breaking changes
+HERA_Tsky_mdl = {
+    pol : Tsky(os.path.join(DATA_PATH, "HERA_Tsky_Reformatted.npz"), pol=pol)
+    for pol in ("xx", "yy")
+}
 
 @registry
 class Noise:
