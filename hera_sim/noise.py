@@ -16,6 +16,8 @@ HERA_Tsky_mdl = {
     for pol in ("xx", "yy")
 }
 
+# XXX re-add resample_Tsky function but add a DeprecationWarning
+
 @registry
 class Noise:
     def __init__(self, **kwargs):
@@ -56,9 +58,9 @@ class ThermalNoise(Noise):
                 "to use this function."
             )
 
-        # get the channel width if not specified
+        # get the channel width in Hz if not specified
         if channel_width is None:
-            channel_width = np.mean(np.diff(freqs))
+            channel_width = np.mean(np.diff(freqs)) * 1e9
         
         # get the integration time if not specified
         if integration_time is None:
@@ -75,20 +77,21 @@ class ThermalNoise(Noise):
         if callable(omega_p):
             omega_p = omega_p(freqs)
 
-        # resample the sky temperature model
-        Tsky = Tsky_mdl(lsts, freqs)
+        # resample the sky temperature model and add the receiver temp
+        Tsky = Tsky_mdl(lsts, freqs) + Trx
+    
         # calculate noise visibility in units of K, assuming Tsky
         # is in units of K
         vis = Tsky / np.sqrt(integration_time * channel_width)
-        # add receiver temperature
-        vis += Trx
+        
         # convert vis to Jy
         # XXX why the reshape?
         vis /= utils.Jy2T(freqs, omega_p).reshape(1, -1)
+        
         # make it noisy
         return utils.gen_white_noise(size=vis.shape) * vis
 
 thermal_noise = ThermalNoise()
 
 sky_noise_jy = \
-    lambda lsts, freqs, kwargs : thermal_noise(lsts, freqs, Trx=0, **kwargs)
+    lambda lsts, freqs, **kwargs : thermal_noise(lsts, freqs, Trx=0, **kwargs)
