@@ -2,6 +2,29 @@
 Changelog
 =========
 
+v1.0.0 [???]
+============
+
+Added
+-----
+
+Fixed
+-----
+
+Changed
+-------
+
+- All functions that take frequencies and LSTs as arguments have had \
+  their signatures changed to func(lsts, freqs, \*args, \*\*kwargs)
+
+- Changes to handling of functions which employ a fringe or delay \
+  filtering step with variable keywords for the filters used. Filter \
+  keywords are now specified with individual dictionaries called \
+  ``delay_filter_kwargs`` or ``fringe_filter_kwargs``, depending on \
+  the filter used.
+   - Functions affected by this change are as follows:
+      - ``diffuse_foreground``
+      - ``noiselike_eor``
 
 v0.2.0 [2019.11.20]
 ===================
