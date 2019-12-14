@@ -44,13 +44,13 @@ class NoiselikeEoR(EoR):
         # XXX find out why bl_len_ns is hardcoded as 1e10
         # XXX also find out why a tophat filter is hardcoded
         data = utils.rough_delay_filter(data, freqs, 1e10, 
-                                        filter_type="tophat",
+                                        delay_filter_type="tophat",
                                         min_delay=min_delay,
                                         max_delay=max_delay)
 
         # apply fringe-rate filter
         data = utils.rough_fringe_filter(data, lsts, freqs, bl_vec[0], 
-                                         filter_type=fringe_filter_type, 
+                                         fringe_filter_type=fringe_filter_type, 
                                          **fringe_filter_kwargs)
 
         return data
