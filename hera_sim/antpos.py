@@ -29,13 +29,13 @@ class LinearArray(Array):
         self._check_kwargs(**kwargs)
 
         # unpack the kwargs
-        sep = self._extract_kwarg_values(**kwargs)
+        (sep,) = self._extract_kwarg_values(**kwargs)
 
         # make an ant : pos dictionary
-        antpos = {j : np.array([j * sep, 0, 0]) for j in range(nants)}
+        antpos = {j : np.asarray([j * sep, 0, 0]) for j in range(nants)}
         
         # and return the result
-        return antpos
+        return dict(antpos)
 
 
 class HexArray(Array):
@@ -68,7 +68,7 @@ class HexArray(Array):
         for row in range(hex_num - 1, -hex_num + split_core, -1):
             # adding split_core deletes a row if it's true
             for col in range(0, 2 * hex_num - abs(row) - 1):
-                x_pos = sep * (2 - (2 * hex_num - abs(row)) / 2 + col)
+                x_pos = sep * ((2 - (2 * hex_num - abs(row))) / 2 + col)
                 y_pos = row * sep * np.sqrt(3) / 2
                 positions.append([x_pos, y_pos, 0])
 
@@ -89,7 +89,7 @@ class HexArray(Array):
                         np.asarray(pos) 
                         + (up_right + up_left) / 3
                     )
-                elif np.pi / 3 <= theta <= np.pi:
+                elif np.pi / 3 <= theta < np.pi:
                     new_pos.append(
                         np.asarray(pos) 
                         + up_left - (up_right + up_left) / 3
@@ -109,7 +109,7 @@ class HexArray(Array):
             for row in range(exterior_hex_num - 1, -exterior_hex_num, -1):
                 for col in range(2 * exterior_hex_num - abs(row) - 1):
                     x_pos = (
-                            ((2 - (2 * exterior_hex_num - abs(row)) + 2) / 2 + col)
+                            ((2 - (2 * exterior_hex_num - abs(row))) / 2 + col)
                             * sep * (hex_num - 1)
                     )
                     y_pos = row * sep * (hex_num - 1) * np.sqrt(3) / 2
@@ -131,8 +131,9 @@ class HexArray(Array):
                                 - 3 * (up_right + up_left) / 3
                             )
 
-        return {j : pos for j, pos in enumerate(np.array(positions))}
+        antpos = {j : pos for j, pos in enumerate(np.array(positions))}
 
+        return dict(antpos)
 
 linear_array = LinearArray()
 hex_array = HexArray()
