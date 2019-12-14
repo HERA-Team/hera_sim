@@ -33,6 +33,11 @@ Changed
    - ``utils.rough_fringe_filter``
    - Most RFI functions
 
+- The ``io.empty_uvdata`` function had its default keyword values \
+  set to ``None``. The keywords accepted by this function have also \
+  been changed to match their names in \
+  ``pyuvsim.simsetup.initialize_uvdata_from_keywords``
+
 v0.2.0 [2019.11.20]
 ===================
 
