@@ -89,3 +89,6 @@ class ThermalNoise(Noise):
         return utils.gen_white_noise(size=vis.shape) * vis
 
 thermal_noise = ThermalNoise()
+
+sky_noise_jy = \
+    lambda lsts, freqs, kwargs : thermal_noise(lsts, freqs, Trx=0, **kwargs)
