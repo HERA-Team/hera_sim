@@ -183,7 +183,7 @@ def run(input, outfile, verbose, save_all, clobber):
                         base, ext = os.path.splitext(outfile)
                         copy_out = '.'.join((base,model)) + ext
                         # save the component
-                        sim_copy.write_data(copy_out, 
+                        sim_copy.write(copy_out, 
                                             file_type=filing_params["output_format"],
                                             **filing_params['kwargs'])
                     else:
@@ -212,7 +212,7 @@ def run(input, outfile, verbose, save_all, clobber):
     # before writing to disk, update the history to note the config file used
     sim.data.history += "\nSimulation from configuration file: {cfg}".format(
                             cfg=input)
-    sim.write_data(outfile,
+    sim.write(outfile,
                    file_type=filing_params["output_format"],
                    **filing_params["kwargs"])
 
