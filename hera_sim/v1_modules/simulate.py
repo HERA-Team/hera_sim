@@ -89,48 +89,48 @@ class Simulator:
             defaults.set(**default_kwargs, refresh=refresh)
 
     @staticmethod
-    def _apply_filter(antpairpol, ant1, ant2, pol):
+    def _apply_filter(vis_filter, ant1, ant2, pol):
         # TODO: docstring
         """
         """
         # find out whether or not multiple keys are passed
         multikey = any(
-            [isinstance(key, (list, tuple)) for key in antpairpol]
+            [isinstance(key, (list, tuple)) for key in vis_filter]
         )
         # iterate over the keys, find if any are okay
         if multikey:
             apply_filter = [self._apply_filter(key, ant1, ant2, pol)
-                            for key in antpairpol]
+                            for key in vis_filter]
             # if a single filter says to let it pass, then do so
             return all(apply_filter)
-        elif len(antpairpol) == 1:
+        elif len(vis_filter) == 1:
             # check if the polarization matches, since the only 
             # string identifiers should be polarization strings
-            if isinstance(antpairpol, str):
-                return not pol == antpairpol[0]
+            if isinstance(vis_filter, str):
+                return not pol == vis_filter[0]
             # otherwise assume that this is specifying an antenna
             else:
-                return not antpairpol[0] in (ant1, ant2)
-        elif len(antpairpol) == 2:
+                return not vis_filter[0] in (ant1, ant2)
+        elif len(vis_filter) == 2:
             # there are three cases: two polarizations are specified;
             # an antpol is specified; a baseline is specified
             # first, handle the case of two polarizations
-            if all([isinstance(key, str) for key in antpairpol]):
-                return not pol in antpairpol
+            if all([isinstance(key, str) for key in vis_filter]):
+                return not pol in vis_filter
             # otherwise it's simple
             else:
                 return not all(
-                    [key in (ant1, ant2, pol) for key in antpairpol]
+                    [key in (ant1, ant2, pol) for key in vis_filter]
                 )
-        elif len(antpairpol) == 3:
+        elif len(vis_filter) == 3:
             # assume that this is a proper antpairpol
             return not all(
-                [key in antpairpol for key in (ant1, ant2, pol)]
+                [key in vis_filter for key in (ant1, ant2, pol)]
             )
         else:
             # assume it's some list of antennas/polarizations
             return not any(
-                [key in (ant1, ant2, pol) for key in antpairpol]
+                [key in (ant1, ant2, pol) for key in vis_filter]
             )
 
     def _initialize_uvd(self, data, **uvdata_kwargs):
@@ -176,7 +176,7 @@ class Simulator:
             yield ant1, ant2, pol, blt_inds, pol_ind
 
     def _iteratively_apply(self, model, add_vis=True, ret_vis=False, 
-                           antpairpol=None, **kwargs):
+                           vis_filter=None, **kwargs):
         # TODO: docstring
         """
         """
@@ -216,8 +216,8 @@ class Simulator:
 
         for ant1, ant2, pol, blt_inds, pol_ind in self._iterate_antpair_pols():
             # filter what's actually having data simulated
-            if antpairpol is not None:
-                if self._apply_filter(utils._listify(antpairpol)):
+            if vis_filter is not None:
+                if self._apply_filter(utils._listify(vis_filter)):
                     continue
 
             use_args = self._update_args(
@@ -458,13 +458,15 @@ class Simulator:
         msg = msg.format(version=version, component=model)
         self.data.history += msg
 
-    def add(self, component, antpairpol=None,  **kwargs):
+    def add(self, component, **kwargs):
         # TODO: docstring
         """
         """
         # find out whether to add and/or return the component
         add_vis = kwargs.pop("add_vis", True)
         ret_vis = kwargs.pop("ret_vis", False)
+        # find out whether the data application should be filtered
+        vis_filter = kwargs.pop("vis_filter", None)
         # take out the seed_mode kwarg so as not to break initializor
         seed_mode = kwargs.pop("seed_mode", -1)
         # get the model for the desired component
@@ -480,13 +482,13 @@ class Simulator:
         # calculate the effect
         data = self._iteratively_apply(
             model, add_vis=add_vis, ret_vis=ret_vis, 
-            antpairpol=antpairpol, **kwargs
+            vis_filter=vis_filter, **kwargs
         )
         # log the component and its kwargs, if added to data
         if add_vis:
             # note the filter used if any
-            if antpairpol is not None:
-                kwargs["antpairpol"] = antpairpol
+            if vis_filter is not None:
+                kwargs["vis_filter"] = vis_filter
             # note the defaults used if any
             if defaults._override_defaults:
                 kwargs["defaults"] = defaults()
