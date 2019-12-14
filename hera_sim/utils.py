@@ -339,7 +339,7 @@ def Jy2T(freqs, omega_p):
     wavelengths = const.c.value / freqs
     # scaling went from 1e-23 -> 1e-34 in converting to SI
     # what is the point of this multiplicative constant?
-    return 1e-34 * wavelengths ** 2 / (2 * const.k_B * omega_p)
+    return 1e-34 * wavelengths ** 2 / (2 * const.k_B.value * omega_p)
 
 def _listify(x):
     """Ensure a scalar/list is returned as a list.
