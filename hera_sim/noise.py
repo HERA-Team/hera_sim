@@ -16,8 +16,6 @@ HERA_Tsky_mdl = {
     for pol in ("xx", "yy")
 }
 
-# XXX re-add resample_Tsky function but add a DeprecationWarning
-
 @registry
 class Noise:
     def __init__(self, **kwargs):
@@ -51,13 +49,6 @@ class ThermalNoise(Noise):
         (Tsky_mdl, omega_p, integration_time, channel_width, 
             Trx) = self._extract_kwarg_values(**kwargs)
 
-        # make sure a sky temperature model is specified
-        if Tsky_mdl is None:
-            raise ValueError(
-                "A sky temperature model is required "
-                "to use this function."
-            )
-
         # get the channel width in Hz if not specified
         if channel_width is None:
             channel_width = np.mean(np.diff(freqs)) * 1e9
@@ -78,7 +69,7 @@ class ThermalNoise(Noise):
             omega_p = omega_p(freqs)
 
         # resample the sky temperature model and add the receiver temp
-        Tsky = Tsky_mdl(lsts, freqs) + Trx
+        Tsky = self.resample_Tsky(lsts, freqs, Tsky_mdl=Tsky_mdl) + Trx
     
         # calculate noise visibility in units of K, assuming Tsky
         # is in units of K
@@ -91,7 +82,26 @@ class ThermalNoise(Noise):
         # make it noisy
         return utils.gen_white_noise(size=vis.shape) * vis
 
-thermal_noise = ThermalNoise()
+    @staticmethod
+    def resample_Tsky(lsts, freqs, Tsky_mdl=None, 
+                      Tsky=180.0, mfreq=0.18, index=-2.5):
+        # TODO: docstring
+        """
+        """
+        # maybe add a DeprecationWarning?
 
+        # actually resample the sky model if it's an interpolation object
+        if Tsky_mdl is not None:
+            tsky = Tsky_mdl(lsts, freqs)
+        else:
+            # use a power law if there's no sky model
+            tsky = Tsky * (freqs / mfreq) ** index
+            # reshape it appropriately
+            tsky = np.resize(tsky, (lsts.size, freqs.size))
+        return tsky
+
+# make the old functions discoverable
+resample_Tsky = ThermalNoise.resample_Tsky
+thermal_noise = ThermalNoise()
 sky_noise_jy = \
     lambda lsts, freqs, **kwargs : thermal_noise(lsts, freqs, Trx=0, **kwargs)
