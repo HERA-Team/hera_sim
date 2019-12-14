@@ -5,7 +5,7 @@ from .components import registry
 
 @registry
 class RFI:
-    pass
+    pass 
 
 class RfiStation:
     # TODO: docstring
@@ -129,35 +129,35 @@ class Impulse(RFI):
             impulse_strength=impulse_strength
         )
 
-        def __call__(self, lsts, freqs, **kwargs):
-            # TODO: docstring
-            """
-            """
-            # check that the kwargs are okay
-            self._check_kwargs(**kwargs)
+    def __call__(self, lsts, freqs, **kwargs):
+        # TODO: docstring
+        """
+        """
+        # check that the kwargs are okay
+        self._check_kwargs(**kwargs)
 
-            # unpack the kwargs
-            chance, strength = self._extract_kwarg_values(**kwargs)
+        # unpack the kwargs
+        chance, strength = self._extract_kwarg_values(**kwargs)
 
-            # initialize the rfi array
-            rfi = np.zeros((lsts.size, freqs.size), dtype=np.complex)
+        # initialize the rfi array
+        rfi = np.zeros((lsts.size, freqs.size), dtype=np.complex)
 
-            # find times when an impulse occurs
-            impulses = np.where(np.random.uniform(size=lsts.size) <= chance)[0]
+        # find times when an impulse occurs
+        impulses = np.where(np.random.uniform(size=lsts.size) <= chance)[0]
 
-            # only do something if there are impulses
-            if impulses.size > 0:
-                # randomly generate some delays for each impulse
-                dlys = np.random.uniform(-300, 300, impulses.size) # ns
+        # only do something if there are impulses
+        if impulses.size > 0:
+            # randomly generate some delays for each impulse
+            dlys = np.random.uniform(-300, 300, impulses.size) # ns
 
-                # generate the signals
-                signals = strength * np.asarray(
-                    [np.exp(2j * np.pi * dly * freqs) for dly in dlys]
-                )
+            # generate the signals
+            signals = strength * np.asarray(
+                [np.exp(2j * np.pi * dly * freqs) for dly in dlys]
+            )
 
-                rfi[impulses] += signals
+            rfi[impulses] += signals
 
-            return rfi
+        return rfi
 
 class Scatter(RFI):
     # TODO: docstring
