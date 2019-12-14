@@ -22,13 +22,13 @@ class TestForegrounds(unittest.TestCase):
         lsts = np.linspace(0, 2*np.pi, 1000)
         times = lsts / (2*np.pi) * aipy.const.sidereal_day
         Tsky_mdl = noise.HERA_Tsky_mdl['xx']
-        bl_len_ns = 30.
+        bl_vec = [0, 0, 0]
         delay_filter_kwargs = {"delay_filter_type" : "tophat"}
         fringe_filter_kwargs = {"fringe_filter_type" : "tophat"}
 
         # simulate the effect
         vis = foregrounds.diffuse_foreground(
-            lsts, fqs, [bl_len_ns, 0, 0], Tsky_mdl=Tsky_mdl, omega_p=omega_p,
+            lsts, fqs, bl_vec, Tsky_mdl=Tsky_mdl, omega_p=omega_p,
             delay_filter_kwargs=delay_filter_kwargs, 
             fringe_filter_kwargs=fringe_filter_kwargs
         )
@@ -36,11 +36,23 @@ class TestForegrounds(unittest.TestCase):
         # check the shape
         self.assertEqual(vis.shape, (lsts.size,fqs.size))
         
-        # XXX check more substantial things
+        # check that an autocorrelation is real-valued
+        self.assertTrue(np.all(vis.imag == 0))
+
+        # any other tests we can do?
+
         #import uvtools, pylab as plt
         #uvtools.plot.waterfall(vis, mode='log'); plt.colorbar(); plt.show()
         
-        nt.assert_raises(ValueError, foregrounds.diffuse_foreground, lsts, fqs, [bl_len_ns])
+        # throw a value error if Tsky_mdl or omega_p not specified
+        nt.assert_raises(
+            ValueError, foregrounds.diffuse_foreground, lsts, fqs, 
+            bl_vec, Tsky_mdl=None
+        )
+        nt.assert_raises(
+            ValueError, foregrounds.diffuse_foreground, lsts, fqs, 
+            bl_vec, Tsky_mdl=Tsky_mdl
+        )
 
     def test_pntsrc_foreground(self):
         # make some parameters
