@@ -135,6 +135,12 @@ class Simulator:
         """
         # do nothing if neither adding nor returning the effect
         if not add_vis and not ret_vis:
+            warnings.warn(
+                "You have chosen to neither add nor return the effect "
+                "you are trying to simulate, so nothing will be "
+                "computed. This warning was raised for the model: "
+                "{model}".format(model=self._get_model_name(model))
+            )
             return
         # pull lsts/freqs if required and find out which extra 
         # parameters are required
@@ -144,7 +150,16 @@ class Simulator:
         seed_mode = kwargs.pop("seed_mode", None)
         # get the original data array just in case
         initial_data = self.data.data_array.copy()
-        # do we really want to do it this way?
+        # find out if the model is multiplicative
+        is_multiplicative = getattr(model, "is_multiplicative", None)
+        if is_multiplicative is None:
+            warnings.warn(
+                "You are attempting to compute a component but have "
+                "not specified an ``is_multiplicative`` attribute for "
+                "the component. The component will be added under "
+                "the assumption that it is *not* multiplicative."
+            )
+            is_multiplicative = False
         for ant1, ant2, pol, blt_inds, pol_ind in self._iterate_antpair_pols():
             use_args = self._update_args(
                 args, requires_ants, requires_bl_vec, requires_vis,
@@ -155,7 +170,7 @@ class Simulator:
             if seed_mode is not None:
                 self._seed_rng(seed_mode, model, ant1, ant2)
             # check whether we're simulating a gain or a visibility
-            if model.is_multiplicative:
+            if is_multiplicative:
                 # get the gains for the entire array
                 # this is sloppy, but ensures seeding works correctly
                 gains = model(*use_args, **kwargs)
@@ -173,7 +188,7 @@ class Simulator:
         # return the component if desired
         if ret_vis:
             # return the gain dictionary if gains are simulated
-            if model.is_multiplicative:
+            if is_multiplicative:
                 return gains
             # otherwise return the actual visibility simulated
             else:
