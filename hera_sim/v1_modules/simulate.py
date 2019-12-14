@@ -70,7 +70,8 @@ class Simulator:
         """
         return np.unique(self.data.freq_array) / 1e9
 
-    def apply_defaults(self, default_config, refresh=True, **default_kwargs):
+    def apply_defaults(self, default_config=None, refresh=True, 
+                       **default_kwargs):
         # TODO: docstring
         """
         """
@@ -86,6 +87,51 @@ class Simulator:
             defaults.set(default_config, refresh=refresh)
         else:
             defaults.set(**default_kwargs, refresh=refresh)
+
+    @staticmethod
+    def _apply_filter(antpairpol, ant1, ant2, pol):
+        # TODO: docstring
+        """
+        """
+        # find out whether or not multiple keys are passed
+        multikey = any(
+            [isinstance(key, (list, tuple)) for key in antpairpol]
+        )
+        # iterate over the keys, find if any are okay
+        if multikey:
+            apply_filter = [self._apply_filter(key, ant1, ant2, pol)
+                            for key in antpairpol]
+            # if a single filter says to let it pass, then do so
+            return all(apply_filter)
+        elif len(antpairpol) == 1:
+            # check if the polarization matches, since the only 
+            # string identifiers should be polarization strings
+            if isinstance(antpairpol, str):
+                return not pol == antpairpol[0]
+            # otherwise assume that this is specifying an antenna
+            else:
+                return not antpairpol[0] in (ant1, ant2)
+        elif len(antpairpol) == 2:
+            # there are three cases: two polarizations are specified;
+            # an antpol is specified; a baseline is specified
+            # first, handle the case of two polarizations
+            if all([isinstance(key, str) for key in antpairpol]):
+                return not pol in antpairpol
+            # otherwise it's simple
+            else:
+                return not all(
+                    [key in (ant1, ant2, pol) for key in antpairpol]
+                )
+        elif len(antpairpol) == 3:
+            # assume that this is a proper antpairpol
+            return not all(
+                [key in antpairpol for key in (ant1, ant2, pol)]
+            )
+        else:
+            # assume it's some list of antennas/polarizations
+            return not any(
+                [key in (ant1, ant2, pol) for key in antpairpol]
+            )
 
     def _initialize_uvd(self, data, **uvdata_kwargs):
         # TODO: docstring
@@ -129,7 +175,8 @@ class Simulator:
             pol_ind = self.data.get_pols().index(pol)
             yield ant1, ant2, pol, blt_inds, pol_ind
 
-    def _iteratively_apply(self, model, add_vis=True, ret_vis=False, **kwargs):
+    def _iteratively_apply(self, model, add_vis=True, ret_vis=False, 
+                           antpairpol=None, **kwargs):
         # TODO: docstring
         """
         """
@@ -142,16 +189,22 @@ class Simulator:
                 "{model}".format(model=self._get_model_name(model))
             )
             return
+        
         # pull lsts/freqs if required and find out which extra 
         # parameters are required
         (args, requires_ants, requires_bl_vec, 
             requires_vis) = self._initialize_args_from_model(model)
+        
         # figure out whether or not to seed the RNG
         seed_mode = kwargs.pop("seed_mode", None)
+        
         # get the original data array just in case
         initial_data = self.data.data_array.copy()
+        
         # find out if the model is multiplicative
         is_multiplicative = getattr(model, "is_multiplicative", None)
+        
+        # handle user-defined functions as the passed model
         if is_multiplicative is None:
             warnings.warn(
                 "You are attempting to compute a component but have "
@@ -160,7 +213,13 @@ class Simulator:
                 "the assumption that it is *not* multiplicative."
             )
             is_multiplicative = False
+
         for ant1, ant2, pol, blt_inds, pol_ind in self._iterate_antpair_pols():
+            # filter what's actually having data simulated
+            if antpairpol is not None:
+                if self._apply_filter(utils._listify(antpairpol)):
+                    continue
+
             use_args = self._update_args(
                 args, requires_ants, requires_bl_vec, requires_vis,
                 ant1, ant2, pol
@@ -399,7 +458,7 @@ class Simulator:
         msg = msg.format(version=version, component=model)
         self.data.history += msg
 
-    def add(self, component, **kwargs):
+    def add(self, component, antpairpol=None,  **kwargs):
         # TODO: docstring
         """
         """
@@ -420,10 +479,18 @@ class Simulator:
             kwargs["seed_mode"] = seed_mode
         # calculate the effect
         data = self._iteratively_apply(
-            model, add_vis=add_vis, ret_vis=ret_vis, **kwargs
+            model, add_vis=add_vis, ret_vis=ret_vis, 
+            antpairpol=antpairpol, **kwargs
         )
         # log the component and its kwargs, if added to data
         if add_vis:
+            # note the filter used if any
+            if antpairpol is not None:
+                kwargs["antpairpol"] = antpairpol
+            # note the defaults used if any
+            if defaults._override_defaults:
+                kwargs["defaults"] = defaults()
+            # log the component and the settings used
             self._components[component] = kwargs
             # update the history
             self._update_history(model, **kwargs)
@@ -442,6 +509,10 @@ class Simulator:
         kwargs = self._components[component]
         # figure out whether or not to seed the rng
         seed_mode = kwargs.pop("seed_mode", None)
+        # figure out whether or not to apply defaults
+        use_defaults = kwargs.pop("defaults", {})
+        if use_defaults:
+            self.apply_defaults(**use_defaults)
         # instantiate the model if it's a class
         if is_class:
             model = model(**kwargs)
