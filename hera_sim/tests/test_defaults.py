@@ -4,7 +4,6 @@ from nose.tools import raises
 from hera_sim.defaults import defaults
 from hera_sim.config import CONFIG_PATH
 from hera_sim.sigchain import gen_bandpass
-from hera_sim.noise import bm_poly_to_omega_p
 from hera_sim.interpolators import Tsky, Beam
 
 if defaults._version_is_compatible:
@@ -22,13 +21,6 @@ if defaults._version_is_compatible:
         assert defaults()['inttime'] == 8.59
         assert isinstance(defaults()['Tsky_mdl'], Tsky)
         assert isinstance(defaults()['omega_p'], Beam)
-
-    def test_beam_poly_changes():
-        defaults.set('h1c')
-        fqs = np.linspace(0.1,0.2,100)
-        omega_p = bm_poly_to_omega_p(fqs)
-        defaults.set('h2c')
-        assert not np.all(omega_p==bm_poly_to_omega_p(fqs))
 
     def test_bandpass_changes():
         defaults.set('h1c')
