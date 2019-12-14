@@ -18,7 +18,7 @@ def registry(cls):
                 cls.__base__._models[cls.__name__] = cls
 
         def _extract_kwarg_values(self, **kwargs):
-            # flatten the dictionary of default parameter values
+            # retrieve the default set of kwargs
             use_kwargs = self.kwargs.copy()
 
             # apply new defaults if the defaults class is active
