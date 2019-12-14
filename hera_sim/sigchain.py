@@ -268,7 +268,10 @@ class WhiteNoiseCrosstalk(Crosstalk):
 
 # to minimize breaking changes
 gen_gains = Bandpass()
+gen_bandpass = gen_gains._gen_bandpass
+
 gen_reflection_coefficient = Reflections.gen_reflection_coefficient
 gen_reflection_gains = Reflections()
+
 gen_whitenoise_xtalk = WhiteNoiseCrosstalk()
 gen_cross_coupling_xtalk = CrossCouplingCrosstalk()
