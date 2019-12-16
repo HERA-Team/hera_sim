@@ -611,17 +611,17 @@ class Simulator:
         except AttributeError:
             # check if it's a user defined function
             if model.__class__.__name__ == "function":
-                # get the name of it if so
-                try:
-                    func_name = [name for name, obj in globals().items()
-                                      if id(obj) == id(model)][0]
-                    return func_name
-                except IndexError:
-                    # it's not in the global namespace
-                    msg = "The model is a function but is not in the "
-                    msg += "global namespace. Please import the "
-                    msg += "function and try again."
-                    raise ValueError(msg)
+                # don't allow users to pass functions, only classes
+                msg = "You are trying to simulate an effect using a "
+                msg += "custom function. Please convert your "
+                msg += "function into a callable class that inherits "
+                msg += "from a registry. To make a registry, simply "
+                msg += "define a class and decorate it with the "
+                msg += "hera_sim.registry decorator. The registry "
+                msg += "does not need to perform any tasks or be "
+                msg += "instantiated; it just needs to exist and be "
+                msg += "a base class for the custom callable class."
+                raise ValueError(msg)
             else:
                 return model.__class__.__name__
 
