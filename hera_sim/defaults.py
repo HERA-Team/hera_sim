@@ -137,10 +137,9 @@ class Defaults:
         self._raw_config = {}
         self._config = {}
         self._config_name = None
-        self._warn = False # remove this when season configs are updated
-        self._set_config(config)
-        self._warn = True # remove this when season configs are updated
         self._override_defaults = False
+        if config:
+            self._set_config(config)
 
     def __call__(self, component=None):
         """Return the defaults dictionary, or just a component."""
@@ -283,8 +282,7 @@ class Defaults:
                     warning += "{}\n".format(param)
             warning += "Please check your configuration, as only the last " \
                        "value specified for each parameter will be used."
-            if self._warn: # remove this after season defaults update
-                warnings.warn(warning)
+            warnings.warn(warning)
 
     @property
     def _version_is_compatible(self):
