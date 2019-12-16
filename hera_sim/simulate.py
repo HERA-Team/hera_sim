@@ -145,6 +145,18 @@ class Simulator:
         # now calculate the effect and return it
         return model(*use_args, **kwargs)
 
+    def refresh(self):
+        """Refresh the Simulator object.
+
+        This zeros the data array, resets the history, and clears the 
+        instance's _components dictionary.
+        """
+        self.data.data_array = np.zeros(
+            self.data.data_array.shape, dtype=np.complex
+        )
+        self.data.history = ''
+        self._components.clear()
+
     def write(self, filename, save_format="uvh5", save_seeds=True, **kwargs):
         # TODO: docstring
         """
