@@ -67,12 +67,139 @@ class Simulator:
         """
         return np.unique(self.data.freq_array) / 1e9
 
+    # XXX begin methods intended for user interaction XXX
+
     def apply_defaults(self, config, refresh=True):
         # TODO: docstring
         """
         """
         # actually apply the default settings
         defaults.set(config, refresh=refresh)
+
+    def add(self, component, **kwargs):
+        # TODO: docstring
+        """
+        """
+        # find out whether to add and/or return the component
+        add_vis = kwargs.pop("add_vis", True)
+        ret_vis = kwargs.pop("ret_vis", False)
+        # find out whether the data application should be filtered
+        vis_filter = kwargs.pop("vis_filter", None)
+        # take out the seed_mode kwarg so as not to break initializor
+        seed_mode = kwargs.pop("seed_mode", -1)
+        # get the model for the desired component
+        model, is_class = self._get_component(component)
+        if is_class:
+            # if the component returned is a class, instantiate it
+            model = model(**kwargs)
+        # check that there isn't an issue with component ordering
+        self._sanity_check(model)
+        # re-add the seed_mode kwarg if it was specified
+        if seed_mode != -1:
+            kwargs["seed_mode"] = seed_mode
+        # calculate the effect
+        data = self._iteratively_apply(
+            model, add_vis=add_vis, ret_vis=ret_vis, 
+            vis_filter=vis_filter, **kwargs
+        )
+        # log the component and its kwargs, if added to data
+        if add_vis:
+            # note the filter used if any
+            if vis_filter is not None:
+                kwargs["vis_filter"] = vis_filter
+            # note the defaults used if any
+            if defaults._override_defaults:
+                kwargs["defaults"] = defaults()
+            # log the component and the settings used
+            self._components[component] = kwargs
+            # update the history
+            self._update_history(model, **kwargs)
+        # return the data if desired
+        if ret_vis:
+            return data
+
+    def get(self, component, ant1=None, ant2=None, pol=None):
+        # TODO: docstring
+        """
+        """
+        assert component in self._components.keys()
+        # retrieve the model
+        model, is_class = self._get_component(component)
+        # get the kwargs
+        kwargs = self._components[component]
+        # figure out whether or not to seed the rng
+        seed_mode = kwargs.pop("seed_mode", None)
+        # figure out whether or not to apply defaults
+        use_defaults = kwargs.pop("defaults", {})
+        if use_defaults:
+            self.apply_defaults(**use_defaults)
+        # instantiate the model if it's a class
+        if is_class:
+            model = model(**kwargs)
+        # seed the RNG if desired
+        if seed_mode is not None:
+            self._seed_rng(seed_mode, model, ant1, ant2)
+        # get the arguments necessary for the model
+        init_args = self._initialize_args_from_model(model)
+        use_args = self._update_args(*init_args, ant1, ant2, pol)
+        # now calculate the effect and return it
+        return model(*use_args, **kwargs)
+
+    def write(self, filename, save_format="uvh5", save_seeds=True, **kwargs):
+        # TODO: docstring
+        """
+        """
+        try:
+            getattr(self.data, "write_%s" % save_format)(filename, **kwargs)
+        except AttributeError:
+            msg = "The save_format must correspond to a write method in UVData."
+            raise ValueError(msg)
+        if save_seeds:
+            seed_file = os.path.splitext(filename)[0] + "_seeds"
+            np.save(seed_file, self._seeds)
+
+    @_generator_to_list
+    def run_sim(self, sim_file=None, **sim_params):
+        # TODO: docstring
+        """
+        """
+        # make sure that only sim_file or sim_params are specified
+        assert bool(sim_file) ^ bool(sim_params), \
+            "Either an absolute path to a simulation configuration " \
+            "file or a dictionary of simulation parameters may be " \
+            "passed, but not both. Please only pass one of the two."
+
+        # read the simulation file if provided
+        if sim_file is not None:
+            with open(sim_file, 'r') as config:
+                try:
+                    sim_params = yaml.load(
+                        config.read(), Loader=yaml.FullLoader
+                    )
+                except:
+                    print("The configuration file was not able to be loaded.")
+                    print("Please fix the file and try again.")
+                    sys.exit()
+
+        # loop over the entries in the configuration dictionary
+        for component, params in sim_params.items():
+            # make sure that the parameters are a dictionary
+            assert isinstance(params, dict), \
+                "The parameters for {component} are not formatted " \
+                "properly. Please ensure that the parameters for " \
+                "each component are specified using a " \
+                "dictionary.".format(component=component)
+            
+            # add the component to the data
+            value = self.add(component, **params)
+        
+            # if the user wanted to return the data, then
+            if value is not None:
+                yield (component, value)
+
+    # XXX end methods intended for user interaction XXX
+
+    # XXX begin helper methods XXX
 
     @staticmethod
     def _apply_filter(vis_filter, ant1, ant2, pol):
@@ -242,7 +369,6 @@ class Simulator:
         # reset the data array if not adding the component
         if not add_vis:
             self.data.data_array = initial_data
-
 
     @staticmethod
     def _read_datafile(datafile, **kwargs):
@@ -444,123 +570,3 @@ class Simulator:
         msg = msg.format(version=version, component=model)
         self.data.history += msg
 
-    def add(self, component, **kwargs):
-        # TODO: docstring
-        """
-        """
-        # find out whether to add and/or return the component
-        add_vis = kwargs.pop("add_vis", True)
-        ret_vis = kwargs.pop("ret_vis", False)
-        # find out whether the data application should be filtered
-        vis_filter = kwargs.pop("vis_filter", None)
-        # take out the seed_mode kwarg so as not to break initializor
-        seed_mode = kwargs.pop("seed_mode", -1)
-        # get the model for the desired component
-        model, is_class = self._get_component(component)
-        if is_class:
-            # if the component returned is a class, instantiate it
-            model = model(**kwargs)
-        # check that there isn't an issue with component ordering
-        self._sanity_check(model)
-        # re-add the seed_mode kwarg if it was specified
-        if seed_mode != -1:
-            kwargs["seed_mode"] = seed_mode
-        # calculate the effect
-        data = self._iteratively_apply(
-            model, add_vis=add_vis, ret_vis=ret_vis, 
-            vis_filter=vis_filter, **kwargs
-        )
-        # log the component and its kwargs, if added to data
-        if add_vis:
-            # note the filter used if any
-            if vis_filter is not None:
-                kwargs["vis_filter"] = vis_filter
-            # note the defaults used if any
-            if defaults._override_defaults:
-                kwargs["defaults"] = defaults()
-            # log the component and the settings used
-            self._components[component] = kwargs
-            # update the history
-            self._update_history(model, **kwargs)
-        # return the data if desired
-        if ret_vis:
-            return data
-
-    def get(self, component, ant1=None, ant2=None, pol=None):
-        # TODO: docstring
-        """
-        """
-        assert component in self._components.keys()
-        # retrieve the model
-        model, is_class = self._get_component(component)
-        # get the kwargs
-        kwargs = self._components[component]
-        # figure out whether or not to seed the rng
-        seed_mode = kwargs.pop("seed_mode", None)
-        # figure out whether or not to apply defaults
-        use_defaults = kwargs.pop("defaults", {})
-        if use_defaults:
-            self.apply_defaults(**use_defaults)
-        # instantiate the model if it's a class
-        if is_class:
-            model = model(**kwargs)
-        # seed the RNG if desired
-        if seed_mode is not None:
-            self._seed_rng(seed_mode, model, ant1, ant2)
-        # get the arguments necessary for the model
-        init_args = self._initialize_args_from_model(model)
-        use_args = self._update_args(*init_args, ant1, ant2, pol)
-        # now calculate the effect and return it
-        return model(*use_args, **kwargs)
-
-    def write(self, filename, save_format="uvh5", save_seeds=True, **kwargs):
-        # TODO: docstring
-        """
-        """
-        try:
-            getattr(self.data, "write_%s" % save_format)(filename, **kwargs)
-        except AttributeError:
-            msg = "The save_format must correspond to a write method in UVData."
-            raise ValueError(msg)
-        if save_seeds:
-            seed_file = os.path.splitext(filename)[0] + "_seeds"
-            np.save(seed_file, self._seeds)
-    
-    @_generator_to_list
-    def run_sim(self, sim_file=None, **sim_params):
-        # TODO: docstring
-        """
-        """
-        # make sure that only sim_file or sim_params are specified
-        assert bool(sim_file) ^ bool(sim_params), \
-            "Either an absolute path to a simulation configuration " \
-            "file or a dictionary of simulation parameters may be " \
-            "passed, but not both. Please only pass one of the two."
-
-        # read the simulation file if provided
-        if sim_file is not None:
-            with open(sim_file, 'r') as config:
-                try:
-                    sim_params = yaml.load(
-                        config.read(), Loader=yaml.FullLoader
-                    )
-                except:
-                    print("The configuration file was not able to be loaded.")
-                    print("Please fix the file and try again.")
-                    sys.exit()
-
-        # loop over the entries in the configuration dictionary
-        for component, params in sim_params.items():
-            # make sure that the parameters are a dictionary
-            assert isinstance(params, dict), \
-                "The parameters for {component} are not formatted " \
-                "properly. Please ensure that the parameters for " \
-                "each component are specified using a " \
-                "dictionary.".format(component=component)
-            
-            # add the component to the data
-            value = self.add(component, **params)
-        
-            # if the user wanted to return the data, then
-            if value is not None:
-                yield (component, value)
