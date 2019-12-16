@@ -15,10 +15,12 @@ from nose.tools import raises, assert_raises
 from hera_sim.foregrounds import diffuse_foreground
 from hera_sim.noise import thermal_noise, HERA_Tsky_mdl
 from hera_sim.simulate import Simulator
+from hera_sim.antpos import hex_array
 from hera_sim.data import DATA_PATH
+from pyuvdata import UVData
 
 
-def create_sim(autos=False):
+def create_sim(autos=False, **kwargs):
     return Simulator(
         n_freq=10,
         n_times=20,
@@ -26,7 +28,8 @@ def create_sim(autos=False):
             0: (20.0, 20.0, 0),
             1: (50.0, 50.0, 0)
         },
-        no_autos=not autos
+        no_autos=not autos,
+        **kwargs
     )
 
 
@@ -94,14 +97,19 @@ def test_io():
     sim.add_foregrounds("pntsrc_foreground")
     sim.add_gains()
 
-    print(sim.data.antenna_names)
     sim.write_data(path.join(direc, 'tmp_data.uvh5'))
 
     sim2 = Simulator(
         data=path.join(direc, 'tmp_data.uvh5')
     )
 
+    uvd = UVData()
+    uvd.read_uvh5(path.join(direc, 'tmp_data.uvh5'))
+
+    sim3 = Simulator(data=uvd)
+
     assert np.all(sim.data.data_array == sim2.data.data_array)
+    assert np.all(sim.data.data_array == sim3.data.data_array)
 
     with assert_raises(ValueError):
         sim.write_data(path.join(direc, 'tmp_data.bad_extension'), file_type="bad_type")
@@ -161,6 +169,45 @@ def test_adding_vis_but_also_returning():
     vis = sim.add_foregrounds("diffuse_foreground", Tsky_mdl=HERA_Tsky_mdl['xx'], ret_vis=True)
     np.testing.assert_array_almost_equal(vis, sim.data.data_array, decimal=5)
 
+def test_mult_pols():
+    sim = create_sim(polarization_array=['xx','yy'])
+    sim.add_foregrounds("diffuse_foreground", Tsky_mdl=HERA_Tsky_mdl['xx'], pol='xx')
+    assert np.all(sim.data.get_data((0,1,'yy'))==0)
+    assert not np.all(sim.data.get_data((0,1,'xx'))==0)
+
+@raises(AssertionError)
+def test_bad_pol():
+    sim = create_sim(polarization_array=['xx','yy'])
+    # not specifying polarization
+    sim.add_foregrounds("diffuse_foreground", Tsky_mdl=HERA_Tsky_mdl['xx'])
+    # specifying bad polarization
+    sim.add_foregrounds("diffuse_foreground", Tsky_mdl=HERA_Tsky_mdl['xx'], pol='xy')
+
+def test_consistent_across_reds():
+    ants = hex_array(2,split_core=False,outriggers=0)
+    sim = Simulator(n_freq=50, n_times=20, antennas=ants)
+    sim.add_foregrounds('diffuse_foreground', Tsky_mdl=HERA_Tsky_mdl['xx'],
+            seed_redundantly=True)
+    sim.add_eor('noiselike_eor', seed_redundantly=True)
+    reds = sim.data.get_baseline_redundancies()[0][1] # choose non-autos
+    key1 = sim.data.baseline_to_antnums(reds[0]) + ('xx',)
+    key2 = sim.data.baseline_to_antnums(reds[1]) + ('xx',)
+    assert np.all(np.isclose(sim.data.get_data(key1),sim.data.get_data(key2)))
+
+def test_return_and_save_seeds():
+    ants = hex_array(2, split_core=False, outriggers=0)
+    sim = Simulator(n_freq=50, n_times=20, antennas=ants)
+    sim.add_foregrounds('diffuse_foreground', Tsky_mdl=HERA_Tsky_mdl['xx'],
+            seed_redundantly=True)
+    tempdir = tempfile.mkdtemp()
+    vis_file = path.join(tempdir, "test.uvh5")
+    seeds = sim.data.extra_keywords['seeds']
+    alt_seeds = sim.write_data(vis_file, ret_seeds=True, save_seeds=True)
+    saved_seeds = np.load(vis_file.replace(".uvh5", ".npy"), allow_pickle=True)
+    saved_seeds = saved_seeds[None][0]
+    assert seeds==alt_seeds
+    assert seeds==sim.data.extra_keywords['seeds']
+    assert np.all(seeds['diffuse_foreground']==saved_seeds['diffuse_foreground'])
 
 if sys.version_info.major < 3 or \
    sys.version_info.major > 3 and sys.version_info.minor < 4:

@@ -14,9 +14,11 @@ from builtins import zip
 from builtins import object
 import functools
 import inspect
+import os
 import sys
 import warnings
 import yaml
+import time
 
 import numpy as np
 from cached_property import cached_property
@@ -35,6 +37,12 @@ class CompatibilityException(ValueError):
 def _get_model(mod, name):
     return getattr(sys.modules["hera_sim." + mod], name)
 
+def _generator_to_list(func, *args, **kwargs):
+    @functools.wraps(func)
+    def new_func(*args, **kwargs):
+        result = list(func(*args, **kwargs))
+        return None if result == [] else result
+    return new_func
 
 class _model(object):
     """
@@ -61,27 +69,32 @@ class _model(object):
 
         @functools.wraps(func)
         def new_func(obj, *args, **kwargs):
-
-            # If "ret_vis" is set, then we want to return the visibilities
-            # that are being added to the base. If add_vis is set to False,
-            # we need to
+            # add new kwargs for adding/returning visibilities
             add_vis = kwargs.pop("add_vis", True)
-
             ret_vis = kwargs.pop("ret_vis", False)
+
+            # add kwarg for returning gains
+            ret_gains = kwargs.pop("ret_gains", False)
+
+            # assume the user wants visibilities returned if not added
             if not add_vis:
                 ret_vis = True
 
-            if ret_vis:
+            # if we want to return something, need initial visibilities
+            if ret_vis or ret_gains:
                 initial_vis = obj.data.data_array.copy()
 
             # If this is a multiplicative model, and *no* additive models
             # have been called, raise a warning.
             if self.multiplicative and np.all(obj.data.data_array == 0):
-                warnings.warn("You are trying to determine visibilities that depend on preceding visibilities, but " +
-                              "no previous vis have been created.")
-            elif not self.multiplicative and (hasattr(obj, "_added_models") and any([x[1] for x in obj._added_models])):
+                warnings.warn("You are trying to determine visibilities that "
+                              "depend on preceding visibilities, but "
+                              "no previous visibilities have been created.")
+            elif not self.multiplicative and (hasattr(obj, "_added_models") \
+                     and any([x[1] for x in obj._added_models])):
                 # some of the previous models were multiplicative, and now we're trying to add.
-                warnings.warn("You are adding absolute visibilities _after_ determining visibilities that should " +
+                warnings.warn("You are adding absolute visibilities _after_ "
+                              "determining visibilities that should " 
                               "depend on these. Please re-consider.")
 
             if "model" in inspect.getargspec(func)[0]: # TODO: needs to be updated for python 3
@@ -109,13 +122,13 @@ class _model(object):
                 func(obj, *args, **kwargs)
 
             if add_vis:
-                msg = "\nhera_sim v{version}: Added {component} {method_name}with kwargs: {kwargs}"
-                obj.data.history += msg.format(
-                    version=version,
-                    component="".join(name.split("_")[1:]),
-                    method_name=method,
-                    kwargs=kwargs,
-                )
+                msg = "hera_sim v{version}: Added {component} " \
+                      "{method_name}with kwargs: {kwargs}\n".format(
+                              version=version,
+                              component=" ".join(name.split("_")[1:]),
+                              method_name=method,
+                              kwargs=kwargs)
+                obj.data.history += msg
 
                 # history *must* be str, so encode it if it is unicode in py2
                 if sys.version_info[0] == 2:
@@ -128,19 +141,24 @@ class _model(object):
                 else:
                     obj._added_models += [(name, self.multiplicative)]
 
-            # Here actually return something.
+            # get new visibilities added if returning this component's visibilities
             if ret_vis:
-                res = obj.data.data_array - initial_vis
+                residual = obj.data.data_array - initial_vis
 
-                # If we don't want to add the visibilities, set them back
-                # to the original before returning.
-                if not add_vis:
-                    obj.data.data_array[:] = initial_vis[:]
+            # get the gains if we want to return them
+            if ret_gains:
+                gains = obj.data.data_array / initial_vis
 
-                return res
+            # reset the visibility array if we don't want to add the visibilities
+            if not add_vis:
+                obj.data.data_array = initial_vis
+
+            # determine what to return, if anything at all
+            if ret_vis or ret_gains:
+                return (residual, gains) if ret_vis and ret_gains \
+                  else residual if ret_vis else gains
 
         return new_func
-
 
 class Simulator(object):
     """
@@ -231,7 +249,7 @@ class Simulator(object):
             )
 
         else:
-            if type(data) == str:
+            if type(data) is str:
                 self.data_filename = data
 
             if self.data_filename is not None:
@@ -243,14 +261,16 @@ class Simulator(object):
                     self.data.data_array[:] = 0.0
                     self.data.flag_array[:] = False
                     self.data.nsample_array[:] = 1.0
-            elif data is not None:
+            else:
                 self.data = data
 
         # Assume the phase type is drift unless otherwise specified.
         if self.data.phase_type == "unknown":
             self.data.set_drift()
 
-        self.data.baseline_array
+        # add redundant bl groups to UVData object's extra keywords
+        #self.data.extra_keywords['reds'] = self.data.get_baseline_redundancies()[0]
+
         # Check if the created/read data is compatible with the assumptions of
         # this class.
         self._check_compatibility()
@@ -269,7 +289,8 @@ class Simulator(object):
         uv.read(filename, read_data=True, **kwargs)
         return uv
 
-    def write_data(self, filename, file_type="uvh5", **kwargs):
+    def write_data(self, filename, file_type="uvh5", ret_seeds=False, 
+                   save_seeds=False, **kwargs):
         """
         Write current UVData object to file.
 
@@ -279,10 +300,19 @@ class Simulator(object):
                 :class:`pyuvdata.UVData`) which determines which write method to call.
             **kwargs: keyword arguments sent directly to the write method chosen.
         """
+        seeds = self.data.extra_keywords.pop('seeds', {})
         try:
             getattr(self.data, "write_%s" % file_type)(filename, **kwargs)
         except AttributeError:
             raise ValueError("The file_type must correspond to a write method in UVData.")
+        if save_seeds:
+            seed_file = os.path.splitext(filename)[0]
+            np.save(seed_file, seeds)
+        # put seeds back into extra keywords
+        if seeds:
+            self.data.extra_keywords['seeds'] = seeds
+        if ret_seeds:
+            return seeds
 
     def _check_compatibility(self):
         """
@@ -301,6 +331,32 @@ class Simulator(object):
             pol_ind = self.data.get_pols().index(pol)
             yield ant1, ant2, pol, blt_inds, pol_ind
 
+    def _apply_vis(self, model, ant1, ant2, blt_ind, pol_ind, **kwargs):
+        # get freqs from zeroth spectral window
+        fqs = self.data.freq_array[0] * 1e-9
+        lsts = self.data.lst_array[blt_ind]
+        bl_vec = (self.antpos[ant1] - self.antpos[ant2]) * 1e9 / const.c.value
+        vis = model(lsts=lsts, fqs=fqs, bl_vec=bl_vec, **kwargs)
+        self.data.data_array[blt_ind, 0, :, pol_ind] += vis
+
+    def _get_reds(self):
+        return self.data.get_baseline_redundancies()[0]
+
+    def _generate_seeds(self, model):
+        if 'seeds' not in self.data.extra_keywords.keys():
+            self.data.extra_keywords['seeds'] = {}
+        np.random.seed(int(time.time()))
+        seeds = np.random.randint(2**32, size=len(self._get_reds()))
+        self.data.extra_keywords['seeds'][model.__name__] = seeds
+    
+    def _get_seed(self, ant1, ant2, model):
+        seeds = self.data.extra_keywords['seeds'][model.__name__]
+        bl = self.data.antnums_to_baseline(ant1, ant2)
+        key = []
+        for reds in self._get_reds():
+            key.append(bl in reds)
+        return seeds[key.index(True)]
+
     @_model()
     def add_eor(self, model, **kwargs):
         """
@@ -315,14 +371,16 @@ class Simulator(object):
                 Default True.
             **kwargs: keyword arguments sent to the EoR model function, other than `lsts`, `fqs` and `bl_vec`.
         """
-        # frequencies come from zeroths spectral window
-        fqs = self.data.freq_array[0] * 1e-9
+        seed_redundantly = kwargs.pop("seed_redundantly", False)
+        if seed_redundantly:
+            self._generate_seeds(model)
 
         for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols():
-            lsts = self.data.lst_array[blt_ind]
-            bl_vec = (self.antpos[ant1] - self.antpos[ant2]) * 1e9 / const.c.value
-            vis = model(lsts=lsts, fqs=fqs, bl_vec=bl_vec, **kwargs)
-            self.data.data_array[blt_ind, 0, :, pol_ind] += vis
+            if seed_redundantly:
+                seed = self._get_seed(ant1, ant2, model)
+                np.random.seed(seed)
+
+            self._apply_vis(model, ant1, ant2, blt_ind, pol_ind, **kwargs)
 
     @_model()
     def add_foregrounds(self, model, **kwargs):
@@ -338,14 +396,38 @@ class Simulator(object):
                 Default True.
             **kwargs: keyword arguments sent to the foregournd model function, other than `lsts`, `fqs` and `bl_vec`.
         """
-        # frequencies come from zeroth spectral window
-        fqs = self.data.freq_array[0] * 1e-9
+        seed_redundantly = kwargs.pop("seed_redundantly", False)
+        if seed_redundantly:
+            self._generate_seeds(model)
+
+        # account for multiple polarizations if effect is polarized
+        check_pol = True if "Tsky_mdl" in inspect.signature(model).parameters \
+                         and len(self.data.get_pols()) > 1 \
+                         else False
+
+        if check_pol:
+            assert "pol" in kwargs.keys(), \
+                    "Please specify which polarization the sky temperature " \
+                    "model corresponds to by passing in a value for the " \
+                    "kwarg 'pol'."
+            vis_pol = kwargs.pop("pol")
+            assert vis_pol in self.data.get_pols(), \
+                    "You are attempting to use a polarization not included " \
+                    "in the Simulator object you are working with. You tried " \
+                    "to use the polarization {}, but the Simulator object you " \
+                    "are working with only has the following polarizations: " \
+                    "{}".format(vis_pol, self.data.get_pols())
 
         for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols():
-            lsts = self.data.lst_array[blt_ind]
-            bl_vec = (self.antpos[ant1] - self.antpos[ant2]) * 1e9 / const.c.value
-            vis = model(lsts, fqs, bl_vec, **kwargs)
-            self.data.data_array[blt_ind, 0, :, pol_ind] += vis
+            if seed_redundantly:
+                seed = self._get_seed(ant1, ant2, model)
+                np.random.seed(seed)
+
+            if check_pol:
+                if pol == vis_pol:
+                    self._apply_vis(model, ant1, ant2, blt_ind, pol_ind, **kwargs)
+            else:
+                self._apply_vis(model, ant1, ant2, blt_ind, pol_ind, **kwargs)
 
     @_model()
     def add_noise(self, model, **kwargs):
@@ -362,6 +444,7 @@ class Simulator(object):
             **kwargs: keyword arguments sent to the noise model function, other than `lsts`, `fqs` and `bl_len_ns`.
         """
         for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols():
+            # this doesn't need to be seeded, does it?
             lsts = self.data.lst_array[blt_ind]
 
             self.data.data_array[blt_ind, 0, :, pol_ind] += model(
@@ -384,6 +467,8 @@ class Simulator(object):
         """
         for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols():
             lsts = self.data.lst_array[blt_ind]
+
+            # XXX this should be seeded according to the time corresponding to blt_ind
 
             # RFI added in-place (giving rfi= does not seem to work here)
             self.data.data_array[blt_ind, 0, :, 0] += model(
@@ -467,6 +552,7 @@ class Simulator(object):
             )
     
     
+    @_generator_to_list
     def run_sim(self, sim_file=None, **sim_params):
         """
         Accept a dictionary or YAML file of simulation parameters and add in
@@ -527,8 +613,8 @@ class Simulator(object):
                 'simulation parameters must be provided.'
 
         assert sim_file is None or not sim_params, \
-                'Either a simulation configuration file or a dictionary ' + \
-                'of simulation parameters may be passed, but not both. ' + \
+                'Either a simulation configuration file or a dictionary ' \
+                'of simulation parameters may be passed, but not both. ' \
                 'Please choose only one of the two to pass as an argument.'
 
         # if a path to a simulation file is provided, then read it in
@@ -542,11 +628,11 @@ class Simulator(object):
 
         for model, params in sim_params.items():
             assert model in self.SIMULATION_COMPONENTS.keys(), \
-                    'Models must be supported by hera_sim. ' + \
+                    'Models must be supported by hera_sim. ' \
                     "'{}' is currently not supported.".format(model)
 
             assert isinstance(params, dict), \
-                    'Values of sim_params must be dictionaries. ' + \
+                    'Values of sim_params must be dictionaries. ' \
                     "The values for '{}' do not comply.".format(model)
 
             # since this currently only supports python 3.4 or newer, we can
@@ -554,7 +640,10 @@ class Simulator(object):
             add_component = getattr(self, self.SIMULATION_COMPONENTS[model])
             params = sim_params[model]
             if model in uses_no_model:
-                add_component(**params)
+                vis = add_component(**params)
             else:
-                add_component(model, **params)
-
+                vis = add_component(model, **params)
+            # vis is either None, or it's the visibility desired from using
+            # the ret_vis feature, so we can yield the result to return visibilities
+            if vis is not None:
+                yield (model, vis)

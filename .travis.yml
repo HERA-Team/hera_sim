@@ -2,20 +2,12 @@ language: python
 dist: xenial
 
 python:
-  # We don't actually use the Travis Python, but this keeps it organized.
-  - "2.7"
   - '3.6'
   - '3.7'
 
 # Cache pip-installed dependencies
 cache:
     pip: true
-
-    # Test against known version of pyuvdata and current version
-env:
-  - PYUVDATA_VERSION=""
-
-allow_failures:
 
 install:
   # ensure that we have the full tag information available for version.py
@@ -35,12 +27,14 @@ install:
   # create environment and install dependencies
   - conda create -q -n test-env python=$TRAVIS_PYTHON_VERSION
   - conda env update -q -n test-env -f environment.yml
+  - conda install pytest
   - conda activate test-env
-  - pip install -e .
-  # Useful for debugging issues with package installation
   - conda list
+  # install BDA for testing CLI script
+  - pip install git+https://github.com/HERA-Team/baseline_dependent_averaging
+  - pip install .
 
-script: pytest hera_sim --cov=hera_sim --verbose
+script: pytest -vv --cov=hera_sim/
 
 after_success:
   - coveralls

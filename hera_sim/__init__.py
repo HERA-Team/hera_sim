@@ -11,6 +11,7 @@ from . import version
 from . import eor
 from . import utils
 from . import simulate
+from .cli import run # for testing purposes
 from .simulate import Simulator
 from .defaults import defaults
 
