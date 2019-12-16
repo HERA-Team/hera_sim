@@ -46,3 +46,10 @@ def registry(cls):
 
     NewClass.__name__ = cls.__name__
     return NewClass
+
+def list_discoverable_components():
+    for cls in SimulationComponent.__subclasses__():
+        for name, model in cls._models.items():
+            name = ".".join([model.__module__, name])
+            print(name)
+

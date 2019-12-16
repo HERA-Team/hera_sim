@@ -15,6 +15,7 @@ from .cli import run # for testing purposes
 from .simulate import Simulator
 from .defaults import defaults
 from .components import SimulationComponent, registry
+from .components import list_discoverable_components
 from .interpolators import Tsky, Bandpass, Beam
 
 __version__ = version.version
