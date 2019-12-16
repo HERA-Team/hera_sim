@@ -340,7 +340,7 @@ class Simulator:
             # determine whether or not to seed the RNG(s) used in 
             # simulating the model effects
             if seed_mode is not None:
-                self._seed_rng(seed_mode, model, ant1, ant2)
+                seed_mode = self._seed_rng(seed_mode, model, ant1, ant2)
             # check whether we're simulating a gain or a visibility
             if is_multiplicative:
                 # get the gains for the entire array
@@ -395,11 +395,13 @@ class Simulator:
                    for reds in self._get_reds()].index(True)
             # seed the RNG accordingly
             np.random.seed(self._get_seed(model, key))
+            return "redundantly"
         elif seed_mode == "once":
             # this should only be used for antenna-based gains
             # where it's most convenient to just seed the RNG 
             # once for the whole array
             np.random.seed(self._get_seed(model, 0))
+            return None
         else:
             raise ValueError("Seeding mode not supported.")
 
