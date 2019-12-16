@@ -30,9 +30,7 @@ class Simulator:
     """Class for managing a simulation.
 
     """
-    def __init__(self, data=None, uvdata_kwargs={}, 
-                       default_config=None, default_kwargs={},
-                       **kwargs):
+    def __init__(self, data=None, defaults_config=None, **kwargs):
         """Initialize a Simulator object.
 
         Idea: Make Simulator object have three major components:
@@ -41,14 +39,13 @@ class Simulator:
             sim.defaults -> Defaults object
 
         """
-        uvdata_kwargs.update(kwargs)
-        self._initialize_uvd(data, **uvdata_kwargs)
+        self._initialize_data(data, **kwargs)
         self._components = {}
         self.extras = {}
-        self.seeds = {}
+        self._seeds = {}
         # apply and activate defaults if specified
-        if default_config or default_kwargs:
-            self.apply_defaults(default_config, **default_kwargs)
+        if defaults_config:
+            self.apply_defaults(defaults_config)
 
     @cached_property
     def antpos(self):
@@ -70,23 +67,12 @@ class Simulator:
         """
         return np.unique(self.data.freq_array) / 1e9
 
-    def apply_defaults(self, default_config=None, refresh=True, 
-                       **default_kwargs):
+    def apply_defaults(self, config, refresh=True):
         # TODO: docstring
         """
         """
-        # ensure that only one of these is set
-        assert bool(default_config) ^ bool(default_kwargs), \
-            "If you wish to use a default configuration, please " \
-            "only specify *either* a path to a configuration file " \
-            "*or* a default parameter dictionary. You are seeing " \
-            "this message because you specified both."
-
         # actually apply the default settings
-        if default_config:
-            defaults.set(default_config, refresh=refresh)
-        else:
-            defaults.set(**default_kwargs, refresh=refresh)
+        defaults.set(config, refresh=refresh)
 
     @staticmethod
     def _apply_filter(vis_filter, ant1, ant2, pol):
@@ -133,14 +119,14 @@ class Simulator:
                 [key in (ant1, ant2, pol) for key in vis_filter]
             )
 
-    def _initialize_uvd(self, data, **uvdata_kwargs):
+    def _initialize_data(self, data, **kwargs):
         # TODO: docstring
         """
         """
         if data is None:
-            self.data = io.empty_uvdata(**uvdata_kwargs)
+            self.data = io.empty_uvdata(**kwargs)
         elif isinstance(data, str):
-            self.data = self._read_datafile(data, **uvdata_kwargs)
+            self.data = self._read_datafile(data, kwargs)
             self.extras['data_file'] = data
         elif isinstance(data, UVData):
             self.data = data
@@ -370,16 +356,16 @@ class Simulator:
         model = self._get_model_name(model)
         # for the sake of randomness
         np.random.seed(int(time.time()))
-        if model not in self.seeds:
-            self.seeds[model] = {}
-        self.seeds[model][key] = np.random.randint(2**32)
+        if model not in self._seeds:
+            self._seeds[model] = {}
+        self._seeds[model][key] = np.random.randint(2**32)
 
     def _generate_redundant_seeds(self, model):
         # TODO: docstring
         """
         """
         model = self._get_model_name(model)
-        if model in self.seeds:
+        if model in self._seeds:
             return
         for j in range(len(self._get_reds())):
             self._generate_seed(model, j)
@@ -395,11 +381,11 @@ class Simulator:
         """
         """
         model = self._get_model_name(model)
-        if model not in self.seeds:
+        if model not in self._seeds:
             self._generate_seed(model, key)
-        if key not in self.seeds[model]:
+        if key not in self._seeds[model]:
             self._generate_seed(model, key)
-        return self.seeds[model][key]
+        return self._seeds[model][key]
     
     @staticmethod
     def _get_model_name(model):
@@ -538,7 +524,7 @@ class Simulator:
             raise ValueError(msg)
         if save_seeds:
             seed_file = os.path.splitext(filename)[0] + "_seeds"
-            np.save(seed_file, self.seeds)
+            np.save(seed_file, self._seeds)
     
     @_generator_to_list
     def run_sim(self, sim_file=None, **sim_params):
