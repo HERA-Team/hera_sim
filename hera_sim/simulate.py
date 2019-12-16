@@ -548,7 +548,7 @@ class Simulator:
                 for registry in SimulationComponent.__subclasses__():
                     for model in registry.__subclasses__():
                         aliases = (model.__name__,)
-                        aliases += getattr(model, "__aliases__", ())
+                        aliases += getattr(model, "_alias", ())
                         aliases = [alias.lower() for alias in aliases]
                         for alias in aliases:
                             all_aliases.append(alias)

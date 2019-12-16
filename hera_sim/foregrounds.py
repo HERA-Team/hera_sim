@@ -19,7 +19,7 @@ class DiffuseForeground(Foreground):
     """
     
     """
-    __aliases__ = ("diffuse_foreground", )
+    _alias = ("diffuse_foreground", )
 
     def __init__(self, Tsky_mdl=None, omega_p=None,
                  delay_filter_kwargs={"standoff" : 0.0,
@@ -86,7 +86,7 @@ class PointSourceForeground(Foreground):
     """
 
     """
-    __aliases__ = ("pntsrc_foreground",)
+    _alias = ("pntsrc_foreground",)
 
     def __init__(self, nsrcs=1000, Smin=0.3, Smax=300, beta=-1.5,
                  spectral_index_mean=-1, spectral_index_std=0.5, 

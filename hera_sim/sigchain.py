@@ -17,7 +17,7 @@ class Gain:
     pass
 
 class Bandpass(Gain, is_multiplicative=True):
-    __aliases__ = ("gen_gains", "gains", "bandpass_gain")
+    _alias = ("gains", "bandpass_gain")
 
     def __init__(self, gain_spread=0.1, dly_rng=(-20,20), bp_poly=None):
         # TODO: docstring
@@ -79,7 +79,7 @@ class Bandpass(Gain, is_multiplicative=True):
         return phases
 
 class Reflections(Gain, is_multiplicative=True):
-    __aliases__ = ("gen_reflection_gains", "sigchain_reflections")
+    _alias = ("reflection_gains", "sigchain_reflections")
 
     def __init__(self, amp=None, dly=None, phs=None, 
                        conj=False, randomize=False):
@@ -198,7 +198,7 @@ class Crosstalk:
     pass
 
 class CrossCouplingCrosstalk(Crosstalk, Reflections):
-    __aliases__ = ("gen_cross_coupling_xtalk", "cross_coupling_xtalk")
+    _alias = ("cross_coupling_xtalk",)
 
     def __init__(self, amp=None, dly=None, phs=None, 
                        conj=False, randomize=False):
@@ -239,7 +239,7 @@ class CrossCouplingCrosstalk(Crosstalk, Reflections):
         return autovis * eps
 
 class WhiteNoiseCrosstalk(Crosstalk):
-    __aliases__ = ("gen_whitenoise_xtalk", "white_noise_xtalk", )
+    _alias = ("white_noise_xtalk", )
 
     def __init__(self, amplitude=3.0):
         # TODO: docstring

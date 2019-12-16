@@ -22,7 +22,7 @@ class Noise:
         super().__init__(**kwargs)
 
 class ThermalNoise(Noise):
-    __aliases__ = ("thermal_noise", )
+    _alias = ("thermal_noise", )
 
     def __init__(self, Tsky_mdl=None, omega_p=None, 
                  integration_time=None, channel_width=None,

@@ -68,7 +68,7 @@ class Stations(RFI):
     # TODO: docstring
     """
     """
-    __aliases__ = ("rfi_stations", )
+    _alias = ("rfi_stations", )
 
     def __init__(self, stations=None):
         # TODO: docstring
@@ -118,7 +118,7 @@ class Impulse(RFI):
     # TODO: docstring
     """
     """
-    __aliases__ = ("rfi_impulse", )
+    _alias = ("rfi_impulse", )
 
     def __init__(self, impulse_chance=0.001, impulse_strength=20.0):
         # TODO: docstring
@@ -163,7 +163,7 @@ class Scatter(RFI):
     # TODO: docstring
     """
     """
-    __aliases__ = ("rfi_scatter", )
+    _alias = ("rfi_scatter", )
 
     def __init__(self, scatter_chance=0.0001, scatter_strength=10.0,
                  scatter_std=10.0):
@@ -206,7 +206,7 @@ class DTV(RFI):
     # TODO: docstring
     """
     """
-    __aliases__ = ("rfi_dtv", )
+    _alias = ("rfi_dtv", )
 
     def __init__(self, dtv_band=(0.174, 0.214), 
                  dtv_channel_width=0.008, dtv_chance=0.0001, 
