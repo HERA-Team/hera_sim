@@ -14,6 +14,7 @@ from pyuvdata import UVData
 from astropy import constants as const
 
 from . import io
+from . import utils
 from .defaults import defaults
 from .version import version
 from .components import SimulationComponent
@@ -122,26 +123,62 @@ class Simulator:
         # TODO: docstring
         """
         """
-        assert component in self._components.keys()
+        # XXX do we want to leave this check in there?
+        assert component in self._components.keys(), \
+            "You are trying to retrieve a component that has not " \
+            "been simulated. Please check that the component you " \
+            "are passing is correct. Consult the _components " \
+            "attribute to see which components have been simulated " \
+            "and which keys are provided."
+        
+        assert not (ant1 is None ^ ant2 is None), \
+            "You are trying to retrieve a visibility but have only " \
+            "specified one antenna. This use is unsupported; please " \
+            "either specify an antenna pair or leave both as None."
+
         # retrieve the model
         model, is_class = self._get_component(component)
+        
         # get the kwargs
         kwargs = self._components[component]
+        
         # figure out whether or not to seed the rng
         seed_mode = kwargs.pop("seed_mode", None)
+        
         # figure out whether or not to apply defaults
         use_defaults = kwargs.pop("defaults", {})
         if use_defaults:
             self.apply_defaults(**use_defaults)
+        
         # instantiate the model if it's a class
         if is_class:
             model = model(**kwargs)
+        
+        # if ant1, ant2 not specified, then do the whole array
+        if ant1 is None and ant2 is None:
+            # re-add seed_mode to the kwargs
+            kwargs["seed_mode"] = seed_mode
+
+            # get the data
+            data = self._iteratively_apply(
+                model, add_vis=False, ret_vis=True, **kwargs
+            )
+            
+            # return a subset if a polarization is specified
+            if pol is None:
+                return data
+            else:
+                pol_ind = self.data.get_pols().index(pol)
+                return data[:, 0, :, pol_ind]
+        
         # seed the RNG if desired
         if seed_mode is not None:
             self._seed_rng(seed_mode, model, ant1, ant2)
+        
         # get the arguments necessary for the model
         init_args = self._initialize_args_from_model(model)
         use_args = self._update_args(*init_args, ant1, ant2, pol)
+
         # now calculate the effect and return it
         return model(*use_args, **kwargs)
 
@@ -228,6 +265,9 @@ class Simulator:
                             for key in vis_filter]
             # if a single filter says to let it pass, then do so
             return all(apply_filter)
+        elif all([item is None for item in vis_filter]):
+            # support passing tuple of None
+            return False
         elif len(vis_filter) == 1:
             # check if the polarization matches, since the only 
             # string identifiers should be polarization strings
@@ -340,32 +380,46 @@ class Simulator:
             is_multiplicative = False
 
         for ant1, ant2, pol, blt_inds, pol_ind in self._iterate_antpair_pols():
-            # filter what's actually having data simulated
-            if vis_filter is not None:
-                if self._apply_filter(utils._listify(vis_filter)):
-                    continue
-
-            use_args = self._update_args(
-                args, requires_ants, requires_bl_vec, requires_vis,
-                ant1, ant2, pol
+            # find out whether or not to filter the result
+            apply_filter = self._apply_filter(
+                utils._listify(vis_filter), ant1, ant2, pol
             )
+
             # determine whether or not to seed the RNG(s) used in 
             # simulating the model effects
             if seed_mode is not None:
                 seed_mode = self._seed_rng(seed_mode, model, ant1, ant2)
+            
+            # parse the model signature to get the required arguments
+            use_args = self._update_args(
+                args, requires_ants, requires_bl_vec, requires_vis,
+                ant1, ant2, pol
+            )
+
             # check whether we're simulating a gain or a visibility
             if is_multiplicative:
                 # get the gains for the entire array
                 # this is sloppy, but ensures seeding works correctly
                 gains = model(*use_args, **kwargs)
+                
                 # now get the product g_1g_2*
                 gain = gains[ant1] * np.conj(gains[ant2])
+                
+                # don't actually do anything if we're filtering this
+                if apply_filter:
+                    gain = np.ones(gain.shape)
+
                 # apply the effect to the appropriate part of the data
                 self.data.data_array[blt_inds, 0, :, pol_ind] *= gain
             else:
                 # if it's not multiplicative, then it should be an 
                 # actual visibility, so calculate it
                 vis = model(*use_args, **kwargs)
+                
+                # filter what's actually having data simulated
+                if apply_filter:
+                    vis = np.zeros(vis.shape, dtype=np.complex)
+                
                 # and add it in
                 self.data.data_array[blt_inds, 0, :, pol_ind] += vis
 
@@ -558,7 +612,7 @@ class Simulator:
         """
         """
         has_data = not np.all(self.data.data_array == 0)
-        is_multiplicative = model.is_multiplicative
+        is_multiplicative = getattr(model, "is_multiplicative", False)
         contains_multiplicative_effect = any([
                 self._get_component(component)[0].is_multiplicative
                 for component in self._components])
