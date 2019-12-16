@@ -183,6 +183,22 @@ class Simulator:
         # now calculate the effect and return it
         return model(*use_args, **kwargs)
 
+    def plot_array(self):
+        """Generate a plot of the array layout in ENU coordinates.
+
+        """
+        import matplotlib.pyplot as plt
+        fig = plt.figure(figsize=(10,8))
+        ax = fig.add_subplot(1,1,1)
+        ax.set_xlabel("East Position [m]", fontsize=12)
+        ax.set_ylabel("North Position [m]", fontsize=12)
+        ax.set_title("Array Layout", fontsize=12)
+        dx = 0.25
+        for ant, pos in self.antpos.items():
+            ax.plot(pos[0], pos[1], color='k', marker='o')
+            ax.text(pos[0] + dx, pos[1] + dx, ant)
+        return fig
+
     def refresh(self):
         """Refresh the Simulator object.
 
