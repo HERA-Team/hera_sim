@@ -467,7 +467,7 @@ class Simulator:
         # TODO: docstring
         """
         """
-        if seed_mode == "redundantly":
+        if seed_mode == "redundant":
             assert ant1 is not None and ant2 is not None
             # generate seeds for each redundant group
             # this does nothing if the seeds already exist
@@ -479,7 +479,7 @@ class Simulator:
                    for reds in self._get_reds()].index(True)
             # seed the RNG accordingly
             np.random.seed(self._get_seed(model, key))
-            return "redundantly"
+            return "redundant"
         elif seed_mode == "once":
             # this should only be used for antenna-based gains
             # where it's most convenient to just seed the RNG 
