@@ -172,7 +172,21 @@ class Simulator:
                 pol_ind = self.data.get_pols().index(pol)
                 return data[:, 0, :, pol_ind]
         
-        # seed the RNG if desired
+        # seed the RNG if desired, but be careful...
+        if seed_mode == "once":
+            # in this case, we need to use _iteratively_apply
+            # otherwise, the seeding will be wrong
+            kwargs["seed_mode"] = seed_mode
+            data = self._iteratively_apply(
+                model, add_vis=False, ret_vis=True, **kwargs
+            )
+            blt_inds = self.data.antpair2ind((ant1, ant2))
+            if pol is None:
+                return data[blt_inds, 0, :, :]
+            else:
+                pol_ind = self.data.get_pols().index(pol)
+                return data[blt_inds, 0, :, pol_ind]
+
         if seed_mode is not None:
             self._seed_rng(seed_mode, model, ant1, ant2)
         
