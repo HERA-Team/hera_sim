@@ -44,6 +44,7 @@ class Simulator:
         self._components = {}
         self.extras = {}
         self._seeds = {}
+        self._antpairpol_cache = {}
         # apply and activate defaults if specified
         if defaults_config:
             self.apply_defaults(defaults_config)
@@ -84,25 +85,44 @@ class Simulator:
         # find out whether to add and/or return the component
         add_vis = kwargs.pop("add_vis", True)
         ret_vis = kwargs.pop("ret_vis", False)
+
         # find out whether the data application should be filtered
         vis_filter = kwargs.pop("vis_filter", None)
+        
         # take out the seed_mode kwarg so as not to break initializor
         seed_mode = kwargs.pop("seed_mode", -1)
+        
         # get the model for the desired component
         model, is_class = self._get_component(component)
+
+        # make a new entry in the antpairpol cache
+        self._antpairpol_cache[model] = []
+
+        # get a reference to the cache
+        antpairpol_cache = self._antpairpol_cache[model]
+
+        # make sure to keep the key handy in case it's a class
+        model_key = model
+
+        # instantiate the class if the component is a class
         if is_class:
-            # if the component returned is a class, instantiate it
             model = model(**kwargs)
+        
         # check that there isn't an issue with component ordering
         self._sanity_check(model)
+        
         # re-add the seed_mode kwarg if it was specified
         if seed_mode != -1:
             kwargs["seed_mode"] = seed_mode
+        
         # calculate the effect
         data = self._iteratively_apply(
             model, add_vis=add_vis, ret_vis=ret_vis, 
-            vis_filter=vis_filter, **kwargs
+            vis_filter=vis_filter, 
+            antpairpol_cache=antpairpol_cache,
+            **kwargs
         )
+        
         # log the component and its kwargs, if added to data
         if add_vis:
             # note the filter used if any
@@ -115,6 +135,11 @@ class Simulator:
             self._components[component] = kwargs
             # update the history
             self._update_history(model, **kwargs)
+        else:
+            # if we're not adding it, then we don't want to keep
+            # the antpairpol cache
+            _ = self._antpairpol_cache.pop(model_key)
+        
         # return the data if desired
         if ret_vis:
             return data
@@ -146,6 +171,9 @@ class Simulator:
         # figure out whether or not to seed the rng
         seed_mode = kwargs.pop("seed_mode", None)
         
+        # get the antpairpol cache
+        antpairpol_cache = self._antpairpol_cache[model]
+
         # figure out whether or not to apply defaults
         use_defaults = kwargs.pop("defaults", {})
         if use_defaults:
@@ -162,7 +190,9 @@ class Simulator:
 
             # get the data
             data = self._iteratively_apply(
-                model, add_vis=False, ret_vis=True, **kwargs
+                model, add_vis=False, ret_vis=True, 
+                antpairpol_cache=antpairpol_cache,
+                **kwargs
             )
             
             # return a subset if a polarization is specified
@@ -186,9 +216,13 @@ class Simulator:
             else:
                 pol_ind = self.data.get_pols().index(pol)
                 return data[blt_inds, 0, :, pol_ind]
-
-        if seed_mode is not None:
-            self._seed_rng(seed_mode, model, ant1, ant2)
+        elif seed_mode == "redundant":
+            if any(
+                [(ant2, ant1) == item for item in antpairpol_cache]
+            ):
+                self._seed_rng(seed_mode, model, ant2, ant1)
+            else:
+                self._seed_rng(seed_mode, model, ant1, ant2)
         
         # get the arguments necessary for the model
         init_args = self._initialize_args_from_model(model)
@@ -224,6 +258,7 @@ class Simulator:
         )
         self.data.history = ''
         self._components.clear()
+        self._antpairpol_cache = []
 
     def write(self, filename, save_format="uvh5", save_seeds=True, **kwargs):
         # TODO: docstring
@@ -373,7 +408,8 @@ class Simulator:
             yield ant1, ant2, pol, blt_inds, pol_ind
 
     def _iteratively_apply(self, model, add_vis=True, ret_vis=False, 
-                           vis_filter=None, **kwargs):
+                           vis_filter=None, antpairpol_cache=[], 
+                           **kwargs):
         # TODO: docstring
         """
         """
@@ -417,9 +453,14 @@ class Simulator:
                 utils._listify(vis_filter), ant1, ant2, pol
             )
 
-            # determine whether or not to seed the RNG(s) used in 
-            # simulating the model effects
-            if seed_mode is not None:
+            # check if the antpolpair or its conjugate have data
+            bl_in_cache = (ant1, ant2, pol) in antpairpol_cache
+            conj_in_cache = (ant2, ant1, pol) in antpairpol_cache
+            
+            if seed_mode == "redundant":
+                if conj_in_cache:
+                    self._seed_rng(seed_mode, model, ant2, ant1)
+            elif seed_mode is not None:
                 seed_mode = self._seed_rng(seed_mode, model, ant1, ant2)
             
             # parse the model signature to get the required arguments
@@ -427,6 +468,10 @@ class Simulator:
                 args, requires_ants, requires_bl_vec, requires_vis,
                 ant1, ant2, pol
             )
+
+            # if neither are in the cache, then add it to the cache
+            if not (bl_in_cache or conj_in_cache):
+                antpairpol_cache.append((ant1, ant2, pol))
 
             # check whether we're simulating a gain or a visibility
             if is_multiplicative:
@@ -444,9 +489,17 @@ class Simulator:
                 # apply the effect to the appropriate part of the data
                 self.data.data_array[blt_inds, 0, :, pol_ind] *= gain
             else:
-                # if it's not multiplicative, then it should be an 
-                # actual visibility, so calculate it
-                vis = model(*use_args, **kwargs)
+                # if the conjugate baseline has been simulated and 
+                # the RNG was only seeded initially, then we should 
+                # not re-simulate to ensure invariance under complex
+                # conjugation and swapping antennas
+                if conj_in_cache and seed_mode is None:
+                    conj_blts = sim.data.antpair2ind((ant2,ant1))
+                    vis = (
+                        self.data.data_array - initial_data
+                    )[conj_blts, 0, :, pol_ind].conj()
+                else: 
+                    vis = model(*use_args, **kwargs)
                 
                 # filter what's actually having data simulated
                 if apply_filter:
@@ -495,10 +548,19 @@ class Simulator:
             np.random.seed(self._get_seed(model, key))
             return "redundant"
         elif seed_mode == "once":
-            # this should only be used for antenna-based gains
-            # where it's most convenient to just seed the RNG 
-            # once for the whole array
+            # this option seeds the RNG once per iteration of 
+            # _iteratively_apply, using the same seed every time
+            # this is appropriate for antenna-based gains (where the 
+            # entire gain dictionary is simulated each time), or for
+            # something like PointSourceForeground, where objects on
+            # the sky are being placed randomly
             np.random.seed(self._get_seed(model, 0))
+            return "once"
+        elif seed_mode == "initial":
+            # this seeds the RNG once at the very beginning of 
+            # _iteratively_apply. this would be useful for something
+            # like ThermalNoise
+            np.random.seed(self._get_seed(model, -1))
             return None
         else:
             raise ValueError("Seeding mode not supported.")
