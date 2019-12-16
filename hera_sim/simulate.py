@@ -121,6 +121,7 @@ class Simulator:
 
     def get(self, component, ant1=None, ant2=None, pol=None):
         # TODO: docstring
+        # XXX ideally, this could be handled by _iteratively_apply
         """
         """
         # XXX do we want to leave this check in there?
@@ -131,7 +132,7 @@ class Simulator:
             "attribute to see which components have been simulated " \
             "and which keys are provided."
         
-        assert not (ant1 is None ^ ant2 is None), \
+        assert not ((ant1 is None) ^ (ant2 is None)), \
             "You are trying to retrieve a visibility but have only " \
             "specified one antenna. This use is unsupported; please " \
             "either specify an antenna pair or leave both as None."
@@ -288,9 +289,10 @@ class Simulator:
                     [key in (ant1, ant2, pol) for key in vis_filter]
                 )
         elif len(vis_filter) == 3:
-            # assume that this is a proper antpairpol
-            return not all(
-                [key in vis_filter for key in (ant1, ant2, pol)]
+            # assume it's a proper antpairpol
+            return not (
+                vis_filter == [ant1, ant2, pol] or
+                vis_filter == [ant2, ant1, pol]
             )
         else:
             # assume it's some list of antennas/polarizations
