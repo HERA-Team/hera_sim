@@ -1,5 +1,10 @@
 import unittest
+<<<<<<< HEAD
 
+=======
+from hera_sim import vis
+from hera_sim.antpos import linear_array
+>>>>>>> master
 import numpy as np
 import pytest
 import warnings
@@ -370,9 +375,79 @@ def test_comparision_airy(uvdata2):
         beams=[AnalyticBeam("airy", diameter=1.75)],
         nside=nside
     ).simulate()
-    
+
     assert viscpu.shape == healvis.shape
     np.testing.assert_allclose(viscpu, healvis, rtol=0.05)
+
+class TestSimRedData(unittest.TestCase):
+
+    def test_sim_red_data(self):
+        # Test that redundant baselines are redundant up to the gains in single pol mode
+        from hera_cal import redcal as om
+        antpos = linear_array(5)
+        reds = om.get_reds(antpos, pols=['nn'], pol_mode='1pol')
+        gains, true_vis, data = vis.sim_red_data(reds)
+        assert len(gains) == 5
+        assert len(data) == 10
+        for bls in reds:
+            bl0 = bls[0]
+            ai, aj, pol = bl0
+            ans0 = data[bl0] / (gains[(ai, 'Jnn')] * gains[(aj, 'Jnn')].conj())
+            for bl in bls[1:]:
+                ai, aj, pol = bl
+                ans = data[bl] / (gains[(ai, 'Jnn')] * gains[(aj, 'Jnn')].conj())
+                # compare calibrated visibilities knowing the input gains
+                np.testing.assert_almost_equal(ans0, ans, decimal=7)
+
+        # Test that redundant baselines are redundant up to the gains in 4-pol mode
+        reds = om.get_reds(antpos, pols=['xx', 'yy', 'xy', 'yx'], pol_mode='4pol')
+        gains, true_vis, data = vis.sim_red_data(reds)
+        assert len(gains) == 2 * (5)
+        assert len(data) == 4 * (10)
+        for bls in reds:
+            bl0 = bls[0]
+            ai, aj, pol = bl0
+            ans0xx = data[(ai, aj, 'xx',)] / (gains[(ai, 'Jxx')] * gains[(aj, 'Jxx')].conj())
+            ans0xy = data[(ai, aj, 'xy',)] / (gains[(ai, 'Jxx')] * gains[(aj, 'Jyy')].conj())
+            ans0yx = data[(ai, aj, 'yx',)] / (gains[(ai, 'Jyy')] * gains[(aj, 'Jxx')].conj())
+            ans0yy = data[(ai, aj, 'yy',)] / (gains[(ai, 'Jyy')] * gains[(aj, 'Jyy')].conj())
+            for bl in bls[1:]:
+                ai, aj, pol = bl
+                ans_xx = data[(ai, aj, 'xx',)] / (gains[(ai, 'Jxx')] * gains[(aj, 'Jxx')].conj())
+                ans_xy = data[(ai, aj, 'xy',)] / (gains[(ai, 'Jxx')] * gains[(aj, 'Jyy')].conj())
+                ans_yx = data[(ai, aj, 'yx',)] / (gains[(ai, 'Jyy')] * gains[(aj, 'Jxx')].conj())
+                ans_yy = data[(ai, aj, 'yy',)] / (gains[(ai, 'Jyy')] * gains[(aj, 'Jyy')].conj())
+                # compare calibrated visibilities knowing the input gains
+                np.testing.assert_almost_equal(ans0xx, ans_xx, decimal=7)
+                np.testing.assert_almost_equal(ans0xy, ans_xy, decimal=7)
+                np.testing.assert_almost_equal(ans0yx, ans_yx, decimal=7)
+                np.testing.assert_almost_equal(ans0yy, ans_yy, decimal=7)
+
+        # Test that redundant baselines are redundant up to the gains in 4-pol minV mode (where Vxy = Vyx)
+        reds = om.get_reds(antpos, pols=['xx', 'yy', 'xy', 'yX'], pol_mode='4pol_minV')
+        gains, true_vis, data = vis.sim_red_data(reds)
+        assert len(gains) == 2 * (5)
+        assert len(data) == 4 * (10)
+        for bls in reds:
+            bl0 = bls[0]
+            ai, aj, pol = bl0
+            ans0xx = data[(ai, aj, 'xx',)] / (gains[(ai, 'Jxx')] * gains[(aj, 'Jxx')].conj())
+            ans0xy = data[(ai, aj, 'xy',)] / (gains[(ai, 'Jxx')] * gains[(aj, 'Jyy')].conj())
+            ans0yx = data[(ai, aj, 'yx',)] / (gains[(ai, 'Jyy')] * gains[(aj, 'Jxx')].conj())
+            ans0yy = data[(ai, aj, 'yy',)] / (gains[(ai, 'Jyy')] * gains[(aj, 'Jyy')].conj())
+            np.testing.assert_almost_equal(ans0xy, ans0yx, decimal=7)
+            for bl in bls[1:]:
+                ai, aj, pol = bl
+                ans_xx = data[(ai, aj, 'xx',)] / (gains[(ai, 'Jxx')] * gains[(aj, 'Jxx')].conj())
+                ans_xy = data[(ai, aj, 'xy',)] / (gains[(ai, 'Jxx')] * gains[(aj, 'Jyy')].conj())
+                ans_yx = data[(ai, aj, 'yx',)] / (gains[(ai, 'Jyy')] * gains[(aj, 'Jxx')].conj())
+                ans_yy = data[(ai, aj, 'yy',)] / (gains[(ai, 'Jyy')] * gains[(aj, 'Jyy')].conj())
+                # compare calibrated visibilities knowing the input gains
+                np.testing.assert_almost_equal(ans0xx, ans_xx, decimal=7)
+                np.testing.assert_almost_equal(ans0xy, ans_xy, decimal=7)
+                np.testing.assert_almost_equal(ans0yx, ans_yx, decimal=7)
+                np.testing.assert_almost_equal(ans0yy, ans_yy, decimal=7)
+
     
 if __name__ == "__main__":
     unittest.main()
