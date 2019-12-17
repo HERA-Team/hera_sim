@@ -8,7 +8,9 @@ from cached_property import cached_property
 from pyuvsim import analyticbeam as ab
 from pyuvsim.simsetup import (
     initialize_uvdata_from_params,
-    uvdata_to_telescope_config
+    uvdata_to_telescope_config,
+    beam_string_to_object,
+    _complete_uvdata
 )
 from os import path
 
@@ -88,6 +90,15 @@ class VisibilitySimulator(object):
             (self.uvdata,
              self.beams,
              self.beam_ids) = initialize_uvdata_from_params(obsparams)
+
+            # convert the beam_ids dict to an array of ints
+            nms = list(self.uvdata.antenna_names)
+            tmp_ids = np.zeros(len(self.beam_ids), dtype=int)
+            for name, id in self.beam_ids.items():
+                tmp_ids[nms.index(name)] = id
+            self.beam_ids = tmp_ids
+            self.beams = [beam_string_to_object(bm) for bm in self.beams]
+            _complete_uvdata(self.uvdata, inplace=True)
         else:
             if uvdata is None:
                 raise ValueError("if obsparams is not given, uvdata must be.")
@@ -108,7 +119,7 @@ class VisibilitySimulator(object):
         self.sky_intensity = sky_intensity
 
         if sky_freqs is None:
-            self.sky_freqs = np.unique(uvdata.freq_array)
+            self.sky_freqs = np.unique(self.uvdata.freq_array)
         else:
             self.sky_freqs = sky_freqs
 
