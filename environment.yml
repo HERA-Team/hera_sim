@@ -18,6 +18,7 @@ dependencies:
   - scipy
   - pyyaml
   - future # only for python 2
+  - numba
   - psutil
   - astropy-healpix
   - basemap
