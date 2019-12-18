@@ -40,14 +40,18 @@ class Simulator:
             sim.defaults -> Defaults object
 
         """
-        self._initialize_data(data, **kwargs)
+        # create some utility dictionaries
         self._components = {}
         self.extras = {}
         self._seeds = {}
         self._antpairpol_cache = {}
+        
         # apply and activate defaults if specified
         if defaults_config:
             self.apply_defaults(defaults_config)
+
+        # actually initialize the UVData object stored in self.data
+        self._initialize_data(data, **kwargs)
 
     @cached_property
     def antpos(self):
@@ -372,7 +376,7 @@ class Simulator:
         if data is None:
             self.data = io.empty_uvdata(**kwargs)
         elif isinstance(data, str):
-            self.data = self._read_datafile(data, kwargs)
+            self.data = self._read_datafile(data, **kwargs)
             self.extras['data_file'] = data
         elif isinstance(data, UVData):
             self.data = data
