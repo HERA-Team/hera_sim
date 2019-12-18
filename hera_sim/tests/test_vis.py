@@ -1,10 +1,8 @@
 import unittest
-#<<<<<<< HEAD
 
-#=======
 from hera_sim import vis
 from hera_sim.antpos import linear_array
-#>>>>>>> master
+
 import numpy as np
 import pytest
 import warnings

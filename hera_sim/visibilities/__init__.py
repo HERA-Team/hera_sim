@@ -19,7 +19,7 @@ from .vis_cpu import VisCPU
 try:
     from .healvis_wrapper import HealVis
 except (ImportError, NameError) as e: # NameError arises bc healvis is not Python 3 compliant
-    warnings.warn("healvis failed to import.")
+    warnings.warn("healvis failed to import due to " + e.__name__ + ".")
     pass
 
 try:
