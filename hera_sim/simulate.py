@@ -512,6 +512,10 @@ class Simulator:
                 # and add it in
                 self.data.data_array[blt_inds, 0, :, pol_ind] += vis
 
+        # reset the data array if not adding the component
+        if not add_vis:
+            self.data.data_array = initial_data
+
         # return the component if desired
         if ret_vis:
             # return the gain dictionary if gains are simulated
@@ -521,9 +525,6 @@ class Simulator:
             else:
                 return self.data.data_array - initial_data
         
-        # reset the data array if not adding the component
-        if not add_vis:
-            self.data.data_array = initial_data
 
     @staticmethod
     def _read_datafile(datafile, **kwargs):
