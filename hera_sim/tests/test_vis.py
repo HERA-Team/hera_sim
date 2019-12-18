@@ -1,26 +1,26 @@
 import unittest
-<<<<<<< HEAD
+#<<<<<<< HEAD
 
-=======
+#=======
 from hera_sim import vis
 from hera_sim.antpos import linear_array
->>>>>>> master
+#>>>>>>> master
 import numpy as np
 import pytest
 import warnings
 
 from astropy.units import sday
 from pyuvsim.analyticbeam import AnalyticBeam
-from hera_sim import visibilities as vis
+from hera_sim.visibilities import VisCPU, HealVis
 from hera_sim import io
 
 import healpy
 
 try:
-    SIMULATORS = (vis.HealVis, vis.VisCPU)
+    SIMULATORS = (HealVis, VisCPU)
 except AttributeError: # If healvis is not imported
     warnings.warn("healvis failed to import in the package constructor.")
-    SIMULATORS = (vis.VisCPU, vis.VisCPU)
+    SIMULATORS = (VisCPU, VisCPU)
 
 np.random.seed(0)
 NTIMES = 10
@@ -59,7 +59,7 @@ def test_JD(uvdata, uvdataJD):
     point_source_pos = np.array([[0, uvdata.telescope_location_lat_lon_alt[0]]])
     point_source_flux = np.array([[1.0]] * len(freqs))
 
-    viscpu1 = vis.VisCPU(
+    viscpu1 = VisCPU(
         uvdata=uvdata,
         sky_freqs=np.unique(uvdata.freq_array),
         point_source_flux=point_source_flux,
@@ -67,7 +67,7 @@ def test_JD(uvdata, uvdataJD):
         nside=2**4
     ).simulate()
 
-    viscpu2 = vis.VisCPU(
+    viscpu2 = VisCPU(
         uvdata=uvdataJD,
         sky_freqs=np.unique(uvdataJD.freq_array),
         point_source_flux=point_source_flux,
@@ -121,7 +121,7 @@ def test_shapes(uvdata, simulator):
 def test_dtypes(uvdata, dtype, cdtype):
     I_sky = create_uniform_sky()
 
-    sim = vis.VisCPU(
+    sim = VisCPU(
         uvdata=uvdata,
         sky_freqs=np.unique(uvdata.freq_array),
         sky_intensity=I_sky,
@@ -239,7 +239,7 @@ def test_comparison_zenith(uvdata2):
     # align to healpix center for direct comparision
     point_source_pos, point_source_flux = align_src_to_healpix(point_source_pos, point_source_flux)
 
-    viscpu = vis.VisCPU(
+    viscpu = VisCPU(
         uvdata=uvdata2,
         sky_freqs=freqs,
         point_source_flux=point_source_flux,
@@ -247,7 +247,7 @@ def test_comparison_zenith(uvdata2):
         nside=2**4
     ).simulate()
 
-    healvis = vis.HealVis(
+    healvis = HealVis(
         uvdata=uvdata2,
         sky_freqs=freqs,
         point_source_flux=point_source_flux,
@@ -268,7 +268,7 @@ def test_comparision_horizon(uvdata2):
     # align to healpix center for direct comparision
     point_source_pos, point_source_flux = align_src_to_healpix(point_source_pos, point_source_flux)    
     
-    viscpu = vis.VisCPU(
+    viscpu = VisCPU(
         uvdata=uvdata2,
         sky_freqs=freqs,
         point_source_flux=point_source_flux,
@@ -276,7 +276,7 @@ def test_comparision_horizon(uvdata2):
         nside=2**4
     ).simulate()
 
-    healvis = vis.HealVis(
+    healvis = HealVis(
         uvdata=uvdata2,
         sky_freqs=freqs,
         point_source_flux=point_source_flux,
@@ -298,7 +298,7 @@ def test_comparison_multiple(uvdata2):
     # align to healpix center for direct comparision
     point_source_pos, point_source_flux = align_src_to_healpix(point_source_pos, point_source_flux)
     
-    viscpu = vis.VisCPU(
+    viscpu = VisCPU(
         uvdata=uvdata2,
         sky_freqs=freqs,
         point_source_flux=point_source_flux,
@@ -306,7 +306,7 @@ def test_comparison_multiple(uvdata2):
         nside=2**4
     ).simulate()
 
-    healvis = vis.HealVis(
+    healvis = HealVis(
         uvdata=uvdata2,
         sky_freqs=freqs,
         point_source_flux=point_source_flux,
@@ -330,14 +330,14 @@ def test_comparison_half(uvdata2):
     for i in range(len(freqs)):
         I_sky[i][ipix_disc] = 0
         
-    viscpu = vis.VisCPU(
+    viscpu = VisCPU(
         uvdata=uvdata2,
         sky_freqs=freqs,
         sky_intensity=I_sky,
         nside=nside
     ).simulate()
 
-    healvis = vis.HealVis(
+    healvis = HealVis(
         uvdata=uvdata2,
         sky_freqs=freqs,
         sky_intensity=I_sky,
@@ -360,7 +360,7 @@ def test_comparision_airy(uvdata2):
     for i in range(len(freqs)):
         I_sky[i][ipix_disc] = 0
         
-    viscpu = vis.VisCPU(
+    viscpu = VisCPU(
         uvdata=uvdata2,
         sky_freqs=freqs,
         sky_intensity=I_sky,
@@ -368,7 +368,7 @@ def test_comparision_airy(uvdata2):
         nside=nside
     ).simulate()
 
-    healvis = vis.HealVis(
+    healvis = HealVis(
         uvdata=uvdata2,
         sky_freqs=freqs,
         sky_intensity=I_sky,
