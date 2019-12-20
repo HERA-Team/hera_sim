@@ -154,17 +154,21 @@ class Simulator:
         """
         """
         # XXX do we want to leave this check in there?
-        assert component in self._components.keys(), \
-            "You are trying to retrieve a component that has not " \
-            "been simulated. Please check that the component you " \
-            "are passing is correct. Consult the _components " \
-            "attribute to see which components have been simulated " \
-            "and which keys are provided."
-        
-        assert not ((ant1 is None) ^ (ant2 is None)), \
-            "You are trying to retrieve a visibility but have only " \
-            "specified one antenna. This use is unsupported; please " \
-            "either specify an antenna pair or leave both as None."
+        if component not in self._components:
+            raise AttributeError(
+                "You are trying to retrieve a component that has not " 
+                "been simulated. Please check that the component you " 
+                "are passing is correct. Consult the _components " 
+                "attribute to see which components have been simulated " 
+                "and which keys are provided."
+            )
+            
+        if ((ant1 is None) ^ (ant2 is None)):
+            raise TypeError(
+                "You are trying to retrieve a visibility but have only " 
+                "specified one antenna. This use is unsupported; please " 
+                "either specify an antenna pair or leave both as None."
+            )
 
         # retrieve the model
         model, is_class = self._get_component(component)
@@ -283,10 +287,12 @@ class Simulator:
         """
         """
         # make sure that only sim_file or sim_params are specified
-        assert bool(sim_file) ^ bool(sim_params), \
-            "Either an absolute path to a simulation configuration " \
-            "file or a dictionary of simulation parameters may be " \
-            "passed, but not both. Please only pass one of the two."
+        if not (bool(sim_file) ^ bool(sim_params)):
+            raise ValueError(
+                "Either an absolute path to a simulation configuration " 
+                "file or a dictionary of simulation parameters may be " 
+                "passed, but not both. Please only pass one of the two."
+            )
 
         # read the simulation file if provided
         if sim_file is not None:
@@ -303,11 +309,13 @@ class Simulator:
         # loop over the entries in the configuration dictionary
         for component, params in sim_params.items():
             # make sure that the parameters are a dictionary
-            assert isinstance(params, dict), \
-                "The parameters for {component} are not formatted " \
-                "properly. Please ensure that the parameters for " \
-                "each component are specified using a " \
-                "dictionary.".format(component=component)
+            if not isinstance(params, dict):
+                raise TypeError(
+                    "The parameters for {component} are not formatted " 
+                    "properly. Please ensure that the parameters for " 
+                    "each component are specified using a " 
+                    "dictionary.".format(component=component)
+                )
             
             # add the component to the data
             value = self.add(component, **params)
@@ -381,7 +389,7 @@ class Simulator:
         elif isinstance(data, UVData):
             self.data = data
         else:
-            raise ValueError("Unsupported type.") # make msg better
+            raise TypeError("Unsupported type.") # make msg better
 
     def _initialize_args_from_model(self, model):
         # TODO: docstring
@@ -435,7 +443,7 @@ class Simulator:
         # figure out whether or not to seed the RNG
         seed_mode = kwargs.pop("seed_mode", None)
         
-        # get the original data array just in case
+        # get a copy of the data array
         initial_data = self.data.data_array.copy()
         
         # find out if the model is multiplicative
@@ -512,18 +520,26 @@ class Simulator:
                 # and add it in
                 self.data.data_array[blt_inds, 0, :, pol_ind] += vis
 
-        # reset the data array if not adding the component
-        if not add_vis:
-            self.data.data_array = initial_data
-
         # return the component if desired
+        # this is a little complicated, but it's done this way so that
+        # there aren't *three* copies of the data array floating around
+        # this is to minimize the potential of triggering a MemoryError
+        # XXX figure out whether this is a moot effort
+        # XXX it is *not* a moot effort! this saves memory!
         if ret_vis:
+            initial_data = self.data.data_array - initial_data
+            # the only time we're allowed to have add_vis be False is
+            # if ret_vis is True, and nothing happens if both are False
+            # so this is the *only* case where we'll have to reset the
+            # data array
+            if not add_vis:
+                self.data.data_array -= initial_data
             # return the gain dictionary if gains are simulated
             if is_multiplicative:
                 return gains
             # otherwise return the actual visibility simulated
             else:
-                return self.data.data_array - initial_data
+                return initial_data
         
 
     @staticmethod
@@ -539,8 +555,17 @@ class Simulator:
         # TODO: docstring
         """
         """
+        if not type(seed_mode) is str:
+            raise TypeError(
+                "The seeding mode must be specified as a string."
+            )
         if seed_mode == "redundant":
-            assert ant1 is not None and ant2 is not None
+            if ant1 is None or ant2 is None:
+                raise TypeError(
+                    "A baseline must be specified in order to "
+                    "seed by redundant group."
+                )
+
             # generate seeds for each redundant group
             # this does nothing if the seeds already exist
             self._generate_redundant_seeds(model)
@@ -609,20 +634,31 @@ class Simulator:
                 return component, True
         except TypeError:
             # this is raised if ``component`` is not a class
+            if component.__class__.__name__ == "function":
+                raise TypeError(
+                    "You are attempting to add a component that is "
+                    "modeled using a function. Please convert the "
+                    "function to a callable class and try again."
+                )
             if callable(component):
                 # if it's callable, then it's either a user-defined 
                 # function or a class instance
                 return component, False
             else:
-                assert isinstance(component, str), \
-                        "``component`` must be either a class which " \
-                        "derives from ``SimulationComponent`` or an " \
-                        "instance of a callable class, or a function, " \
-                        "whose signature is:\n" \
-                        "func(lsts, freqs, *args, **kwargs)\n" \
-                        "If it is none of the above, then it must be " \
-                        "a string which corresponds to the name of a " \
-                        "``hera_sim`` class or an alias thereof."
+                if not type(component) is str:
+                    # TODO: update this error message to reflect the
+                    # change in allowed component types
+                    raise TypeError(
+                        "``component`` must be either a class which " 
+                        "derives from ``SimulationComponent`` or an " 
+                        "instance of a callable class, or a function, " 
+                        "whose signature is:\n" 
+                        "func(lsts, freqs, *args, **kwargs)\n" 
+                        "If it is none of the above, then it must be " 
+                        "a string which corresponds to the name of a " 
+                        "``hera_sim`` class or an alias thereof."i
+                    )
+                
                 # keep track of all known aliases in case desired 
                 # component isn't found in the search
                 all_aliases = []
@@ -635,12 +671,15 @@ class Simulator:
                             all_aliases.append(alias)
                         if component.lower() in aliases:
                             return model, True
+                
                 # if this part is executed, then the model wasn't found, so
                 msg = "The component '{component}' wasn't found. The "
-                msg += "following aliases are known: "
+                msg += "following aliases are known: \n"
                 msg += ", ".join(set(all_aliases))
+                msg += "\nPlease ensure that the component you are trying "
+                msg += "to add is a subclass of a registry."
                 msg = msg.format(component=component)
-                raise AttributeError(msg)
+                raise UnboundLocalError(msg)
 
     def _generate_seed(self, model, key):
         # TODO: docstring
@@ -693,6 +732,8 @@ class Simulator:
             # check if it's a user defined function
             if model.__class__.__name__ == "function":
                 # don't allow users to pass functions, only classes
+                # XXX find out if this check always happens before
+                # _get_component is called
                 msg = "You are trying to simulate an effect using a "
                 msg += "custom function. Please convert your "
                 msg += "function into a callable class that inherits "
@@ -702,7 +743,7 @@ class Simulator:
                 msg += "does not need to perform any tasks or be "
                 msg += "instantiated; it just needs to exist and be "
                 msg += "a base class for the custom callable class."
-                raise ValueError(msg)
+                raise TypeError(msg)
             else:
                 return model.__class__.__name__
 
