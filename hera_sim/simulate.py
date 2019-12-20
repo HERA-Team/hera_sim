@@ -524,8 +524,6 @@ class Simulator:
         # this is a little complicated, but it's done this way so that
         # there aren't *three* copies of the data array floating around
         # this is to minimize the potential of triggering a MemoryError
-        # XXX figure out whether this is a moot effort
-        # XXX it is *not* a moot effort! this saves memory!
         if ret_vis:
             initial_data = self.data.data_array - initial_data
             # the only time we're allowed to have add_vis be False is
