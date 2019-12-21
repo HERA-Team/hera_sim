@@ -654,7 +654,7 @@ class Simulator:
                         "func(lsts, freqs, *args, **kwargs)\n" 
                         "If it is none of the above, then it must be " 
                         "a string which corresponds to the name of a " 
-                        "``hera_sim`` class or an alias thereof."i
+                        "``hera_sim`` class or an alias thereof."
                     )
                 
                 # keep track of all known aliases in case desired 
