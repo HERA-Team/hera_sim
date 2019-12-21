@@ -1,6 +1,7 @@
 # TODO: write module docstring
 from abc import ABCMeta, abstractmethod
 from .defaults import defaults
+import re
 
 class SimulationComponent(metaclass=ABCMeta):
     def __init_subclass__(cls, **kwargs):
@@ -45,9 +46,10 @@ def registry(cls):
                                         if key not in self.kwargs])
                 raise ValueError(error_msg)
 
+        @classmethod
         def _update_call_docstring(cls):
-            init_docstring = cls.__init__.__doc__
-            call_docstring = cls.__call__.__doc__
+            init_docstring = str(cls.__init__.__doc__)
+            call_docstring = str(cls.__call__.__doc__)
             if any(
                 ["Parameters" not in doc 
                  for doc in (init_docstring, call_docstring)
@@ -57,7 +59,7 @@ def registry(cls):
             init_params = cls._extract_param_section(init_docstring)
             call_params = cls._extract_param_section(call_docstring)
             full_params = call_params + init_params
-            cls.__call__.__doc__.replace(call_params, full_params)
+            cls.__call__.__doc__ = call_docstring.replace(call_params, full_params)
 
         @staticmethod
         def _extract_param_section(docstring):
