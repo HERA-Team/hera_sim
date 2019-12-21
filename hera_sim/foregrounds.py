@@ -22,13 +22,29 @@ class DiffuseForeground(Foreground):
     _alias = ("diffuse_foreground", )
 
     def __init__(self, Tsky_mdl=None, omega_p=None,
-                 delay_filter_kwargs={"standoff" : 0.0,
-                                      "delay_filter_type" : "tophat"}, 
-                 fringe_filter_kwargs={"fringe_filter_type" : "tophat"}):
-        # TODO: fill in docstring
+                 delay_filter_kwargs=None, fringe_filter_kwargs=None):
+        # TODO: update docstring
         """
 
+        Parameters
+        ----------
+
+        Tsky_mdl : interpolation object
+            Sky temperature model, in units of Kelvin. Must be callable 
+            with signature Tsky_mdl(lsts, freqs), formatted so that lsts 
+            are in radians and freqs are in GHz.
+
+        omega_p : interpolation object or array-like
+            Beam size model, in units of steradian.
+
         """
+        if delay_filter_kwargs is None:
+            delay_filter_kwargs = {
+                "standoff" : 0.0, "delay_filter_type" : "tophat"
+            }
+        if fringe_filter_kwargs is None:
+            fringe_filter_kwargs = {"fringe_filter_type" : "tophat"}
+                                    
         super().__init__(
             Tsky_mdl=Tsky_mdl,
             omega_p=omega_p,
@@ -37,9 +53,28 @@ class DiffuseForeground(Foreground):
         )
 
     def __call__(self, lsts, freqs, bl_vec, **kwargs):
-        # TODO: fill in docstring
+        # TODO: update docstring
         """
         
+        Parameters
+        ----------
+
+        lsts : array-like
+            Array of LST values in units of radians.
+
+        freqs : array-like
+            Array of frequency values in units of GHz.
+
+        bl_vec : array-like
+            Length-3 array specifying the baseline vector in units of ns.
+
+        Returns
+        -------
+
+        vis : ndarray
+            Array of visibilities at each LST and frequency appropriate 
+            for the given sky temperature model, beam size model, and 
+            baseline vector. Returned in units of Jy.
         """
         # validate the kwargs
         self._check_kwargs(**kwargs)
