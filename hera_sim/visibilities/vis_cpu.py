@@ -95,7 +95,7 @@ class VisCPU(VisibilitySimulator):
             future, this method can be modified to only return one
             matrix for each beam.
         """
-        return np.array([
+        return np.asarray([
             conversions.uvbeam_to_lm(
                 self.beams[self.beam_ids[i]], self.freqs, self.bm_pix
             ) for i in range(self.n_ant)
@@ -125,7 +125,7 @@ class VisCPU(VisibilitySimulator):
             system. Shape=(3, NPIX).
         """
         ra, dec = self.point_source_pos.T
-        return np.array([np.cos(ra)*np.cos(dec), np.cos(dec)*np.sin(ra),
+        return np.asarray([np.cos(ra)*np.cos(dec), np.cos(dec)*np.sin(ra),
                          np.sin(dec)])
 
     def get_eq2tops(self):

@@ -18,17 +18,16 @@ from .vis_cpu import VisCPU
 
 try:
     from .healvis_wrapper import HealVis
-except (ImportError, NameError) as e: # NameError arises bc healvis is not Python 3 compliant
-    warnings.warn("healvis failed to import due to.")
-    pass
+except (ImportError, NameError):
+    warnings.warn("HealVis failed to import.")
 
 try:
     from .prisim_wrapper import PRISim
 except ImportError:
-    pass
+    warnings.warn("PRISim failed to import.")
 
 # GPU version of VisCPU
 try:
     from .vis_gpu import VisGPU
 except ImportError:
-    pass
+    warnings.warn("VisGPU failed to import.")

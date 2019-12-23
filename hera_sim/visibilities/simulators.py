@@ -13,9 +13,11 @@ from pyuvsim.simsetup import (
     _complete_uvdata
 )
 from os import path
+from abc import ABCMeta, abstractmethod
 
 
 class VisibilitySimulator(object):
+    __metaclass__ = ABCMeta
     """
     Base VisibilitySimulator class.
 
@@ -262,6 +264,7 @@ class VisibilitySimulator(object):
         self.uvdata.data_array += vis
         return vis
 
+    @abstractmethod
     def _simulate(self):
         """Subclass-specific simulation method, to be overwritten."""
         pass

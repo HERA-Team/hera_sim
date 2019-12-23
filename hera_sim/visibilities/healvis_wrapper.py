@@ -72,7 +72,11 @@ class HealVis(VisibilitySimulator):
         super(HealVis, self).__init__(**kwargs)
 
     def validate(self):
-        "HealVis assumes a single beam for all antennae"
+        """Validates that all data is correct.
+
+        In addition to standard parameter restrictions, HealVis requires a single beam
+        for all antennae.
+        """
         super(HealVis, self).validate()
         assert self.n_beams == 1
 
