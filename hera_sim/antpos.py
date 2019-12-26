@@ -3,7 +3,14 @@ A module defining routines for creating antenna array configurations. Input argu
 arbitrary, but the return value is always a dictionary with keys representing antenna numbers, and values
 giving the 3D position of each antenna.
 """
+from __future__ import division
+from __future__ import unicode_literals
+from __future__ import print_function
+from __future__ import absolute_import
 
+from future import standard_library
+standard_library.install_aliases()
+# from builtins import *
 import numpy as np
 from builtins import range
 

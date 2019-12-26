@@ -1,10 +1,16 @@
 """ Utility module """
+from __future__ import division
+from __future__ import unicode_literals
+from __future__ import print_function
+from __future__ import absolute_import
 
+from future import standard_library
+standard_library.install_aliases()
+# from builtins import *
 import numpy as np
 from scipy import interpolate
 import aipy
-from aipy.const import sidereal_day
-
+from astropy.units import sday
 
 def _get_bl_len_vec(bl_len_ns):
     """
@@ -182,7 +188,7 @@ def gen_fringe_filter(lsts, fqs, ew_bl_len_ns, filter_type='tophat', **filter_kw
             fringe filter is identically one.
     """
     # setup
-    times = lsts / (2 * np.pi) * aipy.const.sidereal_day
+    times = lsts / (2 * np.pi) * sday.to('s')
     frates = np.fft.fftfreq(times.size, times[1] - times[0])
 
     if filter_type in [None, 'none', 'None']:
@@ -271,7 +277,7 @@ def calc_max_fringe_rate(fqs, ew_bl_len_ns):
         fr_max (float): fringe rate [Hz]
     """
     bl_wavelen = fqs * ew_bl_len_ns
-    fr_max = 2 * np.pi / aipy.const.sidereal_day * bl_wavelen
+    fr_max = 2 * np.pi /sday.to('s') * bl_wavelen
     return fr_max
 
 

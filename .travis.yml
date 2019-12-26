@@ -29,11 +29,11 @@ install:
   - conda env update -q -n test-env -f environment.yml
   - conda install pytest
   - conda activate test-env
+  - conda list
   # install BDA for testing CLI script
   - pip install git+https://github.com/HERA-Team/baseline_dependent_averaging
   - pip install .
 
-#script: nosetests hera_sim --with-coverage --cover-package=hera_sim --verbose
 script: pytest -vv --cov=hera_sim/
 
 after_success:

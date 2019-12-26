@@ -4,7 +4,15 @@ A module with functions for generating foregrounds signals.
 Each function may take arbitrary parameters, but should return a 2D array of visibilities for the requested baseline
 at the requested lsts and frequencies.
 """
+from __future__ import division
+from __future__ import unicode_literals
+from __future__ import print_function
+from __future__ import absolute_import
 
+from future import standard_library
+standard_library.install_aliases()
+# from builtins import *
+from builtins import zip
 import numpy as np
 from aipy.const import sidereal_day
 from builtins import range
@@ -110,7 +118,7 @@ def pntsrc_foreground(lsts, fqs, bl_vec, nsrcs=1000, Smin=0.3, Smax=300,
     ras = np.random.uniform(0, 2 * np.pi, nsrcs)
     indices = np.random.normal(spectral_index_mean, spectral_index_std, size=nsrcs)
     mfreq = reference_freq
-    beam_width = (40 * 60.) * (mfreq / fqs) / sidereal_day * 2 * np.pi  # XXX hardcoded HERA
+    beam_width = ((40 * 60.) * (mfreq / fqs)) / (sidereal_day * 2 * np.pi)  # XXX hardcoded HERA
 
     # Draw flux densities from a power law between Smin and Smax with a slope of beta.
     flux_densities = ((Smax ** (beta + 1) - Smin ** (beta + 1)) * np.random.uniform(size=nsrcs) + Smin ** (
@@ -124,7 +132,7 @@ def pntsrc_foreground(lsts, fqs, bl_vec, nsrcs=1000, Smin=0.3, Smax=300,
     ha = utils.compute_ha(lsts, 0)
     for fi in range(fqs.size):
         bm = np.exp(-ha ** 2 / (2 * beam_width[fi] ** 2))
-        bm = np.where(np.abs(ha) > np.pi / 2, 0, bm)
+        bm = np.where(np.abs(ha) > np.pi / 2 , 0, bm)
         w = .9 * bl_len_ns * np.sin(ha) * fqs[fi]  # XXX .9 to offset increase from dtau above
 
         phs = np.exp(2j * np.pi * w)

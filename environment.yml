@@ -14,16 +14,19 @@ dependencies:
   - nose
   - numpy
   - pip
-  - pytest
-  - pyuvdata
+  - pytest-cov
   - scipy
   - pyyaml
   - future # only for python 2
+  - numba
   - psutil
   - astropy-healpix
   - basemap
   - pip:
     - cached-property
     - git+https://github.com/RadioAstronomySoftwareGroup/pyuvsim.git
+    - git+https://github.com/RadioAstronomySoftwareGroup/pyuvdata.git
     - git+https://github.com/HERA-Team/uvtools.git
+    - git+https://github.com/rasg-affiliates/healvis
+    - astropy-healpix
     - git+https://github.com/HERA-Team/hera_cal.git

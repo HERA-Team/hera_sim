@@ -3,12 +3,29 @@ Changelog
 =========
 
 
+v0.3.0 [2019.12.10]
+===================
+
+Added
+-----
+- New sub-package ``simulators``
+    - ``VisibilitySimulators`` class
+        - Provides a common interface to interferometric visibility simulators.
+          Users instantiate one of its subclasses and provide input antenna and
+          sky scenarios.
+        - ``HealVis`` subclass
+        - Provides an interface to the ``healvis`` visibility simulator.
+    - ``VisCPU`` subclass
+        - Provides an interface to the ``viscpu`` visibility simulator.
+    - ``conversions`` module
+        - Not intended to be interfaced with by the end user; it provides useful
+          coordinate transformations for ``VisibilitySimulators``.
+
 v0.2.0 [2019.11.20]
 ===================
 
 Added
 -----
-
 - Command-line Interface
     - Use anywhere with `hera_sim run [options] INPUT`
     - Tutorial available on readthedocs

@@ -2,7 +2,16 @@
 Primary interface module for hera_sim, defining a :class:`Simulator` class which provides a common API for all
 effects produced by this package.
 """
+from __future__ import division
+from __future__ import unicode_literals
+from __future__ import print_function
+from __future__ import absolute_import
 
+from future import standard_library
+standard_library.install_aliases()
+# from builtins import *
+from builtins import zip
+from builtins import object
 import functools
 import inspect
 import os
@@ -19,7 +28,6 @@ from collections import OrderedDict
 
 from . import io
 from . import sigchain
-from .interpolators import Tsky
 from .version import version
 
 
@@ -122,6 +130,10 @@ class _model(object):
                               kwargs=kwargs)
                 obj.data.history += msg
 
+                # history *must* be str, so encode it if it is unicode in py2
+                if sys.version_info[0] == 2:
+                    obj.data.history = obj.data.history.encode('utf8')
+
                 # Add this particular model to a cache of "added models" for this sim.
                 # This can be gotten from history, but easier just to keep it here.
                 if not hasattr(obj, "_added_models"):
@@ -148,7 +160,7 @@ class _model(object):
 
         return new_func
 
-class Simulator:
+class Simulator(object):
     """
     Primary interface object for hera_sim.
 
@@ -269,7 +281,7 @@ class Simulator:
         Dictionary of {antenna: antenna_position} for all antennas in the data.
         """
         antpos, ants = self.data.get_ENU_antpos(pick_data_ants=True)
-        return dict(zip(ants, antpos))
+        return dict(list(zip(ants, antpos)))
 
     @staticmethod
     def _read_data(filename, **kwargs):
