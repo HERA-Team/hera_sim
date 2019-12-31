@@ -57,7 +57,7 @@ setup_args = {
         'pyuvdata',
         'aipy>=3.0',
         'click',
-        'astropy-healpix' # pyuvsim depenency not automatically installed,
+        'astropy-healpix', # pyuvsim depenency not automatically installed,
         "future"
     ],
     "extras_require" : {
