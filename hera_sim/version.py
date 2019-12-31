@@ -6,7 +6,7 @@ from __future__ import absolute_import
 try:
     from future import standard_library
 except ImportError:
-    from pip._internal import main as pip
+    from pip._internal.main import main as pip
     pip(['install', '--user', 'future'])
     from future import standard_library
 
