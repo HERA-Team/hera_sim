@@ -57,7 +57,8 @@ setup_args = {
         'pyuvdata',
         'aipy>=3.0',
         'click',
-        'astropy-healpix' # pyuvsim depenency not automatically installed
+        'astropy-healpix' # pyuvsim depenency not automatically installed,
+        "future"
     ],
     "extras_require" : {
         "bda" : "bda @ git+git://github.com/HERA-Team/baseline_dependent_averaging"
@@ -68,10 +69,6 @@ setup_args = {
     "entry_points": {"console_scripts": ["hera_sim = hera_sim.cli:main"]},
 }
 
-
-# If on Python 2, we also need the "future" module
-if sys.version.startswith("2"):
-    setup_args['install_requires'].append("future")
 
 if __name__ == "__main__":
     setup(*(), **setup_args)
