@@ -707,7 +707,7 @@ class Simulator:
         # TODO: docstring
         """
         """
-        return self.data.get_baseline_redundancies()[0]
+        return self.data.get_redundancies()[0]
 
     def _get_seed(self, model, key):
         # TODO: docstring
