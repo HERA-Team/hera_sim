@@ -1,10 +1,8 @@
 """ Utility module """
-
 import numpy as np
 import astropy.constants as const
 import astropy.units as u
 from scipy.interpolate import RectBivariateSpline
-
 
 def _get_bl_len_vec(bl_len_ns):
     """

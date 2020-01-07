@@ -11,9 +11,10 @@ HERA_LAT_LON_ALT = np.load(os.path.join(DATA_PATH, "HERA_LAT_LON_ALT.npy"))
 # this decorator allows the parameters specified in the function
 # signature to be overridden by the defaults module
 @_defaults
-def empty_uvdata(Ntimes=None, start_time=None, integration_time=None,
+def empty_uvdata(Ntimes=None, start_time=2456658.5, # Jan 1 2014
+                 integration_time=None, array_layout=None,
                  Nfreqs=None, start_freq=None, channel_width=None,
-                 array_layout=None, **kwargs):
+                 **kwargs):
     # TODO: docstring
     """
     """
