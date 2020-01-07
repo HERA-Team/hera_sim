@@ -1,5 +1,7 @@
+import os
 import unittest
 from hera_sim import rfi
+from hera_sim.data import DATA_PATH
 import numpy as np
 
 np.random.seed(0)
@@ -36,10 +38,15 @@ class TestRFI(unittest.TestCase):
         np.testing.assert_allclose(r[:, 5], s.strength / 2, 4)
 
     def test_rfi_stations(self):
-        # freqs = np.linspace(.1,.2,1024)
+        # choose observing parameters
         freqs = np.linspace(0.1, 0.2, 100)
         lsts = np.linspace(0, 2 * np.pi, 1000)
-        r = rfi.rfi_stations(lsts, freqs)
+
+        # choose RFI station parameters
+        stations = os.path.join(DATA_PATH, "HERA_H1C_RFI_STATIONS.npy")
+
+        # generate rfi
+        r = rfi.rfi_stations(lsts, freqs, stations=stations)
         self.assertEqual(r.shape, (lsts.size, freqs.size))
         # import uvtools, pylab as plt
         # uvtools.plot.waterfall(r); plt.show()
