@@ -268,9 +268,32 @@ class WhiteNoiseCrosstalk(Crosstalk):
         # scale the result and return
         return amplitude * xtalk
 
+def apply_gains(vis, gains, bl):
+    # TODO: docstring
+    """
+    """
+    # get the gains for each antenna in the baseline
+    # don't apply a gain if the antenna isn't found
+    gi = 1.0 if bl[0] not in gains else gains[bl[0]]
+    gj = 1.0 if bl[1] not in gains else gains[bl[1]]
+
+    # if neither antenna is in the gains dict, do nothing
+    if bl[0] not in gains and bl[1] not in gains:
+        return vis
+
+    # form the gain term for the given baseline
+    gain = gi * np.conj(gj)
+
+    # reshape if need be
+    if gain.ndim == 1:
+        gain.shape = (1, -1)
+
+    return vis * gain
+
 # to minimize breaking changes
 gen_gains = Bandpass()
 gen_bandpass = gen_gains._gen_bandpass
+gen_delay_phs = gen_gains._gen_delay_phase
 
 gen_reflection_coefficient = Reflections.gen_reflection_coefficient
 gen_reflection_gains = Reflections()
