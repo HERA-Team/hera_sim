@@ -51,7 +51,7 @@ class TestForegrounds(unittest.TestCase):
         )
         nt.assert_raises(
             ValueError, foregrounds.diffuse_foreground, lsts, fqs, 
-            bl_vec, Tsky_mdl=Tsky_mdl
+            bl_vec, Tsky_mdl=Tsky_mdl, omega_p=None
         )
 
     def test_pntsrc_foreground(self):
