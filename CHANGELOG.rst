@@ -38,6 +38,15 @@ Changed
   been changed to match their names in \
   ``pyuvsim.simsetup.initialize_uvdata_from_keywords``
 
+- Changes to parameters in most RFI models. Optional parameters that \
+  are common to many models (but should not share the same name), such \
+  as ``std`` or ``chance``, have been prefixed with the model name and \
+  an underscore (e.g. ``dtv_chance``). Various other parameters have \
+  been renamed for consistency/clarity. Note that the ``freq_min`` and \
+  ``freq_max`` parameters for ``rfi_dtv`` have been replaced by the \
+  single parameter ``dtv_band``, which is a tuple denoting the edges of \
+  the DTV band in GHz.
+
 v0.2.0 [2019.11.20]
 ===================
 
