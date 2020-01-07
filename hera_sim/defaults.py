@@ -13,7 +13,7 @@ from os import path
 from .config import CONFIG_PATH
 
 SEASON_CONFIGS = {'h1c': path.join(CONFIG_PATH, 'H1C.yaml'),
-                  'h2c': path.join(CONFIG_PATH, 'HERA_H2C_CONFIG.yaml'),
+                  'h2c': path.join(CONFIG_PATH, 'H2C.yaml'),
                   }
 
 class Defaults:

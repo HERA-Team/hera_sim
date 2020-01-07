@@ -8,6 +8,7 @@ from . import interpolators
 from . import utils
 from .components import registry
 from .data import DATA_PATH
+from .defaults import _defaults
 
 import aipy
 
@@ -49,6 +50,7 @@ class Bandpass(Gain, is_multiplicative=True):
 
         return {ant : bandpass[ant] * phase[ant] for ant in ants}
 
+    @_defaults
     def _gen_bandpass(self, freqs, ants, gain_spread=0.1, bp_poly=None):
         if bp_poly is None:
             # default to the H1C bandpass
