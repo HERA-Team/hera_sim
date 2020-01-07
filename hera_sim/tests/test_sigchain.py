@@ -1,7 +1,10 @@
+import os
 import unittest
 from hera_sim import sigchain, noise, foregrounds
+from hera_sim.interpolators import Beam
+from hera_sim.data import DATA_PATH
 import numpy as np
-import aipy
+import astropy.units as u
 import nose.tools as nt
 from scipy.signal import windows
 
@@ -55,12 +58,23 @@ class TestSigchainReflections(unittest.TestCase):
         np.random.seed(0)
         fqs = np.linspace(0.1, 0.2, 100, endpoint=False)
         lsts = np.linspace(0, 2 * np.pi, 200)
-        times = lsts / (2 * np.pi) * aipy.const.sidereal_day
+        times = lsts / (2 * np.pi) * u.sday.to('s')
+
+        # extra parameters needed
         Tsky_mdl = noise.HERA_Tsky_mdl["xx"]
         Tsky = Tsky_mdl(lsts, fqs)
         bl_vec = np.array([50.0, 0, 0])
-        # + 20 is to boost k=0 mode
-        vis = foregrounds.diffuse_foreground(lsts, fqs, bl_vec, Tsky_mdl=Tsky_mdl, delay_filter_type='gauss') + 20
+        beamfile = os.path.join(DATA_PATH, "HERA_H1C_BEAM_POLY.npy")
+        omega_p = Beam(beamfile)
+
+        # mock up visibilities
+        vis = foregrounds.diffuse_foreground(
+            lsts, fqs, bl_vec, Tsky_mdl=Tsky_mdl, omega_p=omega_p, 
+            delay_filter_kwargs={"delay_filter_type" : 'gauss'}
+        )
+
+        # add a constant offset to boost k=0 mode
+        vis += 20
 
         self.freqs = fqs
         self.lsts = lsts
