@@ -3,6 +3,7 @@ import warnings
 import numpy as np
 import astropy.units as u
 from .components import registry
+from .utils import _listify
 
 @registry
 class RFI:
@@ -231,8 +232,8 @@ class DTV(RFI):
         self._check_kwargs(**kwargs)
 
         # unpack them
-        (dtv_band, width, chance, strength, 
-            std) = self._extract_kwarg_values(**kwargs)
+        (dtv_band, width, dtv_chance, dtv_strength, 
+            dtv_std) = self._extract_kwarg_values(**kwargs)
 
         # make an empty rfi array
         rfi = np.zeros((lsts.size, freqs.size), dtype=np.complex)
@@ -243,11 +244,26 @@ class DTV(RFI):
         # get the lower frequencies of each subband
         bands = np.arange(freq_min, freq_max, width)
 
-        # only keep bands which overlap with the passed frequencies
+        # if the bands fit exactly into the observed freqs, then we
+        # need to ignore the uppermost DTV band
+        if freqs.max() <= bands.max():
+            bands = bands[:-1]
+
+        # listify the listifiable parameters
+        dtv_chance, dtv_strength, dtv_std = self._listify_params(
+            bands, dtv_chance, dtv_strength, dtv_std
+        )
+
+        # find out which DTV channels will actually be observed
         overlap = np.logical_and(
             bands >= freqs.min() - width, bands <= freqs.max()
         )
+
+        # modify the bands and the listified parameters
         bands = bands[overlap]
+        dtv_chance = dtv_chance[overlap]
+        dtv_strength = dtv_strength[overlap]
+        dtv_std = dtv_std[overlap]
 
         # raise a warning if there are no remaining bands
         if len(bands) == 0:
@@ -260,8 +276,11 @@ class DTV(RFI):
         # get the instrument channel width
         channel_width = np.mean(np.diff(freqs))
 
+        # define an iterator, just to keep things neat
+        dtv_iterator = zip(bands, dtv_chance, dtv_strength, dtv_std)
+        
         # loop over the DTV bands, generating rfi where appropriate
-        for band in bands:
+        for band, chance, strength, std in dtv_iterator:
             # get the channels affected
             ch1 = np.argwhere(band <= freqs)[0][0]
             try:
@@ -287,6 +306,42 @@ class DTV(RFI):
             this_rfi[rfis] += signal
 
         return rfi
+
+    def _listify_params(self, bands, *args):
+        # TODO: docstring
+        """
+        """
+        Nchan = len(bands)
+        listified_params = []
+        for arg in args:
+            # ensure that the parameter is a list
+            arg = _listify(arg)
+
+            # update the length if it's a singleton
+            if len(arg) == 1:
+                arg *= Nchan
+
+            # check that the length matches the number of DTV bands
+            if len(arg) != Nchan:
+                raise ValueError(
+                    "At least one of the parameter values for "
+                    "dtv_chance, dtv_strength, or dtv_std is not "
+                    "formatted properly. These parameters must satisfy "
+                    "*one* of the following conditions: \n"
+                    "Only a single value is specified *OR* a list of "
+                    "values with the same length as the number of DTV "
+                    "bands specified. For reference, the DTV bands you "
+                    "specified have the following characteristics: \n"
+                    "f_min : {fmin} \nf_max : {fmax}\n N_bands : "
+                    "{Nchan}".format(
+                        fmin=bands[0], fmax=bands[-1], Nchan=Nchan
+                    )
+                )
+
+            # everything should be in order now, so
+            listified_params.append(np.asarray(arg))
+
+        return listified_params
 
 rfi_stations = Stations()
 rfi_impulse = Impulse()
