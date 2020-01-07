@@ -22,11 +22,11 @@ filing:
     clobber: True
     kwargs: {}
 freq:
-    n_freq: 50
+    Nfreqs: 50
     channel_width: 122070.3125
     start_freq: 100234567.333
 time:
-    n_times: 10
+    Ntimes: 10
     integration_time: 8.59
     start_time: 2457458.174
 telescope:
