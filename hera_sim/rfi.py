@@ -1,5 +1,6 @@
 """v1 implementation of RFI. Consult w/ Steven for new RFI module."""
-
+import warnings
+import numpy as np
 import astropy.units as u
 from .components import registry
 
@@ -84,7 +85,7 @@ class Stations(RFI):
         self._check_kwargs(**kwargs)
 
         # but this is where the magic comes in (thanks to defaults)
-        stations = self._extract_kwarg_values(**kwargs)
+        stations, = self._extract_kwarg_values(**kwargs)
 
         # initialize an array to store the rfi in
         rfi = np.zeros((lsts.size, freqs.size), dtype=np.complex)

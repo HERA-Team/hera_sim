@@ -241,7 +241,7 @@ class CrossCouplingCrosstalk(Crosstalk, Reflections):
         return autovis * eps
 
 class WhiteNoiseCrosstalk(Crosstalk):
-    _alias = ("white_noise_xtalk", )
+    _alias = ("whitenoise_xtalk", "white_noise_xtalk", )
 
     def __init__(self, amplitude=3.0):
         # TODO: docstring
@@ -257,7 +257,7 @@ class WhiteNoiseCrosstalk(Crosstalk):
         self._check_kwargs(**kwargs)
 
         # unpack the kwargs
-        amplitude = self._unpack_kwargs(**kwargs)
+        amplitude, = self._extract_kwarg_values(**kwargs)
 
         # why choose this size for the convolving kernel?
         kernel = np.ones(50 if freqs.size > 50 else int(freqs.size/2))
