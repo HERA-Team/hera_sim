@@ -420,7 +420,7 @@ class Simulator:
             yield ant1, ant2, pol, blt_inds, pol_ind
 
     def _iteratively_apply(self, model, add_vis=True, ret_vis=False, 
-                           vis_filter=None, antpairpol_cache=[], 
+                           vis_filter=None, antpairpol_cache=None, 
                            **kwargs):
         # TODO: docstring
         """
@@ -435,6 +435,10 @@ class Simulator:
             )
             return
         
+        # make an empty list for antpairpol cache if it's none
+        if antpairpol_cache is None:
+            antpairpol_cache = []
+
         # pull lsts/freqs if required and find out which extra 
         # parameters are required
         (args, requires_ants, requires_bl_vec, 
@@ -469,9 +473,8 @@ class Simulator:
             bl_in_cache = (ant1, ant2, pol) in antpairpol_cache
             conj_in_cache = (ant2, ant1, pol) in antpairpol_cache
             
-            if seed_mode == "redundant":
-                if conj_in_cache:
-                    self._seed_rng(seed_mode, model, ant2, ant1)
+            if seed_mode == "redundant" and conj_in_cache:
+                seed_mode = self._seed_rng(seed_mode, model, ant2, ant1)
             elif seed_mode is not None:
                 seed_mode = self._seed_rng(seed_mode, model, ant1, ant2)
             
