@@ -284,71 +284,53 @@ class Defaults:
                        "value specified for each parameter will be used."
             warnings.warn(warning)
 
-    @property
-    def _version_is_compatible(self):
-        """Check that the version of Python used is sufficiently new."""
-        version = sys.version_info
-        if version.major < 3 or version.major > 3 and version.minor < 4:
-            warnings.warn("You are using a version of Python that is not " \
-                          "compatible with the Defaults class. If you would " \
-                          "like to use the features of the Defaults class, " \
-                          "then please use a version of Python newer than 3.4.")
-            return False
-        else:
-            return True
-
     def _handler(self, func, *args, **kwargs):
         """Decorator for applying new function parameter defaults."""
-        if self._version_is_compatible:
-            @functools.wraps(func)
-            def new_func(*args, **kwargs):
-                # get the full argspec
-                argspec = inspect.getfullargspec(func)
+        @functools.wraps(func)
+        def new_func(*args, **kwargs):
+            # get the full argspec
+            argspec = inspect.getfullargspec(func)
 
-                # get dictionary of kwargs and their defaults
-                try:
-                    offset = len(argspec.args) - len(argspec.defaults)
-                    old_kwargs = {arg : default for arg, default 
-                                  in zip(argspec.args[offset:], argspec.defaults)}
-                except TypeError:
-                    # if there are no defaults in the argspec
-                    old_kwargs = {}
+            # get dictionary of kwargs and their defaults
+            try:
+                offset = len(argspec.args) - len(argspec.defaults)
+                old_kwargs = {arg : default for arg, default 
+                              in zip(argspec.args[offset:], argspec.defaults)}
+            except TypeError:
+                # if there are no defaults in the argspec
+                old_kwargs = {}
 
-                # make the args list into a dictionary
-                args = {argspec.args[i] : arg for i, arg in enumerate(args)}
-                
-                # make a dictionary of everything passed to func
-                passed_args = {param : value for args in (args, kwargs)
-                                             for param, value in args.items()}
+            # make the args list into a dictionary
+            args = {argspec.args[i] : arg for i, arg in enumerate(args)}
+            
+            # make a dictionary of everything passed to func
+            passed_args = {param : value for args in (args, kwargs)
+                                         for param, value in args.items()}
 
-                # get the new defaults
-                new_args = self()
-                # keep only the parameters from the function signature
-                new_args = {param : value for param, value in new_args.items()
-                                          if param in argspec.args}
-                # add the variable kwargs if they're there
-                if argspec.varkw is not None and argspec.varkw in self().keys():
-                    for kwarg, value in self(argspec.varkw).items():
-                        new_args[kwarg] = value
+            # get the new defaults
+            new_args = self()
+            # keep only the parameters from the function signature
+            new_args = {param : value for param, value in new_args.items()
+                                      if param in argspec.args}
+            # add the variable kwargs if they're there
+            if argspec.varkw is not None and argspec.varkw in self().keys():
+                for kwarg, value in self(argspec.varkw).items():
+                    new_args[kwarg] = value
 
-                # choose which set of args will be used
-                if self._override_defaults:
-                    keys = set(list(new_args.keys()) + list(passed_args.keys()))
-                else:
-                    keys = set(list(old_kwargs.keys()) + list(passed_args.keys()))
+            # choose which set of args will be used
+            if self._override_defaults:
+                keys = set(list(new_args.keys()) + list(passed_args.keys()))
+            else:
+                keys = set(list(old_kwargs.keys()) + list(passed_args.keys()))
 
-                # make a final dictionary to pass to func
-                final_args = {arg: (
-                            passed_args[arg] if arg in passed_args.keys() else
-                            new_args[arg] if self._override_defaults else
-                            old_kwargs[arg]) for arg in keys}
+            # make a final dictionary to pass to func
+            final_args = {arg: (
+                        passed_args[arg] if arg in passed_args.keys() else
+                        new_args[arg] if self._override_defaults else
+                        old_kwargs[arg]) for arg in keys}
 
-                # use the final set of arguments/kwargs
-                return func(**final_args)
-        else:
-            @functools.wraps(func)
-            def new_func(*args, **kwargs):
-                return func(*args, **kwargs)
+            # use the final set of arguments/kwargs
+            return func(**final_args)
         
         return new_func
 
