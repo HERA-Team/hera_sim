@@ -95,4 +95,5 @@ def test_bad_config():
     
     # pass nonexistent file
     defaults.set('not_a_file')
+    defaults.deactivate()
 
