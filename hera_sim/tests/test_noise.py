@@ -45,12 +45,11 @@ class TestNoise(unittest.TestCase):
         # import uvtools, pylab as plt
         # uvtools.plot.waterfall(tsky); plt.show()
 
-    # this really just tests thermal_noise with a receiver temp of zero
     def test_sky_noise_jy(self):
         # make some parameters
         freqs = np.linspace(0.1, 0.2, 100)
         lsts = np.linspace(0, 2 * np.pi, 500)
-        omega_p = Beam(beamfile)
+        omega_p = Beam(beamfile)(freqs)
         Tsky_mdl = None
         B = 1e6 # channel width in Hz
 
@@ -62,6 +61,7 @@ class TestNoise(unittest.TestCase):
         Jy2T.shape = (1, -1)
 
         # simulate the noise
+        np.random.seed(0)
         nos_jy = noise.sky_noise_jy(
             lsts, freqs, Tsky_mdl=Tsky_mdl, 
             omega_p=omega_p, integration_time=10.7
@@ -78,6 +78,8 @@ class TestNoise(unittest.TestCase):
         scaling = np.average(Tsky, axis=0) / Jy2T
         dt = 10.7
 
+        # XXX this test works just fine, but it breaks when testing the
+        # entire repo... can't figure out why
         np.testing.assert_allclose(
             np.std(nos_jy, axis=0) / scaling * np.sqrt(B * dt), 1.0, atol=0.1
         )
