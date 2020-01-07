@@ -44,7 +44,10 @@ class TestUtils(unittest.TestCase):
         standoff = 0.0
 
         data = utils.gen_white_noise((len(lsts), len(fqs)))
-        dfilt = utils.rough_delay_filter(data, fqs, bl_len_ns, standoff=standoff, filter_type='gauss')
+        dfilt = utils.rough_delay_filter(
+            data, fqs, bl_len_ns, standoff=standoff, 
+            delay_filter_type='gauss'
+        )
         dfft = np.mean(np.abs(np.fft.ifft(dfilt, axis=1)), axis=0)
         nt.assert_true(np.isclose(dfft[20:-20], 0.0).all())
 
@@ -64,10 +67,14 @@ class TestUtils(unittest.TestCase):
         ff = utils.gen_fringe_filter(lsts, fqs, bl_len_ns, filter_type='tophat')
         nt.assert_almost_equal(np.sum(ff[50]), np.sum(ff[-50]), 41)
 
+        # for some reason this fails, but no changes have been made
         ff = utils.gen_fringe_filter(lsts, fqs, bl_len_ns, filter_type='gauss', fr_width=1e-4)
         nt.assert_almost_equal(np.sum(ff[50]), 63.06179083841268)
 
-        ff = utils.gen_fringe_filter(lsts, fqs, bl_len_ns, filter_type='custom', FR_filter=fr_filt, FR_frates=fr_frates, FR_freqs=fr_freqs)
+        ff = utils.gen_fringe_filter(
+            lsts, fqs, bl_len_ns, filter_type='custom', 
+            FR_filter=fr_filt, FR_frates=fr_frates, FR_freqs=fr_freqs
+        )
         nt.assert_almost_equal(np.sum(ff[50]), 14.66591593210259, places=3)
 
     def test_rough_fringe_filter(self):
@@ -81,7 +88,10 @@ class TestUtils(unittest.TestCase):
         fr_freqs = FRF['freqs'] / 1e9
 
         data = utils.gen_white_noise((len(lsts), len(fqs)))
-        dfilt = utils.rough_fringe_filter(data, lsts, fqs, bl_len_ns, filter_type='gauss', fr_width=1e-4)
+        dfilt = utils.rough_fringe_filter(
+            data, lsts, fqs, bl_len_ns, 
+            fringe_filter_type='gauss', fr_width=1e-4
+        )
         dfft = np.mean(np.abs(np.fft.ifft(dfilt, axis=0)), axis=1)
         nt.assert_true(np.isclose(dfft[50:150], 0.0).all())
 
