@@ -11,6 +11,7 @@ from astropy.units import sday
 from pyuvsim.analyticbeam import AnalyticBeam
 from hera_sim.visibilities import VisCPU, HealVis
 from hera_sim import io
+import healvis
 
 import healpy
 
@@ -45,6 +46,72 @@ def uvdataJD():
         start_time=2456659
     )
 
+def test_healvis_beam(uvdata, tmpdir):
+    freqs = np.unique(uvdata.freq_array)
+
+    # just anything
+    point_source_pos = np.array([[0, uvdata.telescope_location_lat_lon_alt[0]]])
+    point_source_flux = np.array([[1.0]] * len(freqs))
+
+    hv = HealVis(
+        uvdata=uvdata,
+        sky_freqs=np.unique(uvdata.freq_array),
+        point_source_flux=point_source_flux,
+        point_source_pos=point_source_pos,
+        nside=2**4
+    )
+
+    assert len(hv.beams) == 1
+    assert isinstance(hv.beams[0], healvis.beam_model.AnalyticBeam)
+
+    # Now try creating with an obsparam file
+    direc = tmpdir.mkdir("test_healvis_beam")
+
+    with open(direc.join("catalog.txt"), 'w') as fl:
+        fl.write("""SOURCE_ID       RA_J2000 [deg]  Dec_J2000 [deg] Flux [Jy]       Frequency [Hz]
+HERATEST0       68.48535        -28.559917      1       100000000.0
+""")
+
+    with open(direc.join("telescope_config.yml"), 'w') as fl:
+        fl.write("""
+beam_paths:
+    0 : 'uniform'
+telescope_location: (-30.72152777777791, 21.428305555555557, 1073.0000000093132)
+telescope_name: MWA        
+""")
+
+    with open(direc.join("layout.csv"), 'w') as fl:
+        fl.write("""Name     Number   BeamID   E          N          U
+
+Tile061        40        0   -34.8010   -41.7365     1.5010
+Tile062        41        0   -28.0500   -28.7545     1.5060
+Tile063        42        0   -11.3650   -29.5795     1.5160
+Tile064        43        0    -9.0610   -20.7885     1.5160
+""")
+
+    with open(direc.join("obsparams.yml"), 'w') as fl:
+        fl.write("""
+freq:
+  Nfreqs: 1
+  channel_width: 80000.0
+  start_freq: 100000000.0
+sources:
+  catalog: {0}/catalog.txt
+telescope:
+  array_layout: {0}/layout.csv
+  telescope_config_name: {0}/telescope_config.yml
+time:
+  Ntimes: 1
+  integration_time: 11.0
+  start_time: 2458098.38824015
+""".format(direc.strpath))
+
+    hv = HealVis(obsparams=direc.join("obsparams.yml").strpath)
+    beam = hv.beams[0]
+    print(beam)
+    print(type(beam))
+    print(beam.__class__)
+    assert isinstance(beam, healvis.beam_model.AnalyticBeam)
 
 def test_JD(uvdata, uvdataJD):
     freqs = np.unique(uvdata.freq_array)

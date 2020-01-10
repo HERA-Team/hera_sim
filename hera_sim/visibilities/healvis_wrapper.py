@@ -66,10 +66,12 @@ class HealVis(VisibilitySimulator):
             ref_freq = old_args['ref_freq']
             spectral_index = old_args['spectral_index']
             diameter = old_args['diameter']
-            self.beams[0] = [AnalyticBeam(beam_type=beam_type,
-                                            gauss_width=gauss_width,
-                                            diameter=diameter,
-                                            spectral_index=spectral_index)]
+            self.beams = [
+                AnalyticBeam(
+                    beam_type=beam_type, gauss_width=gauss_width,
+                    diameter=diameter, spectral_index=spectral_index
+                )
+            ]
 
 
     def validate(self):
