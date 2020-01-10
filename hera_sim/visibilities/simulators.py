@@ -8,6 +8,7 @@ from cached_property import cached_property
 from pyuvsim import analyticbeam as ab
 from pyuvsim.simsetup import (
     initialize_uvdata_from_params,
+    initialize_catalog_from_params,
     uvdata_to_telescope_config,
     beam_string_to_object,
     _complete_uvdata
@@ -92,6 +93,14 @@ class VisibilitySimulator(object):
             (self.uvdata,
              self.beams,
              self.beam_ids) = initialize_uvdata_from_params(obsparams)
+
+            if point_source_pos is None:
+                try:
+                    catalog = initialize_catalog_from_params(obsparams)[0]
+                    point_source_pos = np.array([catalog['ra_j2000'], catalog['dec_j2000']]).T * np.pi/180.
+                    point_source_flux = np.atleast_2d(catalog['flux_density_I'])
+                except Exception:
+                    pass
 
             # convert the beam_ids dict to an array of ints
             nms = list(self.uvdata.antenna_names)
