@@ -1,6 +1,7 @@
 """
 """
 import os
+import warnings
 import numpy as np
 from pyuvsim.simsetup import initialize_uvdata_from_keywords
 from .data import DATA_PATH
@@ -14,10 +15,28 @@ HERA_LAT_LON_ALT = np.load(os.path.join(DATA_PATH, "HERA_LAT_LON_ALT.npy"))
 def empty_uvdata(Ntimes=None, start_time=2456658.5, # Jan 1 2014
                  integration_time=None, array_layout=None,
                  Nfreqs=None, start_freq=None, channel_width=None,
+                 n_freq=None, n_times=None, antennas=None, # back-compat
                  **kwargs):
     # TODO: docstring
     """
     """
+    # issue a deprecation warning if any old parameters are used
+    if any([param is not None for param in (n_freq, n_times, antennas)]):
+        warnings.warn(
+            "The n_freq, n_times, and antennas parameters are being " \
+            "deprecated and will be removed in version ???. Please " \
+            "update your code to use the Nfreqs, Ntimes, and " \
+            "array_layout parameters instead.", DeprecationWarning
+        )
+        
+    # for backwards compatability
+    if n_freq is not None:
+        Nfreqs = n_freq
+    if n_times is not None:
+        Ntimes = n_times
+    if antennas is not None:
+        array_layout = antennas
+
     # only specify defaults this way for 
     # things that are *not* season-specific
     polarization_array = kwargs.pop("polarization_array", ['xx'])
