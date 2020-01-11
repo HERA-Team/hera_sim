@@ -1,9 +1,15 @@
-"""A module for creating array configurations."""
+"""A module for creating antenna array configurations.
+
+Input parameters vary between functions, but all functions return a 
+dictionary whose keys refer to antenna numbers and whose values refer 
+to the ENU position of the antennas.
+"""
 import numpy as np
 from .components import registry
 
-# since this is mainly used as part of an initialization routine, 
-# do we really want to make a registry for it?
+# XXX old docstrings state that the positions are returned in topocentric
+# coordinates, but this is contradictory to the claim that a linear array 
+# is constructed as purely east-west
 
 @registry
 class Array:
@@ -12,18 +18,30 @@ class Array:
 
 
 class LinearArray(Array):
-    # TODO: docstring
-    """
+    """Build a linear (east-west) array configuration.
     """
     def __init__(self, sep=14.6):
-        # TODO: docstring
         """
+        Parameters
+        ----------
+        sep : float, optional
+            The separation between adjacent antennas, in meters. 
+            Default separation is 14.6 meters.
         """
         super().__init__(sep=sep)
 
     def __call__(self, nants, **kwargs):
-        # TODO: docstring
         """
+        Parameters
+        ----------
+        nants : int
+            The number of antennas in the configuration.
+
+        Returns
+        -------
+        antpos : dict
+            Dictionary of antenna numbers and ENU positions. Positions 
+            are given in meters.
         """
         # check the kwargs
         self._check_kwargs(**kwargs)
@@ -39,12 +57,27 @@ class LinearArray(Array):
 
 
 class HexArray(Array):
-    # TODO: docstring
-    """
+    """Build a hexagonal array configuration, nominally matching HERA.
     """
     def __init__(self, sep=14.6, split_core=True, outriggers=2):
-        # TODO: docstring
         """
+        Parameters
+        ----------
+        sep : int, optional
+            The separation between adjacent grid points, in meters. 
+            Default separation is 14.6 meters.
+
+        split_core : bool, optional
+            Whether to fracture the core into tridents that subdivide a 
+            hexagonal grid. Loses :math:`N` antennas. Default behavior 
+            is to split the core.
+
+        outriggers : int, optional
+            The number of rings of outriggers to add to the array. The 
+            outriggers tile with the core to produce a fully-sampled 
+            UV plane. The first ring corresponds to the exterior of a 
+            hex_num=3 hexagon. For :math:`R` outriggers, :math:`3R^2 + 9R` 
+            antennas are added to the array.
         """
         super().__init__(
             sep=sep,
@@ -53,8 +86,18 @@ class HexArray(Array):
         )
 
     def __call__(self, hex_num, **kwargs):
-        # TODO: docstring
         """
+        Parameters
+        ----------
+        hex_num : int
+            The hexagon (radial) number of the core configuration. The 
+            number of core antennas returned is :math:`3N^2 - 3N + 1`.
+
+        Returns
+        -------
+        antpos : dict
+            Dictionary of antenna numbers and positions, in ENU 
+            coordinates. Antenna positions are given in units of meters.
         """
         # check the kwargs
         self._check_kwargs(**kwargs)
