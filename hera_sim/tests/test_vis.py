@@ -173,8 +173,7 @@ def test_shapes(uvdata, simulator):
         sky_intensity=I_sky,
     )
 
-    assert v.simulate().shape == (NTIMES * len(uvdata.get_antpairs()), 1, NFREQ,
-                                  1)  # len(uvdata.get_antpairs()) = number of baselines
+    assert v.simulate().shape == (uvdata.Nblts, 1, NFREQ, 1)
 
 
 @pytest.mark.parametrize(
