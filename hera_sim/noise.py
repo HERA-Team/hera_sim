@@ -26,7 +26,7 @@ class ThermalNoise(Noise):
 
     def __init__(self, Tsky_mdl=None, omega_p=None, 
                  integration_time=None, channel_width=None,
-                 Trx=0):
+                 Trx=0, autovis=None):
         # TODO: docstring
         """
         """
@@ -35,7 +35,8 @@ class ThermalNoise(Noise):
             omega_p=omega_p,
             integration_time=integration_time,
             channel_width=channel_width,
-            Trx=Trx
+            Trx=Trx,
+            autovis=autovis
         )
 
     def __call__(self, lsts, freqs, **kwargs):
@@ -47,7 +48,7 @@ class ThermalNoise(Noise):
 
         # unpack the kwargs
         (Tsky_mdl, omega_p, integration_time, channel_width, 
-            Trx) = self._extract_kwarg_values(**kwargs)
+            Trx, autovis) = self._extract_kwarg_values(**kwargs)
 
         # get the channel width in Hz if not specified
         if channel_width is None:
@@ -69,9 +70,15 @@ class ThermalNoise(Noise):
         if callable(omega_p):
             omega_p = omega_p(freqs)
 
-        # resample the sky temperature model and add the receiver temp
-        Tsky = self.resample_Tsky(lsts, freqs, Tsky_mdl=Tsky_mdl) + Trx
-    
+        # get the sky temperature; use an autocorrelation if provided
+        if autovis is not None and not np.all(np.isclose(autovis, 0)):
+            Tsky = autovis * utils.Jy2T(freqs, omega_p).reshape(1, -1)
+        else:
+            Tsky = self.resample_Tsky(lsts, freqs, Tsky_mdl=Tsky_mdl)
+        
+        # add in the receiver temperature
+        Tsky += Trx
+
         # calculate noise visibility in units of K, assuming Tsky
         # is in units of K
         vis = Tsky / np.sqrt(integration_time * channel_width)
