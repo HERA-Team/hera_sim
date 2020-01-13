@@ -45,9 +45,11 @@ class HealVis(VisibilitySimulator):
         if "beams" not in kwargs:
             kwargs['beams'] = [AnalyticBeam("uniform")]
 
+        super(HealVis, self).__init__(**kwargs)
+
         # Check if pyuvsim.analyticbeam and switch to healvis.beam_model
-        if isinstance(kwargs['beams'][0], pyuvsim.analyticbeam.AnalyticBeam):
-            old_args = kwargs['beams'][0].__dict__
+        if isinstance(self.beams[0], pyuvsim.analyticbeam.AnalyticBeam):
+            old_args = self.beams[0].__dict__
 
             gauss_width = None
             if old_args['type'] == "gaussian":
@@ -64,12 +66,13 @@ class HealVis(VisibilitySimulator):
             ref_freq = old_args['ref_freq']
             spectral_index = old_args['spectral_index']
             diameter = old_args['diameter']
-            kwargs['beams'] = [AnalyticBeam(beam_type=beam_type,
-                                            gauss_width=gauss_width,
-                                            diameter=diameter,
-                                            spectral_index=spectral_index)]
+            self.beams = [
+                AnalyticBeam(
+                    beam_type=beam_type, gauss_width=gauss_width,
+                    diameter=diameter, spectral_index=spectral_index
+                )
+            ]
 
-        super(HealVis, self).__init__(**kwargs)
 
     def validate(self):
         """Validates that all data is correct.
