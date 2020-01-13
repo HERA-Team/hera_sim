@@ -233,11 +233,12 @@ class Simulator:
                 self._seed_rng(seed_mode, model, ant1, ant2)
         
         # get the arguments necessary for the model
-        init_args = self._initialize_args_from_model(model)
-        use_args = self._update_args(*init_args, ant1, ant2, pol)
+        args = self._initialize_args_from_model(model)
+        args = self._update_args(args, ant1, ant2, pol)
+        args.update(kwargs)
 
         # now calculate the effect and return it
-        return model(*use_args, **kwargs)
+        return model(**args)
 
     def plot_array(self):
         """Generate a plot of the array layout in ENU coordinates.
@@ -395,20 +396,16 @@ class Simulator:
         # TODO: docstring
         """
         """
-        model_params = inspect.signature(model).parameters
+        model_params = self._get_model_parameters(model)
+        _ = model_params.pop("kwargs", None)
+
         # pull the lst and frequency arrays as required
-        args = list(getattr(self, param) for param in model_params
-                    if param in ("lsts", "freqs"))
-        # for antenna-based gains
-        requires_ants = any([param.startswith("ant")
-                             for param in model_params])
-        # for sky components
-        requires_bl_vec = any([param.startswith("bl") 
-                               for param in model_params])
-        # for cross-coupling xtalk
-        requires_vis = any([param.find("vis") != -1
-                            for param in model_params])
-        return (args, requires_ants, requires_bl_vec, requires_vis)
+        args = {param : getattr(self, param) for param in model_params
+                    if param in ("lsts", "freqs")}
+        
+        model_params.update(args)
+
+        return model_params
 
     def _iterate_antpair_pols(self):
         # TODO: docstring
@@ -441,14 +438,13 @@ class Simulator:
 
         # pull lsts/freqs if required and find out which extra 
         # parameters are required
-        (args, requires_ants, requires_bl_vec, 
-            requires_vis) = self._initialize_args_from_model(model)
+        args = self._initialize_args_from_model(model)
         
         # figure out whether or not to seed the RNG
         seed_mode = kwargs.pop("seed_mode", None)
         
         # get a copy of the data array
-        initial_data = self.data.data_array.copy()
+        data_copy = self.data.data_array.copy()
         
         # find out if the model is multiplicative
         is_multiplicative = getattr(model, "is_multiplicative", None)
@@ -479,10 +475,10 @@ class Simulator:
                 seed_mode = self._seed_rng(seed_mode, model, ant1, ant2)
             
             # parse the model signature to get the required arguments
-            use_args = self._update_args(
-                args, requires_ants, requires_bl_vec, requires_vis,
-                ant1, ant2, pol
-            )
+            use_args = self._update_args(args, ant1, ant2, pol)
+
+            # update with the passed kwargs
+            use_args.update(kwargs)
 
             # if neither are in the cache, then add it to the cache
             if not (bl_in_cache or conj_in_cache):
@@ -492,7 +488,7 @@ class Simulator:
             if is_multiplicative:
                 # get the gains for the entire array
                 # this is sloppy, but ensures seeding works correctly
-                gains = model(*use_args, **kwargs)
+                gains = model(**use_args)
                 
                 # now get the product g_1g_2*
                 gain = gains[ant1] * np.conj(gains[ant2])
@@ -502,7 +498,7 @@ class Simulator:
                     gain = np.ones(gain.shape)
 
                 # apply the effect to the appropriate part of the data
-                self.data.data_array[blt_inds, 0, :, pol_ind] *= gain
+                data_copy[blt_inds, 0, :, pol_ind] *= gain
             else:
                 # if the conjugate baseline has been simulated and 
                 # the RNG was only seeded initially, then we should 
@@ -511,36 +507,38 @@ class Simulator:
                 if conj_in_cache and seed_mode is None:
                     conj_blts = sim.data.antpair2ind((ant2,ant1))
                     vis = (
-                        self.data.data_array - initial_data
+                        data_copy - self.data.data_array
                     )[conj_blts, 0, :, pol_ind].conj()
                 else: 
-                    vis = model(*use_args, **kwargs)
+                    vis = model(**use_args)
                 
                 # filter what's actually having data simulated
                 if apply_filter:
                     vis = np.zeros(vis.shape, dtype=np.complex)
                 
                 # and add it in
-                self.data.data_array[blt_inds, 0, :, pol_ind] += vis
+                data_copy[blt_inds, 0, :, pol_ind] += vis
 
         # return the component if desired
         # this is a little complicated, but it's done this way so that
         # there aren't *three* copies of the data array floating around
         # this is to minimize the potential of triggering a MemoryError
         if ret_vis:
-            initial_data = self.data.data_array - initial_data
+            data_copy -= self.data.data_array
             # the only time we're allowed to have add_vis be False is
             # if ret_vis is True, and nothing happens if both are False
             # so this is the *only* case where we'll have to reset the
             # data array
-            if not add_vis:
-                self.data.data_array -= initial_data
+            if add_vis:
+                self.data.data_array += data_copy
             # return the gain dictionary if gains are simulated
             if is_multiplicative:
                 return gains
             # otherwise return the actual visibility simulated
             else:
-                return initial_data
+                return data_copy
+        else:
+            self.data.data_array = data_copy
         
 
     @staticmethod
@@ -596,32 +594,77 @@ class Simulator:
         else:
             raise ValueError("Seeding mode not supported.")
 
-    def _update_args(self, args, requires_ants, requires_bl_vec,
-                     requires_vis, ant1=None, ant2=None, pol=None):
+    def _update_args(self, args, ant1=None, ant2=None, pol=None):
         # TODO: docstring
         """
         """
+        # helper for getting the correct parameter name
+        key = lambda requires : [arg for arg in args][requires.index(True)]
+
+        # find out what needs to be added to args
+        # for antenna-based gains
+        _requires_ants = [param.startswith("ant") for param in args]
+        requires_ants = any(_requires_ants)
+        # for sky components
+        _requires_bl_vec = [param.startswith("bl") for param in args]
+        requires_bl_vec = any(_requires_bl_vec)
+        # for cross-coupling xtalk
+        _requires_vis = [param.find("vis") != -1 for param in args]
+        requires_vis = any(_requires_vis)
+
         # check if this is an antenna-dependent quantity; should
         # only ever be true for gains (barring future changes)
         if requires_ants:
-            ants = self.antpos
-            use_args = args + [ants]
+            new_param = {key(_requires_ants) : self.antpos}
         # check if this is something requiring a baseline vector
         # current assumption is that these methods require the
         # baseline vector to be provided in nanoseconds
         elif requires_bl_vec:
             bl_vec = self.antpos[ant1] - self.antpos[ant2]
             bl_vec_ns = bl_vec * 1e9 / const.c.value
-            use_args = args + [bl_vec_ns]
+            new_param = {key(_requires_bl_vec) : bl_vec_ns}
         # check if this is something that depends on another
         # visibility. as of now, this should only be cross coupling
         # crosstalk
         elif requires_vis:
             autovis = self.data.get_data(ant1, ant1, pol)
-            use_args = args + [autovis]
+            new_param = {key(_requires_vis) : autovis}
         else:
-            use_args = args.copy()
+            new_param = {}
+        # update appropriately and return
+        use_args = args.copy()
+        use_args.update(new_param)
+
+        # there should no longer be any unspecified, required parameters
+        # so this *shouldn't* error out
+        use_args = {
+            key : value for key, value in use_args.items()
+            if not type(value) is inspect.Parameter
+        }
+
+        if any([val is inspect._empty for val in use_args.values()]):
+            warnings.warn(
+                "One of the required parameters was not extracted. " \
+                "Please check that the parameters for the model you " \
+                "are trying to add are detectable by the Simulator. " \
+                "The Simulator will automatically find the following " \
+                "required parameters: \nlsts \nfreqs \nAnything that " \
+                "starts with 'ant' or 'bl'\n Anything containing 'vis'."
+            )
+
         return use_args
+
+    @staticmethod
+    def _get_model_parameters(model):
+        """Retrieve the full model signature (init + call) parameters.
+        """
+        init_params = inspect.signature(model.__class__).parameters
+        call_params = inspect.signature(model).parameters
+        # this doesn't work correctly if done on one line
+        model_params = {}
+        model_params.update(**call_params, **init_params)
+        _ = model_params.pop("kwargs") # every model should have this
+        return model_params
 
     @staticmethod
     def _get_component(component):
