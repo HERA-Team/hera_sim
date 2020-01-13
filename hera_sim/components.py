@@ -1,9 +1,24 @@
-# TODO: write module docstring
-from abc import ABCMeta, abstractmethod
-from .defaults import defaults
+"""A module providing discoverability features for hera_sim.
+"""
+
+import functools
 import re
+from abc import ABCMeta, abstractmethod
+
+from .defaults import defaults
 
 class SimulationComponent(metaclass=ABCMeta):
+    """Base class for defining simulation component models.
+
+    This class serves two main purposes:
+        - Provide a simple interface for discovering simulation 
+          component models (see :meth:`~list_discoverable_components`").
+        - Ensure that each subclass can create abstract methods.
+
+    The :meth:`~registry`: class decorator provides a simple way of 
+    accomplishing the above, while also providing some useful extra
+    features.
+    """
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
         cls._models = {}
@@ -13,6 +28,47 @@ def registry(cls):
     class NewClass(cls, SimulationComponent):
         def __init_subclass__(cls, is_abstract=False, 
                               is_multiplicative=False, **kwargs):
+            """Provide some useful augmentations to subclasses.
+
+            Parameters
+            ----------
+            is_abstract : bool, optional
+                Specifies whether the subclass ``cls`` is an abstract 
+                class or not. Classes that are not abstract are 
+                registered in the ``NewClass._models`` dictionary. This 
+                is the feature that provides a neat interface for 
+                automatic discoverability of component models. Default 
+                behavior is to register the subclass.
+
+            is_multiplicative : bool, optional
+                Specifies whether the model ``cls`` is a multiplicative 
+                effect. This parameter lets the :class:`~Simulator`: 
+                class determine how to apply the effect simulated by 
+                ``cls``. Default setting is False (i.e. the model is 
+                assumed to be additive unless specified otherwise).
+
+            **kwargs
+                Passed to the superclass ``__init_subclass__`` method.
+            
+            Notes
+            -----
+            This subclass initialization routine also automatically 
+            updates the ``__call__`` docstring for the subclass with 
+            the parameters from the ``__init__`` docstring if both 
+            methods are documented in the numpy style. This decision was 
+            made because the convention for defining a new component 
+            model is to have optional parameters be specified on class 
+            instantiation, but with the option to override the 
+            parameters when the class instance is called. In lieu of 
+            repeating the optional parameters with their defaults, all 
+            component model signatures consist of only required 
+            parameters and variable keyword arguments.
+
+            For an example of how to use the ``registry`` decorator, 
+            please refer to the following tutorial notebook:
+            
+            < ADD APPROPRIATE LINK HERE >
+            """
             super().__init_subclass__(**kwargs)
             cls._update_call_docstring()
             cls.is_multiplicative = is_multiplicative
@@ -20,6 +76,24 @@ def registry(cls):
                 cls.__base__._models[cls.__name__] = cls
 
         def _extract_kwarg_values(self, **kwargs):
+            """Return the (optionally updated) model's optional parameters.
+
+            Parameters
+            ----------
+            **kwargs
+                An unpacked dictionary of optional parameter values 
+                appropriate for the model. These are received directly 
+                from the subclass's ``__call__`` method.
+
+            Returns
+            -------
+            use_kwargs : dict values
+                Potentially updated parameter values for the parameters 
+                passed in ``**kwargs``. This allows for a very simple 
+                interface with the :module:`~defaults`: module, which 
+                will automatically update parameter default values if 
+                active.
+            """
             # retrieve the default set of kwargs
             use_kwargs = self.kwargs.copy()
 
