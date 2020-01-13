@@ -96,10 +96,15 @@ class VisibilitySimulator(object):
 
             if point_source_pos is None:
                 try:
+                    # Try setting up point sources from the obsparams.
+                    # Will only work, of course, if the "catalog" key is in obsparams.
+                    # If it's not there, it will raise a KeyError.
                     catalog = initialize_catalog_from_params(obsparams)[0]
                     point_source_pos = np.array([catalog['ra_j2000'], catalog['dec_j2000']]).T * np.pi/180.
                     point_source_flux = np.atleast_2d(catalog['flux_density_I'])
                 except KeyError:
+                    # If 'catalog' was not defined in obsparams, that's fine. We assume
+                    # the user has passed some sky model directly (we'll catch it later).
                     pass
 
             # convert the beam_ids dict to an array of ints
