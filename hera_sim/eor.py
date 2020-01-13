@@ -53,6 +53,10 @@ class NoiselikeEoR(EoR):
                                          fringe_filter_type=fringe_filter_type, 
                                          **fringe_filter_kwargs)
 
+        # dirty trick to make autocorrelations real-valued
+        if np.all(np.isclose(bl_vec, 0)):
+            data = data.real + np.zeros(data.shape, dtype=np.complex)
+
         return data
 
 
