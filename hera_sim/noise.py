@@ -112,7 +112,15 @@ def resample_Tsky(fqs, lsts, Tsky_mdl=None, Tsky=180.0, mfreq=0.18, index=-2.5):
             sky temperature vs. time and frequency
     """
     if Tsky_mdl is not None:
-        tsky = Tsky_mdl(lsts, fqs).T  # support an interpolation object
+        tsky = Tsky_mdl(lsts, fqs)  # support an interpolation object
+
+        if tsky.shape != (len(lsts), len(fqs)):
+            warnings.warn(
+                "Tsky_mdl should be a callable that takes (lsts, fqs) and returns an"
+                "array with shape (nlsts, nfqs). Note that interp2d objects do"
+                "*not* return this shape! Transposing array...")
+            tsky = tsky.T
+
     else:
         tsky = Tsky * (fqs / mfreq) ** index  # default to a scalar
         tsky = np.resize(tsky, (lsts.size, fqs.size))
