@@ -113,6 +113,18 @@ def resample_Tsky(fqs, lsts, Tsky_mdl=None, Tsky=180.0, mfreq=0.18, index=-2.5):
     """
     if Tsky_mdl is not None:
         tsky = Tsky_mdl(lsts, fqs)  # support an interpolation object
+
+        if tsky.shape != (len(lsts), len(fqs)):
+            msg = ("Tsky_mdl should be a callable that takes (lsts, fqs) and returns an"
+                    "array with shape (nlsts, nfqs). Note that interp2d objects do"
+                    "*not* return this shape! Transposing array...")
+
+            if tsky.shape == (len(fqs), len(lsts)):
+                warnings.warn(msg)
+                tsky = tsky.T
+            else:
+                raise ValueError(msg)
+
     else:
         tsky = Tsky * (fqs / mfreq) ** index  # default to a scalar
         tsky = np.resize(tsky, (lsts.size, fqs.size))

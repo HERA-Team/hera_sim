@@ -24,14 +24,11 @@ class TestNoise(unittest.TestCase):
         self.assertEqual(tsky.shape, (200, 100))
         self.assertTrue(np.all(tsky[0] == tsky[1]))
         self.assertFalse(np.all(tsky[:, 0] == tsky[:, 1]))
-        # import uvtools, pylab as plt
-        # uvtools.plot.waterfall(tsky); plt.show()
+
         tsky = noise.resample_Tsky(fqs, lsts, Tsky_mdl=noise.HERA_Tsky_mdl["xx"])
         self.assertEqual(tsky.shape, (200, 100))
         self.assertFalse(np.all(tsky[0] == tsky[1]))
         self.assertFalse(np.all(tsky[:, 0] == tsky[:, 1]))
-        # import uvtools, pylab as plt
-        # uvtools.plot.waterfall(tsky); plt.show()
 
     def test_sky_noise_jy(self):
         fqs = np.linspace(0.1, 0.2, 100)
