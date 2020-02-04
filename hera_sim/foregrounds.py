@@ -15,7 +15,7 @@ class Foreground:
     pass
 
 class DiffuseForeground(Foreground):
-    # TODO: fill in docstring
+    # XXX do we want to document the classes at this level?
     """
     
     """
@@ -23,7 +23,6 @@ class DiffuseForeground(Foreground):
 
     def __init__(self, Tsky_mdl=None, omega_p=None,
                  delay_filter_kwargs=None, fringe_filter_kwargs=None):
-        # TODO: update docstring
         """
 
         Parameters
@@ -34,9 +33,23 @@ class DiffuseForeground(Foreground):
             with signature Tsky_mdl(lsts, freqs), formatted so that lsts 
             are in radians and freqs are in GHz.
 
-        omega_p : interpolation object or array-like
-            Beam size model, in units of steradian.
+        omega_p : interpolation object or array-like of float
+            Beam size model, in units of steradian. If passing an array, 
+            then it must be the same shape as the frequency array passed 
+            to the ``freqs`` parameter.
 
+        delay_filter_kwargs : dict, optional
+            Keyword arguments and associated values to be passed to 
+            .. func:: utils.rough_delay_filter. Default is to use the 
+            following settings:
+                standoff : 0.0
+                delay_filter_type : tophat
+
+        fringe_filter_kwargs : dict, optional
+            Keyword arguments and associated values to be passed to 
+            .. func:: utils.rough_fringe_filter. Default is to use the 
+            following settings:
+                fringe_filter_type : tophat
         """
         if delay_filter_kwargs is None:
             delay_filter_kwargs = {
@@ -53,29 +66,52 @@ class DiffuseForeground(Foreground):
         )
 
     def __call__(self, lsts, freqs, bl_vec, **kwargs):
-        # TODO: update docstring
         """
         
         Parameters
         ----------
 
-        lsts : array-like
+        lsts : array-like of float
             Array of LST values in units of radians.
 
-        freqs : array-like
+        freqs : array-like of float
             Array of frequency values in units of GHz.
 
-        bl_vec : array-like
+        bl_vec : array-like of float
             Length-3 array specifying the baseline vector in units of ns.
 
         Returns
         -------
 
-        vis : ndarray
+        vis : ndarray of complex
             Array of visibilities at each LST and frequency appropriate 
             for the given sky temperature model, beam size model, and 
-            baseline vector. Returned in units of Jy.
+            baseline vector. Returned in units of Jy with shape 
+            (lsts.size, freqs.size).
+
+        Notes
+        -----
+        This function provides a rough simulation of visibilities from 
+        diffuse foregrounds by using a sky temperature model. The sky 
+        temperature models provided in this package are appropriate for 
+        the HERA H1C observing season, and are only valid for frequencies 
+        between 100 MHz and 200 MHz; anything beyond this range is just a 
+        copy of the value at the nearest edge. Simulated autocorrelations 
+        (i.e. zero magnitude ``bl_vec``) are returned as complex arrays, 
+        but have zero imaginary component everywhere. For cross-correlations, 
+        the sky model is convolved with white noise (in delay/fringe-rate 
+        space), and rough delay and fringe filters are applied to the 
+        visibility. As a standalone component model, this is does not 
+        produce consistent simulated visibilities for baselines within a 
+        redundant group (except for autocorrelations); however, the 
+        .. class:: Simulator class provides the functionality to ensure 
+        that redundant baselines see the same sky. Additionally, visibilities 
+        simulated with this model are not invariant under complex conjugation 
+        and baseline conjugation, since the delay filter applied is symmetric; 
+        however, the .. class:Simulator: class is aware of this and ensures 
+        invariance under complex conjugation and baseline conjugation.
         """
+
         # validate the kwargs
         self._check_kwargs(**kwargs)
 
@@ -126,9 +162,43 @@ class PointSourceForeground(Foreground):
     def __init__(self, nsrcs=1000, Smin=0.3, Smax=300, beta=-1.5,
                  spectral_index_mean=-1, spectral_index_std=0.5, 
                  reference_freq=0.15):
-        # TODO: fill in docstring
         """
+        Parameters
+        ----------
 
+        nsrcs : int, optional
+            Number of sources to place on the sky. Point sources are 
+            simulated to have a flux-density drawn from a power-law 
+            distribution specified by the ``Smin``, ``Smax``, and 
+            ``beta`` parameters. Additionally, each source has a chromatic 
+            flux-density given by a power law; the spectral index is drawn 
+            from a normal distribution with mean ``spectral_index_mean`` and 
+            standard deviation ``spectral_index_std``. The default behavior 
+            is to use 1000 sources.
+
+        Smin : float, optional
+            Lower bound of the power-law distribution to draw flux-densities 
+            from, in units of Jy. Default is 0.3 Jy.
+
+        Smax : float, optional
+            Upper bound of the power-law distribution to draw flux-densities 
+            from, in units of Jy. Default is 300 Jy.
+
+        beta : float, optional
+            Power law index for the source counts versus flux-density. Default 
+            is -1.5.
+
+        spectral_index_mean : float, optional
+            The mean of the normal distribution to draw source spectral indices
+            from. Default is -1.
+
+        spectral_index_std : float, optional
+            The standard deviation of the normal distribution to draw source 
+            spectral indices from. Default is 0.5.
+
+        reference_freq : float, optional
+            Reference frequency used to make the point source flux densities 
+            chromatic, in units of GHz. Default is 0.15 GHz.
         """
         super().__init__(
             nsrcs=nsrcs, 
@@ -143,7 +213,31 @@ class PointSourceForeground(Foreground):
     def __call__(self, lsts, freqs, bl_vec, **kwargs):
         # TODO: fill in docstring
         """
-        
+        Parameters
+        ----------
+
+        lsts : array-like of float
+            Local Sidereal Times for the simulated observation, in units 
+            of radians.
+
+        freqs : array-like of float
+            Frequency array for the simulated observation, in units of GHz.
+
+        bl_vec : array-like of float
+            Baseline vector for the simulated observation, given in 
+            East-North-Up coordinates in units of nanoseconds. Must have 
+            length 3.
+
+        Returns
+        -------
+        vis : np.ndarray of complex
+            Simulated observed visibilities for the specified LSTs, frequencies, 
+            and baseline. Complex-valued with shape (lsts.size, freqs.size).
+
+        Notes
+        -----
+        # TODO: add a note about hard-coded beam size and briefly describe the
+        routine used to mock up visibilities.
         """
         # validate the kwargs
         self._check_kwargs(**kwargs)
