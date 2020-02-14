@@ -10,7 +10,6 @@ from pyuvsim.simsetup import (
     initialize_uvdata_from_params,
     initialize_catalog_from_params,
     uvdata_to_telescope_config,
-    beam_string_to_object,
     _complete_uvdata
 )
 from os import path
@@ -113,7 +112,7 @@ class VisibilitySimulator(object):
             for name, id in self.beam_ids.items():
                 tmp_ids[nms.index(name)] = id
             self.beam_ids = tmp_ids
-            self.beams = [beam_string_to_object(bm) for bm in self.beams]
+            self.beams.set_obj_mode()
             _complete_uvdata(self.uvdata, inplace=True)
         else:
             if uvdata is None:
