@@ -22,7 +22,7 @@ import time
 
 import numpy as np
 from cached_property import cached_property
-from pyuvdata import UVData
+from pyuvdata import UVData, utils
 from astropy import constants as const
 from collections import OrderedDict
 
@@ -269,7 +269,7 @@ class Simulator(object):
             self.data.set_drift()
 
         # add redundant bl groups to UVData object's extra keywords
-        #self.data.extra_keywords['reds'] = self.data.get_baseline_redundancies()[0]
+        #self.data.extra_keywords['reds'] = self.data.get_redundancies()[0]
 
         # Check if the created/read data is compatible with the assumptions of
         # this class.
@@ -340,7 +340,7 @@ class Simulator(object):
         self.data.data_array[blt_ind, 0, :, pol_ind] += vis
 
     def _get_reds(self):
-        return self.data.get_baseline_redundancies()[0]
+        return self.data.get_redundancies()[0]
 
     def _generate_seeds(self, model):
         if 'seeds' not in self.data.extra_keywords.keys():
