@@ -189,7 +189,7 @@ def test_consistent_across_reds():
     sim.add_foregrounds('diffuse_foreground', Tsky_mdl=HERA_Tsky_mdl['xx'],
             seed_redundantly=True)
     sim.add_eor('noiselike_eor', seed_redundantly=True)
-    reds = sim.data.get_baseline_redundancies()[0][1] # choose non-autos
+    reds = sim.data.get_redundancies()[0][1] # choose non-autos
     key1 = sim.data.baseline_to_antnums(reds[0]) + ('xx',)
     key2 = sim.data.baseline_to_antnums(reds[1]) + ('xx',)
     assert np.all(np.isclose(sim.data.get_data(key1),sim.data.get_data(key2)))
