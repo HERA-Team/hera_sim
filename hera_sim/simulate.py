@@ -25,9 +25,11 @@ from cached_property import cached_property
 from pyuvdata import UVData
 from astropy import constants as const
 from collections import OrderedDict
+from scipy import interpolate
 
 from . import io
 from . import sigchain
+from . import noise
 from .version import version
 
 
@@ -443,6 +445,26 @@ class Simulator(object):
                 Default True.
             **kwargs: keyword arguments sent to the noise model function, other than `lsts`, `fqs` and `bl_len_ns`.
         """
+        if kwargs.pop("use_autos", False):
+            antpair = [ants for ants in self.data.get_antpairs() if ants[0] == ants[1]][0]
+
+            # Set up to use the autos to set the noise level
+            lsts = np.unique(self.data.lst_array)
+            freqs = self.data.freq_array[0] * 1e-9  # GHz
+
+            if kwargs.get("omega_p", None) is None:
+                omega_p = noise.bm_poly_to_omega_p(freqs)
+            elif callable(kwargs.get("omega_p", None)):
+                omega_p = kwargs.get("omega_p")(freqs)
+
+            Jy_to_K = noise.jy2T(freqs, omega_p) / 1000
+
+            # XXX The xx and yy polarizations are rotated 90 degrees relative to one
+            # another, so does it make sense to use the xx polarization for adding
+            # noise to the data for both the xx and yy polarizations?
+            autos = self.data.get_data(*antpair, 'xx') * Jy_to_K[None, :]
+            kwargs['Tsky_mdl'] = interpolate.RectBivariateSpline(lsts, freqs, autos.real)
+
         for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols():
             # this doesn't need to be seeded, does it?
             lsts = self.data.lst_array[blt_ind]

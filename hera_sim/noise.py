@@ -183,4 +183,3 @@ def thermal_noise(fqs, lsts, Tsky_mdl=None, Trx=0, omega_p=None, inttime=10.7, *
     Tsky = resample_Tsky(fqs, lsts, Tsky_mdl=Tsky_mdl, **kwargs)
     Tsky += Trx
     return sky_noise_jy(Tsky, fqs, lsts, omega_p, inttime=inttime)
-
