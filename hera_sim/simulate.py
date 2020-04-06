@@ -193,6 +193,7 @@ class Simulator(object):
             n_freq=None,
             n_times=None,
             antennas=None,
+            use_baselines=None,
             **kwargs
     ):
         """
@@ -212,6 +213,7 @@ class Simulator(object):
                 times.
             antennas (dict, optional): if `data_filename` not given, this is required. See docs of
                 :func:`~io.empty_uvdata` for more details.
+            use_baselines (list of tuples, optional): a list of which baselines (antenna pairs) to perform the simulations for. This is useful if you only want to simulate a subset of all available antenna pairs. This can be overridden for individual `add_` methods by passing the `use_baselines` argument to the method. Default: None (all baselines will be simulated).
 
         Other Args:
             All other arguments are sent either to :func:`~UVData.read` (if `data_filename` is given) or
@@ -270,6 +272,9 @@ class Simulator(object):
 
         # add redundant bl groups to UVData object's extra keywords
         #self.data.extra_keywords['reds'] = self.data.get_redundancies()[0]
+        
+        # Set list of baselines to actually simulate
+        self._use_baselines = use_baselines
 
         # Check if the created/read data is compatible with the assumptions of
         # this class.
@@ -321,12 +326,24 @@ class Simulator(object):
         if self.data.phase_type != "drift":
             raise CompatibilityException("The phase_type of the data must be 'drift'.")
 
-    def _iterate_antpair_pols(self):
+    def _iterate_antpair_pols(self, **kwargs):
         """
         Iterate through antenna pairs and polarizations in the data object
         """
-
+        # Only operate on certain baselines
+        use_baselines = None
+        if 'use_baselines' in kwargs.keys():
+            use_baselines = kwargs['use_baselines']
+        if use_baselines is None:
+            use_baselines = self._use_baselines
+        
+        # Loop over all (allowed) antenna pairs and pols
         for ant1, ant2, pol in self.data.get_antpairpols():
+            if use_baselines is not None:
+                if (ant1, ant2) not in use_baselines \
+                and (ant2, ant1) not in use_baselines:
+                    continue # Skip this baseline
+            
             blt_inds = self.data.antpair2ind((ant1, ant2))
             pol_ind = self.data.get_pols().index(pol)
             yield ant1, ant2, pol, blt_inds, pol_ind
@@ -375,7 +392,7 @@ class Simulator(object):
         if seed_redundantly:
             self._generate_seeds(model)
 
-        for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols():
+        for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols(**kwargs):
             if seed_redundantly:
                 seed = self._get_seed(ant1, ant2, model)
                 np.random.seed(seed)
@@ -418,7 +435,7 @@ class Simulator(object):
                     "are working with only has the following polarizations: " \
                     "{}".format(vis_pol, self.data.get_pols())
 
-        for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols():
+        for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols(**kwargs):
             if seed_redundantly:
                 seed = self._get_seed(ant1, ant2, model)
                 np.random.seed(seed)
@@ -443,7 +460,7 @@ class Simulator(object):
                 Default True.
             **kwargs: keyword arguments sent to the noise model function, other than `lsts`, `fqs` and `bl_len_ns`.
         """
-        for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols():
+        for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols(**kwargs):
             # this doesn't need to be seeded, does it?
             lsts = self.data.lst_array[blt_ind]
 
@@ -465,7 +482,7 @@ class Simulator(object):
                 Default True.
             **kwargs: keyword arguments sent to the RFI model function, other than `lsts` or `fqs`.
         """
-        for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols():
+        for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols(**kwargs):
             lsts = self.data.lst_array[blt_ind]
 
             # XXX this should be seeded according to the time corresponding to blt_ind
@@ -497,7 +514,7 @@ class Simulator(object):
             fqs=self.data.freq_array[0] * 1e-9, ants=self.data.get_ants(), **kwargs
         )
 
-        for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols():
+        for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols(**kwargs):
             self.data.data_array[blt_ind, 0, :, pol_ind] = sigchain.apply_gains(
                 vis=self.data.data_array[blt_ind, 0, :, pol_ind],
                 gains=gains,
@@ -519,7 +536,7 @@ class Simulator(object):
         # generate gains
         gains = sigchain.gen_reflection_gains(self.data.freq_array[0], ants, **kwargs)
 
-        for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols():
+        for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols(**kwargs):
             self.data.data_array[blt_ind, 0, :, pol_ind] = sigchain.apply_gains(
                 vis=self.data.data_array[blt_ind, 0, :, pol_ind],
                 gains=gains,
@@ -536,7 +553,7 @@ class Simulator(object):
             **kwargs: keyword arguments sent to the model :meth:~`hera_sim.sigchain.{model}`.
         """
         freqs = self.data.freq_array[0]
-        for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols():
+        for ant1, ant2, pol, blt_ind, pol_ind in self._iterate_antpair_pols(**kwargs):
             if bls is not None and (ant1, ant2, pol) not in bls:
                 continue
             if model.__name__ == 'gen_whitenoise_xtalk':
