@@ -18,7 +18,7 @@ class VisCPU(VisibilitySimulator):
     replaced by vis_gpu. It extends :class:`VisibilitySimulator`.
     """
 
-    def __init__(self, bm_pix=100, real_dtype=np.float32,
+    def __init__(self, bm_pix=100, use_pixel_beams=True, real_dtype=np.float32,
                  complex_dtype=np.complex64, **kwargs):
         """
         Parameters
@@ -26,6 +26,10 @@ class VisCPU(VisibilitySimulator):
         bm_pix : int, optional
             The number of pixels along a side in the beam map when
             converted to (l, m) coordinates. Defaults to 100.
+        use_pixel_beams : bool, optional
+            Whether to use primary beams that have been pixelated onto a 2D 
+            grid, or directly evaluate the primary beams using the available 
+            UVBeam objects. Default: True.
         real_dtype : {np.float32, np.float64}
             Data type for real-valued arrays.
         complex_dtype : {np.complex64, np.complex128}
@@ -33,11 +37,11 @@ class VisCPU(VisibilitySimulator):
         **kwargs
             Arguments of :class:`VisibilitySimulator`.
         """
-
         self._real_dtype = real_dtype
         self._complex_dtype = complex_dtype
         self.bm_pix = bm_pix
-
+        self.use_pixel_beams = use_pixel_beams
+        
         super(VisCPU, self).__init__(**kwargs)
 
         # Convert some arguments to forms more simple for vis_cpu.
@@ -159,22 +163,41 @@ class VisCPU(VisibilitySimulator):
             Visibilities. Shape=self.uvdata.data_array.shape.
         """
         eq2tops = self.get_eq2tops()
-        beam_lm = self.get_beam_lm()
-
+        
+        # Get pixelized beams if required
+        if self.use_pixel_beams:
+            beam_lm = self.get_beam_lm()
+        else:
+            beam_list = [self.beams[self.beam_ids[i]] for i in range(self.n_ant)]
+            
         visfull = np.zeros_like(self.uvdata.data_array,
                                 dtype=self._complex_dtype)
-
+        
         for i, freq in enumerate(self.freqs):
-            vis = vis_cpu(
-                antpos=self.antpos,
-                freq=freq,
-                eq2tops=eq2tops,
-                crd_eq=crd_eq,
-                I_sky=I[i],
-                bm_cube=beam_lm[:, i],
-                real_dtype=self._real_dtype,
-                complex_dtype=self._complex_dtype,
-            )
+            if self.use_pixel_beams:
+                # Use pixelized primary beams
+                vis = vis_cpu(
+                    antpos=self.antpos,
+                    freq=freq,
+                    eq2tops=eq2tops,
+                    crd_eq=crd_eq,
+                    I_sky=I[i],
+                    bm_cube=beam_lm[:, i],
+                    real_dtype=self._real_dtype,
+                    complex_dtype=self._complex_dtype,
+                )
+            else:
+                # Use UVBeam objects directly
+                vis = vis_cpu(
+                    antpos=self.antpos,
+                    freq=freq,
+                    eq2tops=eq2tops,
+                    crd_eq=crd_eq,
+                    I_sky=I[i],
+                    beam_list=beam_list,
+                    real_dtype=self._real_dtype,
+                    complex_dtype=self._complex_dtype,
+                )
 
             indices = np.triu_indices(vis.shape[1])
             vis_upper_tri = vis[:, indices[0], indices[1]]
@@ -231,7 +254,7 @@ class VisCPU(VisibilitySimulator):
         return vis
 
 
-def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube,
+def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube=None, beam_list=None,
             real_dtype=np.float32, complex_dtype=np.complex64):
     """
     Calculate visibility from an input intensity map and beam model.
@@ -255,8 +278,12 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube,
     I_sky : array_like
         Intensity distribution on the sky,
         stored as array of Healpix pixels. Shape=(NPIX,).
-    bm_cube : array_like
-        Beam maps for each antenna. Shape=(NANT, BM_PIX, BM_PIX).
+    bm_cube : array_like, optional
+        Pixelized beam maps for each antenna. Shape=(NANT, BM_PIX, BM_PIX).
+    beam_list : list of UVBeam, optional
+        If specified, evaluate primary beam values directly using UVBeam 
+        objects instead of using pixelized beam maps (`bm_cube` will be ignored 
+        if `beam_list` is not None).
     real_dtype {np.float32, np.float64}
         Data type to use for real-valued arrays.
     complex_dtype {np.complex64, np.complex128}
@@ -267,7 +294,6 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube,
     array_like
         Visibilities. Shape=(NTIMES, NANTS, NANTS).
     """
-
     nant, ncrd = antpos.shape
     assert ncrd == 3, "antpos must have shape (NANTS, 3)."
     ntimes, ncrd1, ncrd2 = eq2tops.shape
@@ -276,12 +302,16 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube,
     assert ncrd == 3, "crd_eq must have shape (3, NPIX)."
     assert I_sky.ndim == 1 and I_sky.shape[0] == npix, \
         "I_sky must have shape (NPIX,)."
-    bm_pix = bm_cube.shape[-1]
-    assert bm_cube.shape == (
-        nant,
-        bm_pix,
-        bm_pix,
-    ), "bm_cube must have shape (NANTS, BM_PIX, BM_PIX)."
+    
+    if beam_list is None:
+        bm_pix = bm_cube.shape[-1]
+        assert bm_cube.shape == (
+            nant,
+            bm_pix,
+            bm_pix,
+        ), "bm_cube must have shape (NANTS, BM_PIX, BM_PIX)."
+    else:
+        assert len(beam_list) == nant, "beam_list must have length nant"
 
     # Intensity distribution (sqrt) and antenna positions. Does not support
     # negative sky.
@@ -296,33 +326,47 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube,
     tau = np.empty((nant, npix), dtype=real_dtype)
     v = np.empty((nant, npix), dtype=complex_dtype)
     crd_eq = crd_eq.astype(real_dtype)
-
-    bm_pix_x = np.linspace(-1, 1, bm_pix)
-    bm_pix_y = np.linspace(-1, 1, bm_pix)
-
-    # Loop over time samples.
-    for t, eq2top in enumerate(eq2tops.astype(real_dtype)):
-        tx, ty, tz = crd_top = np.dot(eq2top, crd_eq)
-
+    
+    # Precompute splines is using pixelized beams
+    if beam_list is None:
+        bm_pix_x = np.linspace(-1, 1, bm_pix)
+        bm_pix_y = np.linspace(-1, 1, bm_pix)
+    
+        splines = []
         for i in range(nant):
             # Linear interpolation of primary beam pattern.
-            spline = RectBivariateSpline(bm_pix_y, bm_pix_x, bm_cube[i], kx=1,
-                                         ky=1)
-            A_s[i] = spline(ty, tx, grid=False)
-
+            spl = RectBivariateSpline(bm_pix_y, bm_pix_x, bm_cube[i], kx=1, ky=1)
+            splines.append(spl)
+    
+    # Loop over time samples
+    for t, eq2top in enumerate(eq2tops.astype(real_dtype)):
+        tx, ty, tz = crd_top = np.dot(eq2top, crd_eq)
+        
+        # Primary beam response
+        if beam_list is None:
+            # Primary beam pattern using pixelized primary beam
+            for i in range(nant):
+                A_s[i] = splines[i](ty, tx, grid=False)
+        else:
+            # Primary beam pattern using direct interpolation of UVBeam object
+            for i in range(nant):
+                az, za = conversions.lm_to_az_za(ty, tx) # FIXME: Order of tx, ty
+                interp_beam = beam_list[i].interp(az, za, np.atleast_1d(freq))[0]
+                A_s[i] = interp_beam[0,0,1] # FIXME: assumes xx pol for now
+        
         A_s = np.where(tz > 0, A_s, 0)
 
         # Calculate delays, where TAU = (b * s) / c.
         np.dot(antpos, crd_top, out=tau)
         tau /= c.value
 
-        np.exp(1.0j * (ang_freq * tau), out=v)
+        np.exp(1.j * (ang_freq * tau), out=v)
 
         # Complex voltages.
         v *= A_s * Isqrt
 
-        # Compute visibilities (upper triangle only).
+        # Compute visibilities using product of complex voltages (upper triangle).
         for i in range(len(antpos)):
-            np.dot(v[i: i + 1].conj(), v[i:].T, out=vis[t, i: i + 1, i:])
+            np.dot(v[i:i+1].conj(), v[i:].T, out=vis[t, i:i+1, i:])
 
     return vis
