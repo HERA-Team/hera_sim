@@ -1,6 +1,81 @@
 import numpy as np
 from pyuvsim import AnalyticBeam
-from numpy.polynomial.chebyshev import chebval
+from numpy.polynomial.chebyshev import chebval, chebfit
+from scipy.optimize import curve_fit
+
+def perturb_PolyBeam(beam_coeffs=[], spectral_index=0., ref_freq=None, mainlobe_err=None, sidelobe_err=None, Nbeam=None):
+    
+    if (spectral_index != 0.0) and (ref_freq is None):
+            raise ValueError("ref_freq must be set for nonzero beam spectral index")
+    elif ref_freq is None:
+            ref_freq = 1.0e8
+    
+    #Fagnoni beam(using Chebyshev polynomial)
+    order = len(beam_coeffs) -1
+    theta = np.linspace(0,np.pi/2.,100)
+    tmptheta = 2.*np.sin(theta)-1.
+    pbfitfag = chebval(tmptheta, beam_coeffs)
+    
+    #tanh function 
+    theta_fwhm = 0.3 #approx. FWHM in radian
+    y = 0.5 * (1. + np.tanh(50.*(theta - theta_fwhm))) #50 choose for sharpness
+    
+    #fagnoni * tanh
+    pbfitfag_tanh = pbfitfag * y
+    
+    #fit (fagnoni * tanh) with Gaussian to perturb mainlobe only
+    def gaussian(x, xalpha, A):
+        return A*np.exp(-((x)/xalpha)**2)
+
+    guess=(0.2,1.0)
+    fit_params, cov_mat = curve_fit(gaussian, theta, pbfitfag_tanh, p0=guess)
+    
+    # Nbeam no. random sigma to perturb Gaussian mainlobe
+    sigma = fit_params[0] * (1. + mainlobe_err * np.random.rand(Nbeam))
+    
+    ######################### Today's Discussion ########################
+    #Fit Fagnoni Beam with Fourier Series
+    def fn(x, *coeffs): 
+        y = 0
+        N=int(len(coeffs)/2)
+        period=np.pi
+        for n in range(N):
+        
+            an= coeffs[n]
+            bn= coeffs[n+N]
+            y += ( an * np.cos(2.*np.pi*n*x/period) + bn * np.sin(2.*np.pi*n*x/period))
+        return y
+    
+    order_fourier = 20
+    initial_coeffs = np.ones(order_fourier)
+    coeff_fourier,cov_fourier=curve_fit(fn, theta, pbfitfag, initial_coeffs)
+    pbfitfag_fourier=fn(theta,*coeff_fourier)
+    
+    
+    pbfitfag_modfourier = (1. - y)*pbfitfag + y * pbfitfag_fourier
+    pbfitfag_modfourier_res = pbfitfag - pbfitfag_modfourier
+    
+    ##########################################################################
+    
+    beams = []
+    for sig in sigma:
+        
+        #set random sigma in fit_paramstmp[0]
+        fit_paramstmp = np.copy(fit_params)
+        fit_paramstmp[0] = sig #sig
+    
+        #subtract actual Gaussian and add perturb_Gaussian
+        pbfitmod = pbfitfag - gaussian(theta, *fit_params)
+        pbfitmod += gaussian(theta, *fit_paramstmp)
+        
+        #Fit the perturb_Gaussian with Chebyshev coeff, generate PolyBeam object
+        coeffmod = chebfit(tmptheta, pbfitmod, order)
+        beam = PolyBeam(beam_coeffs = coeffmod , spectral_index = spectral_index, ref_freq = ref_freq)
+        beams.append(beam)
+        
+    return beams
+
+
 
 class PolyBeam(AnalyticBeam):
     """
