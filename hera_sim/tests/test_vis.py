@@ -177,20 +177,20 @@ def test_shapes(uvdata, simulator):
 
 
 @pytest.mark.parametrize(
-    "dtype, cdtype",
-    [(np.float32, np.complex64),
-     (np.float32, np.complex128),
-     (np.float64, np.complex128),
-     ]
+    "precision, cdtype",
+    [
+        (1, np.complex64),
+        (2, np.complex128)
+    ]
 )
-def test_dtypes(uvdata, dtype, cdtype):
+def test_dtypes(uvdata, precision, cdtype):
     I_sky = create_uniform_sky()
 
     sim = VisCPU(
         uvdata=uvdata,
         sky_freqs=np.unique(uvdata.freq_array),
         sky_intensity=I_sky,
-        real_dtype=dtype, complex_dtype=cdtype)
+        precision=precision)
 
     v = sim.simulate()
     assert v.dtype == cdtype
