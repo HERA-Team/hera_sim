@@ -347,16 +347,17 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube=None, beam_list=None,
             # Primary beam pattern using pixelized primary beam
             for i in range(nant):
                 A_s[i] = splines[i](ty, tx, grid=False)
+                # FIXME: Try using a log-space beam for accuracy!
         else:
             # Primary beam pattern using direct interpolation of UVBeam object
+            az, za = conversions.lm_to_az_za(ty, tx) # FIXME: Order of tx, ty
             for i in range(nant):
-                az, za = conversions.lm_to_az_za(ty, tx) # FIXME: Order of tx, ty
                 interp_beam = beam_list[i].interp(az, za, np.atleast_1d(freq))[0]
                 A_s[i] = interp_beam[0,0,1] # FIXME: assumes xx pol for now
         
         A_s = np.where(tz > 0, A_s, 0)
 
-        # Calculate delays, where TAU = (b * s) / c.
+        # Calculate delays, where tau = (b * s) / c.
         np.dot(antpos, crd_top, out=tau)
         tau /= c.value
 
