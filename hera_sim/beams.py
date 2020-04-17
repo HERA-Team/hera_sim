@@ -52,7 +52,7 @@ class PolyBeam(AnalyticBeam):
             Zenith angle values in radians (same length as az_array).
         
         freq_array : array_like
-            Frequency values to evaluate at
+            Frequency values to evaluate at.
         
         reuse_spline : bool, optional
             Does nothing for analytic beams. Here for compatibility with UVBeam.
@@ -199,6 +199,19 @@ class PerturbedPolyBeam(PolyBeam):
         # Get positional arguments
         az_array, za_array, freq_array, = (arg for arg in args)
         
+        # Convert sheared Cartesian coords to circular polar coords
+        # mX stretches in x direction, mY in y direction, a is angle
+        #phi = az
+        #theta = za
+        #X = za_array*np.cos(az_array)
+        #Y = za_array*np.sin(az_array)
+        #mX, mY, a = 3., 1., np.pi/4.
+        #Xs = (X * np.cos(a) - Y * np.sin(a)) / mX
+        #Ys = (X * np.sin(a) + Y * np.cos(a)) / mY
+        #theta_s = np.sqrt(Xs**2. + Ys**2.)
+        #phi_s = np.arccos(Xs / theta_s)
+        #phi_s[Ys < 0.] *= -1.
+        
         # Call interp() method on parent class
         interp_fn = super(PerturbedPolyBeam, self).interp
         interp_data, interp_basis_vector = interp_fn(*args, **kwargs)
@@ -210,12 +223,10 @@ class PerturbedPolyBeam(PolyBeam):
         # Add sidelobe perturbations
         if self.nmodes != 0:
             # Build Fourier series
+            p = 0
             f_fac = 2.*np.pi / (np.pi/2.) #  Fourier series with period pi/2
-            sine_modes = np.array([np.sin(f_fac * n * za_array) 
-                                   for n in range(self.nmodes)])
-            
-            # Construct Fourier series perturbation
-            p = np.sum(self.perturb_coeffs[:,np.newaxis] * sine_modes, axis=0)
+            for n in range(self.nmodes):
+                p += self.perturb_coeffs[n] * np.sin(f_fac * n * za_array)
             p /= (np.max(p) - np.min(p)) / 2.
             
             # Modulate primary beam by perturbation function
