@@ -19,7 +19,7 @@ class VisCPU(VisibilitySimulator):
     """
 
     def __init__(self, bm_pix=100, use_pixel_beams=True, real_dtype=np.float32,
-                 complex_dtype=np.complex64, **kwargs):
+                 complex_dtype=np.complex64, mpi_comm=None, **kwargs):
         """
         Parameters
         ----------
@@ -34,6 +34,8 @@ class VisCPU(VisibilitySimulator):
             Data type for real-valued arrays.
         complex_dtype : {np.complex64, np.complex128}
             Data type for complex-valued arrays.
+        mpi_comm : MPI communicator
+            MPI communicator, for parallelization.
         **kwargs
             Arguments of :class:`VisibilitySimulator`.
         """
@@ -41,6 +43,7 @@ class VisCPU(VisibilitySimulator):
         self._complex_dtype = complex_dtype
         self.bm_pix = bm_pix
         self.use_pixel_beams = use_pixel_beams
+        self.mpi_comm = mpi_comm
         
         super(VisCPU, self).__init__(**kwargs)
 
@@ -162,6 +165,12 @@ class VisCPU(VisibilitySimulator):
         array_like of self._complex_dtype
             Visibilities. Shape=self.uvdata.data_array.shape.
         """
+        # Setup MPI info if enabled
+        if self.mpi_comm is not None:
+            myid = self.mpi_comm.Get_rank()
+            nproc = self.mpi_comm.Get_size()
+        
+        # Convert equatorial to topocentric coords
         eq2tops = self.get_eq2tops()
         
         # Get pixelized beams if required
@@ -174,6 +183,11 @@ class VisCPU(VisibilitySimulator):
                                 dtype=self._complex_dtype)
         
         for i, freq in enumerate(self.freqs):
+            
+            # Divide tasks between MPI workers if needed
+            if self.mpi_comm is not None:
+                if i % nproc != myid: continue
+            
             if self.use_pixel_beams:
                 # Use pixelized primary beams
                 vis = vis_cpu(
@@ -203,7 +217,17 @@ class VisCPU(VisibilitySimulator):
             vis_upper_tri = vis[:, indices[0], indices[1]]
 
             visfull[:, 0, i, 0] = vis_upper_tri.flatten()
-
+        
+        # Reduce visfull array if in MPI mode
+        if self.mpi_comm is not None:
+            from mpi4py.MPI import SUM
+            _visfull = np.zeros(visfull.shape, dtype=visfull.dtype)
+            self.mpi_comm.Reduce(visfull, _visfull, op=SUM, root=0)
+            if myid == 0:
+                return _visfull
+            else:
+                return 0 # workers return 0
+            
         return visfull
 
     def _simulate_diffuse(self):
