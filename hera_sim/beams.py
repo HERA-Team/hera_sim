@@ -6,7 +6,7 @@ from scipy.optimize import curve_fit
 
 class PolyBeam(AnalyticBeam):
     
-    def __init__(self, beam_coeffs=[], spectral_index=0.0, ref_freq=1e8):
+    def __init__(self, beam_coeffs=[], spectral_index=0.0, ref_freq=1e8, **kwargs):
         """
         Analytic, azimuthally-symmetric beam model based on Chebyshev 
         polynomials. Defines an object with similar functionality to 
