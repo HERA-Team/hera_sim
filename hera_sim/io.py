@@ -3,6 +3,7 @@
 import os
 import warnings
 import numpy as np
+from pyuvdata import UVData
 from pyuvsim.simsetup import initialize_uvdata_from_keywords
 from .data import DATA_PATH
 from .defaults import _defaults
@@ -66,3 +67,103 @@ def empty_uvdata(Ntimes=None, start_time=2456658.5, # Jan 1 2014
     uvd.conjugate_bls(convention="ant1<ant2")
 
     return uvd
+
+def chunk_sim_and_save(
+    sim_uvd,
+    save_dir,
+    ref_files=None,
+    Nint_per_file=None,
+    prefix=None,
+    sky_cmp=None,
+    state=None,
+    filetype='uvh5',
+    clobber=True
+):
+    """
+    Chunk the simulation data to match the reference file and write to disk.
+    
+    Chunked files have the following naming convention:
+    save_dir/[{prefix}.]{jd_major}.{jd_minor}[.{sky_cmp}][.{state}].{filetype}
+    The entires in brackets are optional and may be omitted.
+
+    Parameters
+    ----------
+    sim_uvd : :class:`pyuvdata.UVData`
+        :class:`pyuvdata.UVData` object containing the simulation data 
+        to chunk and write to disk.
+    save_dir : str or path-like object
+        Path to the directory where the chunked files will be saved.
+    ref_files : iterable of str
+        Iterable of filepaths to use for reference when chunking. This must 
+        be specified if ``Nint_per_file`` is not specified. This determines 
+        (and overrides, if also provided) ``Nint_per_file`` if provided.
+    Nint_per_file : int, optional
+        Number of integrations per chunked file. This must be specified 
+        if ``ref_files`` is not specified.
+    prefix : str, optional
+        Prefix of file basename. Default is to add no prefix.
+    sky_cmp : str, optional
+        String denoting which sky component has been simulated. Should 
+        be one of the following: ('foregrounds', 'eor', 'sum').
+    state : str, optional
+        String denoting whether the file is the true sky or corrupted.
+    filetype : str, optional
+        Format to use when writing files to disk. Must be a filetype 
+        supported by :class:`pyuvdata.UVData`. Default is uvh5.
+    clobber : bool, optional
+        Whether to overwrite any existing files that share the new 
+        filenames. Default is to overwrite files.
+    """
+    if not isinstance(sim_uvd, UVData):
+        raise ValueError("sim_uvd must be a UVData object.")
+
+    write_method = getattr(sim_uvd, f"write_{filetype}", None)
+    if write_method is None:
+        raise ValueError("Write method not supported.")
+
+    if ref_files is None and Nint_per_file is None:
+        raise ValueError(
+            "Either a glob of reference files or the number of integrations "
+            "per file must be provided."
+        )
+
+    # Pull the number of integrations per file if needed.
+    if ref_files is not None:
+        uvd = UVData()
+        uvd.read(ref_files[0], read_data=False)
+        Nint_per_file = uvd.Ntimes
+        jd_pattern = re.compile(r"\.(?P<major>[0-9]{7})\.(?P<minor>[0-9]{5}).")
+
+    # Pull the simulation times, then start the chunking process.
+    sim_times = np.unique(sim_uvd.time_array)
+    Nfiles = int(np.ceil(sim_uvd.Ntimes / Nint_per_file))
+    for Nfile in range(Nfiles):
+        # Figure out filing and slicing information.
+        if ref_files is not None:
+            jd = re.search(jd_pattern, ref_files[Nfile]).groupdict()
+            jd = float(f"{jd['major']}.{jd['minor']}")
+            uvd = UVData()
+            uvd.read(ref_files[Nfile], read_data=False)
+            times = np.unique(uvd.time_array)
+        else:
+            start_ind = Nfile * Nint_per_file
+            jd = np.round(sim_times[start_ind], 5)
+            this_slice = slice(start_ind, start_ind + Nint_per_file)
+            times = sim_times[this_slice]
+        filename = f"{jd:.5f}.{filetype}"
+        if prefix is not None:
+            filename = f"{prefix}." + filename
+        if sky_cmp is not None:
+            filename = filename.replace(f".{filetype}", f".{sky_cmp}.{filetype}")
+        if state is not None:
+            filename = filename.replace(".{filetype}", f".{state}.{filetype}")
+        save_path = os.path.join(save_dir, filename)
+
+        # Chunk it and write to disk.
+        this_uvd = sim_uvd.select(times=times, inplace=False)
+        getattr(this_uvd, f"write_{filetype}")(save_path, clobber=clobber)
+
+        # Delete the temporary UVData object to speed things up a bit.
+        del this_uvd
+    return
+
