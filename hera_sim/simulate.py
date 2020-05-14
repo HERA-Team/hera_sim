@@ -325,6 +325,36 @@ class Simulator:
             if value is not None:
                 yield (component, value)
 
+    def chunk_sim_and_save(
+        self, 
+        save_dir, 
+        ref_files=None,
+        Nint_per_file=None,
+        prefix=None,
+        sky_cmp=None,
+        state=None,
+        filetype='uvh5',
+        clobber=True
+    ):
+        """
+        Chunk a simulation in time and write to disk.
+
+        This function is a thin wrapper around :func:`io.chunk_sim_and_save`; 
+        please see that function's documentation for more information.
+        """
+        io.chunk_sim_and_save(
+            self.data, 
+            save_dir, 
+            ref_files=ref_files,
+            Nint_per_file=Nint_per_file,
+            prefix=prefix,
+            sky_cmp=sky_cmp,
+            state=state,
+            filetype=filetype,
+            clobber=clobber
+        )
+        return
+
     # -------------- Legacy Functions -------------- #
     # TODO: write a deprecated wrapper function
     def add_eor(self, model, **kwargs):
