@@ -325,6 +325,53 @@ class Simulator:
             if value is not None:
                 yield (component, value)
 
+    # -------------- Legacy Functions -------------- #
+    # TODO: write a deprecated wrapper function
+    def add_eor(self, model, **kwargs):
+        """
+        Add an EoR-like model to the visibilities. See :meth:`add` for 
+        more details.
+        """
+        return self.add(model, **kwargs)
+
+    def add_foregrounds(self, model, **kwargs):
+        """
+        Add foregrounds to the visibilities. See :meth:`add` for 
+        more details.
+        """
+        return self.add(model, **kwargs)
+
+    def add_noise(self, model, **kwargs):
+        """
+        Add thermal noise to the visibilities. See :meth:`add` for 
+        more details.
+        """
+        return self.add(model, **kwargs)
+
+    def add_rfi(self, model, **kwargs):
+        """Add RFI to the visibilities. See :meth:`add` for more details."""
+        return self.add(model, **kwargs)
+
+    def add_gains(self, **kwargs):
+        """
+        Apply bandpass gains to the visibilities. See :meth:`add` for 
+        more details.
+        """
+        return self.add('gains', **kwargs)
+
+    def add_sigchain_reflections(self, ants=None, **kwargs):
+        """
+        Apply reflection gains to the visibilities. See :meth:`add` for 
+        more details.
+        """
+        kwargs.update(ants=ants)
+        return self.add('reflections', **kwargs)
+
+    def add_xtalk(self, model='gen_whitenoise_xtalk', bls=None, **kwargs):
+        """Add crosstalk to the visibilities. See :meth:`add` for more details."""
+        kwargs.update(vis_filter=bls)
+        return self.add(model, **kwargs)
+
     # XXX end methods intended for user interaction XXX
 
     # XXX begin helper methods XXX
@@ -335,16 +382,14 @@ class Simulator:
         """
         """
         # find out whether or not multiple keys are passed
-        multikey = any(
-            [isinstance(key, (list, tuple)) for key in vis_filter]
-        )
+        multikey = any(isinstance(key, (list, tuple)) for key in vis_filter)
         # iterate over the keys, find if any are okay
         if multikey:
             apply_filter = [self._apply_filter(key, ant1, ant2, pol)
                             for key in vis_filter]
             # if a single filter says to let it pass, then do so
             return all(apply_filter)
-        elif all([item is None for item in vis_filter]):
+        elif all(item is None for item in vis_filter):
             # support passing tuple of None
             return False
         elif len(vis_filter) == 1:
@@ -359,13 +404,11 @@ class Simulator:
             # there are three cases: two polarizations are specified;
             # an antpol is specified; a baseline is specified
             # first, handle the case of two polarizations
-            if all([isinstance(key, str) for key in vis_filter]):
+            if all(isinstance(key, str) for key in vis_filter):
                 return not pol in vis_filter
             # otherwise it's simple
             else:
-                return not all(
-                    [key in (ant1, ant2, pol) for key in vis_filter]
-                )
+                return not all(key in (ant1, ant2, pol) for key in vis_filter)
         elif len(vis_filter) == 3:
             # assume it's a proper antpairpol
             return not (
@@ -374,9 +417,7 @@ class Simulator:
             )
         else:
             # assume it's some list of antennas/polarizations
-            return not any(
-                [key in (ant1, ant2, pol) for key in vis_filter]
-            )
+            return not any(key in (ant1, ant2, pol) for key in vis_filter)
 
     def _initialize_data(self, data, **kwargs):
         # TODO: docstring
@@ -663,7 +704,7 @@ class Simulator:
         # this doesn't work correctly if done on one line
         model_params = {}
         model_params.update(**call_params, **init_params)
-        _ = model_params.pop("kwargs") # every model should have this
+        _ = model_params.pop("kwargs", None) 
         return model_params
 
     @staticmethod
