@@ -60,9 +60,10 @@ setup_args = {
         'astropy-healpix', # pyuvsim depenency not automatically installed,
         "future"
     ],
-    "extras_require" : {
-        "bda" : "bda @ git+git://github.com/HERA-Team/baseline_dependent_averaging"
-        },
+    "extras_require": {
+        "bda": ["bda @ git+git://github.com/HERA-Team/baseline_dependent_averaging"],
+        'gpu': ['hera_gpu @ git+git://github.com/hera-team/hera_gpu'],
+    },
     "version": version.version,
     "package_data": {"hera_sim": data_files},
     "zip_safe": False,

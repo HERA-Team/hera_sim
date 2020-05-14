@@ -46,8 +46,10 @@ class VisCPU(VisibilitySimulator):
             try:
                 from hera_gpu.vis import vis_gpu
                 self._vis_cpu = vis_gpu
-            except(ImportError):
-                raise ImportError('GPU acceleration requires hera_gpu (https://github.com/HERA-Team/hera_gpu).')
+            except ImportError:
+                raise ImportError(
+                    'GPU acceleration requires hera_gpu (`pip install hera_sim[gpu]`).'
+                )
         else:
             self._vis_cpu = vis_cpu
         self.bm_pix = bm_pix
