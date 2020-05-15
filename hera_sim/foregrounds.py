@@ -263,10 +263,9 @@ class PointSourceForeground(Foreground):
 
         # draw flux densities from a power law
         alpha = beta + 1
-
-        # XXX check to make sure this actually gives a power law
-        flux_densities = (Smax ** alpha + Smin ** alpha 
-                         * (1 - np.random.uniform(size=nsrcs))) ** (1 / alpha)
+        flux_densities = (
+            Smax**alpha + Smin**alpha * (1 - np.random.uniform(size=nsrcs))
+        )**(1 / alpha)
 
         # initialize the visibility array
         vis = np.zeros((lsts.size, freqs.size), dtype=np.complex)
