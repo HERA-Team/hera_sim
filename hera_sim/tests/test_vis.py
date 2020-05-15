@@ -14,6 +14,20 @@ from hera_sim.visibilities import VisCPU, HealVis
 
 SIMULATORS = (HealVis, VisCPU)
 
+try:
+    import hera_gpu
+
+    class VisGPU(VisCPU):
+        """Simple mock class to make testing VisCPU with use_gpu=True easier"""
+        def __init__(self, *args, **kwargs):
+            self.__init__(*args, use_gpu=True, **kwargs)
+
+    SIMULATORS = SIMULATORS + (VisGPU, )
+except ImportError:
+    pass
+
+
+
 np.random.seed(0)
 NTIMES = 10
 BM_PIX = 31

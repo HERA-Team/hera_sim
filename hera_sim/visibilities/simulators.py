@@ -100,7 +100,9 @@ class VisibilitySimulator(object):
                     # If it's not there, it will raise a KeyError.
                     catalog = initialize_catalog_from_params(obsparams)[0]
                     point_source_pos = np.array([catalog['ra_j2000'], catalog['dec_j2000']]).T * np.pi/180.
-                    point_source_flux = np.atleast_2d(catalog['flux_density_I'])
+
+                    # This gets the 'I' component of the flux density
+                    point_source_flux = np.atleast_2d(catalog['flux_density'][:, 0])
                 except KeyError:
                     # If 'catalog' was not defined in obsparams, that's fine. We assume
                     # the user has passed some sky model directly (we'll catch it later).
