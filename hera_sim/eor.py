@@ -1,4 +1,10 @@
-"""EoR from an object-oriented approach."""
+"""A module for simulating EoR-like visibilities.
+
+EoR models should require lsts, frequencies, and a baseline vector as 
+arguments, and may have arbitrary optional parameters. Models should 
+return complex-valued arrays with shape (Nlsts, Nfreqs) that represent 
+a visibility appropriate for the given baseline.
+"""
 
 from .components import registry 
 from abc import abstractmethod
@@ -10,7 +16,13 @@ class EoR:
     pass
 
 class NoiselikeEoR(EoR):
-    # TODO: docstring
+    """Generate a noiselike, fringe-filtered EoR visibility.
+
+    Parameters
+    ----------
+    eor_amp : float
+
+    """
     _alias = ("noiselike_eor",) 
 
     def __init__(self, eor_amp=1e-5, min_delay=None, max_delay=None, 
