@@ -18,8 +18,7 @@ class VisCPU(VisibilitySimulator):
     replaced by vis_gpu. It extends :class:`VisibilitySimulator`.
     """
 
-    def __init__(self, bm_pix=100, real_dtype=np.float32,
-                 complex_dtype=np.complex64, **kwargs):
+    def __init__(self, bm_pix=100, precision=1, use_gpu=False, **kwargs):
         """
         Parameters
         ----------
@@ -34,8 +33,25 @@ class VisCPU(VisibilitySimulator):
             Arguments of :class:`VisibilitySimulator`.
         """
 
-        self._real_dtype = real_dtype
-        self._complex_dtype = complex_dtype
+        assert precision in (1,2)
+        self._precision = precision
+        if precision == 1:
+            self._real_dtype = np.float32
+            self._complex_dtype = np.complex64
+        else:
+            self._real_dtype = np.float64
+            self._complex_dtype = np.complex128
+
+        if use_gpu:
+            try:
+                from hera_gpu.vis import vis_gpu
+                self._vis_cpu = vis_gpu
+            except ImportError:
+                raise ImportError(
+                    'GPU acceleration requires hera_gpu (`pip install hera_sim[gpu]`).'
+                )
+        else:
+            self._vis_cpu = vis_cpu
         self.bm_pix = bm_pix
 
         super(VisCPU, self).__init__(**kwargs)
@@ -165,15 +181,14 @@ class VisCPU(VisibilitySimulator):
                                 dtype=self._complex_dtype)
 
         for i, freq in enumerate(self.freqs):
-            vis = vis_cpu(
+            vis = self._vis_cpu(
                 antpos=self.antpos,
                 freq=freq,
                 eq2tops=eq2tops,
                 crd_eq=crd_eq,
                 I_sky=I[i],
                 bm_cube=beam_lm[:, i],
-                real_dtype=self._real_dtype,
-                complex_dtype=self._complex_dtype,
+                precision=self._precision
             )
 
             indices = np.triu_indices(vis.shape[1])
@@ -232,7 +247,7 @@ class VisCPU(VisibilitySimulator):
 
 
 def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube,
-            real_dtype=np.float32, complex_dtype=np.complex64):
+            precision=1):
     """
     Calculate visibility from an input intensity map and beam model.
 
@@ -268,6 +283,13 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube,
         Visibilities. Shape=(NTIMES, NANTS, NANTS).
     """
 
+    assert precision in (1,2)
+    if precision == 1:
+        real_dtype=np.float32
+        complex_dtype=np.complex64
+    else:
+        real_dtype=np.float64
+        complex_dtype=np.complex128
     nant, ncrd = antpos.shape
     assert ncrd == 3, "antpos must have shape (NANTS, 3)."
     ntimes, ncrd1, ncrd2 = eq2tops.shape
