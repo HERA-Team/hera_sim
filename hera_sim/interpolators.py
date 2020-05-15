@@ -44,7 +44,9 @@ class Interpolator:
             Passed to the interpolation method used to make the interpolator.
         """
         self._datafile = _check_path(datafile)
-        self._data = np.load(self._datafile, allow_pickle=True)
+        # We have to convert to dict to read the data in, instead of lazy-loading.
+        # Otherwise, Interpolator is not pickleable.
+        self._data = dict(np.load(self._datafile, allow_pickle=True))
         self._interp_kwargs = interp_kwargs
 
 class Tsky(Interpolator):

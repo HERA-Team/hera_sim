@@ -26,7 +26,7 @@ main = click.Group()
 @click.option('-o', '--outfile', type=click.Path(dir_okay=False),
                 help='path to output file. Over-rides config if passed.', default=None)
 @click.option("-v", '--verbose', count=True)
-@click.option("-sa", "--save_all", count=True,
+@click.option("-sa", "--save-all", count=True,
                 help="Choose whether to save all data products.")
 @click.option("-c", "--clobber", count=True,
                 help="Choose whether to overwrite files that share the same name.")
@@ -57,25 +57,25 @@ def run(input, outfile, verbose, save_all, clobber):
     # construct outfile name if not passed from command line
     if outfile is None:
         outfile = os.path.join(filing_params["outdir"], filing_params["outfile_name"])
-    
+
     # get the filing format
     fmt = filing_params.get("output_format", None)
     assert fmt is not None, \
         "The output file format must be specified in the configuration file " \
         "under the 'filing' section."
-    
+
     # assume miriad files have the extension "uv"; others are same as name
-    fmt_to_ext = {"miriad" : "uv", 
-                  "uvfits" : "uvfits", 
+    fmt_to_ext = {"miriad" : "uv",
+                  "uvfits" : "uvfits",
                   "uvh5" : "uvh5"}
-    
+
     # make sure the output format is supported; only miriad, uvfits, uvh5
     # are currently supported by UVData objects
     supported_fmts = tuple(fmt_to_ext.keys())
     assert fmt in supported_fmts, \
         "UVData objects currently only support writing to the following " \
         "datatypes: {}".format(supported_fmts)
-    
+
     # add appropriate extension if not specified already, but allow custom ext
     if os.path.splitext(outfile)[1] == '':
         outfile += ".%s"%fmt_to_ext[fmt]
@@ -115,7 +115,7 @@ def run(input, outfile, verbose, save_all, clobber):
     else:
         # assume it's constructed using antpos and the YAML tag !antpos
         antennas = yaml_contents["telescope"]["array_layout"]
-    instrument_params = {"antennas": antennas}
+    instrument_params = {"array_layout": antennas}
     for parameter in ("freq", "time",):
         for key, value in yaml_contents[parameter].items():
             instrument_params[key] = value
@@ -145,7 +145,7 @@ def run(input, outfile, verbose, save_all, clobber):
     if config_params:
         hera_sim.defaults.set(config_params)
 
-    if not config_params and not defaults:
+    if not (config_params or defaults):
         warnings.warn("You have specified neither defaults nor configuration "
                       "parameters. This may result in the simulation erroring "
                       "at some point.")
@@ -183,9 +183,11 @@ def run(input, outfile, verbose, save_all, clobber):
                         base, ext = os.path.splitext(outfile)
                         copy_out = '.'.join((base,model)) + ext
                         # save the component
-                        sim_copy.write(copy_out, 
-                                            file_type=filing_params["output_format"],
-                                            **filing_params['kwargs'])
+                        sim_copy.write(
+                            copy_out,
+                            save_format=filing_params["output_format"],
+                            **filing_params['kwargs']
+                        )
                     else:
                         sim_params[model] = params
             continue
@@ -208,15 +210,17 @@ def run(input, outfile, verbose, save_all, clobber):
     # kwargs to pass to the write method
     if verbose:
         print("Writing simulation results to disk...")
-    
+
     # before writing to disk, update the history to note the config file used
     sim.data.history += "\nSimulation from configuration file: {cfg}".format(
                             cfg=input)
-    sim.write(outfile,
-                   file_type=filing_params["output_format"],
-                   **filing_params["kwargs"])
+    sim.write(
+        outfile,
+        save_format=filing_params["output_format"],
+        **filing_params["kwargs"]
+    )
 
     if verbose:
         print("Simulation complete.")
-    
+
     return

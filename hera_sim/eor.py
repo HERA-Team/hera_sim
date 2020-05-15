@@ -6,9 +6,8 @@ return complex-valued arrays with shape (Nlsts, Nfreqs) that represent
 a visibility appropriate for the given baseline.
 """
 
+import numpy as np
 from .components import registry 
-from abc import abstractmethod
-from cached_property import cached_property
 from . import utils
 
 @registry

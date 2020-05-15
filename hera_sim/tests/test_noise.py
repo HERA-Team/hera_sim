@@ -5,6 +5,7 @@ from hera_sim.data import DATA_PATH
 from hera_sim.interpolators import Beam
 import numpy as np
 import astropy.units as u
+from hera_sim.defaults import defaults
 
 np.random.seed(0)
 
@@ -29,9 +30,6 @@ class TestNoise(unittest.TestCase):
         # check that it varies in frequency
         self.assertFalse(np.all(tsky[:, 0] == tsky[:, 1]))
 
-        # import uvtools, pylab as plt
-        # uvtools.plot.waterfall(tsky); plt.show()
-        
         # now test it using an interpolation object as a sky model
         tsky = noise.resample_Tsky(lsts, freqs, Tsky_mdl=noise.HERA_Tsky_mdl["xx"])
         
@@ -42,10 +40,9 @@ class TestNoise(unittest.TestCase):
         self.assertFalse(np.all(tsky[0] == tsky[1]))
         self.assertFalse(np.all(tsky[:, 0] == tsky[:, 1]))
 
-        # import uvtools, pylab as plt
-        # uvtools.plot.waterfall(tsky); plt.show()
-
     def test_sky_noise_jy(self):
+        defaults.deactivate()
+
         # make some parameters
         freqs = np.linspace(0.1, 0.2, 100)
         lsts = np.linspace(0, 2 * np.pi, 500)

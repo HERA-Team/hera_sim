@@ -8,6 +8,7 @@ import shutil
 import tempfile
 import sys
 import os
+from os import path
 
 import numpy as np
 from nose.tools import raises, assert_raises
@@ -221,7 +222,7 @@ def test_run_sim():
             "whitenoise_xtalk": {"amplitude":1.2345} 
             }
 
-    sim = create_sim()
+    sim = create_sim(autos=True)
 
     sim.run_sim(**sim_params)
 
@@ -277,17 +278,6 @@ def test_run_sim_both_args():
     sim = create_sim()
     sim.run_sim(tmp_sim_file, **sim_params)
 
-@raises(UnboundLocalError)
-def test_run_sim_bad_param_key():
-    bad_key = {"something": {"something else": "another different thing"} }
-    sim = create_sim()
-    sim.run_sim(**bad_key)
-
-@raises(TypeError)
-def test_run_sim_bad_param_value():
-    bad_value = {"diffuse_foreground": 13}
-    sim = create_sim()
-    sim.run_sim(**bad_value)
 
 @raises(SystemExit)
 def test_bad_yaml_config():
@@ -301,4 +291,47 @@ def test_bad_yaml_config():
                  """)
     sim = create_sim()
     sim.run_sim(tmp_sim_file)
+
+
+@raises(ValueError)
+def test_run_sim_both_args():
+    # make a temporary test file
+    tmp_sim_file = tempfile.mkstemp()[1]
+    with open(tmp_sim_file, 'w') as sim_file:
+        sim_file.write("""
+            pntsrc_foreground:
+                nsrcs: 5000
+                """)
+    sim_params = {"diffuse_foreground": {"Tsky_mdl":HERA_Tsky_mdl['xx']} }
+    sim = create_sim()
+    sim.run_sim(tmp_sim_file, **sim_params)
+
+
+@raises(UnboundLocalError)
+def test_run_sim_bad_param_key():
+    bad_key = {"something": {"something else": "another different thing"} }
+    sim = create_sim()
+    sim.run_sim(**bad_key)
+
+
+@raises(TypeError)
+def test_run_sim_bad_param_value():
+    bad_value = {"diffuse_foreground": 13}
+    sim = create_sim()
+    sim.run_sim(**bad_value)
+
+
+@raises(SystemExit)
+def test_bad_yaml_config():
+    # make a bad config file
+    tmp_sim_file = tempfile.mkstemp()[1]
+    with open(tmp_sim_file, 'w') as sim_file:
+        sim_file.write("""
+            this:
+                is: a
+                 bad: file
+                 """)
+    sim = create_sim()
+    sim.run_sim(tmp_sim_file)
+
 
