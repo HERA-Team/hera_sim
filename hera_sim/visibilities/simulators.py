@@ -8,8 +8,8 @@ from cached_property import cached_property
 from pyuvsim import analyticbeam as ab
 from pyuvsim.simsetup import (
     initialize_uvdata_from_params,
+    initialize_catalog_from_params,
     uvdata_to_telescope_config,
-    beam_string_to_object,
     _complete_uvdata
 )
 from os import path
@@ -93,13 +93,28 @@ class VisibilitySimulator(object):
              self.beams,
              self.beam_ids) = initialize_uvdata_from_params(obsparams)
 
+            if point_source_pos is None:
+                try:
+                    # Try setting up point sources from the obsparams.
+                    # Will only work, of course, if the "catalog" key is in obsparams.
+                    # If it's not there, it will raise a KeyError.
+                    catalog = initialize_catalog_from_params(obsparams)[0]
+                    point_source_pos = np.array([catalog['ra_j2000'], catalog['dec_j2000']]).T * np.pi/180.
+
+                    # This gets the 'I' component of the flux density
+                    point_source_flux = np.atleast_2d(catalog['flux_density'][:, 0])
+                except KeyError:
+                    # If 'catalog' was not defined in obsparams, that's fine. We assume
+                    # the user has passed some sky model directly (we'll catch it later).
+                    pass
+
             # convert the beam_ids dict to an array of ints
             nms = list(self.uvdata.antenna_names)
             tmp_ids = np.zeros(len(self.beam_ids), dtype=int)
             for name, id in self.beam_ids.items():
                 tmp_ids[nms.index(name)] = id
             self.beam_ids = tmp_ids
-            self.beams = [beam_string_to_object(bm) for bm in self.beams]
+            self.beams.set_obj_mode()
             _complete_uvdata(self.uvdata, inplace=True)
         else:
             if uvdata is None:

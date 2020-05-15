@@ -29,9 +29,6 @@ class TestNoise(unittest.TestCase):
         # check that it varies in frequency
         self.assertFalse(np.all(tsky[:, 0] == tsky[:, 1]))
 
-        # import uvtools, pylab as plt
-        # uvtools.plot.waterfall(tsky); plt.show()
-        
         # now test it using an interpolation object as a sky model
         tsky = noise.resample_Tsky(lsts, freqs, Tsky_mdl=noise.HERA_Tsky_mdl["xx"])
         
@@ -41,9 +38,6 @@ class TestNoise(unittest.TestCase):
         # now check that it's constant in neither time nor frequency
         self.assertFalse(np.all(tsky[0] == tsky[1]))
         self.assertFalse(np.all(tsky[:, 0] == tsky[:, 1]))
-
-        # import uvtools, pylab as plt
-        # uvtools.plot.waterfall(tsky); plt.show()
 
     def test_sky_noise_jy(self):
         # make some parameters

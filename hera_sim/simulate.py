@@ -10,7 +10,7 @@ import time
 
 import numpy as np
 from cached_property import cached_property
-from pyuvdata import UVData
+from pyuvdata import UVData, utils
 from astropy import constants as const
 
 from . import io
@@ -378,6 +378,9 @@ class Simulator:
         """
         return self.add(model, **kwargs)
 
+    def _get_reds(self):
+        return self.data.get_redundancies()[0]
+
     def add_rfi(self, model, **kwargs):
         """Add RFI to the visibilities. See :meth:`add` for more details."""
         return self.add(model, **kwargs)
@@ -415,7 +418,7 @@ class Simulator:
         multikey = any(isinstance(key, (list, tuple)) for key in vis_filter)
         # iterate over the keys, find if any are okay
         if multikey:
-            apply_filter = [self._apply_filter(key, ant1, ant2, pol)
+            apply_filter = [Simulator._apply_filter(key, ant1, ant2, pol)
                             for key in vis_filter]
             # if a single filter says to let it pass, then do so
             return all(apply_filter)
