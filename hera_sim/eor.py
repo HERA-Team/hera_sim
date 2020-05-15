@@ -1,8 +1,6 @@
 """EoR from an object-oriented approach."""
-
+import numpy as np
 from .components import registry 
-from abc import abstractmethod
-from cached_property import cached_property
 from . import utils
 
 @registry

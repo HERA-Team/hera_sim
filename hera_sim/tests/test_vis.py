@@ -6,6 +6,7 @@ import numpy as np
 import pytest
 from astropy.units import sday
 from pyuvsim.analyticbeam import AnalyticBeam
+from hera_sim.defaults import defaults
 
 from hera_sim import io
 from hera_sim import vis
@@ -38,11 +39,12 @@ NFREQ = 5
 
 @pytest.fixture
 def uvdata():
+    defaults.set('h1c')
     return io.empty_uvdata(
-        nfreq=NFREQ,
+        Nfreqs=NFREQ,
         integration_time=sday.to('s') / NTIMES,
-        ntimes=NTIMES,
-        ants={
+        Ntimes=NTIMES,
+        array_layout={
             0: (0, 0, 0),
         },
     )
@@ -50,11 +52,12 @@ def uvdata():
 
 @pytest.fixture
 def uvdataJD():
+    defaults.set('h1c')
     return io.empty_uvdata(
-        nfreq=NFREQ,
+        Nfreqs=NFREQ,
         integration_time=sday.to('s') / NTIMES,
-        ntimes=NTIMES,
-        ants={
+        Ntimes=NTIMES,
+        array_layout={
             0: (0, 0, 0),
         },
         start_time=2456659
@@ -160,11 +163,12 @@ def test_JD(uvdata, uvdataJD):
 
 @pytest.fixture
 def uvdata2():
+    defaults.set('h1c')
     return io.empty_uvdata(
-        nfreq=NFREQ,
+        Nfreqs=NFREQ,
         integration_time=sday.to('s') / NTIMES,
-        ntimes=NTIMES,
-        ants={
+        Ntimes=NTIMES,
+        array_layout={
             0: (0, 0, 0),
             1: (1, 1, 0)
         },

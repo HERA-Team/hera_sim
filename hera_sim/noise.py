@@ -1,7 +1,7 @@
 """Make some noise."""
 
 import os
-import astropy.constants as const
+import warnings
 import astropy.units as u
 import numpy as np
 
@@ -113,3 +113,7 @@ resample_Tsky = ThermalNoise.resample_Tsky
 thermal_noise = ThermalNoise()
 sky_noise_jy = \
     lambda lsts, freqs, **kwargs : thermal_noise(lsts, freqs, Trx=0, **kwargs)
+
+def white_noise(*args, **kwargs):
+    warnings.warn("white_noise is being deprecated. Use utils.gen_white_noise instead.")
+    return utils.gen_white_noise(*args, **kwargs)

@@ -25,9 +25,3 @@ try:
     from .prisim_wrapper import PRISim
 except ImportError:
     warnings.warn("PRISim failed to import.")
-
-# GPU version of VisCPU
-try:
-    from .vis_gpu import VisGPU
-except ImportError:
-    warnings.warn("VisGPU failed to import.")

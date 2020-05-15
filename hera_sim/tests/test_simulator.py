@@ -8,6 +8,7 @@ import shutil
 import tempfile
 import sys
 import os
+from os import path
 
 import numpy as np
 from nose.tools import raises, assert_raises
@@ -221,7 +222,7 @@ def test_run_sim():
             "whitenoise_xtalk": {"amplitude":1.2345} 
             }
 
-    sim = create_sim()
+    sim = create_sim(autos=True)
 
     sim.run_sim(**sim_params)
 
@@ -291,132 +292,46 @@ def test_bad_yaml_config():
     sim = create_sim()
     sim.run_sim(tmp_sim_file)
 
-def test_consistent_across_reds():
-    ants = hex_array(2,split_core=False,outriggers=0)
-    sim = Simulator(n_freq=50, n_times=20, antennas=ants)
-    sim.add_foregrounds('diffuse_foreground', Tsky_mdl=HERA_Tsky_mdl['xx'],
-            seed_redundantly=True)
-    sim.add_eor('noiselike_eor', seed_redundantly=True)
-    reds = sim.data.get_redundancies()[0][1] # choose non-autos
-    key1 = sim.data.baseline_to_antnums(reds[0]) + ('xx',)
-    key2 = sim.data.baseline_to_antnums(reds[1]) + ('xx',)
-    assert np.all(np.isclose(sim.data.get_data(key1),sim.data.get_data(key2)))
 
-def test_return_and_save_seeds():
-    ants = hex_array(2, split_core=False, outriggers=0)
-    sim = Simulator(n_freq=50, n_times=20, antennas=ants)
-    sim.add_foregrounds('diffuse_foreground', Tsky_mdl=HERA_Tsky_mdl['xx'],
-            seed_redundantly=True)
-    tempdir = tempfile.mkdtemp()
-    vis_file = path.join(tempdir, "test.uvh5")
-    seeds = sim.data.extra_keywords['seeds']
-    alt_seeds = sim.write_data(vis_file, ret_seeds=True, save_seeds=True)
-    saved_seeds = np.load(vis_file.replace(".uvh5", ".npy"), allow_pickle=True)
-    saved_seeds = saved_seeds[None][0]
-    assert seeds==alt_seeds
-    assert seeds==sim.data.extra_keywords['seeds']
-    assert np.all(seeds['diffuse_foreground']==saved_seeds['diffuse_foreground'])
+@raises(ValueError)
+def test_run_sim_both_args():
+    # make a temporary test file
+    tmp_sim_file = tempfile.mkstemp()[1]
+    with open(tmp_sim_file, 'w') as sim_file:
+        sim_file.write("""
+            pntsrc_foreground:
+                nsrcs: 5000
+                """)
+    sim_params = {"diffuse_foreground": {"Tsky_mdl":HERA_Tsky_mdl['xx']} }
+    sim = create_sim()
+    sim.run_sim(tmp_sim_file, **sim_params)
 
-if sys.version_info.major < 3 or \
-   sys.version_info.major > 3 and sys.version_info.minor < 4:
-    @raises(NotImplementedError)
-    def test_run_sim():
-        sim_params = {}
-        sim = create_sim()
-        sim.run_sim(**sim_params)
-else:
-    def test_run_sim():
-        sim_params = {
-                "diffuse_foreground": {"Tsky_mdl":HERA_Tsky_mdl['xx']},
-                "pntsrc_foreground": {"nsrcs":500, "Smin":0.1},
-                "noiselike_eor": {"eor_amp":3e-2},
-                "thermal_noise": {"Tsky_mdl":HERA_Tsky_mdl['xx'], "inttime":8.59},
-                "rfi_scatter": {"chance":0.99, "strength":5.7, "std":2.2},
-                "rfi_impulse": {"chance":0.99, "strength":17.22},
-                "rfi_stations": {},
-                "gains": {"gain_spread":0.05},
-                "sigchain_reflections": {"amp":[0.5,0.5],
-                                         "dly":[14,7],
-                                         "phs":[0.7723,3.2243]},
-                "gen_whitenoise_xtalk": {"amplitude":1.2345} 
-                }
 
-        sim = create_sim()
-    
-        sim.run_sim(**sim_params)
+@raises(UnboundLocalError)
+def test_run_sim_bad_param_key():
+    bad_key = {"something": {"something else": "another different thing"} }
+    sim = create_sim()
+    sim.run_sim(**bad_key)
 
-        assert not np.all(np.isclose(sim.data.data_array, 0))
 
-        # instantiate a mock simulation file
-        tmp_sim_file = tempfile.mkstemp()[1]
-        # write something to it
-        with open(tmp_sim_file, 'w') as sim_file:
-            sim_file.write("""
-                diffuse_foreground: 
-                    Tsky_mdl: !Tsky
-                        datafile: {}/HERA_Tsky_Reformatted.npz
-                        pol: yy
-                pntsrc_foreground: 
-                    nsrcs: 500
-                    Smin: 0.1
-                noiselike_eor: 
-                    eor_amp: 0.03
-                gains: 
-                    gain_spread: 0.05
-                gen_cross_coupling_xtalk: 
-                    amp: 0.225
-                    dly: 13.2
-                    phs: 2.1123
-                thermal_noise: 
-                    Tsky_mdl: !Tsky 
-                        datafile: {}/HERA_Tsky_Reformatted.npz
-                        pol: xx
-                    inttime: 9.72
-                rfi_scatter: 
-                    chance: 0.99
-                    strength: 5.7
-                    std: 2.2
-                    """.format(DATA_PATH, DATA_PATH))
-        sim = create_sim(autos=True)
-        sim.run_sim(tmp_sim_file)
-        assert not np.all(np.isclose(sim.data.data_array, 0))
+@raises(TypeError)
+def test_run_sim_bad_param_value():
+    bad_value = {"diffuse_foreground": 13}
+    sim = create_sim()
+    sim.run_sim(**bad_value)
 
-    @raises(AssertionError)
-    def test_run_sim_both_args():
-        # make a temporary test file
-        tmp_sim_file = tempfile.mkstemp()[1]
-        with open(tmp_sim_file, 'w') as sim_file:
-            sim_file.write("""
-                pntsrc_foreground:
-                    nsrcs: 5000
-                    """)
-        sim_params = {"diffuse_foreground": {"Tsky_mdl":HERA_Tsky_mdl['xx']} }
-        sim = create_sim()
-        sim.run_sim(tmp_sim_file, **sim_params)
 
-    @raises(AssertionError)
-    def test_run_sim_bad_param_key():
-        bad_key = {"something": {"something else": "another different thing"} }
-        sim = create_sim()
-        sim.run_sim(**bad_key)
-
-    @raises(AssertionError)
-    def test_run_sim_bad_param_value():
-        bad_value = {"diffuse_foreground": 13}
-        sim = create_sim()
-        sim.run_sim(**bad_value)
-
-    @raises(SystemExit)
-    def test_bad_yaml_config():
-        # make a bad config file
-        tmp_sim_file = tempfile.mkstemp()[1]
-        with open(tmp_sim_file, 'w') as sim_file:
-            sim_file.write("""
-                this:
-                    is: a
-                     bad: file
-                     """)
-        sim = create_sim()
-        sim.run_sim(tmp_sim_file)
+@raises(SystemExit)
+def test_bad_yaml_config():
+    # make a bad config file
+    tmp_sim_file = tempfile.mkstemp()[1]
+    with open(tmp_sim_file, 'w') as sim_file:
+        sim_file.write("""
+            this:
+                is: a
+                 bad: file
+                 """)
+    sim = create_sim()
+    sim.run_sim(tmp_sim_file)
 
 
