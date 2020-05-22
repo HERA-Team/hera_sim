@@ -5,7 +5,7 @@ This module provides interfaces to different interpolation classes.
 import numpy as np
 from cached_property import cached_property
 from scipy.interpolate import RectBivariateSpline, interp1d
-from hera_sim.data import DATA_PATH
+from hera_sim import DATA_PATH
 from os import path
 
 INTERP_OBJECTS = {"1d": ("beam", "bandpass",), "2d": ("Tsky_mdl",)}

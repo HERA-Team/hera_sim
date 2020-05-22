@@ -2,9 +2,8 @@ import os
 import unittest
 from hera_sim import sigchain, noise, foregrounds
 from hera_sim.interpolators import Beam
-from hera_sim.data import DATA_PATH
+from hera_sim import DATA_PATH
 import numpy as np
-import astropy.units as u
 import nose.tools as nt
 from scipy.signal import windows
 
@@ -63,7 +62,7 @@ class TestSigchainReflections(unittest.TestCase):
         Tsky_mdl = noise.HERA_Tsky_mdl["xx"]
         Tsky = Tsky_mdl(lsts, fqs)
         bl_vec = np.array([50.0, 0, 0])
-        beamfile = os.path.join(DATA_PATH, "HERA_H1C_BEAM_POLY.npy")
+        beamfile = DATA_PATH / "HERA_H1C_BEAM_POLY.npy"
         omega_p = Beam(beamfile)
 
         # mock up visibilities

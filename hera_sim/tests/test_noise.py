@@ -1,7 +1,7 @@
 import os
 import unittest
 from hera_sim import noise, utils
-from hera_sim.data import DATA_PATH
+from hera_sim import DATA_PATH
 from hera_sim.interpolators import Beam
 import numpy as np
 import astropy.units as u
@@ -9,7 +9,7 @@ from hera_sim.defaults import defaults
 
 np.random.seed(0)
 
-beamfile = os.path.join(DATA_PATH, "HERA_H1C_BEAM_POLY.npy")
+beamfile = DATA_PATH / "HERA_H1C_BEAM_POLY.npy"
 
 
 class TestNoise(unittest.TestCase):

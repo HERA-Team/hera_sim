@@ -1,7 +1,6 @@
 import unittest
-import os
 from hera_sim import noise, foregrounds
-from hera_sim.data import DATA_PATH
+from hera_sim import DATA_PATH
 from hera_sim.interpolators import Beam
 import numpy as np
 import astropy.units as u
@@ -12,7 +11,7 @@ import pytest
 
 np.random.seed(0)
 
-beamfile = os.path.join(DATA_PATH, "HERA_H1C_BEAM_POLY.npy")
+beamfile = DATA_PATH / "HERA_H1C_BEAM_POLY.npy"
 
 # XXX add tests to make sure V_ij = V*_ji
 # neither model has this feature!

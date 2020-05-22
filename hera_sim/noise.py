@@ -6,14 +6,13 @@ import astropy.units as u
 import numpy as np
 
 from .components import registry
-from .data import DATA_PATH
+from . import DATA_PATH
 from .interpolators import Tsky
 from . import utils
 
 # to minimize breaking changes
 HERA_Tsky_mdl = {
-    pol: Tsky(os.path.join(DATA_PATH, "HERA_Tsky_Reformatted.npz"), pol=pol)
-    for pol in ("xx", "yy")
+    pol: Tsky(DATA_PATH / "HERA_Tsky_Reformatted.npz", pol=pol) for pol in ("xx", "yy")
 }
 
 
@@ -76,7 +75,7 @@ class ThermalNoise(Noise):
         # default to H1C beam if not specified
         # XXX these three lines currently not tested
         if omega_p is None:
-            omega_p = np.load(os.path.join(DATA_PATH, "HERA_H1C_BEAM_POLY.npy"))
+            omega_p = np.load(DATA_PATH / "HERA_H1C_BEAM_POLY.npy")
             omega_p = np.polyval(omega_p, freqs)
 
         # support passing beam as an interpolator

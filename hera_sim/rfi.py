@@ -4,6 +4,7 @@ import numpy as np
 import astropy.units as u
 from .components import registry
 from .utils import _listify
+from pathlib import Path
 
 
 @registry
@@ -97,7 +98,7 @@ class Stations(RFI):
         if stations is None:
             warnings.warn("You did not specify any stations to simulate.")
             return rfi
-        elif isinstance(stations, str):
+        elif isinstance(stations, (str, Path)):
             # assume that it's a path to a npy file
             stations = np.load(stations)
 

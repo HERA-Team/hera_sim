@@ -8,16 +8,15 @@ import shutil
 import tempfile
 import sys
 import os
-from os import path
 
 import numpy as np
 from nose.tools import raises, assert_raises
 
 from hera_sim.foregrounds import DiffuseForeground, diffuse_foreground
-from hera_sim.noise import thermal_noise, HERA_Tsky_mdl
+from hera_sim.noise import HERA_Tsky_mdl
 from hera_sim.simulate import Simulator
 from hera_sim.antpos import hex_array
-from hera_sim.data import DATA_PATH
+from hera_sim import DATA_PATH
 from hera_sim.defaults import defaults
 from hera_sim.interpolators import Beam
 from pyuvdata import UVData
