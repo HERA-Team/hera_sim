@@ -1,4 +1,4 @@
-exclude: '^docs/conf.py'
+exclude: 'config.yaml|config_examples/*.yaml|hera_sim/config/H1C.yaml|hera_sim/config/H2C.yaml'
 
 repos:
 - repo: git://github.com/pre-commit/pre-commit-hooks

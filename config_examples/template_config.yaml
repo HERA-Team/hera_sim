@@ -3,7 +3,7 @@
 
 bda:
     max_decorr: 0
-    pre_fs_int_time: !dimensionful 
+    pre_fs_int_time: !dimensionful
         value: 0.1
         units: 's'
     corr_FoV_angle: !dimensionful
@@ -79,7 +79,7 @@ systematics:
             gain_spread: 0.1
             dly_rng: [-20, 20]
             bp_poly: HERA_H1C_BANDPASS.npy
-        sigchain_reflections: 
+        sigchain_reflections:
             amp: !!null
             dly: !!null
             phs: !!null
@@ -100,7 +100,7 @@ sky:
         # data folder
         datafile: HERA_Tsky_Reformatted.npz
         # interp kwargs are passed to scipy.interp.RectBivariateSpline
-        interp_kwargs: 
+        interp_kwargs:
             pol: xx # this is popped when making a Tsky object
     eor:
         noiselike_eor:
@@ -131,7 +131,7 @@ sky:
         # Note regarding seed_redundantly:
         # This ensures that baselines within a redundant group see the same sky;
         # however, this does not ensure that the sky is actually consistent. So,
-        # while the data produced can be absolutely calibrated, it cannot be 
+        # while the data produced can be absolutely calibrated, it cannot be
         # used to make sensible images (at least, I don't *think* it can be).
 
 simulation:
@@ -140,12 +140,11 @@ simulation:
     # is the simulator being used. this will necessarily look different
     # if other simulators are used, but that's not implemented yet
     #
-    components: [foregrounds,  
-                 noise, 
-                 eor, 
-                 rfi, 
+    components: [foregrounds,
+                 noise,
+                 eor,
+                 rfi,
                  sigchain, ]
     # list particular model components to exclude from simulation
     exclude: [sigchain_reflections,
               gen_whitenoise_xtalk,]
-

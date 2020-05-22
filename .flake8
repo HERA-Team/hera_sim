@@ -9,7 +9,7 @@ ignore =
     E231
 max-line-length = 88
 # Should be 18.
-max-complexity = 25
+max-complexity = 35
 exclude =
     development/*
 # Not ready for this yet.

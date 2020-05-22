@@ -18,7 +18,7 @@ from . import io
 from . import noise
 from . import rfi
 from . import sigchain
-from hera_sim.visibilities import simulators
+from .visibilities import simulators
 from . import eor
 from . import utils
 from . import simulate
@@ -28,3 +28,7 @@ from .defaults import defaults
 from .components import SimulationComponent, registry
 from .components import list_discoverable_components
 from .interpolators import Tsky, Bandpass, Beam
+
+from pathlib import Path
+
+DATA_PATH = Path(__file__).parent / "data"
