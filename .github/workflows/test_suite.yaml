@@ -43,6 +43,7 @@ jobs:
           export PATH="$HOME/miniconda/bin:$PATH"
           source activate ${ENV_NAME}
           conda env update -f ci/${ENV_NAME}.yaml
+          pip install .[dev]
       - name: Run Tests
         run: |
           export PATH="$HOME/miniconda/bin:$PATH"
