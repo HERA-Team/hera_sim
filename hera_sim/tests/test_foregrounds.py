@@ -74,7 +74,7 @@ class TestForegrounds(unittest.TestCase):
         bl_vec = [0, 0, 0]
         vis = foregrounds.pntsrc_foreground(lsts, freqs, bl_vec, nsrcs=200)
 
-        np.testing.assert_allclose(vis.imag, 0))
+        np.testing.assert_allclose(vis.imag, 0)
         
         # XXX check more substantial things
         # import uvtools, pylab as plt
