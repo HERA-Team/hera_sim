@@ -16,8 +16,12 @@ jobs:
       - uses: actions/checkout@master
         with:
          fetch-depth: 1
+      - name: Set up Python 3.7
+        uses: actions/setup-python@v1
+        with:
+           python-version: 3.7
       - name: Install pre-commit
-        run: pip install pre-commit --user
+        run: python -m pip install pre-commit --user
       - name: Linting
         run: pre-commit run -a
 
