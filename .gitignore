@@ -14,4 +14,4 @@ hera_sim/\.ipynb_checkpoints/
 
 \.ipynb_checkpoints/
 
-.coverage
+*.coverage*
