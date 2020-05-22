@@ -10,14 +10,15 @@ import time
 
 import numpy as np
 from cached_property import cached_property
-from pyuvdata import UVData, utils
+from pyuvdata import UVData
 from astropy import constants as const
 
 from . import io
 from . import utils
 from .defaults import defaults
-from .version import version
+from . import __version__
 from .components import SimulationComponent
+
 
 # wrapper for the run_sim method, necessary for part of the CLI
 def _generator_to_list(func, *args, **kwargs):
@@ -25,12 +26,15 @@ def _generator_to_list(func, *args, **kwargs):
     def new_func(*args, **kwargs):
         result = list(func(*args, **kwargs))
         return None if result == [] else result
+
     return new_func
+
 
 class Simulator:
     """Class for managing a simulation.
 
     """
+
     def __init__(self, data=None, defaults_config=None, **kwargs):
         """Initialize a Simulator object.
 
@@ -45,7 +49,7 @@ class Simulator:
         self.extras = {}
         self._seeds = {}
         self._antpairpol_cache = {}
-        
+
         # apply and activate defaults if specified
         if defaults_config:
             self.apply_defaults(defaults_config)
@@ -92,10 +96,10 @@ class Simulator:
 
         # find out whether the data application should be filtered
         vis_filter = kwargs.pop("vis_filter", None)
-        
+
         # take out the seed_mode kwarg so as not to break initializor
         seed_mode = kwargs.pop("seed_mode", -1)
-        
+
         # get the model for the desired component
         model, is_class = self._get_component(component)
 
@@ -111,22 +115,24 @@ class Simulator:
         # instantiate the class if the component is a class
         if is_class:
             model = model(**kwargs)
-        
+
         # check that there isn't an issue with component ordering
         self._sanity_check(model)
-        
+
         # re-add the seed_mode kwarg if it was specified
         if seed_mode != -1:
             kwargs["seed_mode"] = seed_mode
-        
+
         # calculate the effect
         data = self._iteratively_apply(
-            model, add_vis=add_vis, ret_vis=ret_vis, 
-            vis_filter=vis_filter, 
+            model,
+            add_vis=add_vis,
+            ret_vis=ret_vis,
+            vis_filter=vis_filter,
             antpairpol_cache=antpairpol_cache,
             **kwargs
         )
-        
+
         # log the component and its kwargs, if added to data
         if add_vis:
             # note the filter used if any
@@ -143,7 +149,7 @@ class Simulator:
             # if we're not adding it, then we don't want to keep
             # the antpairpol cache
             _ = self._antpairpol_cache.pop(model_key)
-        
+
         # return the data if desired
         if ret_vis:
             return data
@@ -156,29 +162,29 @@ class Simulator:
         # XXX do we want to leave this check in there?
         if component not in self._components:
             raise AttributeError(
-                "You are trying to retrieve a component that has not " 
-                "been simulated. Please check that the component you " 
-                "are passing is correct. Consult the _components " 
-                "attribute to see which components have been simulated " 
+                "You are trying to retrieve a component that has not "
+                "been simulated. Please check that the component you "
+                "are passing is correct. Consult the _components "
+                "attribute to see which components have been simulated "
                 "and which keys are provided."
             )
-            
-        if ((ant1 is None) ^ (ant2 is None)):
+
+        if (ant1 is None) ^ (ant2 is None):
             raise TypeError(
-                "You are trying to retrieve a visibility but have only " 
-                "specified one antenna. This use is unsupported; please " 
+                "You are trying to retrieve a visibility but have only "
+                "specified one antenna. This use is unsupported; please "
                 "either specify an antenna pair or leave both as None."
             )
 
         # retrieve the model
         model, is_class = self._get_component(component)
-        
+
         # get the kwargs
         kwargs = self._components[component]
-        
+
         # figure out whether or not to seed the rng
         seed_mode = kwargs.pop("seed_mode", None)
-        
+
         # get the antpairpol cache
         antpairpol_cache = self._antpairpol_cache[model]
 
@@ -186,11 +192,11 @@ class Simulator:
         use_defaults = kwargs.pop("defaults", {})
         if use_defaults:
             self.apply_defaults(**use_defaults)
-        
+
         # instantiate the model if it's a class
         if is_class:
             model = model(**kwargs)
-        
+
         # if ant1, ant2 not specified, then do the whole array
         if ant1 is None and ant2 is None:
             # re-add seed_mode to the kwargs
@@ -198,26 +204,26 @@ class Simulator:
 
             # get the data
             data = self._iteratively_apply(
-                model, add_vis=False, ret_vis=True, 
+                model,
+                add_vis=False,
+                ret_vis=True,
                 antpairpol_cache=antpairpol_cache,
                 **kwargs
             )
-            
+
             # return a subset if a polarization is specified
             if pol is None:
                 return data
             else:
                 pol_ind = self.data.get_pols().index(pol)
                 return data[:, 0, :, pol_ind]
-        
+
         # seed the RNG if desired, but be careful...
         if seed_mode == "once":
             # in this case, we need to use _iteratively_apply
             # otherwise, the seeding will be wrong
             kwargs["seed_mode"] = seed_mode
-            data = self._iteratively_apply(
-                model, add_vis=False, ret_vis=True, **kwargs
-            )
+            data = self._iteratively_apply(model, add_vis=False, ret_vis=True, **kwargs)
             blt_inds = self.data.antpair2ind((ant1, ant2))
             if pol is None:
                 return data[blt_inds, 0, :, :]
@@ -225,13 +231,11 @@ class Simulator:
                 pol_ind = self.data.get_pols().index(pol)
                 return data[blt_inds, 0, :, pol_ind]
         elif seed_mode == "redundant":
-            if any(
-                [(ant2, ant1) == item for item in antpairpol_cache]
-            ):
+            if any([(ant2, ant1) == item for item in antpairpol_cache]):
                 self._seed_rng(seed_mode, model, ant2, ant1)
             else:
                 self._seed_rng(seed_mode, model, ant1, ant2)
-        
+
         # get the arguments necessary for the model
         args = self._initialize_args_from_model(model)
         args = self._update_args(args, ant1, ant2, pol)
@@ -245,27 +249,26 @@ class Simulator:
 
         """
         import matplotlib.pyplot as plt
-        fig = plt.figure(figsize=(10,8))
-        ax = fig.add_subplot(1,1,1)
+
+        fig = plt.figure(figsize=(10, 8))
+        ax = fig.add_subplot(1, 1, 1)
         ax.set_xlabel("East Position [m]", fontsize=12)
         ax.set_ylabel("North Position [m]", fontsize=12)
         ax.set_title("Array Layout", fontsize=12)
         dx = 0.25
         for ant, pos in self.antpos.items():
-            ax.plot(pos[0], pos[1], color='k', marker='o')
+            ax.plot(pos[0], pos[1], color="k", marker="o")
             ax.text(pos[0] + dx, pos[1] + dx, ant)
         return fig
 
     def refresh(self):
         """Refresh the Simulator object.
 
-        This zeros the data array, resets the history, and clears the 
+        This zeros the data array, resets the history, and clears the
         instance's _components dictionary.
         """
-        self.data.data_array = np.zeros(
-            self.data.data_array.shape, dtype=np.complex
-        )
-        self.data.history = ''
+        self.data.data_array = np.zeros(self.data.data_array.shape, dtype=np.complex)
+        self.data.history = ""
         self._components.clear()
         self._antpairpol_cache = []
 
@@ -290,19 +293,17 @@ class Simulator:
         # make sure that only sim_file or sim_params are specified
         if not (bool(sim_file) ^ bool(sim_params)):
             raise ValueError(
-                "Either an absolute path to a simulation configuration " 
-                "file or a dictionary of simulation parameters may be " 
+                "Either an absolute path to a simulation configuration "
+                "file or a dictionary of simulation parameters may be "
                 "passed, but not both. Please only pass one of the two."
             )
 
         # read the simulation file if provided
         if sim_file is not None:
-            with open(sim_file, 'r') as config:
+            with open(sim_file, "r") as config:
                 try:
-                    sim_params = yaml.load(
-                        config.read(), Loader=yaml.FullLoader
-                    )
-                except:
+                    sim_params = yaml.load(config.read(), Loader=yaml.FullLoader)
+                except Exception:
                     print("The configuration file was not able to be loaded.")
                     print("Please fix the file and try again.")
                     sys.exit()
@@ -312,46 +313,46 @@ class Simulator:
             # make sure that the parameters are a dictionary
             if not isinstance(params, dict):
                 raise TypeError(
-                    "The parameters for {component} are not formatted " 
-                    "properly. Please ensure that the parameters for " 
-                    "each component are specified using a " 
+                    "The parameters for {component} are not formatted "
+                    "properly. Please ensure that the parameters for "
+                    "each component are specified using a "
                     "dictionary.".format(component=component)
                 )
-            
+
             # add the component to the data
             value = self.add(component, **params)
-        
+
             # if the user wanted to return the data, then
             if value is not None:
                 yield (component, value)
 
     def chunk_sim_and_save(
-        self, 
-        save_dir, 
+        self,
+        save_dir,
         ref_files=None,
         Nint_per_file=None,
         prefix=None,
         sky_cmp=None,
         state=None,
-        filetype='uvh5',
-        clobber=True
+        filetype="uvh5",
+        clobber=True,
     ):
         """
         Chunk a simulation in time and write to disk.
 
-        This function is a thin wrapper around :func:`io.chunk_sim_and_save`; 
+        This function is a thin wrapper around :func:`io.chunk_sim_and_save`;
         please see that function's documentation for more information.
         """
         io.chunk_sim_and_save(
-            self.data, 
-            save_dir, 
+            self.data,
+            save_dir,
             ref_files=ref_files,
             Nint_per_file=Nint_per_file,
             prefix=prefix,
             sky_cmp=sky_cmp,
             state=state,
             filetype=filetype,
-            clobber=clobber
+            clobber=clobber,
         )
         return
 
@@ -359,21 +360,21 @@ class Simulator:
     # TODO: write a deprecated wrapper function
     def add_eor(self, model, **kwargs):
         """
-        Add an EoR-like model to the visibilities. See :meth:`add` for 
+        Add an EoR-like model to the visibilities. See :meth:`add` for
         more details.
         """
         return self.add(model, **kwargs)
 
     def add_foregrounds(self, model, **kwargs):
         """
-        Add foregrounds to the visibilities. See :meth:`add` for 
+        Add foregrounds to the visibilities. See :meth:`add` for
         more details.
         """
         return self.add(model, **kwargs)
 
     def add_noise(self, model, **kwargs):
         """
-        Add thermal noise to the visibilities. See :meth:`add` for 
+        Add thermal noise to the visibilities. See :meth:`add` for
         more details.
         """
         return self.add(model, **kwargs)
@@ -387,20 +388,20 @@ class Simulator:
 
     def add_gains(self, **kwargs):
         """
-        Apply bandpass gains to the visibilities. See :meth:`add` for 
+        Apply bandpass gains to the visibilities. See :meth:`add` for
         more details.
         """
-        return self.add('gains', **kwargs)
+        return self.add("gains", **kwargs)
 
     def add_sigchain_reflections(self, ants=None, **kwargs):
         """
-        Apply reflection gains to the visibilities. See :meth:`add` for 
+        Apply reflection gains to the visibilities. See :meth:`add` for
         more details.
         """
         kwargs.update(ants=ants)
-        return self.add('reflections', **kwargs)
+        return self.add("reflections", **kwargs)
 
-    def add_xtalk(self, model='gen_whitenoise_xtalk', bls=None, **kwargs):
+    def add_xtalk(self, model="gen_whitenoise_xtalk", bls=None, **kwargs):
         """Add crosstalk to the visibilities. See :meth:`add` for more details."""
         kwargs.update(vis_filter=bls)
         return self.add(model, **kwargs)
@@ -418,15 +419,16 @@ class Simulator:
         multikey = any(isinstance(key, (list, tuple)) for key in vis_filter)
         # iterate over the keys, find if any are okay
         if multikey:
-            apply_filter = [Simulator._apply_filter(key, ant1, ant2, pol)
-                            for key in vis_filter]
+            apply_filter = [
+                Simulator._apply_filter(key, ant1, ant2, pol) for key in vis_filter
+            ]
             # if a single filter says to let it pass, then do so
             return all(apply_filter)
         elif all(item is None for item in vis_filter):
             # support passing tuple of None
             return False
         elif len(vis_filter) == 1:
-            # check if the polarization matches, since the only 
+            # check if the polarization matches, since the only
             # string identifiers should be polarization strings
             if isinstance(vis_filter, str):
                 return not pol == vis_filter[0]
@@ -438,15 +440,14 @@ class Simulator:
             # an antpol is specified; a baseline is specified
             # first, handle the case of two polarizations
             if all(isinstance(key, str) for key in vis_filter):
-                return not pol in vis_filter
+                return pol not in vis_filter
             # otherwise it's simple
             else:
                 return not all(key in (ant1, ant2, pol) for key in vis_filter)
         elif len(vis_filter) == 3:
             # assume it's a proper antpairpol
             return not (
-                vis_filter == [ant1, ant2, pol] or
-                vis_filter == [ant2, ant1, pol]
+                vis_filter == [ant1, ant2, pol] or vis_filter == [ant2, ant1, pol]
             )
         else:
             # assume it's some list of antennas/polarizations
@@ -460,11 +461,11 @@ class Simulator:
             self.data = io.empty_uvdata(**kwargs)
         elif isinstance(data, str):
             self.data = self._read_datafile(data, **kwargs)
-            self.extras['data_file'] = data
+            self.extras["data_file"] = data
         elif isinstance(data, UVData):
             self.data = data
         else:
-            raise TypeError("Unsupported type.") # make msg better
+            raise TypeError("Unsupported type.")  # make msg better
 
     def _initialize_args_from_model(self, model):
         # TODO: docstring
@@ -474,9 +475,12 @@ class Simulator:
         _ = model_params.pop("kwargs", None)
 
         # pull the lst and frequency arrays as required
-        args = {param : getattr(self, param) for param in model_params
-                    if param in ("lsts", "freqs")}
-        
+        args = {
+            param: getattr(self, param)
+            for param in model_params
+            if param in ("lsts", "freqs")
+        }
+
         model_params.update(args)
 
         return model_params
@@ -490,9 +494,15 @@ class Simulator:
             pol_ind = self.data.get_pols().index(pol)
             yield ant1, ant2, pol, blt_inds, pol_ind
 
-    def _iteratively_apply(self, model, add_vis=True, ret_vis=False, 
-                           vis_filter=None, antpairpol_cache=None, 
-                           **kwargs):
+    def _iteratively_apply(
+        self,
+        model,
+        add_vis=True,
+        ret_vis=False,
+        vis_filter=None,
+        antpairpol_cache=None,
+        **kwargs
+    ):
         # TODO: docstring
         """
         """
@@ -505,24 +515,24 @@ class Simulator:
                 "{model}".format(model=self._get_model_name(model))
             )
             return
-        
+
         # make an empty list for antpairpol cache if it's none
         if antpairpol_cache is None:
             antpairpol_cache = []
 
-        # pull lsts/freqs if required and find out which extra 
+        # pull lsts/freqs if required and find out which extra
         # parameters are required
         args = self._initialize_args_from_model(model)
-        
+
         # figure out whether or not to seed the RNG
         seed_mode = kwargs.pop("seed_mode", None)
-        
+
         # get a copy of the data array
         data_copy = self.data.data_array.copy()
-        
+
         # find out if the model is multiplicative
         is_multiplicative = getattr(model, "is_multiplicative", None)
-        
+
         # handle user-defined functions as the passed model
         if is_multiplicative is None:
             warnings.warn(
@@ -542,12 +552,12 @@ class Simulator:
             # check if the antpolpair or its conjugate have data
             bl_in_cache = (ant1, ant2, pol) in antpairpol_cache
             conj_in_cache = (ant2, ant1, pol) in antpairpol_cache
-            
+
             if seed_mode == "redundant" and conj_in_cache:
                 seed_mode = self._seed_rng(seed_mode, model, ant2, ant1)
             elif seed_mode is not None:
                 seed_mode = self._seed_rng(seed_mode, model, ant1, ant2)
-            
+
             # parse the model signature to get the required arguments
             use_args = self._update_args(args, ant1, ant2, pol)
 
@@ -563,10 +573,10 @@ class Simulator:
                 # get the gains for the entire array
                 # this is sloppy, but ensures seeding works correctly
                 gains = model(**use_args)
-                
+
                 # now get the product g_1g_2*
                 gain = gains[ant1] * np.conj(gains[ant2])
-                
+
                 # don't actually do anything if we're filtering this
                 if apply_filter:
                     gain = np.ones(gain.shape)
@@ -574,22 +584,22 @@ class Simulator:
                 # apply the effect to the appropriate part of the data
                 data_copy[blt_inds, 0, :, pol_ind] *= gain
             else:
-                # if the conjugate baseline has been simulated and 
-                # the RNG was only seeded initially, then we should 
+                # if the conjugate baseline has been simulated and
+                # the RNG was only seeded initially, then we should
                 # not re-simulate to ensure invariance under complex
                 # conjugation and swapping antennas
                 if conj_in_cache and seed_mode is None:
-                    conj_blts = sim.data.antpair2ind((ant2,ant1))
-                    vis = (
-                        data_copy - self.data.data_array
-                    )[conj_blts, 0, :, pol_ind].conj()
-                else: 
+                    conj_blts = self.data.antpair2ind((ant2, ant1))
+                    vis = (data_copy - self.data.data_array)[
+                        conj_blts, 0, :, pol_ind
+                    ].conj()
+                else:
                     vis = model(**use_args)
-                
+
                 # filter what's actually having data simulated
                 if apply_filter:
                     vis = np.zeros(vis.shape, dtype=np.complex)
-                
+
                 # and add it in
                 data_copy[blt_inds, 0, :, pol_ind] += vis
 
@@ -613,7 +623,6 @@ class Simulator:
                 return data_copy
         else:
             self.data.data_array = data_copy
-        
 
     @staticmethod
     def _read_datafile(datafile, **kwargs):
@@ -629,9 +638,7 @@ class Simulator:
         """
         """
         if not type(seed_mode) is str:
-            raise TypeError(
-                "The seeding mode must be specified as a string."
-            )
+            raise TypeError("The seeding mode must be specified as a string.")
         if seed_mode == "redundant":
             if ant1 is None or ant2 is None:
                 raise TypeError(
@@ -645,22 +652,21 @@ class Simulator:
             # get the baseline integer for baseline (ant1, ant2)
             bl_int = self.data.antnums_to_baseline(ant1, ant2)
             # find out which redundant group the baseline is in
-            key = [bl_int in reds 
-                   for reds in self._get_reds()].index(True)
+            key = [bl_int in reds for reds in self._get_reds()].index(True)
             # seed the RNG accordingly
             np.random.seed(self._get_seed(model, key))
             return "redundant"
         elif seed_mode == "once":
-            # this option seeds the RNG once per iteration of 
+            # this option seeds the RNG once per iteration of
             # _iteratively_apply, using the same seed every time
-            # this is appropriate for antenna-based gains (where the 
+            # this is appropriate for antenna-based gains (where the
             # entire gain dictionary is simulated each time), or for
             # something like PointSourceForeground, where objects on
             # the sky are being placed randomly
             np.random.seed(self._get_seed(model, 0))
             return "once"
         elif seed_mode == "initial":
-            # this seeds the RNG once at the very beginning of 
+            # this seeds the RNG once at the very beginning of
             # _iteratively_apply. this would be useful for something
             # like ThermalNoise
             np.random.seed(self._get_seed(model, -1))
@@ -673,7 +679,8 @@ class Simulator:
         """
         """
         # helper for getting the correct parameter name
-        key = lambda requires : [arg for arg in args][requires.index(True)]
+        def key(requires):
+            return list(args)[requires.index(True)]
 
         # find out what needs to be added to args
         # for antenna-based gains
@@ -689,20 +696,20 @@ class Simulator:
         # check if this is an antenna-dependent quantity; should
         # only ever be true for gains (barring future changes)
         if requires_ants:
-            new_param = {key(_requires_ants) : self.antpos}
+            new_param = {key(_requires_ants): self.antpos}
         # check if this is something requiring a baseline vector
         # current assumption is that these methods require the
         # baseline vector to be provided in nanoseconds
         elif requires_bl_vec:
             bl_vec = self.antpos[ant1] - self.antpos[ant2]
             bl_vec_ns = bl_vec * 1e9 / const.c.value
-            new_param = {key(_requires_bl_vec) : bl_vec_ns}
+            new_param = {key(_requires_bl_vec): bl_vec_ns}
         # check if this is something that depends on another
         # visibility. as of now, this should only be cross coupling
         # crosstalk
         elif requires_vis:
             autovis = self.data.get_data(ant1, ant1, pol)
-            new_param = {key(_requires_vis) : autovis}
+            new_param = {key(_requires_vis): autovis}
         else:
             new_param = {}
         # update appropriately and return
@@ -712,17 +719,18 @@ class Simulator:
         # there should no longer be any unspecified, required parameters
         # so this *shouldn't* error out
         use_args = {
-            key : value for key, value in use_args.items()
+            key: value
+            for key, value in use_args.items()
             if not type(value) is inspect.Parameter
         }
 
         if any([val is inspect._empty for val in use_args.values()]):
             warnings.warn(
-                "One of the required parameters was not extracted. " \
-                "Please check that the parameters for the model you " \
-                "are trying to add are detectable by the Simulator. " \
-                "The Simulator will automatically find the following " \
-                "required parameters: \nlsts \nfreqs \nAnything that " \
+                "One of the required parameters was not extracted. "
+                "Please check that the parameters for the model you "
+                "are trying to add are detectable by the Simulator. "
+                "The Simulator will automatically find the following "
+                "required parameters: \nlsts \nfreqs \nAnything that "
                 "starts with 'ant' or 'bl'\n Anything containing 'vis'."
             )
 
@@ -737,7 +745,7 @@ class Simulator:
         # this doesn't work correctly if done on one line
         model_params = {}
         model_params.update(**call_params, **init_params)
-        _ = model_params.pop("kwargs", None) 
+        _ = model_params.pop("kwargs", None)
         return model_params
 
     @staticmethod
@@ -759,7 +767,7 @@ class Simulator:
                     "function to a callable class and try again."
                 )
             if callable(component):
-                # if it's callable, then it's either a user-defined 
+                # if it's callable, then it's either a user-defined
                 # function or a class instance
                 return component, False
             else:
@@ -767,17 +775,17 @@ class Simulator:
                     # TODO: update this error message to reflect the
                     # change in allowed component types
                     raise TypeError(
-                        "``component`` must be either a class which " 
-                        "derives from ``SimulationComponent`` or an " 
-                        "instance of a callable class, or a function, " 
-                        "whose signature is:\n" 
-                        "func(lsts, freqs, *args, **kwargs)\n" 
-                        "If it is none of the above, then it must be " 
-                        "a string which corresponds to the name of a " 
+                        "``component`` must be either a class which "
+                        "derives from ``SimulationComponent`` or an "
+                        "instance of a callable class, or a function, "
+                        "whose signature is:\n"
+                        "func(lsts, freqs, *args, **kwargs)\n"
+                        "If it is none of the above, then it must be "
+                        "a string which corresponds to the name of a "
                         "``hera_sim`` class or an alias thereof."
                     )
-                
-                # keep track of all known aliases in case desired 
+
+                # keep track of all known aliases in case desired
                 # component isn't found in the search
                 all_aliases = []
                 for registry in SimulationComponent.__subclasses__():
@@ -789,7 +797,7 @@ class Simulator:
                             all_aliases.append(alias)
                         if component.lower() in aliases:
                             return model, True
-                
+
                 # if this part is executed, then the model wasn't found, so
                 msg = "The component '{component}' wasn't found. The "
                 msg += "following aliases are known: \n"
@@ -808,7 +816,7 @@ class Simulator:
         np.random.seed(int(time.time()))
         if model not in self._seeds:
             self._seeds[model] = {}
-        self._seeds[model][key] = np.random.randint(2**32)
+        self._seeds[model][key] = np.random.randint(2 ** 32)
 
     def _generate_redundant_seeds(self, model):
         # TODO: docstring
@@ -820,12 +828,6 @@ class Simulator:
         for j in range(len(self._get_reds())):
             self._generate_seed(model, j)
 
-    def _get_reds(self):
-        # TODO: docstring
-        """
-        """
-        return self.data.get_redundancies()[0]
-
     def _get_seed(self, model, key):
         # TODO: docstring
         """
@@ -836,7 +838,7 @@ class Simulator:
         if key not in self._seeds[model]:
             self._generate_seed(model, key)
         return self._seeds[model][key]
-    
+
     @staticmethod
     def _get_model_name(model):
         # TODO: docstring
@@ -871,17 +873,24 @@ class Simulator:
         """
         has_data = not np.all(self.data.data_array == 0)
         is_multiplicative = getattr(model, "is_multiplicative", False)
-        contains_multiplicative_effect = any([
+        contains_multiplicative_effect = any(
+            [
                 self._get_component(component)[0].is_multiplicative
-                for component in self._components])
+                for component in self._components
+            ]
+        )
         if is_multiplicative and not has_data:
-            warnings.warn("You are trying to compute a multiplicative "
-                          "effect, but no visibilities have been "
-                          "simulated yet.")
+            warnings.warn(
+                "You are trying to compute a multiplicative "
+                "effect, but no visibilities have been "
+                "simulated yet."
+            )
         elif not is_multiplicative and contains_multiplicative_effect:
-            warnings.warn("You are adding visibilities to a data array "
-                          "*after* multiplicative effects have been "
-                          "introduced.")
+            warnings.warn(
+                "You are adding visibilities to a data array "
+                "*after* multiplicative effects have been "
+                "introduced."
+            )
 
     def _update_history(self, model, **kwargs):
         # TODO: docstring
@@ -893,6 +902,5 @@ class Simulator:
             kwargs["defaults"] = defaults._config_name
         for param, value in kwargs.items():
             msg += "{param} = {value}\n".format(param=param, value=value)
-        msg = msg.format(version=version, component=model)
+        msg = msg.format(version=__version__, component=model)
         self.data.history += msg
-
