@@ -3,7 +3,6 @@
 import numpy as np
 import astropy.constants as const
 import astropy.units as u
-from aipy.const import sidereal_day
 from abc import abstractmethod
 from cached_property import cached_property
 
