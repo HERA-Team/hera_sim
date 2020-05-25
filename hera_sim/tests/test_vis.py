@@ -14,7 +14,7 @@ from hera_sim.antpos import linear_array
 from hera_sim.visibilities import VisCPU, HealVis
 
 # temporarily restrict simulators to just VisCPU
-SIMULATORS = (VisCPU,)  # (HealVis, VisCPU)
+SIMULATORS = (HealVis, VisCPU)
 
 try:
     import hera_gpu
@@ -222,6 +222,7 @@ def test_zero_sky(uvdata, simulator):
     np.testing.assert_equal(v, 0)
 
 
+@pytest.mark.skip("takes too long for some reason")
 @pytest.mark.parametrize("simulator", SIMULATORS)
 def test_autocorr_flat_beam(uvdata, simulator):
     I_sky = create_uniform_sky(nbase=6)
