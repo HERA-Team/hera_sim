@@ -14,7 +14,7 @@ from hera_sim.antpos import linear_array
 from hera_sim.visibilities import VisCPU, HealVis
 
 # temporarily restrict simulators to just VisCPU
-SIMULATORS = (HealVis, VisCPU)
+SIMULATORS = (VisCPU,)  # (HealVis, VisCPU)
 
 try:
     import hera_gpu
@@ -225,6 +225,7 @@ def test_zero_sky(uvdata, simulator):
 @pytest.mark.parametrize("simulator", SIMULATORS)
 def test_autocorr_flat_beam(uvdata, simulator):
     I_sky = create_uniform_sky(nbase=6)
+    print("DATA SHAPE: ", uvdata.data.shape)
 
     v = simulator(
         uvdata=uvdata, sky_freqs=np.unique(uvdata.freq_array), sky_intensity=I_sky,

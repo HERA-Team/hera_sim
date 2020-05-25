@@ -775,7 +775,7 @@ class Simulator:
                 # function or a class instance
                 return component, False
             else:
-                if not type(component) is str:
+                if not isinstance(component, str):
                     # TODO: update this error message to reflect the
                     # change in allowed component types
                     raise TypeError(
