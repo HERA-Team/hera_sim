@@ -225,7 +225,7 @@ def test_zero_sky(uvdata, simulator):
 @pytest.mark.parametrize("simulator", SIMULATORS)
 def test_autocorr_flat_beam(uvdata, simulator):
     I_sky = create_uniform_sky(nbase=6)
-    print("DATA SHAPE: ", uvdata.data.shape)
+    print("DATA SHAPE: ", uvdata.data_array.shape)
 
     v = simulator(
         uvdata=uvdata, sky_freqs=np.unique(uvdata.freq_array), sky_intensity=I_sky,
