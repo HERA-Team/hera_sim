@@ -222,15 +222,15 @@ def test_zero_sky(uvdata, simulator):
     np.testing.assert_equal(v, 0)
 
 
-@pytest.mark.skip("takes too long for some reason")
 @pytest.mark.parametrize("simulator", SIMULATORS)
 def test_autocorr_flat_beam(uvdata, simulator):
-    I_sky = create_uniform_sky(nbase=6)
+    I_sky = create_uniform_sky(nbase=4)
     print("DATA SHAPE: ", uvdata.data_array.shape)
 
-    v = simulator(
+    sim = simulator(
         uvdata=uvdata, sky_freqs=np.unique(uvdata.freq_array), sky_intensity=I_sky,
-    ).simulate()
+    )
+    v = sim.simulate()
 
     np.testing.assert_allclose(np.abs(v), np.mean(v), rtol=1e-5)
     np.testing.assert_almost_equal(np.abs(v), 0.5, 2)
