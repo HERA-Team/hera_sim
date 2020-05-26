@@ -4,6 +4,7 @@ simulations with hera_sim via the command line.
 """
 import os
 from pathlib import Path
+from .defaults import SEASON_CONFIGS
 
 def get_filing_params(config):
     """Extract filing parameters from a configuration dictionary."""
@@ -21,3 +22,20 @@ def get_filing_params(config):
         )
 
     return filing_params
+
+def validate_config(config):
+    """Validate the contents of a loaded configuration file."""
+    freqs_ok = False
+    times_ok = False
+    array_ok = False
+    if config.get("defaults", None) is not None:
+        if config["defaults"] in SEASON_CONFIGS.keys():
+            return
+        else:
+            # TODO: figure out a clean way of checking this
+            pass
+
+    # skip the validation until this is figured out
+    freqs_ok, times_ok, array_ok = (True,) * 3
+    if not all(freqs_ok, times_ok, array_ok):
+        raise ValueError("Insufficient information to initialize simulation.")

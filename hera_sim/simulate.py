@@ -93,8 +93,8 @@ class Simulator:
         # find out whether the data application should be filtered
         vis_filter = kwargs.pop("vis_filter", None)
         
-        # take out the seed_mode kwarg so as not to break initializor
-        seed_mode = kwargs.pop("seed_mode", -1)
+        # take out the seed kwarg so as not to break initializor
+        seed = kwargs.pop("seed", -1)
         
         # get the model for the desired component
         model, is_class = self._get_component(component)
@@ -115,9 +115,9 @@ class Simulator:
         # check that there isn't an issue with component ordering
         self._sanity_check(model)
         
-        # re-add the seed_mode kwarg if it was specified
-        if seed_mode != -1:
-            kwargs["seed_mode"] = seed_mode
+        # re-add the seed kwarg if it was specified
+        if seed != -1:
+            kwargs["seed"] = seed
         
         # calculate the effect
         data = self._iteratively_apply(
@@ -177,7 +177,7 @@ class Simulator:
         kwargs = self._components[component]
         
         # figure out whether or not to seed the rng
-        seed_mode = kwargs.pop("seed_mode", None)
+        seed = kwargs.pop("seed", None)
         
         # get the antpairpol cache
         antpairpol_cache = self._antpairpol_cache[model]
@@ -193,8 +193,8 @@ class Simulator:
         
         # if ant1, ant2 not specified, then do the whole array
         if ant1 is None and ant2 is None:
-            # re-add seed_mode to the kwargs
-            kwargs["seed_mode"] = seed_mode
+            # re-add seed to the kwargs
+            kwargs["seed"] = seed
 
             # get the data
             data = self._iteratively_apply(
@@ -211,10 +211,10 @@ class Simulator:
                 return data[:, 0, :, pol_ind]
         
         # seed the RNG if desired, but be careful...
-        if seed_mode == "once":
+        if seed == "once":
             # in this case, we need to use _iteratively_apply
             # otherwise, the seeding will be wrong
-            kwargs["seed_mode"] = seed_mode
+            kwargs["seed"] = seed
             data = self._iteratively_apply(
                 model, add_vis=False, ret_vis=True, **kwargs
             )
@@ -224,13 +224,13 @@ class Simulator:
             else:
                 pol_ind = self.data.get_pols().index(pol)
                 return data[blt_inds, 0, :, pol_ind]
-        elif seed_mode == "redundant":
+        elif seed == "redundant":
             if any(
                 [(ant2, ant1) == item for item in antpairpol_cache]
             ):
-                self._seed_rng(seed_mode, model, ant2, ant1)
+                self._seed_rng(seed, model, ant2, ant1)
             else:
-                self._seed_rng(seed_mode, model, ant1, ant2)
+                self._seed_rng(seed, model, ant1, ant2)
         
         # get the arguments necessary for the model
         args = self._initialize_args_from_model(model)
@@ -515,7 +515,7 @@ class Simulator:
         args = self._initialize_args_from_model(model)
         
         # figure out whether or not to seed the RNG
-        seed_mode = kwargs.pop("seed_mode", None)
+        seed = kwargs.pop("seed", None)
         
         # get a copy of the data array
         data_copy = self.data.data_array.copy()
@@ -543,10 +543,10 @@ class Simulator:
             bl_in_cache = (ant1, ant2, pol) in antpairpol_cache
             conj_in_cache = (ant2, ant1, pol) in antpairpol_cache
             
-            if seed_mode == "redundant" and conj_in_cache:
-                seed_mode = self._seed_rng(seed_mode, model, ant2, ant1)
-            elif seed_mode is not None:
-                seed_mode = self._seed_rng(seed_mode, model, ant1, ant2)
+            if seed == "redundant" and conj_in_cache:
+                seed = self._seed_rng(seed, model, ant2, ant1)
+            elif seed is not None:
+                seed = self._seed_rng(seed, model, ant1, ant2)
             
             # parse the model signature to get the required arguments
             use_args = self._update_args(args, ant1, ant2, pol)
@@ -578,7 +578,7 @@ class Simulator:
                 # the RNG was only seeded initially, then we should 
                 # not re-simulate to ensure invariance under complex
                 # conjugation and swapping antennas
-                if conj_in_cache and seed_mode is None:
+                if conj_in_cache and seed is None:
                     conj_blts = sim.data.antpair2ind((ant2,ant1))
                     vis = (
                         data_copy - self.data.data_array
@@ -624,15 +624,15 @@ class Simulator:
         uvd.read(datafile, read_data=True, **kwargs)
         return uvd
 
-    def _seed_rng(self, seed_mode, model, ant1=None, ant2=None):
+    def _seed_rng(self, seed, model, ant1=None, ant2=None):
         # TODO: docstring
         """
         """
-        if not type(seed_mode) is str:
+        if not type(seed) is str:
             raise TypeError(
                 "The seeding mode must be specified as a string."
             )
-        if seed_mode == "redundant":
+        if seed == "redundant":
             if ant1 is None or ant2 is None:
                 raise TypeError(
                     "A baseline must be specified in order to "
@@ -650,7 +650,7 @@ class Simulator:
             # seed the RNG accordingly
             np.random.seed(self._get_seed(model, key))
             return "redundant"
-        elif seed_mode == "once":
+        elif seed == "once":
             # this option seeds the RNG once per iteration of 
             # _iteratively_apply, using the same seed every time
             # this is appropriate for antenna-based gains (where the 
@@ -659,7 +659,7 @@ class Simulator:
             # the sky are being placed randomly
             np.random.seed(self._get_seed(model, 0))
             return "once"
-        elif seed_mode == "initial":
+        elif seed == "initial":
             # this seeds the RNG once at the very beginning of 
             # _iteratively_apply. this would be useful for something
             # like ThermalNoise
