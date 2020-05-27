@@ -23,16 +23,12 @@ def sim_red_data(reds, gains=None, shape=(10, 10), gain_scatter=0.1):
         dict: true underlying visibilities in the {(ind1,ind2,pol): np.array} format
         dict: simulated visibilities in the {(ind1,ind2,pol): np.array} format
     """
+
     from hera_cal.utils import split_bl
 
     data, true_vis = {}, {}
-    ants = sorted(
-        list(set([ant for bls in reds for bl in bls for ant in split_bl(bl)]))
-    )
-    if gains is None:
-        gains = {}
-    else:
-        gains = deepcopy(gains)
+    ants = sorted(list({ant for bls in reds for bl in bls for ant in split_bl(bl)}))
+    gains = {} if gains is None else deepcopy(gains)
     for ant in ants:
         gains[ant] = gains.get(
             ant, 1 + gain_scatter * noise.white_noise((1,))

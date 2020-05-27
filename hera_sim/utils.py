@@ -20,14 +20,10 @@ def _get_bl_len_vec(bl_len_ns):
         length-3 array: The full [EW, NS, Z] baseline vector.
     """
     if np.isscalar(bl_len_ns):
-        bl_len_ns = np.array([bl_len_ns, 0, 0])
+        return np.array([bl_len_ns, 0, 0])
     elif len(bl_len_ns) < 3:
         # make a length-3 array
-        bl_len_ns = np.pad(bl_len_ns, pad_width=3 - len(bl_len_ns), mode="constant")[
-            -3:
-        ]
-
-    return bl_len_ns
+        return np.pad(bl_len_ns, pad_width=3 - len(bl_len_ns), mode="constant")[-3:]
 
 
 def get_bl_len_magnitude(bl_len_ns):
