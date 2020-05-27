@@ -13,31 +13,36 @@
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
 from __future__ import print_function
-import os
-import sys
 
-from unittest.mock import MagicMock
+from pkg_resources import get_distribution
 
-sys.path.insert(0, os.path.abspath("../"))
+__version__ = get_distribution("hera_sim").version
 
-
-class Mock(MagicMock):
-    @classmethod
-    def __getattr__(cls, name):
-        return MagicMock()
-
-
-MOCK_MODULES = [
-    "pyuvsim",
-    "aipy",
-    "aipy.const",
-    "pyuvdata",
-    "pyuvdata.utils",
-    "astropy",
-    "astropy.units",
-    "cached_property",
-]
-sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
+# import os
+# import sys
+#
+# from unittest.mock import MagicMock
+#
+# sys.path.insert(0, os.path.abspath("../"))
+#
+#
+# class Mock(MagicMock):
+#     @classmethod
+#     def __getattr__(cls, name):
+#         return MagicMock()
+#
+#
+# MOCK_MODULES = [
+#     "pyuvsim",
+#     "aipy",
+#     "aipy.const",
+#     "pyuvdata",
+#     "pyuvdata.utils",
+#     "astropy",
+#     "astropy.units",
+#     "cached_property",
+# ]
+# sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
 
 # -- Project information -----------------------------------------------------
 
@@ -45,10 +50,11 @@ project = "hera_sim"
 copyright = "2020, HERA-Team"
 author = "HERA-Team"
 
+
 # The short X.Y version
-version = ""
+version = __version__
 # The full version, including alpha/beta/rc tags
-release = ""
+release = __version__
 
 # -- General configuration ---------------------------------------------------
 
