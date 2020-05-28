@@ -25,6 +25,8 @@ def _get_bl_len_vec(bl_len_ns):
         # make a length-3 array
         return np.pad(bl_len_ns, pad_width=3 - len(bl_len_ns), mode="constant")[-3:]
 
+    return bl_len_ns
+
 
 def get_bl_len_magnitude(bl_len_ns):
     """
