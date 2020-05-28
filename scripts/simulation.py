@@ -1,5 +1,5 @@
 """
-The purpose of this script is to provide an interface for the user to use 
+The purpose of this script is to provide an interface for the user to use
 hera_sim to create, populate, and save to disk a UVData object.
 """
 import hera_sim
@@ -9,7 +9,7 @@ import os
 # syntax for running from command line:
 # python simulation.py path_to_config path_to_sim path_to_save perform_bda
 # anything else we need to specify?
-# notes: 
+# notes:
 # path_to_config should be an absolute path to a configuration YAML
 # the configuration YAML will be loaded in and its settings applied using hera_sim.defaults
 #
@@ -27,18 +27,20 @@ config, sim_params, save_path = sys.argv[1:4]
 
 # confirm that config and simulation parameter paths exist
 for path in (config, sim_params):
-    assert os.path.exists(path), \
-            "The path {} could not be found. Please ensure the path exists.".format(path)
+    assert os.path.exists(
+        path
+    ), "The path {} could not be found. Please ensure the path exists.".format(path)
 # verbose option?
 verbose = True if "verbose" in sys.argv else False
 
 # assume that config and sim_params are YAMLs, but make sure that save_path
 # has an extension
 save_type = os.path.splitext(save_path)[1]
-assert save_type != '', \
-        "Please specify the file type you would like to use for for saving " \
-        "the simulated data by ensuring that the save path has the same " \
-        "extension as the desired file type."
+assert save_type != "", (
+    "Please specify the file type you would like to use for for saving "
+    "the simulated data by ensuring that the save path has the same "
+    "extension as the desired file type."
+)
 
 # apply the configuration
 hera_sim.defaults.set(config)
@@ -59,4 +61,3 @@ sim.run_sim(sim_params)
 sim.write_data(save_path, file_type=save_type)
 
 # should be done now
-

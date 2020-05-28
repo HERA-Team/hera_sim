@@ -1,9 +1,8 @@
 # minimum-spec development environment for travis
-
-name: test-environment
+name: tests
 channels:
-  - conda-forge
   - defaults
+  - conda-forge
 dependencies:
   - aipy>=3.0
   - astropy

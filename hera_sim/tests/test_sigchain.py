@@ -2,9 +2,8 @@ import os
 import unittest
 from hera_sim import sigchain, noise, foregrounds
 from hera_sim.interpolators import Beam
-from hera_sim.data import DATA_PATH
+from hera_sim import DATA_PATH
 import numpy as np
-import astropy.units as u
 import nose.tools as nt
 from scipy.signal import windows
 
@@ -58,19 +57,22 @@ class TestSigchainReflections(unittest.TestCase):
         np.random.seed(0)
         fqs = np.linspace(0.1, 0.2, 100, endpoint=False)
         lsts = np.linspace(0, 2 * np.pi, 200)
-        times = lsts / (2 * np.pi) * u.sday.to('s')
 
         # extra parameters needed
         Tsky_mdl = noise.HERA_Tsky_mdl["xx"]
         Tsky = Tsky_mdl(lsts, fqs)
         bl_vec = np.array([50.0, 0, 0])
-        beamfile = os.path.join(DATA_PATH, "HERA_H1C_BEAM_POLY.npy")
+        beamfile = DATA_PATH / "HERA_H1C_BEAM_POLY.npy"
         omega_p = Beam(beamfile)
 
         # mock up visibilities
         vis = foregrounds.diffuse_foreground(
-            lsts, fqs, bl_vec, Tsky_mdl=Tsky_mdl, omega_p=omega_p, 
-            delay_filter_kwargs={"delay_filter_type" : 'gauss'}
+            lsts,
+            fqs,
+            bl_vec,
+            Tsky_mdl=Tsky_mdl,
+            omega_p=omega_p,
+            delay_filter_kwargs={"delay_filter_type": "gauss"},
         )
 
         # add a constant offset to boost k=0 mode
@@ -86,7 +88,9 @@ class TestSigchainReflections(unittest.TestCase):
 
     def test_reflection_gains(self):
         # introduce a cable reflection into the autocorrelation
-        gains = sigchain.gen_reflection_gains(self.freqs, [0], amp=[1e-1], dly=[300], phs=[1])
+        gains = sigchain.gen_reflection_gains(
+            self.freqs, [0], amp=[1e-1], dly=[300], phs=[1]
+        )
         outvis = sigchain.apply_gains(self.vis, gains, [0, 0])
         ovfft = np.fft.fft(
             outvis * windows.blackmanharris(len(self.freqs))[None, :], axis=1
@@ -112,26 +116,41 @@ class TestSigchainReflections(unittest.TestCase):
 
         # test reshaping into Ntimes
         amp = np.linspace(1e-2, 1e-3, 3)
-        gains = sigchain.gen_reflection_gains(self.freqs, [0], amp=[amp], dly=[300], phs=[1])
+        gains = sigchain.gen_reflection_gains(
+            self.freqs, [0], amp=[amp], dly=[300], phs=[1]
+        )
         nt.assert_equal(gains[0].shape, (3, 100))
 
         # test frequency evolution with one time
         amp = np.linspace(1e-2, 1e-3, 100).reshape(1, -1)
-        gains = sigchain.gen_reflection_gains(self.freqs, [0], amp=[amp], dly=[300], phs=[1])
+        gains = sigchain.gen_reflection_gains(
+            self.freqs, [0], amp=[amp], dly=[300], phs=[1]
+        )
         nt.assert_equal(gains[0].shape, (1, 100))
         # now test with multiple times
         amp = np.repeat(np.linspace(1e-2, 1e-3, 100).reshape(1, -1), 10, axis=0)
-        gains = sigchain.gen_reflection_gains(self.freqs, [0], amp=[amp], dly=[300], phs=[1])
+        gains = sigchain.gen_reflection_gains(
+            self.freqs, [0], amp=[amp], dly=[300], phs=[1]
+        )
         nt.assert_equal(gains[0].shape, (10, 100))
 
         # exception
         amp = np.linspace(1e-2, 1e-3, 2).reshape(1, -1)
-        nt.assert_raises(AssertionError, sigchain.gen_reflection_gains, self.freqs, [0], amp=[amp], dly=[300], phs=[1])
-
+        nt.assert_raises(
+            AssertionError,
+            sigchain.gen_reflection_gains,
+            self.freqs,
+            [0],
+            amp=[amp],
+            dly=[300],
+            phs=[1],
+        )
 
     def test_cross_coupling_xtalk(self):
         # introduce a cross reflection at a single delay
-        outvis = sigchain.gen_cross_coupling_xtalk(self.freqs, self.Tsky, amp=1e-2, dly=300, phs=1)
+        outvis = sigchain.gen_cross_coupling_xtalk(
+            self.freqs, self.Tsky, amp=1e-2, dly=300, phs=1
+        )
         ovfft = np.fft.fft(
             outvis * windows.blackmanharris(len(self.freqs))[None, :], axis=1
         )
@@ -145,7 +164,9 @@ class TestSigchainReflections(unittest.TestCase):
         # inspect for yourself: plt.matshow(np.log10(np.abs(cov)))
 
         # conjugate it and assert it shows up at -300
-        outvis = sigchain.gen_cross_coupling_xtalk(self.freqs, self.Tsky, amp=1e-2, dly=300, phs=1, conj=True)
+        outvis = sigchain.gen_cross_coupling_xtalk(
+            self.freqs, self.Tsky, amp=1e-2, dly=300, phs=1, conj=True
+        )
         ovfft = np.fft.fft(
             outvis * windows.blackmanharris(len(self.freqs))[None, :], axis=1
         )

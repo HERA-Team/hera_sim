@@ -4,6 +4,7 @@ import astropy.constants as const
 import astropy.units as u
 from scipy.interpolate import RectBivariateSpline
 
+
 def _get_bl_len_vec(bl_len_ns):
     """
     Converts a baseline length in a variety of formats to a standard
@@ -19,13 +20,10 @@ def _get_bl_len_vec(bl_len_ns):
         length-3 array: The full [EW, NS, Z] baseline vector.
     """
     if np.isscalar(bl_len_ns):
-        bl_len_ns = np.array([bl_len_ns, 0, 0])
+        return np.array([bl_len_ns, 0, 0])
     elif len(bl_len_ns) < 3:
         # make a length-3 array
-        bl_len_ns = np.pad(
-            bl_len_ns, pad_width=3 - len(bl_len_ns),
-            mode='constant'
-        )[-3:]
+        return np.pad(bl_len_ns, pad_width=3 - len(bl_len_ns), mode="constant")[-3:]
 
     return bl_len_ns
 
@@ -47,8 +45,15 @@ def get_bl_len_magnitude(bl_len_ns):
     return np.sqrt(np.sum(bl_len_ns ** 2))
 
 
-def gen_delay_filter(fqs, bl_len_ns, standoff=0.0, filter_type='gauss', min_delay=None, max_delay=None,
-                     normalize=None):
+def gen_delay_filter(
+    fqs,
+    bl_len_ns,
+    standoff=0.0,
+    filter_type="gauss",
+    min_delay=None,
+    max_delay=None,
+    normalize=None,
+):
     """
     Generate a delay filter in delay space.
 
@@ -72,7 +77,7 @@ def gen_delay_filter(fqs, bl_len_ns, standoff=0.0, filter_type='gauss', min_dela
         delay_filter (ndarray): delay filter in delay space
     """
     # setup
-    delays = np.fft.fftfreq(fqs.size, fqs[1]-fqs[0])
+    delays = np.fft.fftfreq(fqs.size, fqs[1] - fqs[0])
     if isinstance(bl_len_ns, np.ndarray):
         bl_len_ns = np.linalg.norm(bl_len_ns)
 
@@ -80,13 +85,13 @@ def gen_delay_filter(fqs, bl_len_ns, standoff=0.0, filter_type='gauss', min_dela
     one_sigma = (bl_len_ns + standoff) / 4.0
 
     # create filter
-    if filter_type in [None, 'none', 'None']:
+    if filter_type in [None, "none", "None"]:
         delay_filter = np.ones_like(delays)
-    elif filter_type in ['gauss', 'trunc_gauss']:
-        delay_filter = np.exp(-0.5 * (delays / one_sigma)**2)
-        if filter_type == 'trunc_gauss':
+    elif filter_type in ["gauss", "trunc_gauss"]:
+        delay_filter = np.exp(-0.5 * (delays / one_sigma) ** 2)
+        if filter_type == "trunc_gauss":
             delay_filter[np.abs(delays) > (one_sigma * 4)] = 0.0
-    elif filter_type == 'tophat':
+    elif filter_type == "tophat":
         delay_filter = np.ones_like(delays)
         delay_filter[np.abs(delays) > (one_sigma * 4)] = 0.0
     else:
@@ -100,14 +105,22 @@ def gen_delay_filter(fqs, bl_len_ns, standoff=0.0, filter_type='gauss', min_dela
 
     # normalize
     if normalize is not None:
-        norm = normalize / np.sqrt(np.sum(delay_filter**2))
+        norm = normalize / np.sqrt(np.sum(delay_filter ** 2))
         delay_filter *= norm * np.sqrt(len(delay_filter))
 
     return delay_filter
 
 
-def rough_delay_filter(data, fqs, bl_len_ns, standoff=0.0, delay_filter_type='gauss', 
-                       min_delay=None, max_delay=None, normalize=None):
+def rough_delay_filter(
+    data,
+    fqs,
+    bl_len_ns,
+    standoff=0.0,
+    delay_filter_type="gauss",
+    min_delay=None,
+    max_delay=None,
+    normalize=None,
+):
     """
     A rough low-pass delay filter of data array along last axis.
 
@@ -136,8 +149,13 @@ def rough_delay_filter(data, fqs, bl_len_ns, standoff=0.0, delay_filter_type='ga
 
     # get delay filter
     delay_filter = gen_delay_filter(
-        fqs, bl_len_ns, standoff=standoff, filter_type=delay_filter_type, 
-        min_delay=min_delay, max_delay=max_delay, normalize=normalize
+        fqs,
+        bl_len_ns,
+        standoff=standoff,
+        filter_type=delay_filter_type,
+        min_delay=min_delay,
+        max_delay=max_delay,
+        normalize=normalize,
     )
 
     # apply filtering and fft back
@@ -146,7 +164,7 @@ def rough_delay_filter(data, fqs, bl_len_ns, standoff=0.0, delay_filter_type='ga
     return filt_data
 
 
-def gen_fringe_filter(lsts, fqs, ew_bl_len_ns, filter_type='tophat', **filter_kwargs):
+def gen_fringe_filter(lsts, fqs, ew_bl_len_ns, filter_type="tophat", **filter_kwargs):
     """
     Generate a fringe rate filter in fringe-rate & freq space.
 
@@ -185,24 +203,43 @@ def gen_fringe_filter(lsts, fqs, ew_bl_len_ns, filter_type='tophat', **filter_kw
     times = lsts / (2 * np.pi) * u.sday.to("s")
     frates = np.fft.fftfreq(times.size, times[1] - times[0])
 
-    if filter_type in [None, 'none', 'None']:
+    if filter_type in [None, "none", "None"]:
         fringe_filter = np.ones((len(times), len(fqs)), dtype=np.float)
-    elif filter_type == 'tophat':
-        fr_max = np.repeat(calc_max_fringe_rate(fqs, ew_bl_len_ns)[None, :], len(lsts), axis=0)
+    elif filter_type == "tophat":
+        fr_max = np.repeat(
+            calc_max_fringe_rate(fqs, ew_bl_len_ns)[None, :], len(lsts), axis=0
+        )
         frates = np.repeat(frates[:, None], len(fqs), axis=1)
-        fringe_filter = np.where(np.abs(frates) <= np.abs(fr_max), 1., 0)
-    elif filter_type == 'gauss':
-        assert 'fr_width' in filter_kwargs, "If filter_type=='gauss' must feed fr_width kwarg"
-        fr_max = np.repeat(calc_max_fringe_rate(fqs, ew_bl_len_ns)[None, :], len(lsts), axis=0)
+        fringe_filter = np.where(np.abs(frates) <= np.abs(fr_max), 1.0, 0)
+    elif filter_type == "gauss":
+        assert (
+            "fr_width" in filter_kwargs
+        ), "If filter_type=='gauss' must feed fr_width kwarg"
+        fr_max = np.repeat(
+            calc_max_fringe_rate(fqs, ew_bl_len_ns)[None, :], len(lsts), axis=0
+        )
         frates = np.repeat(frates[:, None], len(fqs), axis=1)
-        fringe_filter = np.exp(-0.5 * ((frates - fr_max) / filter_kwargs['fr_width'])**2)
-    elif filter_type == 'custom':
-        assert 'FR_filter' in filter_kwargs, "If filter_type=='custom', must feed 2D FR_filter array"
-        assert 'FR_frates' in filter_kwargs, "If filter_type=='custom', must feed 1D FR_frates array"
-        assert 'FR_freqs' in filter_kwargs, "If filter_type=='custom', must feed 1D FR_freqs array"
+        fringe_filter = np.exp(
+            -0.5 * ((frates - fr_max) / filter_kwargs["fr_width"]) ** 2
+        )
+    elif filter_type == "custom":
+        assert (
+            "FR_filter" in filter_kwargs
+        ), "If filter_type=='custom', must feed 2D FR_filter array"
+        assert (
+            "FR_frates" in filter_kwargs
+        ), "If filter_type=='custom', must feed 1D FR_frates array"
+        assert (
+            "FR_freqs" in filter_kwargs
+        ), "If filter_type=='custom', must feed 1D FR_freqs array"
         # interpolate FR_filter at frates and fqs
-        mdl = RectBivariateSpline(filter_kwargs['FR_frates'], filter_kwargs['FR_freqs'],
-                                  filter_kwargs['FR_filter'], kx=3, ky=3)
+        mdl = RectBivariateSpline(
+            filter_kwargs["FR_frates"],
+            filter_kwargs["FR_freqs"],
+            filter_kwargs["FR_filter"],
+            kx=3,
+            ky=3,
+        )
         fringe_filter = np.fft.ifftshift(mdl(np.fft.fftshift(frates), fqs), axes=0)
         # set things close to zero to zero
         fringe_filter[np.isclose(fringe_filter, 0.0)] = 0.0
@@ -213,8 +250,9 @@ def gen_fringe_filter(lsts, fqs, ew_bl_len_ns, filter_type='tophat', **filter_kw
     return fringe_filter
 
 
-def rough_fringe_filter(data, lsts, fqs, ew_bl_len_ns, 
-                        fringe_filter_type='tophat', **filter_kwargs):
+def rough_fringe_filter(
+    data, lsts, fqs, ew_bl_len_ns, fringe_filter_type="tophat", **filter_kwargs
+):
     """
     A rough fringe rate filter of data along zeroth axis.
 
@@ -287,7 +325,7 @@ def compute_ha(lsts, ra):
             local sidereal times of the observation to be generated.
         ra: float, radians
             the right ascension of a point source.
-            
+
     Returns:
         ha: array-like, shape=(NTIMES,)
             hour angle corresponding to the provide ra and times'''
@@ -296,6 +334,7 @@ def compute_ha(lsts, ra):
     ha = np.where(ha > np.pi, ha - 2 * np.pi, ha)
     ha = np.where(ha < -np.pi, ha + 2 * np.pi, ha)
     return ha
+
 
 def gen_white_noise(size=1):
     """Produce complex Gaussian noise with unity variance.
@@ -311,8 +350,10 @@ def gen_white_noise(size=1):
         White noise realization with specified shape.
     """
     std = 1 / np.sqrt(2)
-    return np.random.normal(scale=std, size=size) \
-           + 1j*np.random.normal(scale=std, size=size)
+    return np.random.normal(scale=std, size=size) + 1j * np.random.normal(
+        scale=std, size=size
+    )
+
 
 def Jy2T(freqs, omega_p):
     """Return Kelvin -> Jy conversion as a function of frequency.
@@ -322,8 +363,8 @@ def Jy2T(freqs, omega_p):
     freqs : ndarray
         Frequencies for which to calculate the conversion. Units of Hz.
     omega_p : ndarray or interpolators.Beam
-        Beam area as a function of frequency. Must have the same shape 
-        as ``freqs`` if an ndarray. Otherwise, must be an interpolation 
+        Beam area as a function of frequency. Must have the same shape
+        as ``freqs`` if an ndarray. Otherwise, must be an interpolation
         object which converts frequencies (in Hz) to beam size.
 
     Returns
@@ -339,11 +380,12 @@ def Jy2T(freqs, omega_p):
     # what is the point of this multiplicative constant?
     return 1e-34 * wavelengths ** 2 / (2 * const.k_B.value * omega_p)
 
+
 def _listify(x):
     """Ensure a scalar/list is returned as a list.
 
     Taken from https://stackoverflow.com/a/1416677/1467820
-    
+
     Copied from the pre-v1 hera_sim.rfi module.
     """
     try:

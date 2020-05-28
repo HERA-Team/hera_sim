@@ -16,6 +16,7 @@ from hera_sim import run
 # in the same directory. check that the uvh5 file has the correct properties
 tempdir = pathlib.Path(tempfile.mkdtemp())
 
+
 def construct_base_config(outdir, outfile_name, output_format):
     """Create a minimal working configuration file."""
     base_config = """
@@ -45,9 +46,14 @@ telescope:
         interp_kwargs:
             interpolator: interp1d
             fill_value: extrapolate
-    
-""" % (outdir, outfile_name, output_format)
+
+""" % (
+        outdir,
+        outfile_name,
+        output_format,
+    )
     return base_config[1:]
+
 
 def add_bda(base_config):
     """Add BDA to config file with hard-coded parameter values."""
@@ -69,13 +75,17 @@ bda:
 """
     return bda_config[1:] + base_config
 
+
 def set_defaults(config, defaults):
     """Choose to use a default set of function parameters."""
     new_config = """
 defaults:
     default_config: {defaults}
-""".format(defaults=defaults)
+""".format(
+        defaults=defaults
+    )
     return config + new_config[1:]
+
 
 def add_systematics(config):
     """Add systematics to a config file, using default settings."""
@@ -93,6 +103,7 @@ systematics:
 """
     return config + sim_config[1:]
 
+
 def add_sky(config):
     """Add sky temperature model, EoR, and foregrounds, using defaults."""
     sky_config = """
@@ -109,36 +120,42 @@ sky:
 """
     return config + sky_config[1:]
 
+
 def set_simulation(config, components, exclude):
     """Choose which components to simulate, and which parts to exclude."""
     sim_config = """
 simulation:
     components: [{components}]
     exclude: [{exclude}]
-""".format(components=", ".join(components),
-           exclude=", ".join(exclude))
+""".format(
+        components=", ".join(components), exclude=", ".join(exclude)
+    )
     return config + sim_config[1:]
+
 
 @raises(AssertionError)
 def test_bad_formats():
     config = construct_base_config(str(tempdir), "test", None)
     config_file = tempdir / "test_config.yaml"
-    with open(config_file, 'w') as cfg:
+    with open(config_file, "w") as cfg:
         cfg.write(config)
     runner = CliRunner()
     results = runner.invoke(run, [str(config_file)])
     if results.exit_code:
         raise results.exception
 
+
 def test_verbose_statements():
     config = construct_base_config(str(tempdir), "test", "uvh5")
     config = set_defaults(config, "h1c")
-    sim_cmp = ["foregrounds", ]
+    sim_cmp = [
+        "foregrounds",
+    ]
     exclude = []
     config = set_simulation(config, sim_cmp, exclude)
-    
+
     config_file = os.path.join(tempdir, "test_verbose.yaml")
-    with open(config_file, 'w') as cfg:
+    with open(config_file, "w") as cfg:
         cfg.write(config)
 
     runner = CliRunner()
@@ -156,6 +173,7 @@ def test_verbose_statements():
     assert "Constructing Simulator object..." in stdout
     assert "Running simulation..." in stdout
 
+
 @pytest.mark.skip("Haven't figured out issue related to checking stdout.")
 def test_save_all():
     # set up config
@@ -164,10 +182,10 @@ def test_save_all():
     sim_cmp = ["foregrounds", "rfi", "sigchain"]
     exclude = []
     config = set_simulation(config, sim_cmp, exclude)
-    
+
     # write to file
     config_file = tempdir / "test_save_all.yaml"
-    with open(config_file, 'w') as cfg:
+    with open(config_file, "w") as cfg:
         cfg.write(config)
 
     # CliRunner does not ever reach the save phase for some reason
@@ -181,16 +199,19 @@ def test_save_all():
     assert "test.gains.uvh5" in dir_contents
     assert "test.rfi_impulse.uvh5" in dir_contents
 
+
 @pytest.mark.skip("Haven't figured out issue related to checking stdout.")
 def test_no_clobber():
     config = construct_base_config(tempdir, "test", "uvh5").replace("True", "False")
-    config = set_defaults(config, 'h1c')
-    sim_cmp = ["foregrounds",]
+    config = set_defaults(config, "h1c")
+    sim_cmp = [
+        "foregrounds",
+    ]
     exclude = []
     config = set_simulation(config, sim_cmp, exclude)
 
     config_file = os.path.join(tempdir, "test_clobber.yaml")
-    with open(config_file, 'w') as cfg:
+    with open(config_file, "w") as cfg:
         cfg.write(config)
 
     runner = CliRunner()

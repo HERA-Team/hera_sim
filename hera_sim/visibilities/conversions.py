@@ -33,7 +33,7 @@ def uvbeam_to_lm(uvbeam, freqs, n_pix_lm=63, **kwargs):
     n = np.where(lsqr < 1, np.sqrt(1 - lsqr), 0)
 
     az = -np.arctan2(m, L)
-    za = np.pi/2 - np.arcsin(n)
+    za = np.pi / 2 - np.arcsin(n)
 
     efield_beam = uvbeam.interp(az, za, freqs, **kwargs)[0]
     efieldXX = efield_beam[0, 0, 1]
@@ -52,10 +52,10 @@ def uvbeam_to_lm(uvbeam, freqs, n_pix_lm=63, **kwargs):
 def eq2top_m(ha, dec):
     """
     Calculates the equatorial to topocentric conversion matrix.
-    
-    Conversion at a given hour angle (ha) and declination (dec). Ripped 
+
+    Conversion at a given hour angle (ha) and declination (dec). Ripped
     straight from aipy.
-    
+
     Parameters
     ----------
     ha : float
@@ -72,9 +72,13 @@ def eq2top_m(ha, dec):
     sin_d, cos_d = np.sin(dec), np.cos(dec)
     zero = np.zeros_like(ha)
 
-    map = np.array([[sin_H, cos_H, zero],
-                    [-sin_d * cos_H, sin_d * sin_H, cos_d],
-                    [cos_d * cos_H, -cos_d * sin_H, sin_d]])
+    map = np.array(
+        [
+            [sin_H, cos_H, zero],
+            [-sin_d * cos_H, sin_d * sin_H, cos_d],
+            [cos_d * cos_H, -cos_d * sin_H, sin_d],
+        ]
+    )
 
     if len(map.shape) == 3:
         map = map.transpose([2, 0, 1])
@@ -95,12 +99,13 @@ def healpix_to_crd_eq(h, nest=False):
     Returns
     -------
     ndarray
-       The equatorial coordinates of each HEALPix pixel. 
+       The equatorial coordinates of each HEALPix pixel.
        Shape=(12*N^2, 3) for integer N.
     """
     assert h.ndim == 1, "h must be a 1D array."
 
     px = np.arange(len(h))
-    crd_eq = np.array(healpy.pix2vec(healpy.get_nside(h), px, nest=nest),
-                      dtype=np.float32)
+    crd_eq = np.array(
+        healpy.pix2vec(healpy.get_nside(h), px, nest=nest), dtype=np.float32
+    )
     return crd_eq
