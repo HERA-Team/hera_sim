@@ -16,3 +16,4 @@ dependencies:
   - pyuvdata
   - pip:
     - sphinx-rtd-theme
+    - sphinx_autorun
