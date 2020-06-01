@@ -140,13 +140,16 @@ for component in simulation_info["components"]:
 if args.verbose:
     print("Running simulation...")
 
+# XXX it may be simpler to just use sim.run_sim for this, and if the user 
+# wants to save the components, then we can loop over the items in 
+# simulation_parameters and just do sim.get
 for component, parameters in simulation_parameters.items():
     if args.save_all:
         data = sim.add(component, ret_vis=True, **parameters)
         filename = f"{component}".join(os.path.splitext(args.outfile))
         if type(data) is dict:
             # The component is a gain-like term, so save as a calfits file.
-            cli_utils.write_calfits(sim, data, filename)
+            cli_utils.write_calfits(data, filename, sim=sim)
         else:
             cli_utils.write_vis(
                 sim, 
