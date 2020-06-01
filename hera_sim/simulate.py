@@ -53,7 +53,7 @@ class Simulator:
         # actually initialize the UVData object stored in self.data
         self._initialize_data(data, **kwargs)
 
-    @cached_property
+    @property
     def antpos(self):
         # TODO: docstring
         """
@@ -61,17 +61,22 @@ class Simulator:
         antpos, ants = self.data.get_ENU_antpos(pick_data_ants=True)
         return dict(zip(ants, antpos))
 
-    @cached_property
+    @property
     def lsts(self):
         # TODO: docstring
         return np.unique(self.data.lst_array)
 
-    @cached_property
+    @property
     def freqs(self):
         # TODO: docstring
         """Frequencies in GHz
         """
         return np.unique(self.data.freq_array) / 1e9
+
+    @property
+    def times(self):
+        """Return unique simulation times."""
+        return np.unique(self.data.time_array)
 
     # XXX begin methods intended for user interaction XXX
 
@@ -192,6 +197,7 @@ class Simulator:
             model = model(**kwargs)
         
         # if ant1, ant2 not specified, then do the whole array
+        # TODO: proofread this to make sure that seeds are handled correctly
         if ant1 is None and ant2 is None:
             # re-add seed to the kwargs
             kwargs["seed"] = seed
@@ -279,9 +285,16 @@ class Simulator:
             msg = "The save_format must correspond to a write method in UVData."
             raise ValueError(msg)
         if save_seeds:
+            # TODO: update the way seeds are handled so that they are written 
+            # to the extra_keywords attribute of the UVData object
+            # simple idea is to have the key be the component alias, with the 
+            # default (in case there is no alias) being the string representation 
+            # of the object simulating the component
             seed_file = os.path.splitext(filename)[0] + "_seeds"
             np.save(seed_file, self._seeds)
 
+    # XXX with the new version of the CLI, this should not need to be wrapped 
+    # by the _generator_to_list wrapper, I *think*
     @_generator_to_list
     def run_sim(self, sim_file=None, **sim_params):
         # TODO: docstring
