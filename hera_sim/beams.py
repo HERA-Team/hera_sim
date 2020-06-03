@@ -227,6 +227,10 @@ class PerturbedPolyBeam(PolyBeam):
             phi_s = np.arccos(Xs / theta_s)
             phi_s[Ys < 0.] *= -1.
             
+            # Fix coordinates below the horizon of the unstretched beam
+            theta_s[np.where(theta_s < 0.)] = 0.5 * np.pi
+            theta_s[np.where(theta_s >= np.pi/2.)] = 0.5 * np.pi
+            
             # Update za_array and az_array
             args = (phi_s, theta_s, freq_array)
             az_array, za_array = phi_s, theta_s
