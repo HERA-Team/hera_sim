@@ -115,7 +115,8 @@ class PolyBeam(AnalyticBeam):
 class PerturbedPolyBeam(PolyBeam):
     
     def __init__(self, perturb_coeffs=None, perturb_scale=0.1, 
-                 mainlobe_width=None, mainlobe_scale=1., transition_width=0.05, 
+                 mainlobe_width=None, mainlobe_scale=1., transition_width=0.05,
+                 xstretch=1., ystretch=1., rotation=0.,
                  **kwargs):
         """
         Analytic, azimuthally-symmetric beam model based on Chebyshev 
@@ -158,6 +159,15 @@ class PerturbedPolyBeam(PolyBeam):
             considered to be in the mainlobe vs in the sidelobes, in radians. 
             Default: 0.05.
         
+        xstretch, ystretch : float, optional
+            Stretching factors to apply to the beam in the x and y directions, 
+            which introduces beam ellipticity, as well as an overall 
+            stretching/shrinking. Default: 1.0 (no ellipticity or stretching).
+        
+        rotation : float, optional
+            Rotation of the beam in the x-y plane, in degrees. Only has an 
+            effect if xstretch != ystretch. Default: 0.0.
+        
         beam_coeffs: array_like
             Co-efficients of the baseline Chebyshev polynomial.
 
@@ -186,12 +196,14 @@ class PerturbedPolyBeam(PolyBeam):
         self.mainlobe_width = mainlobe_width
         self.mainlobe_scale = mainlobe_scale
         self.transition_width = transition_width
+        self.xstretch, self.ystretch = xstretch, ystretch
+        self.rotation = rotation
         
         # Sanity checks
         if perturb_scale >= 1.:
             raise ValueError("'perturb_scale' must be less than 1; otherwise "
                              "the beam can go negative.")
-    
+        
     
     def interp(self, *args, **kwargs):
         # FIXME: This should include a frequency scaling of the zenith angle
@@ -199,18 +211,25 @@ class PerturbedPolyBeam(PolyBeam):
         # Get positional arguments
         az_array, za_array, freq_array, = (arg for arg in args)
         
-        # Convert sheared Cartesian coords to circular polar coords
-        # mX stretches in x direction, mY in y direction, a is angle
-        #phi = az
-        #theta = za
-        #X = za_array*np.cos(az_array)
-        #Y = za_array*np.sin(az_array)
-        #mX, mY, a = 3., 1., np.pi/4.
-        #Xs = (X * np.cos(a) - Y * np.sin(a)) / mX
-        #Ys = (X * np.sin(a) + Y * np.cos(a)) / mY
-        #theta_s = np.sqrt(Xs**2. + Ys**2.)
-        #phi_s = np.arccos(Xs / theta_s)
-        #phi_s[Ys < 0.] *= -1.
+        # Apply shearing, stretching, or rotation
+        if self.xstretch != 1. or self.ystretch != 1.:
+            # Convert sheared Cartesian coords to circular polar coords
+            # mX stretches in x direction, mY in y direction, a is angle
+            # Notation: phi = az, theta = za. Subscript 's' are transformed coords
+            a = self.rotation * np.pi / 180.
+            X = za_array * np.cos(az_array)
+            Y = za_array * np.sin(az_array)
+            Xs = (X * np.cos(a) - Y * np.sin(a)) / self.xstretch
+            Ys = (X * np.sin(a) + Y * np.cos(a)) / self.ystretch
+            
+            # Updated polar coordinates
+            theta_s = np.sqrt(Xs**2. + Ys**2.)
+            phi_s = np.arccos(Xs / theta_s)
+            phi_s[Ys < 0.] *= -1.
+            
+            # Update za_array and az_array
+            args = (phi_s, theta_s, freq_array)
+            az_array, za_array = phi_s, theta_s
         
         # Call interp() method on parent class
         interp_fn = super(PerturbedPolyBeam, self).interp
