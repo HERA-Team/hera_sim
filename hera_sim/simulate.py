@@ -930,7 +930,7 @@ class Simulator:
         msg = "hera_sim v{version}: Added {component} using kwargs:\n"
         if defaults._override_defaults:
             kwargs["defaults"] = defaults._config_name
-        for param, value in kwargs.items():
+        for param, value in defaults._unpack_dict(kwargs).items():
             msg += "{param} = {value}\n".format(param=param, value=value)
         msg = msg.format(version=__version__, component=model)
         self.data.history += msg
