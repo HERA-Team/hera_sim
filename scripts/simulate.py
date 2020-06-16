@@ -88,6 +88,7 @@ if defaults is not None:
         msg += "details regarding how to interact with the defaults module."
         raise ValueError(msg)
 
+    print(f"Using default configuration: {defaults}")
     hera_sim.defaults.set(defaults, refresh=True)
 
 telescope_params = config.get("telescope", {})
