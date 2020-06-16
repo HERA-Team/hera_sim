@@ -5,13 +5,12 @@ Installation
 Requirements
 ------------
 Requires:
- * `numpy`
- * `scipy`
- * `aipy`
- * `hera_cal` (which requires `h5py`)
- * `pyuvdata`
+ * ``numpy``
+ * ``scipy``
+ * ``aipy``
+ * ``pyuvdata``
 
-Then, at the command line, navigate to the `hera_sim` repo/directory, and::
+Then, at the command line, navigate to the ``hera_sim`` repo/directory, and::
 
     pip install .
 

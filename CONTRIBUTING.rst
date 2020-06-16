@@ -34,7 +34,7 @@ If you are proposing a feature:
 Development
 ===========
 
-To set up `hera_sim` for local development:
+To set up ``hera_sim`` for local development:
 
 1. If you are *not* on the HERA-Team collaboration, make a fork of
    `hera_sim <https://github.com/HERA-Team/hera_sim>`_ (look for the "Fork" button).

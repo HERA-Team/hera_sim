@@ -70,7 +70,7 @@ class TestHexArray(unittest.TestCase):
             bl1 = xyz[1] - xyz[0]
             bl2 = xyz[N] - xyz[0]
             np.testing.assert_allclose(bl1, [1, 0, 0], atol=1e-10)
-            np.testing.assert_allclose(bl2, [-0.5, -3 ** 0.5 / 2, 0], atol=1e-10)
+            np.testing.assert_allclose(bl2, [-0.5, -(3 ** 0.5) / 2, 0], atol=1e-10)
         # Test split (this is rather brittle and could be improved)
         xyz = antpos.hex_array(3, sep=14.6, split_core=True, outriggers=0)
         np.testing.assert_allclose(

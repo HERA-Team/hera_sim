@@ -1,7 +1,0 @@
-include *.md
-include hera_sim/VERSION
-include hera_sim/GIT_INFO
-recursive-include hera_sim/data *
-prune hera_sim/data/test
-recursive-include docs *
-prune docs/_build

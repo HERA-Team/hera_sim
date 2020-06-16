@@ -1,7 +1,9 @@
-[![Build Status](https://travis-ci.org/HERA-Team/hera_sim.svg?branch=master)](https://travis-ci.org/HERA-Team/hera_sim)
+# `hera_sim`: Simple simulation package for the HERA array
+
+[![Build Status](https://github.com/HERA-Team/hera_sim/workflows/Tests/badge.svg)](https://github.com/HERA-Team/hera_sim)
 [![Coverage Status](https://coveralls.io/repos/github/HERA-Team/hera_sim/badge.svg?branch=master)](https://coveralls.io/github/HERA-Team/hera_sim?branch=master)
 
-# `hera_sim`: Simple simulation package
+
 
 
 Basic simulation package for HERA-like redundant interferometric
@@ -48,7 +50,7 @@ First install the basic dependencies:
 
 ``$ pip install numpy``
 
-The [pyuvsim](https://github.com/RadioAstronomySoftwareGroup/pyuvsim) module is required for simulation setup in this module. For use without installing the `mpi4py` module it is recommended to install this repo manually or through pip by excuting 
+The [pyuvsim](https://github.com/RadioAstronomySoftwareGroup/pyuvsim) module is required for simulation setup in this module. For use without installing the `mpi4py` module it is recommended to install this repo manually or through pip by excuting
 ```pip install git+https://github.com/RadioAstronomySoftwareGroup/pyuvsim.git```
 
 Then to install this repo, either download and run ``pip install -e .`` or

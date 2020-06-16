@@ -1,7 +1,7 @@
-`hera_sim`: A Simple Simulator
-==============================
+``hera_sim``: A Simple Simulator
+================================
 
-`hera_sim` is a simple simulator that generates instrumental effects and applies them to visibilities.
+``hera_sim`` is a simple simulator that generates instrumental effects and applies them to visibilities.
 
 Contents
 ========
@@ -22,4 +22,3 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
-
