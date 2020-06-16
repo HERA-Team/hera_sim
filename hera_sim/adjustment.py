@@ -2,6 +2,7 @@
 
 import copy
 import os
+import pathlib
 
 import numpy as np
 from astropy import units
@@ -105,4 +106,97 @@ def adjust_to_reference(
     possible to perform the antenna array adjustment step for an object with
     arbitrary compression by redundancy.)
     """
-    pass
+    if verbose:
+        print("Validating positional arguments...")
+    target_is_simulator = False
+    if not isinstance(target, UVData):
+        if isinstance(target, Simulator):
+            target_is_simulator = True
+            target_original = copy.deepcopy(target)
+            target = target.data
+            target_original.data = None # Memory concerns for later
+        else:
+            target_files = _listify(target)
+            _validate_file_list(target_files, "target")
+            target = UVData()
+            target.read(target_files)
+
+    if not isinstance(reference, UVData):
+        if isinstance(reference, Simulator):
+            reference_metadata = reference.data.copy(metadata_only=True)
+        else:
+            reference_files = _listify(reference)
+            _validate_file_list(reference_files, "reference")
+            reference_metadata = UVData()
+            reference_metadata.read(reference_files, read_data=False)
+    else:
+        reference_metadata = reference.copy(metadata_only=True)
+
+    # Quickly check that the tolerance for the antenna adjustment is valid.
+    # (Processing prior to antenna adjustment can be long, so do this early.)
+    if np.isrealobj(position_tolerance):
+        if np.isscalar(position_tolerance):
+            position_tolerance = np.ones(3) * position_tolerance
+        else:
+            position_tolerance = np.array(position_tolerance).flatten()
+            if position_tolerance.size != 3:
+                raise ValueError(
+                    "position_tolerance should be a scalar or length-3 array."
+                )
+    else:
+        raise TypeError(
+            "position_tolerance must be a real-valued scalar or length-3 array."
+        )
+
+    if verbose:
+        if interpolate:
+            print("Interpolating target data to reference data LSTs...")
+        else:
+            print("Rephasing target data to reference data LSTs...")
+
+    if interpolate:
+        target = interpolate_to_reference(target, reference_metadata)
+    else:
+        if not np.isclose(
+            target.integration_time.mean(), 
+            reference_metadata.integration_time.mean()
+        ):
+            msg = "Target and reference integration times do not match. "
+            msg += "This may result in discontinuities in the result."
+            warn(msg)
+
+        target = rephase_to_reference(target, reference_metadata)
+
+    if verbose:
+        print("Inflating target data by baseline redundancy...")
+    target.inflate_by_redundancy()
+
+    if verbose:
+        print("Adjusting target's antenna array to optimally match reference...")
+    target = match_antennas(
+        target,
+        reference_metadata,
+        tol=position_tolerance,
+        relabel_antennas=relabel_antennas,
+        use_reference_positions=use_reference_positions,
+        overwrite_telescope_metadata=overwrite_telescope_metadata,
+    )
+
+    if conjugation_convention is not None:
+        if verbose:
+            print(f"Conjugating target to {conjugation_convention} convention...")
+        target.conjugate_bls(conjugation_convention)
+
+    if target_is_simulator:
+        target_original.data = target
+        return target_original
+
+    return target
+
+def _validate_file_list(file_list, name="file list"):
+    """Ensure all entries in the file list are path-like objects."""
+    if not all(isinstance(item, (str, pathlib.Path)) for item in file_list):
+        raise TypeError(
+            f"{name} must be either a collection of path-like objects or a "
+            "UVData object or Simulator object"
+        )
