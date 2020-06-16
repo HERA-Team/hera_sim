@@ -99,10 +99,6 @@ if defaults is not None:
 telescope_params = config.get("telescope", {})
 array_layout = telescope_params.get("array_layout", None)
 if array_layout is not None:
-    # TODO: update Simulator to handle having a string passed for array_layout
-    if isinstance(array_layout, str):
-        array_layout = _parse_layout_csv(array_layout)
-
     instrument_parameters["array_layout"] = array_layout
 
 # Finish filling out the instrument parameters and initialize the Simulator.
@@ -113,7 +109,6 @@ instrument_parameters.update(time_parameters)
 hera_sim.defaults.set(instrument_parameters, refresh=False)
 sim = hera_sim.Simulator()
 
-# next: prepare Simulator object, sky, and beam
 # Now handle the extras.
 if telescope_params.get("omega_p", None) is not None:
     hera_sim.defaults.set({"omega_p": telescope_params["omega_p"]}, refresh=False)
