@@ -28,11 +28,13 @@ def _read_npy(npy):
     """Load in contents of a .npy file."""
     return np.array(np.load(npy))
 
+
 def _read_npz(npz):
     """Load in contents of a .npz file."""
     # We have to convert to dict to read the data in, instead of lazy-loading.
     # Otherwise, Interpolator is not pickleable.
     return dict(np.load(npz, allow_pickle=True))
+
 
 def _read(datafile):
     ext = path.splitext(datafile)[1]
@@ -42,6 +44,7 @@ def _read(datafile):
         return _read_npz(datafile)
     else:
         raise ValueError(f"File type '{ext}' not supported.")
+
 
 class Interpolator:
     """Base interpolator class"""
