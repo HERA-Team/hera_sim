@@ -25,38 +25,23 @@ def _check_path(datafile):
 
 
 def _read_npy(npy):
-    return np.load(npy)
-
-
-def _read_npz(npz):
-    return dict(np.load(npz, allow_pickle=True))
-
-
-def _read(dfile):
-    ext = path.splitext(dfile)[1]
-    if ext == ".npy":
-        return _read_npy(dfile)
-    elif ext == ".npz":
-        return _read_npz(dfile)
-    else:
-        raise ValueError(f"File type '{ext}' not supported.")
-
+    """Load in contents of a .npy file."""
+    return np.array(np.load(npy))
 
 def _read_npz(npz):
+    """Load in contents of a .npz file."""
     # We have to convert to dict to read the data in, instead of lazy-loading.
     # Otherwise, Interpolator is not pickleable.
     return dict(np.load(npz, allow_pickle=True))
 
-
 def _read(datafile):
     ext = path.splitext(datafile)[1]
-    if "npy" in ext:
+    if ext == ".npy":
         return _read_npy(datafile)
-    elif "npz" in ext:
+    elif ext == ".npz":
         return _read_npz(datafile)
     else:
-        raise ValueError("File is neither a .npy nor a .npz file.")
-
+        raise ValueError(f"File type '{ext}' not supported.")
 
 class Interpolator:
     """Base interpolator class"""
