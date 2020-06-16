@@ -133,7 +133,7 @@ class Simulator:
             ret_vis=ret_vis,
             vis_filter=vis_filter,
             antpairpol_cache=antpairpol_cache,
-            **kwargs
+            **kwargs,
         )
 
         # log the component and its kwargs, if added to data
@@ -215,7 +215,7 @@ class Simulator:
                 add_vis=False,
                 ret_vis=True,
                 antpairpol_cache=antpairpol_cache,
-                **kwargs
+                **kwargs,
             )
 
             # return a subset if a polarization is specified
@@ -506,7 +506,7 @@ class Simulator:
         ret_vis=False,
         vis_filter=None,
         antpairpol_cache=None,
-        **kwargs
+        **kwargs,
     ):
         # TODO: docstring
         """
@@ -906,13 +906,12 @@ class Simulator:
         # TODO: docstring
         """
         """
-        model = self._get_model_name(model)
-        msg = "hera_sim v{version}: Added {component} using kwargs:\n"
+        component = self._get_model_name(model)
+        msg = f"hera_sim v{__version__}: Added {component} using kwargs:\n"
         if defaults._override_defaults:
             kwargs["defaults"] = defaults._config_name
         for param, value in defaults._unpack_dict(kwargs).items():
-            msg += "{param} = {value}\n".format(param=param, value=value)
-        msg = msg.format(version=__version__, component=model)
+            msg += f"{param} = {value}\n"
         self.data.history += msg
 
     def _update_seeds(self, model_name=None):
