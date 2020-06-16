@@ -4,6 +4,7 @@ simulations with hera_sim via the command line.
 """
 import copy
 import os
+import numpy as np
 from .defaults import SEASON_CONFIGS
 from .simulate import Simulator
 
