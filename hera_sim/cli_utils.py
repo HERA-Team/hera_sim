@@ -3,6 +3,7 @@ Module containing useful helper functions and argparsers for running
 simulations with hera_sim via the command line.
 """
 import copy
+import itertools
 import os
 import numpy as np
 from .defaults import SEASON_CONFIGS
@@ -106,7 +107,7 @@ def _validate_freq_params(freq_params):
     )
     allowed_combinations = list(
         combo
-        for combo in itertools.combinations(all_params, 3)
+        for combo in itertools.combinations(allowed_params, 3)
         if "start_freq" in combo and "freq_array" not in combo
     ) + [("freq_array",)]
     for combination in allowed_combinations:
