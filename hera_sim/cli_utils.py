@@ -79,23 +79,6 @@ def write_calfits(gains, filename, sim=None, freqs=None, times=None, clobber=Fal
     write_cal(filename, gains, freqs, times, overwrite=clobber, return_uvc=False)
 
 
-def write_vis(ref_sim, vis, filename, save_format="uvh5", bda_params=None, **kwargs):
-    """Write a simulated visibility to disk."""
-    tmp_sim = copy.deepcopy(ref_sim)
-    if not isinstance(tmp_sim, Simulator):
-        tmp_sim = Simulator(data=tmp_sim)
-
-    tmp_sim.data.data_array = vis
-    if bda_params:
-        # This should be installed if this clause is executed.
-        from bda import bda_tools
-
-        tmp_sim.data = bda_tools.apply_bda(tmp_sim.data, **bda_params)
-
-    tmp_sim.write(filename, save_format, **kwargs)
-    return
-
-
 def _validate_freq_params(freq_params):
     """Ensure frequency parameters specified are sufficient."""
     allowed_params = (
