@@ -236,9 +236,9 @@ class Simulator:
                 return data[blt_inds, 0, :, pol_ind]
         elif seed == "redundant":
             if any([(ant2, ant1) == item for item in antpairpol_cache]):
-                self._seed_rng(seed_mode, model, ant2, ant1)
+                self._seed_rng(seed, model, ant2, ant1)
             else:
-                self._seed_rng(seed_mode, model, ant1, ant2)
+                self._seed_rng(seed, model, ant1, ant2)
 
         # get the arguments necessary for the model
         args = self._initialize_args_from_model(model)
@@ -612,7 +612,7 @@ class Simulator:
                 # not re-simulate to ensure invariance under complex
                 # conjugation and swapping antennas
                 if conj_in_cache and seed is None:
-                    conj_blts = sim.data.antpair2ind((ant2, ant1))
+                    conj_blts = self.data.antpair2ind((ant2, ant1))
                     vis = (data_copy - self.data.data_array)[
                         conj_blts, 0, :, pol_ind
                     ].conj()

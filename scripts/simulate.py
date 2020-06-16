@@ -76,7 +76,7 @@ args.outfile = args.outfile or os.path.join(
 )
 args.clobber = filing_params["clobber"] if args.clobber is None else args.clobber
 if os.path.exists(args.outfile) and not args.clobber:
-    print(f"File exists and clobber=False; exiting.")
+    print("File exists and clobber=False; exiting.")
     sys.exit()
 
 if args.verbose:
@@ -85,7 +85,7 @@ if args.verbose:
 instrument_parameters = {}
 defaults = config.get("defaults", None)
 if defaults is not None:
-    if verbose:
+    if args.verbose:
         print(f"Using default configuration: {defaults}")
     hera_sim.defaults.set(defaults, refresh=True)
 
