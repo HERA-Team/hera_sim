@@ -13,6 +13,7 @@ from hera_sim import cli_utils
 from pyuvsim.simsetup import _parse_layout_csv
 from astropy.coordinates import Angle
 from astropy import units
+
 try:
     import bda
     from bda import bda_tools
@@ -29,34 +30,34 @@ parser.add_argument(
     "--outfile",
     type=str,
     default=None,
-    help="Where to save simulated data. Overrides outfile specified in config."
+    help="Where to save simulated data. Overrides outfile specified in config.",
 )
 parser.add_argument(
     "-v",
     "--verbose",
     default=False,
     action="store_true",
-    help="Print progress updates."
+    help="Print progress updates.",
 )
 parser.add_argument(
     "-sa",
     "--save_all",
     default=False,
     action="store_true",
-    help="Save each simulation component."
+    help="Save each simulation component.",
 )
 parser.add_argument(
     "--clobber",
     default=None,  # To allow the user to specify clobber in the config file.
     action="store_true",
-    help="Overwrite existing files in case of name conflicts."
+    help="Overwrite existing files in case of name conflicts.",
 )
 args = parser.parse_args()
 
 if args.verbose:
     print("Reading configuration file and validating contents...")
 
-with open(args.config, 'r') as cfg:
+with open(args.config, "r") as cfg:
     config = yaml.load(cfg.read(), Loader=yaml.FullLoader)
 
 cli_utils.validate_config(config)
@@ -65,14 +66,13 @@ if bda_params:
     bda_params["corr_FoV_angle"] = Angle(
         bda_params.get("corr_FoV_angle", 20 * units.deg)
     )
-    
+
 if bda_params and bda is None:
     raise ModuleNotFoundError("Please ensure bda is installed and try again.")
 
 filing_params = cli_utils.get_filing_params(config)
 args.outfile = args.outfile or os.path.join(
-    filing_params["outdir"],
-    filing_params["outfile_name"]
+    filing_params["outdir"], filing_params["outfile_name"]
 )
 args.clobber = filing_params["clobber"] if args.clobber is None else args.clobber
 if os.path.exists(args.outfile) and not args.clobber:
@@ -102,7 +102,7 @@ if array_layout is not None:
     # TODO: update Simulator to handle having a string passed for array_layout
     if isinstance(array_layout, str):
         array_layout = _parse_layout_csv(array_layout)
-    
+
     instrument_parameters["array_layout"] = array_layout
 
 # Finish filling out the instrument parameters and initialize the Simulator.
@@ -126,11 +126,10 @@ if Tsky_mdl is not None:
 systematics_parameters = config.get("systematics", {})
 default_components = ["foregrounds", "eor", "noise", "rfi", "sigchain"]
 simulation_info = config.get(
-    "simulation", 
-    {"components": default_components, "exclude": []}
+    "simulation", {"components": default_components, "exclude": []}
 )
 all_simulation_parameters = {
-    component: parameter_dict 
+    component: parameter_dict
     for parameters in (sky_parameters, systematics_parameters)
     for component, parameter_dict in parameters.items()
 }
@@ -146,8 +145,8 @@ for component in simulation_info["components"]:
 if args.verbose:
     print("Running simulation...")
 
-# XXX it may be simpler to just use sim.run_sim for this, and if the user 
-# wants to save the components, then we can loop over the items in 
+# XXX it may be simpler to just use sim.run_sim for this, and if the user
+# wants to save the components, then we can loop over the items in
 # simulation_parameters and just do sim.get
 for component, parameters in simulation_parameters.items():
     if args.verbose:
@@ -158,18 +157,18 @@ for component, parameters in simulation_parameters.items():
         if type(data) is dict:
             # The component is a gain-like term, so save as a calfits file.
             ext = os.path.splitext(filename)[1]
-            if ext == '':
+            if ext == "":
                 filename += ".calfits"
             else:
                 filename = filename.replace(ext, ".calfits")
             cli_utils.write_calfits(data, filename, sim=sim)
         else:
             cli_utils.write_vis(
-                sim, 
-                data, 
-                filename=filename, 
+                sim,
+                data,
+                filename=filename,
                 save_format=filing_params.get("output_format", "uvh5"),
-                bda_params=bda_params
+                bda_params=bda_params,
             )
     else:
         sim.add(component, ret_vis=False, **parameters)
@@ -186,7 +185,7 @@ if args.verbose:
 sim.data.history += "\nSimulation performed with hera_sim, using configuration "
 sim.data.history += f"file {args.config}"
 sim.write(
-    args.outfile, 
+    args.outfile,
     save_format=filing_params.get("output_format", "uvh5"),
-    **filing_params.get("kwargs", {})
+    **filing_params.get("kwargs", {}),
 )

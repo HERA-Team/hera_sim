@@ -101,10 +101,10 @@ class Simulator:
 
         # find out whether the data application should be filtered
         vis_filter = kwargs.pop("vis_filter", None)
-        
+
         # take out the seed kwarg so as not to break initializor
         seed = kwargs.pop("seed", -1)
-        
+
         # get the model for the desired component
         model, is_class = self._get_component(component)
 
@@ -123,11 +123,11 @@ class Simulator:
 
         # check that there isn't an issue with component ordering
         self._sanity_check(model)
-        
+
         # re-add the seed kwarg if it was specified
         if seed != -1:
             kwargs["seed"] = seed
-        
+
         # calculate the effect
         data = self._iteratively_apply(
             model,
@@ -189,7 +189,7 @@ class Simulator:
 
         # figure out whether or not to seed the rng
         seed = kwargs.pop("seed", None)
-        
+
         # get the antpairpol cache
         antpairpol_cache = self._antpairpol_cache[model]
 
@@ -299,7 +299,7 @@ class Simulator:
                     for bl_int, seed in seeds.items():
                         key = "_".join([component, "seed", str(bl_int)])
                         seed_dict[key] = seed
-            
+
             # Now actually update the extra_keywords dictionary.
             self.data.extra_keywords.update(seed_dict)
         try:
@@ -308,7 +308,7 @@ class Simulator:
             msg = "The save_format must correspond to a write method in UVData."
             raise ValueError(msg)
 
-    # XXX with the new version of the CLI, this should not need to be wrapped 
+    # XXX with the new version of the CLI, this should not need to be wrapped
     # by the _generator_to_list wrapper, I *think*
     @_generator_to_list
     def run_sim(self, sim_file=None, **sim_params):
@@ -551,7 +551,7 @@ class Simulator:
 
         # figure out whether or not to seed the RNG
         seed = kwargs.pop("seed", None)
-        
+
         # get a copy of the data array
         data_copy = self.data.data_array.copy()
 
@@ -577,12 +577,12 @@ class Simulator:
             # check if the antpolpair or its conjugate have data
             bl_in_cache = (ant1, ant2, pol) in antpairpol_cache
             conj_in_cache = (ant2, ant1, pol) in antpairpol_cache
-            
+
             if seed == "redundant" and conj_in_cache:
                 seed = self._seed_rng(seed, model, ant2, ant1)
             elif seed is not None:
                 seed = self._seed_rng(seed, model, ant1, ant2)
-            
+
             # parse the model signature to get the required arguments
             use_args = self._update_args(args, ant1, ant2, pol)
 
@@ -614,7 +614,7 @@ class Simulator:
                 # not re-simulate to ensure invariance under complex
                 # conjugation and swapping antennas
                 if conj_in_cache and seed is None:
-                    conj_blts = sim.data.antpair2ind((ant2,ant1))
+                    conj_blts = sim.data.antpair2ind((ant2, ant1))
                     vis = (data_copy - self.data.data_array)[
                         conj_blts, 0, :, pol_ind
                     ].conj()
@@ -674,7 +674,7 @@ class Simulator:
             # generate seeds for each redundant group
             # this does nothing if the seeds already exist
             self._generate_redundant_seeds(model)
-            
+
             # Determine the key for the redundant group this baseline is in.
             bl_int = self.data.antnums_to_baseline(ant1, ant2)
             red_grps = self._get_reds()
@@ -683,7 +683,7 @@ class Simulator:
             np.random.seed(self._get_seed(model, key))
             return "redundant"
         elif seed == "once":
-            # this option seeds the RNG once per iteration of 
+            # this option seeds the RNG once per iteration of
             # _iteratively_apply, using the same seed every time
             # this is appropriate for antenna-based gains (where the
             # entire gain dictionary is simulated each time), or for
@@ -692,7 +692,7 @@ class Simulator:
             np.random.seed(self._get_seed(model, 0))
             return "once"
         elif seed == "initial":
-            # this seeds the RNG once at the very beginning of 
+            # this seeds the RNG once at the very beginning of
             # _iteratively_apply. this would be useful for something
             # like ThermalNoise
             np.random.seed(self._get_seed(model, -1))
@@ -843,7 +843,7 @@ class Simulator:
         """
         model = self._get_model_name(model)
         # for the sake of randomness
-        np.random.seed(int(time.time() * 1e6) % 2**32)
+        np.random.seed(int(time.time() * 1e6) % 2 ** 32)
         if model not in self._seeds:
             self._seeds[model] = {}
         self._seeds[model][key] = np.random.randint(2 ** 32)

@@ -47,6 +47,7 @@ def _read_npz(npz):
     # Otherwise, Interpolator is not pickleable.
     return dict(np.load(npz, allow_pickle=True))
 
+
 def _read(datafile):
     ext = path.splitext(datafile)[1]
     if "npy" in ext:
@@ -55,6 +56,7 @@ def _read(datafile):
         return _read_npz(datafile)
     else:
         raise ValueError("File is neither a .npy nor a .npz file.")
+
 
 class Interpolator:
     """Base interpolator class"""

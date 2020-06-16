@@ -1,5 +1,5 @@
 """
-Module containing useful helper functions and argparsers for running 
+Module containing useful helper functions and argparsers for running
 simulations with hera_sim via the command line.
 """
 import copy
@@ -7,6 +7,7 @@ import os
 import numpy as np
 from .defaults import SEASON_CONFIGS
 from .simulate import Simulator
+
 
 def get_filing_params(config):
     """Extract filing parameters from a configuration dictionary."""
@@ -25,6 +26,7 @@ def get_filing_params(config):
 
     return filing_params
 
+
 def validate_config(config):
     """Validate the contents of a loaded configuration file."""
     if config.get("defaults", None) is not None:
@@ -32,7 +34,7 @@ def validate_config(config):
             raise ValueError(
                 "Defaults in the CLI may only be specified using a string."
             )
-        
+
         if config["defaults"] in SEASON_CONFIGS.keys():
             return
         else:
@@ -50,16 +52,11 @@ def validate_config(config):
     if not all(freqs_ok, times_ok, array_ok):
         raise ValueError("Insufficient information to initialize simulation.")
 
-def write_calfits(
-    gains, 
-    filename, 
-    sim=None, 
-    freqs=None, 
-    times=None, 
-    clobber=False
-):
+
+def write_calfits(gains, filename, sim=None, freqs=None, times=None, clobber=False):
     """Write gains to disk as a calfits file."""
     from hera_cal.io import write_cal
+
     if sim is not None:
         if isinstance(sim, Simulator):
             freqs = sim.freqs * 1e9
@@ -75,8 +72,9 @@ def write_calfits(
             )
 
     # Update gain keys to conform to write_cal assumptions.
-    gains = {(ant, 'x'): gain for ant, gain in gains.items()}
+    gains = {(ant, "x"): gain for ant, gain in gains.items()}
     write_cal(filename, gains, freqs, times, overwrite=clobber, return_uvc=False)
+
 
 def write_vis(ref_sim, vis, filename, save_format="uvh5", bda_params=None, **kwargs):
     """Write a simulated visibility to disk."""
@@ -87,41 +85,48 @@ def write_vis(ref_sim, vis, filename, save_format="uvh5", bda_params=None, **kwa
     tmp_sim.data.data_array = vis
     if bda_params:
         # This should be installed if this clause is executed.
-        from bda import bda_tools 
+        from bda import bda_tools
+
         tmp_sim.data = bda_tools.apply_bda(tmp_sim.data, **bda_params)
 
     tmp_sim.write(filename, save_format, **kwargs)
     return
 
+
 def _validate_freq_params(freq_params):
     """Ensure frequency parameters specified are sufficient."""
     allowed_params = (
-        "Nfreqs", "start_freq", "bandwidth", "freq_array", "channel_width"
+        "Nfreqs",
+        "start_freq",
+        "bandwidth",
+        "freq_array",
+        "channel_width",
     )
     allowed_combinations = list(
-        combo for combo in itertools.combinations(all_params, 3)
+        combo
+        for combo in itertools.combinations(all_params, 3)
         if "start_freq" in combo and "freq_array" not in combo
     ) + [("freq_array",)]
     for combination in allowed_combinations:
         if all(freq_params.get(param, None) is not None for param in combination):
             return True
-    
+
     # None of the minimum necessary combinations are satisfied if we get here
     return False
+
 
 def _validate_time_params(time_params):
     """Ensure time parameters specified are sufficient."""
     allowed_params = ("Ntimes", "start_time", "integration_time", "time_array")
     if time_params.get("time_array", None) is not None:
         return True
-    elif all(
-        time_params.get(param, None) is not None for param in allowed_params[:-1]
-    ):
+    elif all(time_params.get(param, None) is not None for param in allowed_params[:-1]):
         # Technically, start_time doesn't need to be specified, since it has a
         # default setting in io.py, but that might not be set in stone.
         return True
     else:
         return False
+
 
 def _validate_array_params(array_params):
     """Ensure array layout is OK."""
