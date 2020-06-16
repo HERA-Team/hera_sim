@@ -17,7 +17,7 @@ bda:
         units: 's'
 filing:
     outdir: '.'
-    outfile_name: 'quick_and_dirty_sim'
+    outfile_name: 'quick_and_dirty_sim.uvh5'
     output_format: 'uvh5'
     clobber: True
     # TODO: remove this after updating how writing seeds is handled
@@ -63,20 +63,21 @@ systematics:
             seed: once
             stations: !!null
         rfi_impulse:
-            chance: 0.001
-            strength: 20.0
+            impulse_chance: 0.001
+            impulse_strength: 20.0
         rfi_scatter:
-            chance: 0.0001
-            strength: 10.0
-            std: 10.0
+            scatter_chance: 0.0001
+            scatter_strength: 10.0
+            scatter_std: 10.0
         rfi_dtv:
             seed: once
-            freq_min: 0.174
-            freq_max: 0.214
-            width: 0.008
-            chance: 0.0001
-            strength: 10.0
-            strength_std: 10.0
+            dtv_band: 
+                - 0.174
+                - 0.214
+            dtv_channel_width: 0.008
+            dtv_chance: 0.0001
+            dtv_strength: 10.0
+            dtv_std: 10.0
     sigchain:
         gains:
             seed: initial
@@ -116,16 +117,16 @@ sky:
             max_delay: !!null
             seed: redundant # so redundant baselines see same sky
             fringe_filter_type: tophat
-            fringe_filter_kwargs: {}
     foregrounds:
         # if using hera_sim.foregrounds
         diffuse_foreground:
             seed: redundant # redundant baselines see same sky
-            standoff: 0
-            delay_filter_type: tophat
-            delay_filter_normalize: !!null
-            fringe_filter_type: tophat
-            fringe_filter_kwargs: {}
+            delay_filter_kwargs:
+                standoff: 0
+                delay_filter_type: tophat
+                normalize: !!null
+            fringe_filter_kwargs:
+                fringe_filter_type: tophat
         pntsrc_foreground:
             seed: once
             nsrcs: 1000
