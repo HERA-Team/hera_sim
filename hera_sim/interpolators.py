@@ -25,6 +25,20 @@ def _check_path(datafile):
 def _read_npy(npy):
     return np.load(_check_path(npy))
 
+def _read_npz(npz):
+    # We have to convert to dict to read the data in, instead of lazy-loading.
+    # Otherwise, Interpolator is not pickleable.
+    return dict(np.load(npz, allow_pickle=True))
+
+def _read(datafile):
+    ext = path.splitext(datafile)[1]
+    if "npy" in ext:
+        return _read_npy(datafile)
+    elif "npz" in ext:
+        return _read_npz(datafile)
+    else:
+        raise ValueError("File is neither a .npy nor a .npz file.")
+
 class Interpolator:
     """Base interpolator class"""
 
@@ -44,9 +58,7 @@ class Interpolator:
             Passed to the interpolation method used to make the interpolator.
         """
         self._datafile = _check_path(datafile)
-        # We have to convert to dict to read the data in, instead of lazy-loading.
-        # Otherwise, Interpolator is not pickleable.
-        self._data = dict(np.load(self._datafile, allow_pickle=True))
+        self._data = _read(self._datafile)
         self._interp_kwargs = interp_kwargs
 
 class Tsky(Interpolator):
