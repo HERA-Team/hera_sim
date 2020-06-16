@@ -85,15 +85,8 @@ if args.verbose:
 instrument_parameters = {}
 defaults = config.get("defaults", None)
 if defaults is not None:
-    # TODO: update the defaults module to handle validating the choice of defaults
-    if not isinstance(defaults, str):
-        msg = "Defaults must be specified using a string. The string may be either "
-        msg += "a keyword for a supported HERA observing season, or a path to a "
-        msg += "configuration yaml. Refer to the tutorial on hera_sim.defaults for "
-        msg += "details regarding how to interact with the defaults module."
-        raise ValueError(msg)
-
-    print(f"Using default configuration: {defaults}")
+    if verbose:
+        print(f"Using default configuration: {defaults}")
     hera_sim.defaults.set(defaults, refresh=True)
 
 telescope_params = config.get("telescope", {})

@@ -72,9 +72,7 @@ class Simulator:
 
     @property
     def freqs(self):
-        # TODO: docstring
-        """Frequencies in GHz
-        """
+        """Frequencies in GHz."""
         return np.unique(self.data.freq_array) / 1e9
 
     @property

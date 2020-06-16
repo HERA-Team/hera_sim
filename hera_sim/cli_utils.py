@@ -32,7 +32,9 @@ def validate_config(config):
     if config.get("defaults", None) is not None:
         if type(config["defaults"]) is not str:
             raise ValueError(
-                "Defaults in the CLI may only be specified using a string."
+                "Defaults in the CLI may only be specified using a string. "
+                "The string used may specify either a path to a configuration "
+                "yaml or one of the named default configurations."
             )
 
         if config["defaults"] in SEASON_CONFIGS.keys():
