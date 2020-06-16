@@ -279,19 +279,31 @@ class Simulator:
         # TODO: docstring
         """
         """
+        if save_seeds:
+            # Update the extra_keywords attribute of the underlying UVData
+            # object to contain the seed information.
+            seed_dict = {}
+            for component, seeds in self._seeds.items():
+                if len(seeds) == 1:
+                    seed = list(seeds.values())[0]
+                    key = "_".join([component, "seed"])
+                    seed_dict[key] = seed
+                else:
+                    # This should only be raised for seeding by redundancy.
+                    # Each redundant group is denoted by the *first* baseline
+                    # integer for the particular redundant group. See the
+                    # _generate_redundant_seeds method for reference.
+                    for bl_int, seed in seeds.items():
+                        key = "_".join([component, "seed", str(bl_int)])
+                        seed_dict[key] = seed
+            
+            # Now actually update the extra_keywords dictionary.
+            self.data.extra_keywords.update(seed_dict)
         try:
             getattr(self.data, "write_%s" % save_format)(filename, **kwargs)
         except AttributeError:
             msg = "The save_format must correspond to a write method in UVData."
             raise ValueError(msg)
-        if save_seeds:
-            # TODO: update the way seeds are handled so that they are written 
-            # to the extra_keywords attribute of the UVData object
-            # simple idea is to have the key be the component alias, with the 
-            # default (in case there is no alias) being the string representation 
-            # of the object simulating the component
-            seed_file = os.path.splitext(filename)[0] + "_seeds"
-            np.save(seed_file, self._seeds)
 
     # XXX with the new version of the CLI, this should not need to be wrapped 
     # by the _generator_to_list wrapper, I *think*
@@ -655,11 +667,11 @@ class Simulator:
             # generate seeds for each redundant group
             # this does nothing if the seeds already exist
             self._generate_redundant_seeds(model)
-            # get the baseline integer for baseline (ant1, ant2)
+            
+            # Determine the key for the redundant group this baseline is in.
             bl_int = self.data.antnums_to_baseline(ant1, ant2)
-            # find out which redundant group the baseline is in
-            key = [bl_int in reds 
-                   for reds in self._get_reds()].index(True)
+            red_grps = self._get_reds()
+            key = next(reds for reds in red_grps if bl_int in reds)[0]
             # seed the RNG accordingly
             np.random.seed(self._get_seed(model, key))
             return "redundant"
@@ -818,7 +830,7 @@ class Simulator:
         """
         model = self._get_model_name(model)
         # for the sake of randomness
-        np.random.seed(int(time.time()))
+        np.random.seed(int(time.time_ns()) % 2**32)
         if model not in self._seeds:
             self._seeds[model] = {}
         self._seeds[model][key] = np.random.randint(2**32)
@@ -830,8 +842,8 @@ class Simulator:
         model = self._get_model_name(model)
         if model in self._seeds:
             return
-        for j in range(len(self._get_reds())):
-            self._generate_seed(model, j)
+        for red_grp in self._get_reds():
+            self._generate_seed(model, red_grp[0])
 
     def _get_reds(self):
         # TODO: docstring
