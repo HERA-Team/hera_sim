@@ -61,6 +61,11 @@ with open(args.config, 'r') as cfg:
 
 cli_utils.validate_config(config)
 bda_params = config.get("bda", {})
+if bda_params:
+    bda_params["corr_FoV_angle"] = Angle(
+        bda_params.get("corr_FoV_angle", 20 * units.deg)
+    )
+    
 if bda_params and bda is None:
     raise ModuleNotFoundError("Please ensure bda is installed and try again.")
 
@@ -149,16 +154,22 @@ for component, parameters in simulation_parameters.items():
         print(f"Now simulating: {component}")
     if args.save_all:
         data = sim.add(component, ret_vis=True, **parameters)
-        filename = f"{component}".join(os.path.splitext(args.outfile))
+        filename = f"_{component}".join(os.path.splitext(args.outfile))
         if type(data) is dict:
             # The component is a gain-like term, so save as a calfits file.
+            ext = os.path.splitext(filename)[1]
+            if ext == '':
+                filename += ".calfits"
+            else:
+                filename = filename.replace(ext, ".calfits")
             cli_utils.write_calfits(data, filename, sim=sim)
         else:
             cli_utils.write_vis(
                 sim, 
                 data, 
-                filename, 
-                filing_params.get(output_format, "uvh5")
+                filename=filename, 
+                save_format=filing_params.get("output_format", "uvh5"),
+                bda_params=bda_params
             )
     else:
         sim.add(component, ret_vis=False, **parameters)
@@ -167,9 +178,6 @@ if bda_params:
     if args.verbose:
         print("Applying BDA...")
 
-    bda_params["corr_FoV_angle"] = Angle(
-        bda_params.get("corr_FoV_angle", 20 * units.deg)
-    )
     sim.data = bda_tools.apply_bda(sim.data, **bda_params)
 
 if args.verbose:

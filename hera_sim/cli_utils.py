@@ -2,6 +2,7 @@
 Module containing useful helper functions and argparsers for running 
 simulations with hera_sim via the command line.
 """
+import copy
 import os
 from .defaults import SEASON_CONFIGS
 from .simulate import Simulator
@@ -72,7 +73,24 @@ def write_calfits(
                 "times must be specified."
             )
 
+    # Update gain keys to conform to write_cal assumptions.
+    gains = {(ant, 'x'): gain for ant, gain in gains.items()}
     write_cal(filename, gains, freqs, times, overwrite=clobber, return_uvc=False)
+
+def write_vis(ref_sim, vis, filename, save_format="uvh5", bda_params=None, **kwargs):
+    """Write a simulated visibility to disk."""
+    tmp_sim = copy.deepcopy(ref_sim)
+    if not isinstance(tmp_sim, Simulator):
+        tmp_sim = Simulator(data=tmp_sim)
+
+    tmp_sim.data.data_array = vis
+    if bda_params:
+        # This should be installed if this clause is executed.
+        from bda import bda_tools 
+        tmp_sim.data = bda_tools.apply_bda(tmp_sim.data, **bda_params)
+
+    tmp_sim.write(filename, save_format, **kwargs)
+    return
 
 def _validate_freq_params(freq_params):
     """Ensure frequency parameters specified are sufficient."""
