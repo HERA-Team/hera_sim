@@ -148,6 +148,9 @@ class Simulator:
             self._components[component] = kwargs
             # update the history
             self._update_history(model, **kwargs)
+            # track the seed(s) used, if any
+            if seed != -1:
+                self._update_seeds(self._get_model_name(model))
         else:
             # if we're not adding it, then we don't want to keep
             # the antpairpol cache
@@ -276,38 +279,21 @@ class Simulator:
         self._components.clear()
         self._antpairpol_cache = []
 
-    def write(self, filename, save_format="uvh5", save_seeds=True, **kwargs):
+    def write(self, filename, save_format="uvh5", **kwargs):
         # TODO: docstring
         """
         """
-        if save_seeds:
-            # Update the extra_keywords attribute of the underlying UVData
-            # object to contain the seed information.
-            seed_dict = {}
-            for component, seeds in self._seeds.items():
-                if len(seeds) == 1:
-                    seed = list(seeds.values())[0]
-                    key = "_".join([component, "seed"])
-                    seed_dict[key] = seed
-                else:
-                    # This should only be raised for seeding by redundancy.
-                    # Each redundant group is denoted by the *first* baseline
-                    # integer for the particular redundant group. See the
-                    # _generate_redundant_seeds method for reference.
-                    for bl_int, seed in seeds.items():
-                        key = "_".join([component, "seed", str(bl_int)])
-                        seed_dict[key] = seed
-
-            # Now actually update the extra_keywords dictionary.
-            self.data.extra_keywords.update(seed_dict)
         try:
             getattr(self.data, "write_%s" % save_format)(filename, **kwargs)
         except AttributeError:
-            msg = "The save_format must correspond to a write method in UVData."
-            raise ValueError(msg)
+            raise ValueError(
+                "The save_format must correspond to a write method in UVData."
+            )
 
     # XXX with the new version of the CLI, this should not need to be wrapped
-    # by the _generator_to_list wrapper, I *think*
+    # by the _generator_to_list wrapper. That said, it's worth thinking about
+    # whether we want to give the user the option to retrieve the simulation
+    # components as a return value from run_sim
     @_generator_to_list
     def run_sim(self, sim_file=None, **sim_params):
         # TODO: docstring
@@ -428,10 +414,6 @@ class Simulator:
         """Add crosstalk to the visibilities. See :meth:`add` for more details."""
         kwargs.update(vis_filter=bls)
         return self.add(model, **kwargs)
-
-    # XXX end methods intended for user interaction XXX
-
-    # XXX begin helper methods XXX
 
     @staticmethod
     def _apply_filter(vis_filter, ant1, ant2, pol):
@@ -932,3 +914,26 @@ class Simulator:
             msg += "{param} = {value}\n".format(param=param, value=value)
         msg = msg.format(version=__version__, component=model)
         self.data.history += msg
+
+    def _update_seeds(self, model_name=None):
+        """Update the seeds in the extra_keywords property."""
+        seed_dict = {}
+        for component, seeds in self._seeds.items():
+            if model_name is not None and component != model_name:
+                continue
+
+            if len(seeds) == 1:
+                seed = list(seeds.values())[0]
+                key = "_".join([component, "seed"])
+                seed_dict[key] = seed
+            else:
+                # This should only be raised for seeding by redundancy.
+                # Each redundant group is denoted by the *first* baseline
+                # integer for the particular redundant group. See the
+                # _generate_redundant_seeds method for reference.
+                for bl_int, seed in seeds.items():
+                    key = "_".join([component, "seed", str(bl_int)])
+                    seed_dict[key] = seed
+
+        # Now actually update the extra_keywords dictionary.
+        self.data.extra_keywords.update(seed_dict)

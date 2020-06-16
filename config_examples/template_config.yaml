@@ -20,9 +20,6 @@ filing:
     outfile_name: 'quick_and_dirty_sim.uvh5'
     output_format: 'uvh5'
     clobber: True
-    # TODO: remove this after updating how writing seeds is handled
-    kwargs:
-        save_seeds: True # if seeding RNG by redundant group
 # freq and time entries currently configured for hera_sim use
 freq:
     n_freq: 100
