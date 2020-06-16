@@ -843,7 +843,7 @@ class Simulator:
         """
         model = self._get_model_name(model)
         # for the sake of randomness
-        np.random.seed(int(time.time_ns()) % 2**32)
+        np.random.seed(int(time.time() * 1e6) % 2**32)
         if model not in self._seeds:
             self._seeds[model] = {}
         self._seeds[model][key] = np.random.randint(2 ** 32)
