@@ -80,8 +80,6 @@ class Simulator:
         """Return unique simulation times."""
         return np.unique(self.data.time_array)
 
-    # XXX begin methods intended for user interaction XXX
-
     def apply_defaults(self, config, refresh=True):
         # TODO: docstring
         """

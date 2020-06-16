@@ -1,5 +1,15 @@
 """
-CLI for hera_sim
+Command-line interface for ``hera_sim``.
+
+This script may be used to run a simulation from a configuration file and write
+the result, with the option to write intermediate results, to disk. This script
+uses the quick-and-dirty sky simulation tools from ``hera_sim``, as well as the
+various systematics simulation tools available. This includes bandpass gains,
+reflection gains, cross-coupling crosstalk, RFI, and thermal noise. For more
+information on the simulation tools available, please see the tutorial notebooks.
+There is a tutorial RST document for using this command-line interface available
+in the readthedocs, and there is a template configuration file for reference in
+the ``config_examples`` folder in the top-level ``hera_sim`` directory.
 """
 import argparse
 import copy
