@@ -177,7 +177,7 @@ def test_consistent_across_reds():
     defaults.set("h1c")
 
     # add something that should be the same across a redundant group
-    sim.add("diffuse_foreground", seed_mode="redundant")
+    sim.add("diffuse_foreground", seed="redundant")
 
     # deactivate defaults for good measure
     defaults.deactivate()
