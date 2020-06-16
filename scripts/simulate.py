@@ -57,7 +57,7 @@ if args.verbose:
     print("Reading configuration file and validating contents...")
 
 with open(args.config, 'r') as cfg:
-    config = yaml.load(cfg.read(), loader=yaml.FullLoader)
+    config = yaml.load(cfg.read(), Loader=yaml.FullLoader)
 
 cli_utils.validate_config(config)
 bda_params = config.get("bda", {})
@@ -122,7 +122,7 @@ systematics_parameters = config.get("systematics", {})
 default_components = ["foregrounds", "eor", "noise", "rfi", "sigchain"]
 simulation_info = config.get(
     "simulation", 
-    {components: default_components, exclude: []}
+    {"components": default_components, "exclude": []}
 )
 all_simulation_parameters = {
     component: parameter_dict 
@@ -145,6 +145,8 @@ if args.verbose:
 # wants to save the components, then we can loop over the items in 
 # simulation_parameters and just do sim.get
 for component, parameters in simulation_parameters.items():
+    if args.verbose:
+        print(f"Now simulating: {component}")
     if args.save_all:
         data = sim.add(component, ret_vis=True, **parameters)
         filename = f"{component}".join(os.path.splitext(args.outfile))
@@ -177,6 +179,6 @@ sim.data.history += "\nSimulation performed with hera_sim, using configuration "
 sim.data.history += f"file {args.config}"
 sim.write(
     args.outfile, 
-    save_format=filing_params.get(output_format, "uvh5"),
+    save_format=filing_params.get("output_format", "uvh5"),
     **filing_params.get("kwargs", {})
 )
