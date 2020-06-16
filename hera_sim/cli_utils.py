@@ -8,11 +8,11 @@ import os
 import numpy as np
 from .defaults import SEASON_CONFIGS
 from .simulate import Simulator
+from pyuvdata import UVData
 
 
 def get_filing_params(config):
     """Extract filing parameters from a configuration dictionary."""
-
     filing_params = dict(
         outdir=os.getcwd(),
         outfile_name="hera_sim_simulation.uvh5",
@@ -57,10 +57,35 @@ def validate_config(config):
 
 
 def write_calfits(gains, filename, sim=None, freqs=None, times=None, clobber=False):
-    """Write gains to disk as a calfits file."""
+    """
+    Write gains to disk as a calfits file.
+
+    Parameters
+    ----------
+    gains: dict
+        Dictionary mapping antenna numbers or (ant, pol) tuples to gains. Gains
+        may either be spectra or waterfalls.
+    filename: str
+        Name of file, including desired extension.
+    sim: :class:`pyuvdata.UVData` instance or :class:`Simulator` instance
+        Object containing metadata pertaining to the gains to be saved. Does not
+        need to be provided if both ``freqs`` and ``times`` are provided.
+    freqs: array-like of float
+        Frequencies corresponding to gains, in Hz. Does not need to be provided
+        if ``sim`` is provided.
+    times: array-like of float
+        Times corresponding to gains, in JD. Does not need to be provided if
+        ``sim`` is provided.
+    clobber: bool, optional
+        Whether to overwrite existing file in the case of a name conflict.
+        Default is to *not* overwrite conflicting files.
+    """
     from hera_cal.io import write_cal
 
     if sim is not None:
+        if not isinstance(sim, (Simulator, UVData)):
+            raise TypeError("sim must be a Simulator or UVData object.")
+
         if isinstance(sim, Simulator):
             freqs = sim.freqs * 1e9
             times = sim.times
@@ -75,7 +100,8 @@ def write_calfits(gains, filename, sim=None, freqs=None, times=None, clobber=Fal
             )
 
     # Update gain keys to conform to write_cal assumptions.
-    gains = {(ant, "x"): gain for ant, gain in gains.items()}
+    if all(isinstance(ant, (int, str)) for ant in gains.keys()):
+        gains = {(ant, "x"): gain for ant, gain in gains.items()}
     write_cal(filename, gains, freqs, times, overwrite=clobber, return_uvc=False)
 
 
