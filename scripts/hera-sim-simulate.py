@@ -1,3 +1,5 @@
+#!/bin/env python
+
 """
 Command-line interface for ``hera_sim``.
 

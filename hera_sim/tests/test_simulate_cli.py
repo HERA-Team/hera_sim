@@ -8,6 +8,7 @@ import numpy as np
 import hera_sim
 from pyuvdata import UVCal, UVData
 
+
 @pytest.fixture(scope="session")
 def config_file(tmp_path_factory):
     tmpdir = tmp_path_factory.mktemp("test_data")
@@ -74,6 +75,7 @@ def config_file(tmp_path_factory):
         """
     )
     return cfg_file
+
 
 def test_cli(config_file):
     os.system(f"hera-sim-simulate.py {str(config_file)} --save_all --verbose")
