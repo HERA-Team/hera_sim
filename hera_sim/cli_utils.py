@@ -52,7 +52,7 @@ def validate_config(config):
     freqs_ok = _validate_freq_params(freq_params)
     times_ok = _validate_time_params(time_params)
     array_ok = _validate_array_params(array_params)
-    if not all(freqs_ok, times_ok, array_ok):
+    if not all([freqs_ok, times_ok, array_ok]):
         raise ValueError("Insufficient information to initialize simulation.")
 
 
@@ -82,6 +82,8 @@ def write_calfits(gains, filename, sim=None, freqs=None, times=None, clobber=Fal
     """
     from hera_cal.io import write_cal
 
+    gains = gains.copy()
+
     if sim is not None:
         if not isinstance(sim, (Simulator, UVData)):
             raise TypeError("sim must be a Simulator or UVData object.")
@@ -101,14 +103,21 @@ def write_calfits(gains, filename, sim=None, freqs=None, times=None, clobber=Fal
 
     # Update gain keys to conform to write_cal assumptions.
     if all(isinstance(ant, (int, str)) for ant in gains.keys()):
-        gains = {(ant, "x"): gain for ant, gain in gains.items()}
+        # Make sure that gain keys are (ant, jpol) tuples.
+        gains = {(ant, "Jee"): gain for ant, gain in gains.items()}
+
+    # Ensure that all of the gains have the right shape.
+    for antpol, gain in gains.items():
+        if gain.ndim == 1:
+            gains[antpol] = np.outer(np.ones(times.size), gain)
+
     write_cal(filename, gains, freqs, times, overwrite=clobber, return_uvc=False)
 
 
 def _validate_freq_params(freq_params):
     """Ensure frequency parameters specified are sufficient."""
     allowed_params = (
-        "Nfreqs",
+        "Nfreq",
         "start_freq",
         "bandwidth",
         "freq_array",
@@ -150,4 +159,4 @@ def _validate_array_params(array_params):
         # Shallow check; just make sure the file exists.
         return os.path.exists(array_params)
     else:
-        return False
+        raise TypeError("Array layout must be a dictionary or path to a layout csv.")
