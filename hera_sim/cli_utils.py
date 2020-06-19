@@ -102,7 +102,7 @@ def write_calfits(gains, filename, sim=None, freqs=None, times=None, clobber=Fal
             )
 
     # Update gain keys to conform to write_cal assumptions.
-    if all(isinstance(ant, (int, str)) for ant in gains.keys()):
+    if all(np.issctype(type(ant)) for ant in gains.keys()):
         # Make sure that gain keys are (ant, jpol) tuples.
         gains = {(ant, "Jee"): gain for ant, gain in gains.items()}
 
@@ -117,7 +117,7 @@ def write_calfits(gains, filename, sim=None, freqs=None, times=None, clobber=Fal
 def _validate_freq_params(freq_params):
     """Ensure frequency parameters specified are sufficient."""
     allowed_params = (
-        "Nfreq",
+        "Nfreqs",
         "start_freq",
         "bandwidth",
         "freq_array",

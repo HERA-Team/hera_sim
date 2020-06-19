@@ -40,8 +40,8 @@ def test_filing_params_parser():
 def test_config_validation(tmp_path):
     # Construct various possible configurations.
     freq_params = {
-        "A": dict(Nfreq=100, start_freq=1e6, channel_width=1e4),
-        "B": dict(Nfreq=100, start_freq=1e6, bandwidth=1e6),
+        "A": dict(Nfreqs=100, start_freq=1e6, channel_width=1e4),
+        "B": dict(Nfreqs=100, start_freq=1e6, bandwidth=1e6),
         "C": dict(start_freq=1e6, channel_width=1e4, bandwidth=1e6),
         "D": dict(freq_array=[1, 2, 3, 4]),
     }
