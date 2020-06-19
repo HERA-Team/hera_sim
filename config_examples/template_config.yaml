@@ -77,12 +77,12 @@ systematics:
             dtv_std: 10.0
     sigchain:
         gains:
-            seed: initial
+            seed: once
             gain_spread: 0.1
             dly_rng: [-20, 20]
             bp_poly: HERA_H1C_BANDPASS.npy
         sigchain_reflections:
-            seed: initial
+            seed: once
             amp: !!null
             dly: !!null
             phs: !!null
