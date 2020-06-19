@@ -2,7 +2,6 @@
 
 import os
 import pytest
-import yaml
 
 from astropy import units
 import numpy as np
@@ -10,7 +9,7 @@ import numpy as np
 from hera_sim import cli_utils
 from hera_sim import Simulator
 from hera_sim.sigchain import gen_gains
-from pyuvdata import UVCal, UVData
+from pyuvdata import UVCal
 
 
 def test_filing_params_parser():
