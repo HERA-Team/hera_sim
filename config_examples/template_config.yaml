@@ -3,7 +3,7 @@
 
 bda:
     max_decorr: 0
-    pre_fs_int_time: !dimensionful 
+    pre_fs_int_time: !dimensionful
         value: 0.1
         units: 's'
     corr_FoV_angle: !dimensionful
@@ -17,11 +17,9 @@ bda:
         units: 's'
 filing:
     outdir: '.'
-    outfile_name: 'quick_and_dirty_sim'
+    outfile_name: 'quick_and_dirty_sim.uvh5'
     output_format: 'uvh5'
     clobber: True
-    kwargs:
-        save_seeds: True # if seeding RNG by redundant group
 # freq and time entries currently configured for hera_sim use
 freq:
     n_freq: 100
@@ -54,32 +52,37 @@ telescope:
 defaults:
     # This must be a string specifying an absolute path to a default
     # configuration file or one of the season default keywords
-    default_config: 'h2c'
+    'h2c'
 systematics:
     rfi:
         # see hera_sim.rfi documentation for details on parameter names
         rfi_stations:
+            seed: once
             stations: !!null
         rfi_impulse:
-            chance: 0.001
-            strength: 20.0
+            impulse_chance: 0.001
+            impulse_strength: 20.0
         rfi_scatter:
-            chance: 0.0001
-            strength: 10.0
-            std: 10.0
+            scatter_chance: 0.0001
+            scatter_strength: 10.0
+            scatter_std: 10.0
         rfi_dtv:
-            freq_min: 0.174
-            freq_max: 0.214
-            width: 0.008
-            chance: 0.0001
-            strength: 10.0
-            strength_std: 10.0
+            seed: once
+            dtv_band: 
+                - 0.174
+                - 0.214
+            dtv_channel_width: 0.008
+            dtv_chance: 0.0001
+            dtv_strength: 10.0
+            dtv_std: 10.0
     sigchain:
         gains:
+            seed: once
             gain_spread: 0.1
             dly_rng: [-20, 20]
             bp_poly: HERA_H1C_BANDPASS.npy
-        sigchain_reflections: 
+        sigchain_reflections:
+            seed: once
             amp: !!null
             dly: !!null
             phs: !!null
@@ -88,11 +91,13 @@ systematics:
         gen_whitenoise_xtalk:
             amplitude: 3.0
         # gen_cross_coupling_xtalk:
+            # seed: initial
             # amp: !!null
             # dly: !!null
             # phs: !!null
     noise:
         thermal_noise:
+            seed: initial
             Trx: 0
 sky:
     Tsky_mdl: !Tsky
@@ -100,27 +105,27 @@ sky:
         # data folder
         datafile: HERA_Tsky_Reformatted.npz
         # interp kwargs are passed to scipy.interp.RectBivariateSpline
-        interp_kwargs: 
+        interp_kwargs:
             pol: xx # this is popped when making a Tsky object
     eor:
         noiselike_eor:
             eor_amp: 0.00001
             min_delay: !!null
             max_delay: !!null
-            seed_redundantly: True # so redundant baselines see same sky
+            seed: redundant # so redundant baselines see same sky
             fringe_filter_type: tophat
-            fringe_filter_kwargs: {}
     foregrounds:
         # if using hera_sim.foregrounds
         diffuse_foreground:
-            seed_redundantly: True # redundant baselines see same sky
-            standoff: 0
-            delay_filter_type: tophat
-            delay_filter_normalize: !!null
-            fringe_filter_type: tophat
-            fringe_filter_kwargs: {}
+            seed: redundant # redundant baselines see same sky
+            delay_filter_kwargs:
+                standoff: 0
+                delay_filter_type: tophat
+                normalize: !!null
+            fringe_filter_kwargs:
+                fringe_filter_type: tophat
         pntsrc_foreground:
-            seed_redundantly: True
+            seed: once
             nsrcs: 1000
             Smin: 0.3
             Smax: 300
@@ -131,7 +136,7 @@ sky:
         # Note regarding seed_redundantly:
         # This ensures that baselines within a redundant group see the same sky;
         # however, this does not ensure that the sky is actually consistent. So,
-        # while the data produced can be absolutely calibrated, it cannot be 
+        # while the data produced can be absolutely calibrated, it cannot be
         # used to make sensible images (at least, I don't *think* it can be).
 
 simulation:
@@ -140,12 +145,11 @@ simulation:
     # is the simulator being used. this will necessarily look different
     # if other simulators are used, but that's not implemented yet
     #
-    components: [foregrounds,  
-                 noise, 
-                 eor, 
-                 rfi, 
+    components: [foregrounds,
+                 noise,
+                 eor,
+                 rfi,
                  sigchain, ]
     # list particular model components to exclude from simulation
     exclude: [sigchain_reflections,
               gen_whitenoise_xtalk,]
-

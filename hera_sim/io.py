@@ -5,31 +5,42 @@ import warnings
 import numpy as np
 from pyuvdata import UVData
 from pyuvsim.simsetup import initialize_uvdata_from_keywords
-from .data import DATA_PATH
 from .defaults import _defaults
+from . import DATA_PATH
+import re
 
-HERA_LAT_LON_ALT = np.load(os.path.join(DATA_PATH, "HERA_LAT_LON_ALT.npy"))
+HERA_LAT_LON_ALT = np.load(DATA_PATH / "HERA_LAT_LON_ALT.npy")
+
 
 # this decorator allows the parameters specified in the function
 # signature to be overridden by the defaults module
 @_defaults
-def empty_uvdata(Ntimes=None, start_time=2456658.5, # Jan 1 2014
-                 integration_time=None, array_layout=None,
-                 Nfreqs=None, start_freq=None, channel_width=None,
-                 n_freq=None, n_times=None, antennas=None, # back-compat
-                 **kwargs):
+def empty_uvdata(
+    Ntimes=None,
+    start_time=2456658.5,  # Jan 1 2014
+    integration_time=None,
+    array_layout=None,
+    Nfreqs=None,
+    start_freq=None,
+    channel_width=None,
+    n_freq=None,
+    n_times=None,
+    antennas=None,  # back-compat
+    **kwargs,
+):
     # TODO: docstring
     """
     """
     # issue a deprecation warning if any old parameters are used
     if any([param is not None for param in (n_freq, n_times, antennas)]):
         warnings.warn(
-            "The n_freq, n_times, and antennas parameters are being " \
-            "deprecated and will be removed in version ???. Please " \
-            "update your code to use the Nfreqs, Ntimes, and " \
-            "array_layout parameters instead.", DeprecationWarning
+            "The n_freq, n_times, and antennas parameters are being "
+            "deprecated and will be removed in version ???. Please "
+            "update your code to use the Nfreqs, Ntimes, and "
+            "array_layout parameters instead.",
+            DeprecationWarning,
         )
-        
+
     # for backwards compatability
     if n_freq is not None:
         Nfreqs = n_freq
@@ -38,12 +49,10 @@ def empty_uvdata(Ntimes=None, start_time=2456658.5, # Jan 1 2014
     if antennas is not None:
         array_layout = antennas
 
-    # only specify defaults this way for 
+    # only specify defaults this way for
     # things that are *not* season-specific
-    polarization_array = kwargs.pop("polarization_array", ['xx'])
-    telescope_location = list(
-        kwargs.pop("telescope_location", HERA_LAT_LON_ALT)
-    )
+    polarization_array = kwargs.pop("polarization_array", ["xx"])
+    telescope_location = list(kwargs.pop("telescope_location", HERA_LAT_LON_ALT))
     telescope_name = kwargs.pop("telescope_name", "hera_sim")
     write_files = kwargs.pop("write_files", False)
 
@@ -60,13 +69,14 @@ def empty_uvdata(Ntimes=None, start_time=2456658.5, # Jan 1 2014
         telescope_name=telescope_name,
         write_files=write_files,
         complete=True,
-        **kwargs
+        **kwargs,
     )
 
     # remove this once abscal is OK to use different conventions
     uvd.conjugate_bls(convention="ant1<ant2")
 
     return uvd
+
 
 def chunk_sim_and_save(
     sim_uvd,
@@ -76,12 +86,12 @@ def chunk_sim_and_save(
     prefix=None,
     sky_cmp=None,
     state=None,
-    filetype='uvh5',
-    clobber=True
+    filetype="uvh5",
+    clobber=True,
 ):
     """
     Chunk the simulation data to match the reference file and write to disk.
-    
+
     Chunked files have the following naming convention:
     save_dir/[{prefix}.]{jd_major}.{jd_minor}[.{sky_cmp}][.{state}].{filetype}
     The entires in brackets are optional and may be omitted.
@@ -89,29 +99,29 @@ def chunk_sim_and_save(
     Parameters
     ----------
     sim_uvd : :class:`pyuvdata.UVData`
-        :class:`pyuvdata.UVData` object containing the simulation data 
+        :class:`pyuvdata.UVData` object containing the simulation data
         to chunk and write to disk.
     save_dir : str or path-like object
         Path to the directory where the chunked files will be saved.
     ref_files : iterable of str
-        Iterable of filepaths to use for reference when chunking. This must 
-        be specified if ``Nint_per_file`` is not specified. This determines 
+        Iterable of filepaths to use for reference when chunking. This must
+        be specified if ``Nint_per_file`` is not specified. This determines
         (and overrides, if also provided) ``Nint_per_file`` if provided.
     Nint_per_file : int, optional
-        Number of integrations per chunked file. This must be specified 
+        Number of integrations per chunked file. This must be specified
         if ``ref_files`` is not specified.
     prefix : str, optional
         Prefix of file basename. Default is to add no prefix.
     sky_cmp : str, optional
-        String denoting which sky component has been simulated. Should 
+        String denoting which sky component has been simulated. Should
         be one of the following: ('foregrounds', 'eor', 'sum').
     state : str, optional
         String denoting whether the file is the true sky or corrupted.
     filetype : str, optional
-        Format to use when writing files to disk. Must be a filetype 
+        Format to use when writing files to disk. Must be a filetype
         supported by :class:`pyuvdata.UVData`. Default is uvh5.
     clobber : bool, optional
-        Whether to overwrite any existing files that share the new 
+        Whether to overwrite any existing files that share the new
         filenames. Default is to overwrite files.
     """
     if not isinstance(sim_uvd, UVData):
@@ -166,4 +176,3 @@ def chunk_sim_and_save(
         # Delete the temporary UVData object to speed things up a bit.
         del this_uvd
     return
-

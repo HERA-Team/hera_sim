@@ -43,7 +43,7 @@ class HealVis(VisibilitySimulator):
         # doesn't check if you are using pyuvsim's one. This should be fixed.
 
         if "beams" not in kwargs:
-            kwargs['beams'] = [AnalyticBeam("uniform")]
+            kwargs["beams"] = [AnalyticBeam("uniform")]
 
         super(HealVis, self).__init__(**kwargs)
 
@@ -52,27 +52,30 @@ class HealVis(VisibilitySimulator):
             old_args = self.beams[0].__dict__
 
             gauss_width = None
-            if old_args['type'] == "gaussian":
-                if old_args['sigma'] is None:
-                    raise NotImplementedError("Healvis does not permit "
-                                              "gaussian beam with diameter.")
-                raise NotImplementedError("Healvis interprets gaussian beams "
-                                          "as per-baseline and not "
-                                          "per-antenna as required here.")
+            if old_args["type"] == "gaussian":
+                if old_args["sigma"] is None:
+                    raise NotImplementedError(
+                        "Healvis does not permit " "gaussian beam with diameter."
+                    )
+                raise NotImplementedError(
+                    "Healvis interprets gaussian beams "
+                    "as per-baseline and not "
+                    "per-antenna as required here."
+                )
                 # Healvis expects degrees
-                gauss_width = old_args['sigma'] * 180 / np.pi
+                gauss_width = old_args["sigma"] * 180 / np.pi
 
-            beam_type = old_args['type']
-            ref_freq = old_args['ref_freq']
-            spectral_index = old_args['spectral_index']
-            diameter = old_args['diameter']
+            beam_type = old_args["type"]
+            spectral_index = old_args["spectral_index"]
+            diameter = old_args["diameter"]
             self.beams = [
                 AnalyticBeam(
-                    beam_type=beam_type, gauss_width=gauss_width,
-                    diameter=diameter, spectral_index=spectral_index
+                    beam_type=beam_type,
+                    gauss_width=gauss_width,
+                    diameter=diameter,
+                    spectral_index=spectral_index,
                 )
             ]
-
 
     def validate(self):
         """Validates that all data is correct.
@@ -101,9 +104,10 @@ class HealVis(VisibilitySimulator):
         sky.ref_chan = self._sky_ref_chan
 
         # convert from Jy/sr to K
-        intensity = 10**-26 * self.sky_intensity.T
-        intensity *= ((cnst.c.to("m/s").value/self.sky_freqs)**2
-                      / (2 * cnst.k_B.value))
+        intensity = 10 ** -26 * self.sky_intensity.T
+        intensity *= (cnst.c.to("m/s").value / self.sky_freqs) ** 2 / (
+            2 * cnst.k_B.value
+        )
 
         sky.data = intensity[np.newaxis, :, :]
         sky._update()
@@ -138,9 +142,9 @@ class HealVis(VisibilitySimulator):
         for pol in self.uvdata.get_pols():
             # calculate visibility
             visibility.append(
-                self.observatory.make_visibilities(self.sky_model,
-                                                   Nprocs=self._nprocs,
-                                                   beam_pol=pol)[0]
+                self.observatory.make_visibilities(
+                    self.sky_model, Nprocs=self._nprocs, beam_pol=pol
+                )[0]
             )
 
         visibility = np.moveaxis(visibility, 0, -1)

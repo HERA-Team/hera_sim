@@ -2,34 +2,32 @@
 
 import os
 import numpy as np
-from abc import abstractmethod
+import warnings
 
 from . import interpolators
 from . import utils
 from .components import registry
-from .data import DATA_PATH
+from . import DATA_PATH
 from .defaults import _defaults
 
 import aipy
+
 
 @registry
 class Gain:
     # TODO: docstring
     pass
 
+
 class Bandpass(Gain, is_multiplicative=True):
     _alias = ("gains", "bandpass_gain")
 
-    def __init__(self, gain_spread=0.1, dly_rng=(-20,20), bp_poly=None):
+    def __init__(self, gain_spread=0.1, dly_rng=(-20, 20), bp_poly=None):
         # TODO: docstring
         """
 
         """
-        super().__init__(
-            gain_spread=gain_spread,
-            dly_rng=dly_rng,
-            bp_poly=bp_poly
-        )
+        super().__init__(gain_spread=gain_spread, dly_rng=dly_rng, bp_poly=bp_poly)
 
     def __call__(self, freqs, ants, **kwargs):
         # TODO: docstring
@@ -39,8 +37,7 @@ class Bandpass(Gain, is_multiplicative=True):
         self._check_kwargs(**kwargs)
 
         # unpack the kwargs
-        (gain_spread, dly_rng, 
-            bp_poly) = self._extract_kwarg_values(**kwargs)
+        (gain_spread, dly_rng, bp_poly) = self._extract_kwarg_values(**kwargs)
 
         # get the bandpass gains
         bandpass = self._gen_bandpass(freqs, ants, gain_spread, bp_poly)
@@ -48,14 +45,13 @@ class Bandpass(Gain, is_multiplicative=True):
         # get the delay phases
         phase = self._gen_delay_phase(freqs, ants, dly_rng)
 
-        return {ant : bandpass[ant] * phase[ant] for ant in ants}
+        return {ant: bandpass[ant] * phase[ant] for ant in ants}
 
     @_defaults
     def _gen_bandpass(self, freqs, ants, gain_spread=0.1, bp_poly=None):
         if bp_poly is None:
             # default to the H1C bandpass
-            bp_poly = np.load(os.path.join(DATA_PATH, 
-                                           "HERA_H1C_BANDPASS.npy"))
+            bp_poly = np.load(DATA_PATH / "HERA_H1C_BANDPASS.npy")
         elif isinstance(bp_poly, str):
             # make an interpolation object, assume it's a polyfit
             bp_poly = interpolators.Bandpass(bp_poly)
@@ -68,33 +64,28 @@ class Bandpass(Gain, is_multiplicative=True):
         modes = np.abs(np.fft.fft(window * bp_base))
         gains = {}
         for ant in ants:
-            delta_bp = np.fft.ifft(utils.gen_white_noise(freqs.size)
-                                   * modes * gain_spread)
+            delta_bp = np.fft.ifft(
+                utils.gen_white_noise(freqs.size) * modes * gain_spread
+            )
             gains[ant] = bp_base + delta_bp
         return gains
 
-    def _gen_delay_phase(self, freqs, ants, dly_rng=(-20,20)):
+    def _gen_delay_phase(self, freqs, ants, dly_rng=(-20, 20)):
         phases = {}
         for ant in ants:
             delay = np.random.uniform(*dly_rng)
-            phases[ant] = np.exp(2j* np.pi * delay * freqs)
+            phases[ant] = np.exp(2j * np.pi * delay * freqs)
         return phases
+
 
 class Reflections(Gain, is_multiplicative=True):
     _alias = ("reflection_gains", "sigchain_reflections")
 
-    def __init__(self, amp=None, dly=None, phs=None, 
-                       conj=False, randomize=False):
+    def __init__(self, amp=None, dly=None, phs=None, conj=False, randomize=False):
         # TODO: docstring
         """
         """
-        super().__init__(
-            amp=amp,
-            dly=dly,
-            phs=phs,
-            conj=conj,
-            randomize=randomize
-        )
+        super().__init__(amp=amp, dly=dly, phs=phs, conj=conj, randomize=randomize)
 
     def __call__(self, freqs, ants, **kwargs):
         # TODO: docstring
@@ -104,8 +95,7 @@ class Reflections(Gain, is_multiplicative=True):
         self._check_kwargs(**kwargs)
 
         # unpack the kwargs
-        (amp, dly, phs, conj, 
-            randomize) = self._extract_kwarg_values(**kwargs)
+        (amp, dly, phs, conj, randomize) = self._extract_kwarg_values(**kwargs)
 
         # fill in missing kwargs
         amp, dly, phs = self._complete_params(ants, amp, dly, phs, randomize)
@@ -114,8 +104,9 @@ class Reflections(Gain, is_multiplicative=True):
         gains = {}
         for j, ant in enumerate(ants):
             # calculate the reflection coefficient
-            eps = self.gen_reflection_coefficient(freqs, amp[j], dly[j],
-                                                  phs[j], conj=conj)
+            eps = self.gen_reflection_coefficient(
+                freqs, amp[j], dly[j], phs[j], conj=conj
+            )
             gains[ant] = 1 + eps
 
         return gains
@@ -136,12 +127,15 @@ class Reflections(Gain, is_multiplicative=True):
                     arr = arr.reshape(-1, 1)
                     # raise a warning if it's the same length as freqs
                     if arr.shape[0] == Nfreqs:
-                        warnings.warn("The input array had lengths Nfreqs "
-                                      "and is being reshaped as (Ntimes,1).")
+                        warnings.warn(
+                            "The input array had lengths Nfreqs "
+                            "and is being reshaped as (Ntimes,1)."
+                        )
                 elif arr.ndim > 1:
-                    assert arr.shape[1] in (1, Nfreqs), \
-                        "Frequency-dependent reflection coefficients must " \
+                    assert arr.shape[1] in (1, Nfreqs), (
+                        "Frequency-dependent reflection coefficients must "
                         "match the input frequency array size."
+                    )
             return arr
 
         Nfreqs = freqs.size
@@ -171,13 +165,17 @@ class Reflections(Gain, is_multiplicative=True):
             if phs is None:
                 phs = (-np.pi, np.pi)
             # now make sure that they're all correctly formatted
-            assert all([isinstance(param, (list, tuple))
-                        and len(param) == 2
-                        for param in (amp, dly, phs)]), \
-                "You have chosen to randomize the amplitude, delay, " \
-                "and phase parameters, but at least one parameter " \
-                "was not specified as None or a length-2 tuple or " \
+            assert all(
+                [
+                    isinstance(param, (list, tuple)) and len(param) == 2
+                    for param in (amp, dly, phs)
+                ]
+            ), (
+                "You have chosen to randomize the amplitude, delay, "
+                "and phase parameters, but at least one parameter "
+                "was not specified as None or a length-2 tuple or "
                 "list. Please check your parameter settings."
+            )
 
             # in the future, expand this to allow for freq-dependence?
             # randomly generate the parameters
@@ -195,26 +193,20 @@ class Reflections(Gain, is_multiplicative=True):
 
         return amp, dly, phs
 
+
 @registry
 class Crosstalk:
     pass
 
+
 class CrossCouplingCrosstalk(Crosstalk, Reflections):
     _alias = ("cross_coupling_xtalk",)
 
-    def __init__(self, amp=None, dly=None, phs=None, 
-                       conj=False, randomize=False):
+    def __init__(self, amp=None, dly=None, phs=None, conj=False, randomize=False):
         # TODO: docstring
         """
         """
-        super().__init__(
-            amp=amp,
-            dly=dly,
-            phs=phs,
-            conj=conj,
-            randomize=randomize
-        )
-
+        super().__init__(amp=amp, dly=dly, phs=phs, conj=conj, randomize=randomize)
 
     def __call__(self, freqs, autovis, **kwargs):
         # TODO: docstring
@@ -224,8 +216,7 @@ class CrossCouplingCrosstalk(Crosstalk, Reflections):
         self._check_kwargs(**kwargs)
 
         # now unpack them
-        (amp, dly, phs, conj, 
-            randomize) = self._extract_kwarg_values(**kwargs)
+        (amp, dly, phs, conj, randomize) = self._extract_kwarg_values(**kwargs)
 
         # handle the amplitude, phase, and delay
         amp, dly, phs = self._complete_params([1], amp, dly, phs, randomize)
@@ -235,13 +226,17 @@ class CrossCouplingCrosstalk(Crosstalk, Reflections):
 
         # reshape if necessary
         if eps.ndim == 1:
-            eps = eps.reshape((1,-1))
+            eps = eps.reshape((1, -1))
 
         # scale it by the autocorrelation and return the result
         return autovis * eps
 
+
 class WhiteNoiseCrosstalk(Crosstalk):
-    _alias = ("whitenoise_xtalk", "white_noise_xtalk", )
+    _alias = (
+        "whitenoise_xtalk",
+        "white_noise_xtalk",
+    )
 
     def __init__(self, amplitude=3.0):
         # TODO: docstring
@@ -257,16 +252,17 @@ class WhiteNoiseCrosstalk(Crosstalk):
         self._check_kwargs(**kwargs)
 
         # unpack the kwargs
-        amplitude, = self._extract_kwarg_values(**kwargs)
+        (amplitude,) = self._extract_kwarg_values(**kwargs)
 
         # why choose this size for the convolving kernel?
-        kernel = np.ones(50 if freqs.size > 50 else int(freqs.size/2))
+        kernel = np.ones(50 if freqs.size > 50 else int(freqs.size / 2))
 
         # generate the crosstalk
         xtalk = np.convolve(utils.gen_white_noise(freqs.size), kernel, "same")
 
         # scale the result and return
         return amplitude * xtalk
+
 
 def apply_gains(vis, gains, bl):
     # TODO: docstring
@@ -289,6 +285,7 @@ def apply_gains(vis, gains, bl):
         gain.shape = (1, -1)
 
     return vis * gain
+
 
 # to minimize breaking changes
 gen_gains = Bandpass()

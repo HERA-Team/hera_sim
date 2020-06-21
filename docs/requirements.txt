@@ -1,6 +1,6 @@
+ipython
+nbsphinx
 # Requirements for producing _docs_ only (the package itself is assumed to be installed already, along with
 # its necessary dependencies).
 sphinx>=1.8
-nbsphinx
-ipython
 sphinx_autorun
