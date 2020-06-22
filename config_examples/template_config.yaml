@@ -20,9 +20,6 @@ filing:
     outfile_name: 'quick_and_dirty_sim.uvh5'
     output_format: 'uvh5'
     clobber: True
-    # TODO: remove this after updating how writing seeds is handled
-    kwargs:
-        save_seeds: True # if seeding RNG by redundant group
 # freq and time entries currently configured for hera_sim use
 freq:
     n_freq: 100
@@ -80,12 +77,12 @@ systematics:
             dtv_std: 10.0
     sigchain:
         gains:
-            seed: initial
+            seed: once
             gain_spread: 0.1
             dly_rng: [-20, 20]
             bp_poly: HERA_H1C_BANDPASS.npy
         sigchain_reflections:
-            seed: initial
+            seed: once
             amp: !!null
             dly: !!null
             phs: !!null

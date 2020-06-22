@@ -72,17 +72,13 @@ class Simulator:
 
     @property
     def freqs(self):
-        # TODO: docstring
-        """Frequencies in GHz
-        """
+        """Frequencies in GHz."""
         return np.unique(self.data.freq_array) / 1e9
 
     @property
     def times(self):
         """Return unique simulation times."""
         return np.unique(self.data.time_array)
-
-    # XXX begin methods intended for user interaction XXX
 
     def apply_defaults(self, config, refresh=True):
         # TODO: docstring
@@ -101,10 +97,10 @@ class Simulator:
 
         # find out whether the data application should be filtered
         vis_filter = kwargs.pop("vis_filter", None)
-        
+
         # take out the seed kwarg so as not to break initializor
         seed = kwargs.pop("seed", -1)
-        
+
         # get the model for the desired component
         model, is_class = self._get_component(component)
 
@@ -123,11 +119,11 @@ class Simulator:
 
         # check that there isn't an issue with component ordering
         self._sanity_check(model)
-        
+
         # re-add the seed kwarg if it was specified
         if seed != -1:
             kwargs["seed"] = seed
-        
+
         # calculate the effect
         data = self._iteratively_apply(
             model,
@@ -135,7 +131,7 @@ class Simulator:
             ret_vis=ret_vis,
             vis_filter=vis_filter,
             antpairpol_cache=antpairpol_cache,
-            **kwargs
+            **kwargs,
         )
 
         # log the component and its kwargs, if added to data
@@ -150,6 +146,9 @@ class Simulator:
             self._components[component] = kwargs
             # update the history
             self._update_history(model, **kwargs)
+            # track the seed(s) used, if any
+            if seed != -1:
+                self._update_seeds(self._get_model_name(model))
         else:
             # if we're not adding it, then we don't want to keep
             # the antpairpol cache
@@ -189,7 +188,7 @@ class Simulator:
 
         # figure out whether or not to seed the rng
         seed = kwargs.pop("seed", None)
-        
+
         # get the antpairpol cache
         antpairpol_cache = self._antpairpol_cache[model]
 
@@ -214,7 +213,7 @@ class Simulator:
                 add_vis=False,
                 ret_vis=True,
                 antpairpol_cache=antpairpol_cache,
-                **kwargs
+                **kwargs,
             )
 
             # return a subset if a polarization is specified
@@ -238,9 +237,9 @@ class Simulator:
                 return data[blt_inds, 0, :, pol_ind]
         elif seed == "redundant":
             if any([(ant2, ant1) == item for item in antpairpol_cache]):
-                self._seed_rng(seed_mode, model, ant2, ant1)
+                self._seed_rng(seed, model, ant2, ant1)
             else:
-                self._seed_rng(seed_mode, model, ant1, ant2)
+                self._seed_rng(seed, model, ant1, ant2)
 
         # get the arguments necessary for the model
         args = self._initialize_args_from_model(model)
@@ -278,38 +277,21 @@ class Simulator:
         self._components.clear()
         self._antpairpol_cache = []
 
-    def write(self, filename, save_format="uvh5", save_seeds=True, **kwargs):
+    def write(self, filename, save_format="uvh5", **kwargs):
         # TODO: docstring
         """
         """
-        if save_seeds:
-            # Update the extra_keywords attribute of the underlying UVData
-            # object to contain the seed information.
-            seed_dict = {}
-            for component, seeds in self._seeds.items():
-                if len(seeds) == 1:
-                    seed = list(seeds.values())[0]
-                    key = "_".join([component, "seed"])
-                    seed_dict[key] = seed
-                else:
-                    # This should only be raised for seeding by redundancy.
-                    # Each redundant group is denoted by the *first* baseline
-                    # integer for the particular redundant group. See the
-                    # _generate_redundant_seeds method for reference.
-                    for bl_int, seed in seeds.items():
-                        key = "_".join([component, "seed", str(bl_int)])
-                        seed_dict[key] = seed
-            
-            # Now actually update the extra_keywords dictionary.
-            self.data.extra_keywords.update(seed_dict)
         try:
             getattr(self.data, "write_%s" % save_format)(filename, **kwargs)
         except AttributeError:
-            msg = "The save_format must correspond to a write method in UVData."
-            raise ValueError(msg)
+            raise ValueError(
+                "The save_format must correspond to a write method in UVData."
+            )
 
-    # XXX with the new version of the CLI, this should not need to be wrapped 
-    # by the _generator_to_list wrapper, I *think*
+    # XXX with the new version of the CLI, this should not need to be wrapped
+    # by the _generator_to_list wrapper. That said, it's worth thinking about
+    # whether we want to give the user the option to retrieve the simulation
+    # components as a return value from run_sim
     @_generator_to_list
     def run_sim(self, sim_file=None, **sim_params):
         # TODO: docstring
@@ -431,10 +413,6 @@ class Simulator:
         kwargs.update(vis_filter=bls)
         return self.add(model, **kwargs)
 
-    # XXX end methods intended for user interaction XXX
-
-    # XXX begin helper methods XXX
-
     @staticmethod
     def _apply_filter(vis_filter, ant1, ant2, pol):
         # TODO: docstring
@@ -526,7 +504,7 @@ class Simulator:
         ret_vis=False,
         vis_filter=None,
         antpairpol_cache=None,
-        **kwargs
+        **kwargs,
     ):
         # TODO: docstring
         """
@@ -551,7 +529,7 @@ class Simulator:
 
         # figure out whether or not to seed the RNG
         seed = kwargs.pop("seed", None)
-        
+
         # get a copy of the data array
         data_copy = self.data.data_array.copy()
 
@@ -577,12 +555,12 @@ class Simulator:
             # check if the antpolpair or its conjugate have data
             bl_in_cache = (ant1, ant2, pol) in antpairpol_cache
             conj_in_cache = (ant2, ant1, pol) in antpairpol_cache
-            
+
             if seed == "redundant" and conj_in_cache:
                 seed = self._seed_rng(seed, model, ant2, ant1)
             elif seed is not None:
                 seed = self._seed_rng(seed, model, ant1, ant2)
-            
+
             # parse the model signature to get the required arguments
             use_args = self._update_args(args, ant1, ant2, pol)
 
@@ -614,7 +592,7 @@ class Simulator:
                 # not re-simulate to ensure invariance under complex
                 # conjugation and swapping antennas
                 if conj_in_cache and seed is None:
-                    conj_blts = sim.data.antpair2ind((ant2,ant1))
+                    conj_blts = self.data.antpair2ind((ant2, ant1))
                     vis = (data_copy - self.data.data_array)[
                         conj_blts, 0, :, pol_ind
                     ].conj()
@@ -674,7 +652,7 @@ class Simulator:
             # generate seeds for each redundant group
             # this does nothing if the seeds already exist
             self._generate_redundant_seeds(model)
-            
+
             # Determine the key for the redundant group this baseline is in.
             bl_int = self.data.antnums_to_baseline(ant1, ant2)
             red_grps = self._get_reds()
@@ -683,7 +661,7 @@ class Simulator:
             np.random.seed(self._get_seed(model, key))
             return "redundant"
         elif seed == "once":
-            # this option seeds the RNG once per iteration of 
+            # this option seeds the RNG once per iteration of
             # _iteratively_apply, using the same seed every time
             # this is appropriate for antenna-based gains (where the
             # entire gain dictionary is simulated each time), or for
@@ -692,7 +670,7 @@ class Simulator:
             np.random.seed(self._get_seed(model, 0))
             return "once"
         elif seed == "initial":
-            # this seeds the RNG once at the very beginning of 
+            # this seeds the RNG once at the very beginning of
             # _iteratively_apply. this would be useful for something
             # like ThermalNoise
             np.random.seed(self._get_seed(model, -1))
@@ -843,7 +821,7 @@ class Simulator:
         """
         model = self._get_model_name(model)
         # for the sake of randomness
-        np.random.seed(int(time.time() * 1e6) % 2**32)
+        np.random.seed(int(time.time() * 1e6) % 2 ** 32)
         if model not in self._seeds:
             self._seeds[model] = {}
         self._seeds[model][key] = np.random.randint(2 ** 32)
@@ -926,11 +904,33 @@ class Simulator:
         # TODO: docstring
         """
         """
-        model = self._get_model_name(model)
-        msg = "hera_sim v{version}: Added {component} using kwargs:\n"
+        component = self._get_model_name(model)
+        msg = f"hera_sim v{__version__}: Added {component} using kwargs:\n"
         if defaults._override_defaults:
             kwargs["defaults"] = defaults._config_name
         for param, value in defaults._unpack_dict(kwargs).items():
-            msg += "{param} = {value}\n".format(param=param, value=value)
-        msg = msg.format(version=__version__, component=model)
+            msg += f"{param} = {value}\n"
         self.data.history += msg
+
+    def _update_seeds(self, model_name=None):
+        """Update the seeds in the extra_keywords property."""
+        seed_dict = {}
+        for component, seeds in self._seeds.items():
+            if model_name is not None and component != model_name:
+                continue
+
+            if len(seeds) == 1:
+                seed = list(seeds.values())[0]
+                key = "_".join([component, "seed"])
+                seed_dict[key] = seed
+            else:
+                # This should only be raised for seeding by redundancy.
+                # Each redundant group is denoted by the *first* baseline
+                # integer for the particular redundant group. See the
+                # _generate_redundant_seeds method for reference.
+                for bl_int, seed in seeds.items():
+                    key = "_".join([component, "seed", str(bl_int)])
+                    seed_dict[key] = seed
+
+        # Now actually update the extra_keywords dictionary.
+        self.data.extra_keywords.update(seed_dict)
