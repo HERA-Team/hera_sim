@@ -10,14 +10,17 @@ from scipy.interpolate import interp1d, RectBivariateSpline
 from warnings import warn
 
 from pyuvdata import UVData
-from pyuvdata.utils import polstr2num
+from pyuvdata.utils import polstr2num, polnum2str
 from .simulate import Simulator
 from .utils import _listify
 
 try:
     import hera_cal
+
+    HERA_CAL = True
 except ImportError:
     warn("hera_cal is not installed. Certain features will be unavailable.")
+    HERA_CAL = False
 
 
 def adjust_to_reference(
@@ -245,8 +248,17 @@ def interpolate_to_reference(
         to overlapping LSTs. The type of object returned is the same as the type
         of object passed.
     """
-    # First, do a check of reference information
+    # Check that valid axis argument is passed.
+    if axis not in ("time", "freq", "both"):
+        raise ValueError(
+            "axis parameter must be one of the following: 'time', 'freq', or 'both'."
+        )
+
+    # Check reference information is sufficient.
     if reference is not None:
+        if not isinstance(reference, UVData):
+            raise TypeError("reference must be a UVData object.")
+
         ref_time_to_lst_map = {
             ref_time: ref_lst
             for ref_time, ref_lst in zip(reference.time_array, reference.lst_array)
@@ -255,11 +267,14 @@ def interpolate_to_reference(
         ref_lsts = np.array(list(ref_time_to_lst_map.values()))
         ref_freqs = np.unique(reference.freq_array)
     else:
-        if axis in ("time", "both") and (ref_lsts is None or ref_times is None):
-            raise ValueError(
-                "Time and LST reference information must be provided for "
-                "interpolation along time-axis."
-            )
+        if axis in ("time", "both"):
+            if ref_lsts is None or ref_times is None:
+                raise ValueError(
+                    "Time and LST reference information must be provided for "
+                    "interpolation along time-axis."
+                )
+            if len(ref_times) != len(ref_lsts):
+                raise ValueError("ref_times and ref_lsts must have the same length.")
         if axis in ("freq", "both") and ref_freqs is None:
             raise ValueError(
                 "Frequency reference information must be provided for "
@@ -324,11 +339,11 @@ def interpolate_to_reference(
         new_data_shape = (target.Nblts, 1, ref_freqs.size, target.Npols)
 
     # Actually update metadata and interpolate the data.
-    for i, bl in enumerate(target.get_antpairs()):
+    for i, antpair in enumerate(target.get_antpairs()):
         if axis == "freq":
             for pol_ind, pol in enumerate(target.polarization_array):
-                vis = target.get_data(bl + (pol,))
-                this_blt_slice = target._key2inds(bl + (pol,))[0]
+                vis = target.get_data(antpair + (pol,))
+                this_blt_slice = target._key2inds(antpair + (pol,))[0]
                 re_spline = interp1d(target_freqs, vis.real, axis=1, kind=kind)
                 im_spline = interp1d(target_freqs, vis.imag, axis=1, kind=kind)
                 new_data[this_blt_slice, 0, :, pol_ind] = re_spline(
@@ -337,9 +352,9 @@ def interpolate_to_reference(
             continue
 
         # Preparation for updating metadata.
-        ant1, ant2 = bl
+        ant1, ant2 = antpair
         this_slice = slice(i, None, target.Nbls)
-        old_blt = target._key2inds(bl)[0][0]  # As a reference
+        old_blt = target._key2inds(antpair)[0][0]  # As a reference
         this_uvw = target.uvw_array[old_blt]
         this_baseline = target.baseline_array[old_blt]
 
@@ -353,7 +368,7 @@ def interpolate_to_reference(
 
         # Update the data.
         for pol_ind, pol in enumerate(target.polarization_array):
-            vis = target.get_data(bl + (pol,))
+            vis = target.get_data(antpair + (pol,))
             if axis == "both":
                 re_spline = RectBivariateSpline(
                     target_lsts, target_freqs, vis.real, kind=kind
@@ -406,9 +421,178 @@ def rephase_to_reference(
     target: :class:`pyuvdata.UVData` instance or :class:`Simulator` instance
         Object containing the visibility data and metadata which is to be
         rephased to reference LSTs.
-    reference:
+    reference: :class:`pyuvdata.UVData`
+        Object containing reference metadata. Must be provided if ``ref_times``
+        and ``ref_lsts`` are not provided.
+    ref_times: array-like of float
+        Reference times in JD. Must be provided if ``reference`` is not provided.
+    ref_lsts: array-like of float
+        Reference LSTs in radians. Must be provided if ``reference`` is not
+        provided.
+
+    Returns
+    -------
+    rephased_data: :class:`pyuvdata.UVData` instance or :class:`Simulator` instance
+        Object containing the rephased data with metadata updated appropriately.
+        The times in this object are relabeled to be the reference times with
+        LSTs sufficiently close to target LSTs for rephasing.
     """
-    pass
+    if not HERA_CAL:
+        raise NotImplementedError(
+            "You must have ``hera_cal`` installed to use this function."
+        )
+
+    # Import hera_cal functions.
+    from hera_cal.io import to_HERAData
+    from hera_cal.abscal import get_d2m_time_map
+    from hera_cal.utils import lst_rephase
+
+    # Convert target to a HERAData object.
+    target_is_simulator = isinstance(target, Simulator)
+    target = _to_uvdata(target)
+    target = to_HERAData(target)
+
+    # Validate the reference information.
+    if reference is not None:
+        if not isinstance(reference, UVData):
+            raise TypeError("reference must be a UVData object.")
+
+        ref_time_to_lst_map = {
+            ref_time: ref_lst
+            for ref_time, ref_lst in zip(reference.time_array, reference.lst_array)
+        }
+        ref_times = np.array(list(ref_time_to_lst_map.keys()))
+        ref_lsts = np.array(list(ref_time_to_lst_map.values()))
+    else:
+        if ref_times is None or ref_lsts is None:
+            raise ValueError(
+                "Both ref_times and ref_lsts must be provided if reference is not."
+            )
+
+        if len(ref_times) != len(ref_lsts):
+            raise ValueError("ref_times and ref_lsts must have the same length.")
+
+        ref_time_to_lst_map = dict(zip(ref_times, ref_lsts))
+
+    # Construct the reference -> target time map.
+    target_time_to_lst_map = {
+        target_time: target_lst
+        for target_time, target_lst in zip(target.time_array, target.lst_array)
+    }
+    target_times = np.array(list(target_time_to_lst_map.keys()))
+    target_lsts = np.array(list(target_time_to_lst_map.values()))
+    ref_to_target_time_map = get_d2m_time_map(
+        ref_times, ref_lsts, target_times, target_lsts
+    )
+
+    # Use only reference LSTs within the bounds of the target LSTs.
+    if any(target_time is None for target_time in ref_to_target_time_map.values()):
+        warn("Some reference LSTs not near target LSTs.")
+
+    # Choose times/lsts this way to accommodate multiplicities.
+    ref_times = np.array(
+        list(
+            ref_time
+            for ref_time, target_time in ref_to_target_time_map.items()
+            if target_time is not None
+        )
+    )
+    ref_lsts = np.array(list(ref_time_to_lst_map[ref_time] for ref_time in ref_times))
+    target_times = np.array(
+        list(
+            target_time
+            for target_time in ref_to_target_time_map.values()
+            if target_time is not None
+        )
+    )
+    target_lsts = np.array(
+        list(target_time_to_lst_map[target_time] for target_time in target_times)
+    )
+
+    # Get rephasing amount for each integration.
+    dlst = ref_lsts - target_lsts
+    dlst = np.where(np.isclose(dlst, 0, atol=0.1), dlst, dlst - 2 * np.pi)
+
+    # Notify the user if there's a discontinuity in rephasing amount.
+    dlst_diff = np.diff(dlst)
+    avg_diff = np.median(dlst_diff)
+    if np.any(not np.isclose(dlst_diff, avg_diff, rtol=0.1)):
+        warn(
+            "Rephasing amount is discontinuous; there may be discontinuities "
+            "in the rephased visibilities."
+        )
+
+    # Prepare the target data for rephasing.
+    target.select(times=np.unique(target_times))
+    data, _, _ = target.build_datacontainers()
+    data.select_or_expand_times(target_times)
+    antpos = data.antpos
+    bls = {(ai, aj, pol): antpos[aj] - antpos[ai] for ai, aj, pol in data.bls()}
+    lat = target.telescope_location_lat_lon_alt_degrees[0]
+    new_Nblts = target.Nbls * target_times.size
+    new_data = np.zeros((new_Nblts, 1, target.Nfreqs, target.Npols), dtype=np.complex)
+    new_time_array = np.empty(new_Nblts, dtype=float)
+    new_lst_array = np.empty(new_Nblts, dtype=float)
+    new_ant_1_array = np.empty(new_Nblts, dtype=int)
+    new_ant_2_array = np.empty(new_Nblts, dtype=int)
+    new_baseline_array = np.empty(new_Nblts, dtype=int)
+    new_uvw_array = np.empty((new_Nblts, 3), dtype=float)
+
+    # Rephase and update the data/metadata; some repeated code here.
+    for i, antpair in enumerate(target.get_antpairs()):
+        ant1, ant2 = antpair
+        this_slice = slice(i, None, target.Nbls)
+        old_blt = target._key2inds(antpair)[0][0]  # As a reference
+        this_uvw = target.uvw_array[old_blt]
+        this_baseline = target.baseline_array[old_blt]
+
+        # Update the metadata.
+        new_ant_1_array[this_slice] = ant1
+        new_ant_2_array[this_slice] = ant2
+        new_baseline_array[this_slice] = this_baseline
+        new_uvw_array[this_slice] = this_uvw
+        new_time_array[this_slice] = ref_times
+
+        # Update the data
+        for pol_ind, pol in enumerate(target.polarization_array):
+            pol = polnum2str(pol)
+            antpairpol = antpair + (pol,)
+            vis = data[antpairpol]
+            bl = bls[antpairpol]
+            new_data[this_slice, 0, :, pol_ind] = lst_rephase(
+                vis, bl, data.freqs, dlst, lat=lat, array=True
+            )
+
+    # Convert from HERAData object to UVData object
+    _uvd = UVData()
+    for attr in _uvd:
+        setattr(_uvd, attr, getattr(target, attr))
+    target = _uvd
+    del _uvd
+
+    # Times/LSTs need special treatment.
+    for ref_time, target_time in ref_to_target_time_map.items():
+        this_slice = np.argwhere(new_time_array == ref_time).flatten()
+        new_lst_array[this_slice] = target_time_to_lst_map[target_time]
+
+    # Now update all of the data/metadata.
+    target.Ntimes = np.unique(new_time_array).size
+    target.time_array = new_time_array
+    target.lst_array = new_lst_array
+    target.ant_1_array = new_ant_1_array
+    target.ant_2_array = new_ant_2_array
+    target.baseline_array = new_baseline_array
+    target.uvw_array = new_uvw_array
+    target.data_array = new_data
+    target.flag_array = np.zeros(new_data.shape, dtype=bool)
+    target.nsample_array = np.ones(new_data.shape, dtype=float)
+    target.blt_order = None
+
+    # Convert to Simulator if needed, then return the result
+    if target_is_simulator:
+        target = Simulator(data=target)
+
+    return target
 
 
 def _validate_file_list(file_list, name="file list"):
