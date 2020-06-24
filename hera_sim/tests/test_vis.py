@@ -14,6 +14,20 @@ from hera_sim.visibilities import VisCPU, HealVis
 
 SIMULATORS = (HealVis, VisCPU)
 
+try:
+    import hera_gpu
+
+    class VisGPU(VisCPU):
+        """Simple mock class to make testing VisCPU with use_gpu=True easier"""
+        def __init__(self, *args, **kwargs):
+            self.__init__(*args, use_gpu=True, **kwargs)
+
+    SIMULATORS = SIMULATORS + (VisGPU, )
+except ImportError:
+    pass
+
+
+
 np.random.seed(0)
 NTIMES = 10
 BM_PIX = 31
@@ -177,20 +191,20 @@ def test_shapes(uvdata, simulator):
 
 
 @pytest.mark.parametrize(
-    "dtype, cdtype",
-    [(np.float32, np.complex64),
-     (np.float32, np.complex128),
-     (np.float64, np.complex128),
-     ]
+    "precision, cdtype",
+    [
+        (1, np.complex64),
+        (2, np.complex128)
+    ]
 )
-def test_dtypes(uvdata, dtype, cdtype):
+def test_dtypes(uvdata, precision, cdtype):
     I_sky = create_uniform_sky()
 
     sim = VisCPU(
         uvdata=uvdata,
         sky_freqs=np.unique(uvdata.freq_array),
         sky_intensity=I_sky,
-        real_dtype=dtype, complex_dtype=cdtype)
+        precision=precision)
 
     v = sim.simulate()
     assert v.dtype == cdtype
