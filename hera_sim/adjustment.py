@@ -193,11 +193,192 @@ def match_antennas(
     target,
     reference,
     tol=1.0,
+    ENU=False,
     relabel_antennas=True,
     use_reference_positions=False,
     overwrite_telescope_metadata=False,
+    conjugation=None,
 ):
-    pass
+    """
+    Select the best-matched subset of antennas between target and reference.
+
+    This function chooses a subset of antennas from ``target`` and ``reference``
+    to keep so that the resulting subset has the greatest number of baselines
+    and the set of baselines produced by one set of antennas is identical to
+    the baselines produced by the other set of antennas. One can show that this
+    optimal set of antennas can be obtained by finding the greatest intersection
+    of the two sets of antennas, up to the symmetries allowed by how baselines
+    are calculated from antenna positions (namely translation and reflection
+    invariance).
+
+    Parameters
+    ----------
+    target: :class:`pyuvdata.UVData` instance or :class:`Simulator` instance
+        Object containing the data and metadata for which the antenna position
+        adjustment is intended.
+    reference: :class:`pyuvdata.UVData`
+        Object containing the reference data, to which the target antenna array
+        is to be matched. Only the metadata is needed.
+    tol: float or array-like of float, optional
+        Position tolerance for matching antenna positions, in meters. If a float
+        is passed, then this is taken to be the tolerance in each dimension;
+        otherwise, a length-3 array-like object of floats must be passed which
+        specify the tolerance in each dimension. Default is 1 meter in each
+        dimension (so a 1-meter cube neighborhood centered on each antenna).
+    ENU: bool, optional
+        Whether to perform the calculation in ENU coordinates. Default is to
+        perform the calculation in whatever coordinate system the ``target`` and
+        ``reference`` antenna positions are defined.
+    relabel_antennas: bool, optional
+        Whether to change the labels of the remaining ``target`` antennas to
+        match those of the corresponding ``reference`` antennas. Default is to
+        make the antenna labels match.
+    use_reference_positions: bool, optional
+        Whether to modify the remaining ``target`` antenna positions to exactly
+        match those of the corresponding ``reference`` antennas. Default is to
+        apply a translation to the remaining array, so that ideal antenna
+        positions remain ideal in the case that ideal antenna positions are
+        matched to real antenna positions.
+    overwrite_telescope_metadata: bool, optional
+        Whether to overwrite ``target`` telescope metadata (such as observatory
+        position) to match ``reference`` telescope metadata. Default is to leave
+        the ``target`` telescope metadata untouched.
+    conjugation: str, optional
+        Conjugation convention to impose on the modified ``target`` antenna
+        array. Default is to not impose any conjugation convention.
+
+    Returns
+    -------
+    modified_data: :class:`pyuvdata.UVData` instance or :class:`Simulator` instance
+        Object containing the ``target`` data with its antenna array modified and
+        a downselect performed to only keep data for remaining antennas.
+    """
+    target_is_simulator = isinstance(target, Simulator)
+    target = _to_uvdata(target)
+    target_copy = copy.deepcopy(target)
+    reference = _to_uvdata(reference)
+    reference_metadata = reference.copy(metadata_only=True)
+
+    # Find the best choice of mapping between antennas.
+    target_antpos = _get_antpos(target, ENU=ENU)
+    ref_antpos = _get_antpos(reference, ENU=ENU)
+    # This contains the downselected and shifted target antenna positions.
+    array_intersection = _get_array_intersection(target_antpos, ref_antpos, tol)
+    target_to_reference_map = _get_antenna_map(array_intersection, ref_antpos, tol)
+    reference_to_target_map = {
+        ref_ant: target_ant for ref_ant, target_ant in target_to_reference_map.items()
+    }
+
+    # Select only antennas that remain in the overlap.
+    target_copy.select(
+        antenna_nums=list(target_to_reference_map.keys()), keep_all_metadata=False
+    )
+    reference_metadata.select(
+        antenna_nums=list(target_to_reference_map.values()), keep_all_metadata=False
+    )
+
+    # Update antenna and possibly telescope metadata.
+    target_copy.ant_1_array = np.asarray(
+        [target_to_reference_map[target_ant] for target_ant in target_copy.ant_1_array]
+    )
+    target_copy.ant_2_array = np.asarray(
+        [target_to_reference_map[target_ant] for target_ant in target_copy.ant_2_array]
+    )
+    attrs_to_update = tuple()
+    if relabel_antennas:
+        attrs_to_update += ("antenna_numbers", "antenna_names")
+    if overwrite_telescope_metadata:
+        attrs_to_update += (
+            "telescope_location",
+            "telescope_location_lat_lon_alt",
+            "telescope_location_lat_lon_alt_degrees",
+        )
+    for attr in attrs_to_update:
+        setattr(target_copy, attr, getattr(reference_metadata, attr))
+
+    # Update the antenna positions; this is necessarily ugly.
+    if use_reference_positions and relabel_antennas:
+        # The antenna numbers and positions exactly match the reference.
+        target_copy.antenna_positions = reference_metadata.antenna_positions
+    elif use_reference_positions and not relabel_antennas:
+        # We need to use the reference positions but keep the target ordering.
+        target_copy.antenna_positions = np.array(
+            [
+                reference.antenna_positions[
+                    reference.antenna_numbers.tolist().index(
+                        target_to_reference_map[target_ant]
+                    )
+                ]
+                for target_ant in target_copy.antenna_numbers
+            ]
+        )
+    elif not use_reference_positions and relabel_antennas:
+        # We need to shift the antennas and relabel them.
+        target_copy.antenna_positions = np.array(
+            [
+                array_intersection[reference_to_target_map[ref_ant]]
+                for ref_ant in reference_metadata.antenna_numbers
+            ]
+        )
+    else:
+        # We just need to shift the antenna positions.
+        target_copy.antenna_positions = np.array(
+            [
+                array_intersection[target_ant]
+                for target_ant in target_copy.antenna_numbers
+            ]
+        )
+
+    # Now update the data... this will be a little messy.
+    for antpairpol, vis in target.antpairpol_iter():
+        ant1, ant2, pol = antpairpol
+        # Skip this visibility if we dropped one of the antennas.
+        if ant1 not in array_intersection or ant2 not in array_intersection:
+            continue
+
+        # Figure out the new antenna-pair.
+        if relabel_antennas:
+            new_antpairpol = (
+                target_to_reference_map[ant1],
+                target_to_reference_map[ant2],
+                pol,
+            )
+        else:
+            new_antpairpol = antpairpol
+
+        # Figure out how to slice through the new data array.
+        blts, conj_blts, pol_inds = target_copy._key2inds(new_antpairpol)
+        if len(blts) > 0:
+            # The new baseline has the same conjugation as the old one.
+            this_slice = (blts, 0, slice(None), pol_inds[0])
+        else:
+            # The new baseline is conjugated relative to the old one.
+            this_slice = (conj_blts, 0, slice(None), pol_inds[1])
+            vis = vis.conj()
+            new_antpairpol = new_antpairpol[:2][::-1] + (pol,)
+
+        # Update the data-like parameters.
+        target_copy.data_array[this_slice] = vis
+        target_copy.flag_array[this_slice] = target.get_flags(antpairpol)
+        target_copy.nsample_array[this_slice] = target.get_nsamples(antpairpol)
+
+        # Update the baseline array in case the antenna numbers got jumbled.
+        old_bl_int = target.antnums_to_baseline(ant1, ant2)
+        new_bl_int = target.antnums_to_baseline(*new_antpairpol[:2])
+        target_copy.baseline_array[target.baseline_array == old_bl_int] = new_bl_int
+
+    # Update the uvw array just to be safe.
+    target_copy.set_uvws_from_antenna_positions()
+
+    # Update the conjugation convention if desired.
+    if conjugation is not None:
+        target_copy.conjugate_bls(conjugation)
+
+    # Make sure to return a Simulator object if one was passed.
+    if target_is_simulator:
+        target_copy = Simulator(data=target_copy)
+
+    return target_copy
 
 
 def interpolate_to_reference(
@@ -624,3 +805,97 @@ def _to_uvdata(sim):
             return uvd
         except TypeError:
             raise TypeError("Input object could not be converted to UVData object.")
+
+
+def _get_antpos(uvd, ENU=False):
+    """Retrieve {ant: pos} dictionary from a UVData object."""
+    if ENU:
+        pos, ant = uvd.get_ENU_antpos()
+    else:
+        ant = uvd.antenna_numbers
+        pos = uvd.antenna_numbers
+
+    return dict(zip(ant, pos))
+
+
+def _get_array_intersection(antpos_1, antpos_2, tol=1.0):
+    """Find the optimal intersection of two antenna arrays."""
+    optimal_translation = _get_optimal_translation(antpos_1, antpos_2, tol)
+    new_antpos_1 = {ant: pos + optimal_translation for ant, pos in antpos_1.items()}
+    ant_1_to_2_map = _get_antenna_map(new_antpos_1, antpos_2, tol)
+
+    # Need to also check with one array reflected.
+    reflected_antpos_1 = {ant: -pos for ant, pos in antpos_1.items()}
+    optimal_translation_r = _get_optimal_translation(reflected_antpos_1, antpos_2, tol)
+    reflected_shifted_antpos_1 = {
+        ant: pos + optimal_translation_r for ant, pos in reflected_antpos_1.items()
+    }
+    alt_ant_map = _get_antenna_map(reflected_shifted_antpos_1, antpos_2, tol)
+
+    # Choose the option with a greater number of antennas in the intersection.
+    if len(ant_1_to_2_map) >= len(alt_ant_map):
+        intersection = {ant_1: new_antpos_1[ant_1] for ant_1 in ant_1_to_2_map.keys()}
+    else:
+        intersection = {
+            ant_1: reflected_shifted_antpos_1[ant_1] for ant_1 in alt_ant_map.keys()
+        }
+
+    return intersection
+
+
+def _get_antenna_map(antpos_1, antpos_2, tol=1.0):
+    """Find a mapping between antenna numbers."""
+    antenna_map = {}
+    ant_2_array = list(antpos_2.keys())
+    for ant_1, pos_1 in antpos_1.items():
+        ant_2_index = np.argwhere(
+            [np.allclose(pos_1, pos_2, atol=tol) for pos_2 in antpos_2.values()]
+        ).flatten()
+        if ant_2_index.size == 0:
+            continue  # No match
+        antenna_map[ant_1] = ant_2_array[ant_2_index[0]]
+
+    return antenna_map
+
+
+def _get_optimal_translation(antpos_1, antpos_2, tol=1.0):
+    """Find the translation that maximizes overlap between antenna arrays."""
+    translations = _build_translations(antpos_1, antpos_2, tol)
+
+    # Calculate the number of overlapping antennas for each translation.
+    intersection_sizes = {}
+    for ant_map, translation in translations.items():
+        shifted_antpos_1 = {ant: pos + translation for ant, pos in antpos_1.items()}
+        Nintersections = len(_get_antenna_map(shifted_antpos_1, antpos_2, tol=tol))
+        intersection_sizes[ant_map] = Nintersections
+
+    # Choose the translation that produces the largest intersection.
+    ant_map_keys = list(translations.keys())
+    intersections_per_mapping = list(intersection_sizes.values())
+    index = np.argmax(intersections_per_mapping)
+    optimal_mapping = ant_map_keys[index]
+
+    return translations[optimal_mapping]
+
+
+def _build_translations(antpos_1, antpos_2, tol=1.0):
+    """Build all possible translations that map at least one antenna to another."""
+    ant_1_array = list(antpos_1.keys())
+    ant_2_array = list(antpos_2.keys())
+    # Brute-force calculation of all translations.
+    translations = {
+        f"{ant_1}->{ant_2}": antpos_2[ant_2] - antpos_1[ant_1]
+        for ant_1 in ant_1_array
+        for ant_2 in ant_2_array
+    }
+
+    # Reduction to unique translations.
+    unique_translations = {}
+    for ant_map, translation in translations.items():
+        if not any(
+            np.allclose(translation, unique_translation, atol=tol)
+            for unique_translation in unique_translations.values()
+        ):
+            unique_translations[ant_map] = translation
+
+    return unique_translations
