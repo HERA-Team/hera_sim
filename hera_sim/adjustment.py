@@ -197,7 +197,6 @@ def match_antennas(
     relabel_antennas=True,
     use_reference_positions=False,
     overwrite_telescope_metadata=False,
-    conjugation=None,
 ):
     """
     Select the best-matched subset of antennas between target and reference.
@@ -243,9 +242,6 @@ def match_antennas(
         Whether to overwrite ``target`` telescope metadata (such as observatory
         position) to match ``reference`` telescope metadata. Default is to leave
         the ``target`` telescope metadata untouched.
-    conjugation: str, optional
-        Conjugation convention to impose on the modified ``target`` antenna
-        array. Default is to not impose any conjugation convention.
 
     Returns
     -------
@@ -369,10 +365,6 @@ def match_antennas(
 
     # Update the uvw array just to be safe.
     target_copy.set_uvws_from_antenna_positions()
-
-    # Update the conjugation convention if desired.
-    if conjugation is not None:
-        target_copy.conjugate_bls(conjugation)
 
     # Make sure to return a Simulator object if one was passed.
     if target_is_simulator:
