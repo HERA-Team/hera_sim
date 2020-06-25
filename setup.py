@@ -53,7 +53,8 @@ setup_args = {
         'numpy>=1.14',
         'scipy',
         'cached_property',
-        'pyuvsim',
+        'pyuvsim>=1.1.2',
+        'pyradiosky @ git+git://github.com/radioastronomysoftwaregroup/pyradiosky'
         'pyuvdata',
         'aipy>=3.0',
         'click',
