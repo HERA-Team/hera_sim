@@ -28,6 +28,7 @@ def adjust_to_reference(
     reference,
     interpolate=True,
     use_reference_positions=False,
+    use_ENU_positions=False,
     position_tolerance=1,
     relabel_antennas=True,
     conjugation_convention=None,
@@ -56,6 +57,10 @@ def adjust_to_reference(
         Default is to use the original target object's antenna positions, but
         shift them in a way that produces the maximal overlap with the reference
         antenna positions.
+    use_ENU_positions: bool, optional
+        Whether to perform the antenna matching algorithm using ENU antenna
+        positions. Default is to use whatever coordinates the antenna positions
+        are used in the ``target`` and ``reference`` data.
     position_tolerance: float or array-like of float, optional
         Tolerance for adjusting antenna positions, in meters. Default is one
         meter in x, y, and z. Specifying a single number will use the same value
@@ -173,6 +178,7 @@ def adjust_to_reference(
         target,
         reference_metadata,
         tol=position_tolerance,
+        ENU=use_ENU_positions,
         relabel_antennas=relabel_antennas,
         use_reference_positions=use_reference_positions,
         overwrite_telescope_metadata=overwrite_telescope_metadata,
