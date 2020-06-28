@@ -817,7 +817,19 @@ def _get_antpos(uvd, ENU=False):
 
 
 def _get_array_intersection(antpos_1, antpos_2, tol=1.0):
-    """Find the optimal intersection of two antenna arrays."""
+    """
+    Find the optimal intersection of two antenna arrays.
+    
+    For clarity, this function matches antennas in ``antpos_1`` to antennas in
+    ``antpos_2`` and returns the modified ``antpos_1`` array. Note that the returned
+    array will, in general, not have its antenna numbers match its original numbering
+    scheme, since the array may be reflected through the origin in the matching
+    process (since reflection through the origin does *not* have any effect on the
+    set of baselines corresponding to the array).
+    """
+    # Make sure that antenna positions are numpy arrays
+    antpos_1 = {ant: np.array(pos) for ant, pos in antpos_1.items()}
+    antpos_2 = {ant: np.array(pos) for ant, pos in antpos_2.items()}
     optimal_translation = _get_optimal_translation(antpos_1, antpos_2, tol)
     new_antpos_1 = {ant: pos + optimal_translation for ant, pos in antpos_1.items()}
     ant_1_to_2_map = _get_antenna_map(new_antpos_1, antpos_2, tol)
@@ -878,13 +890,11 @@ def _get_optimal_translation(antpos_1, antpos_2, tol=1.0):
 
 def _build_translations(antpos_1, antpos_2, tol=1.0):
     """Build all possible translations that map at least one antenna to another."""
-    ant_1_array = list(antpos_1.keys())
-    ant_2_array = list(antpos_2.keys())
     # Brute-force calculation of all translations.
     translations = {
         f"{ant_1}->{ant_2}": antpos_2[ant_2] - antpos_1[ant_1]
-        for ant_1 in ant_1_array
-        for ant_2 in ant_2_array
+        for ant_1 in antpos_1.keys()
+        for ant_2 in antpos_2.keys()
     }
 
     # Reduction to unique translations.
