@@ -99,11 +99,10 @@ class VisibilitySimulator(object):
                     # Will only work, of course, if the "catalog" key is in obsparams['sources'].
                     # If it's not there, it will raise a KeyError.
                     catalog = initialize_catalog_from_params(obsparams)[0]
-                    print(catalog.dtype.names)
                     point_source_pos = np.array([catalog['ra_j2000'], catalog['dec_j2000']]).T * np.pi/180.
 
                     # This gets the 'I' component of the flux density
-                    point_source_flux = np.atleast_2d(catalog['I'][:, 0])
+                    point_source_flux = np.atleast_2d(catalog['I']).T
                 except KeyError:
                     # If 'catalog' was not defined in obsparams, that's fine. We assume
                     # the user has passed some sky model directly (we'll catch it later).
@@ -123,11 +122,7 @@ class VisibilitySimulator(object):
 
             self.uvdata = uvdata
 
-            if beams is None:
-                self.beams = [ab.AnalyticBeam("uniform")]
-            else:
-                self.beams = beams
-
+            self.beams = [ab.AnalyticBeam("uniform")] if beams is None else beams
             if beam_ids is None:
                 self.beam_ids = np.zeros(self.n_ant, dtype=np.int)
             else:
@@ -152,7 +147,7 @@ class VisibilitySimulator(object):
             raise ValueError("Either both or neither of point_source_pos and "
                              "point_source_flux must be given.")
 
-        if self.sky_intensity is not None and not healpy.isnpixok(self.n_pix):
+        if not (self.sky_intensity is None or healpy.isnpixok(self.n_pix)):
             raise ValueError("The sky_intensity map is not compatible with "
                              "healpy.")
 
@@ -191,7 +186,7 @@ class VisibilitySimulator(object):
             raise ValueError("sky_intensity has a different number of freqs "
                              "than sky_freqs.")
 
-        if not (self.sky_intensity is None or self.sky_intensity.ndim == 2):
+        if self.sky_intensity is not None and self.sky_intensity.ndim != 2:
             raise ValueError("sky_intensity must be a 2D array (a healpix map "
                              "per frequency).")
 
