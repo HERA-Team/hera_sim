@@ -436,7 +436,10 @@ def interpolate_to_reference(
     # Check reference information is sufficient.
     if reference is not None:
         if not isinstance(reference, UVData):
-            raise TypeError("reference must be a UVData object.")
+            try:
+                reference = _to_uvdata(reference)
+            except TypeError:
+                raise TypeError("reference must be convertible to a UVData object.")
 
         ref_time_to_lst_map = {
             ref_time: ref_lst
@@ -518,6 +521,7 @@ def interpolate_to_reference(
         new_data_shape = (target.Nblts, 1, ref_freqs.size, target.Npols)
 
     # Actually update metadata and interpolate the data.
+    new_data = np.empty(new_data_shape, dtype=np.complex)
     for i, antpair in enumerate(target.get_antpairs()):
         if axis == "freq":
             for pol_ind, pol in enumerate(target.polarization_array):
@@ -786,9 +790,9 @@ def _validate_file_list(file_list, name="file list"):
 def _to_uvdata(sim):
     """Convert input object to a :class:`pyuvdata.UVData` object."""
     if isinstance(sim, UVData):
-        return sim
+        return sim.copy()
     elif isinstance(sim, Simulator):
-        return sim.data
+        return sim.data.copy()
     elif isinstance(sim, (str, pathlib.Path)):
         uvd = UVData()
         uvd.read(sim)
@@ -846,6 +850,8 @@ def _get_array_intersection(antpos_1, antpos_2, tol=1.0):
     if len(ant_1_to_2_map) >= len(alt_ant_map):
         intersection = {ant_1: new_antpos_1[ant_1] for ant_1 in ant_1_to_2_map.keys()}
     else:
+        # Conjugation convention reverses (b_ij -> b_ji)
+        # TODO: account for this somehow
         intersection = {
             ant_1: reflected_shifted_antpos_1[ant_1] for ant_1 in alt_ant_map.keys()
         }
