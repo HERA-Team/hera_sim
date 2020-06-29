@@ -572,6 +572,7 @@ def interpolate_to_reference(
     # Finally, update all of the metadata.
     if axis in ("freq", "both"):
         target.Nfreqs = ref_freqs.size
+        target.freq_array = ref_freqs
     if axis in ("time", "both"):
         target.Ntimes = ref_times.size
         target.time_array = new_time_array
@@ -823,7 +824,7 @@ def _get_antpos(uvd, ENU=False):
 def _get_array_intersection(antpos_1, antpos_2, tol=1.0):
     """
     Find the optimal intersection of two antenna arrays.
-    
+
     For clarity, this function matches antennas in ``antpos_1`` to antennas in
     ``antpos_2`` and returns the modified ``antpos_1`` array. Note that the returned
     array will, in general, not have its antenna numbers match its original numbering
