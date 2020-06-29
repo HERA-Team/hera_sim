@@ -705,7 +705,7 @@ class Simulator:
         # current assumption is that these methods require the
         # baseline vector to be provided in nanoseconds
         elif requires_bl_vec:
-            bl_vec = self.antpos[ant1] - self.antpos[ant2]
+            bl_vec = self.antpos[ant2] - self.antpos[ant1]
             bl_vec_ns = bl_vec * 1e9 / const.c.value
             new_param = {key(_requires_bl_vec): bl_vec_ns}
         # check if this is something that depends on another
