@@ -890,6 +890,10 @@ def _get_optimal_translation(antpos_1, antpos_2, tol=1.0):
 
 def _build_translations(antpos_1, antpos_2, tol=1.0):
     """Build all possible translations that map at least one antenna to another."""
+    # Make sure that antenna positions are numpy arrays.
+    antpos_1 = {ant: np.array(pos) for ant, pos in antpos_1.items()}
+    antpos_2 = {ant: np.array(pos) for ant, pos in antpos_2.items()}
+
     # Brute-force calculation of all translations.
     translations = {
         f"{ant_1}->{ant_2}": antpos_2[ant_2] - antpos_1[ant_1]
