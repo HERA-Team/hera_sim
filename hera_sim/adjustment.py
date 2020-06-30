@@ -387,6 +387,8 @@ def interpolate_to_reference(
     ref_freqs=None,
     axis="time",
     kind="cubic",
+    kt=3,
+    kf=3,
 ):
     """
     Interpolate target visibilities to reference times/frequencies. Interpolation
@@ -419,6 +421,9 @@ def interpolate_to_reference(
         'freq', or 'both'. Default is to interpolate along the time axis.
     kind: str, optional
         Order of the spline interpolator used. A cubic spline is used by default.
+    kt, kf: int, optional
+        Degrees of the bivariate spline interpolator along the time and frequency
+        axes, respectively. Default is to use a bicubic spline interpolator.
 
     Returns
     -------
@@ -476,11 +481,12 @@ def interpolate_to_reference(
     def iswrapped(lsts):
         return np.any(lsts < lsts[0])
 
-    if iswrapped(target_lsts) or iswrapped(ref_lsts):
-        raise NotImplementedError(
-            "Either the target LSTs or the reference LSTs have a phase wrap. "
-            "This is currently not supported."
-        )
+    if axis in ("time", "both"):
+        if iswrapped(target_lsts) or iswrapped(ref_lsts):
+            raise NotImplementedError(
+                "Either the target LSTs or the reference LSTs have a phase wrap. "
+                "This is currently not supported."
+            )
 
     # Ensure reference parameters are a subset of target parameters.
     if axis in ("time", "both"):
@@ -554,10 +560,10 @@ def interpolate_to_reference(
             vis = target.get_data(antpair + (pol,))
             if axis == "both":
                 re_spline = RectBivariateSpline(
-                    target_lsts, target_freqs, vis.real, kind=kind
+                    target_lsts, target_freqs, vis.real, kx=kt, ky=kf,
                 )
                 im_spline = RectBivariateSpline(
-                    target_lsts, target_freqs, vis.imag, kind=kind
+                    target_lsts, target_freqs, vis.imag, kx=kt, ky=kf,
                 )
                 new_data[this_slice, 0, :, pol_ind] = re_spline(
                     ref_lsts, ref_freqs
@@ -574,6 +580,7 @@ def interpolate_to_reference(
         target.Nfreqs = ref_freqs.size
         target.freq_array = ref_freqs
     if axis in ("time", "both"):
+        target.Nblts = ref_times.size * target.Nbls
         target.Ntimes = ref_times.size
         target.time_array = new_time_array
         target.lst_array = new_lst_array
