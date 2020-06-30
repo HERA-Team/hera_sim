@@ -4,6 +4,7 @@ check for correctness of individual models, as they should be tested
 elsewhere.
 """
 
+import itertools
 import shutil
 import tempfile
 import sys
@@ -177,7 +178,7 @@ def test_consistent_across_reds():
     defaults.set("h1c")
 
     # add something that should be the same across a redundant group
-    sim.add("diffuse_foreground", seed_mode="redundant")
+    sim.add("diffuse_foreground", seed="redundant")
 
     # deactivate defaults for good measure
     defaults.deactivate()
@@ -192,6 +193,12 @@ def test_consistent_across_reds():
             vis1 = sim.data.get_data(bl1)
             vis2 = sim.data.get_data(bl2)
             assert np.all(np.isclose(vis1, vis2))
+
+    # Check that seeds vary between redundant groups
+    seeds = list(list(sim._seeds.values())[0].values())
+    assert all(
+        seed_pair[0] != seed_pair[1] for seed_pair in itertools.combinations(seeds, 2)
+    )
 
 
 def test_run_sim():
