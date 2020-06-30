@@ -2,7 +2,7 @@ from __future__ import division
 from builtins import object
 import warnings
 
-import healpy
+from astropy_healpix import healpy
 import numpy as np
 from cached_property import cached_property
 from pyuvsim import analyticbeam as ab
@@ -16,7 +16,17 @@ from os import path
 from abc import ABCMeta, abstractmethod
 
 
-class VisibilitySimulator(object):
+def _is_power_of_2(n):
+    # checking if a power of 2 from https://stackoverflow.com/a/57025941/1467820
+    return (n & (n - 1) == 0) and n != 0
+
+
+def _isnpixok(npix):
+    n = npix // 12
+    return npix % 12 == 0 and _is_power_of_2(n)
+
+
+class VisibilitySimulator:
     __metaclass__ = ABCMeta
     """
     Base VisibilitySimulator class.
@@ -115,7 +125,7 @@ class VisibilitySimulator(object):
                     )
 
                     # This gets the 'I' component of the flux density
-                    point_source_flux = np.atleast_2d(catalog["flux_density"][:, 0])
+                    point_source_flux = np.atleast_2d(catalog["I"][:, 0])
                 except KeyError:
                     # If 'catalog' was not defined in obsparams, that's fine. We assume
                     # the user has passed some sky model directly (we'll catch it later).
@@ -166,7 +176,7 @@ class VisibilitySimulator(object):
                 "point_source_flux must be given."
             )
 
-        if self.sky_intensity is not None and not healpy.isnpixok(self.n_pix):
+        if self.sky_intensity is not None and not _isnpixok(self.n_pix):
             raise ValueError("The sky_intensity map is not compatible with " "healpy.")
 
         if self.point_source_pos is None and self.sky_intensity is None:
@@ -296,7 +306,7 @@ class VisibilitySimulator(object):
                 The point source approximation. Positions in (ra, dec) (J2000).
                 Shape=(N_SOURCES, 2). Fluxes in [Jy]. Shape=(NFREQ, N_SOURCES).
         """
-        nside = healpy.get_nside(hmap[0])
+        nside = healpy.npix2nside(len(hmap[0]))
         ra, dec = healpy.pix2ang(nside, np.arange(len(hmap[0])), lonlat=True)
         flux = hmap * healpy.nside2pixarea(nside)
         return np.array([ra * np.pi / 180, dec * np.pi / 180]).T, flux
@@ -317,10 +327,10 @@ class VisibilitySimulator(object):
     def nside(self):
         """Nside parameter of the sky healpix map."""
         try:
-            return healpy.get_nside(self.sky_intensity[0])
+            return healpy.npix2nside(len(self.sky_intensity[0]))
         except TypeError:
 
-            if not healpy.isnsideok(self._nside):
+            if not _is_power_of_2(self._nside):
                 raise ValueError("nside must be a power of 2")
 
             return self._nside

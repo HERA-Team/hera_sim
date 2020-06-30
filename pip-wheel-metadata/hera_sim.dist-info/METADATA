@@ -1,0 +1,23 @@
+Metadata-Version: 2.1
+Name: hera-sim
+Version: 0.3.0
+Summary: collection of simulation routines describing the HERA instrument.
+Home-page: https://github.com/HERA-Team/hera_sim
+Author: HERA Team
+License: BSD
+Platform: UNKNOWN
+Requires-Dist: numpy (>=1.14)
+Requires-Dist: scipy
+Requires-Dist: cached-property
+Requires-Dist: pyuvsim
+Requires-Dist: pyuvdata
+Requires-Dist: aipy (>=3.0)
+Requires-Dist: click
+Requires-Dist: astropy-healpix
+Requires-Dist: future
+Provides-Extra: bda
+Requires-Dist: bda @ git+git://github.com/HERA-Team/baseline_dependent_averaging ; extra == 'bda'
+Provides-Extra: gpu
+Requires-Dist: hera-gpu @ git+git://github.com/hera-team/hera_gpu ; extra == 'gpu'
+
+UNKNOWN

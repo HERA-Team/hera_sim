@@ -2,7 +2,7 @@ from __future__ import division
 from builtins import range
 import numpy as np
 from scipy.interpolate import RectBivariateSpline
-import healpy
+from astropy_healpix import healpy
 
 from . import conversions
 from .simulators import VisibilitySimulator
