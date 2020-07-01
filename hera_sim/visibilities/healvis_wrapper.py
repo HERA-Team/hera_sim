@@ -1,6 +1,7 @@
 from __future__ import division
 
-from astropy_healpix import healpy
+# from astropy_healpix import healpy
+import astropy_healpix as aph
 import numpy as np
 from cached_property import cached_property
 
@@ -98,7 +99,7 @@ class HealVis(VisibilitySimulator):
             model.
         """
         sky = SkyModel()
-        sky.Nside = healpy.npix2nside(self.sky_intensity.shape[1])
+        sky.Nside = aph.npix_to_nside(self.sky_intensity.shape[1])
         sky.freqs = self.sky_freqs
         sky.Nskies = 1
         sky.ref_chan = self._sky_ref_chan
