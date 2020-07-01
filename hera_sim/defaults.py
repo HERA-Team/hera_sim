@@ -218,7 +218,7 @@ class Defaults:
         # check if any items are repeated
         self._check_config()
 
-    def _unpack_dict(self, nested_dict, new_dict):
+    def _unpack_dict(self, nested_dict, new_dict=None):
         """Extract individual components from a (partially) nested dictionary.
 
         Parameters
@@ -248,6 +248,8 @@ class Defaults:
                new_dict = {key0 : val0}
         Output: new_dict = {key0 : val0, key1 : val1, key2 : val2}
         """
+        if new_dict is None:
+            new_dict = {}
         for key, value in nested_dict.items():
             if isinstance(value, dict) and key != "array_layout":
                 self._unpack_dict(value, new_dict)
