@@ -18,7 +18,7 @@ try:
     import hera_cal
 
     HERA_CAL = True
-except ImportError:
+except ImportError:  # pragma: no cover
     warn("hera_cal is not installed. Certain features will be unavailable.")
     HERA_CAL = False
 
@@ -27,6 +27,7 @@ def adjust_to_reference(
     target,
     reference,
     interpolate=True,
+    interpolation_axis="time",
     use_reference_positions=False,
     use_ENU_positions=False,
     position_tolerance=1,
@@ -49,6 +50,9 @@ def adjust_to_reference(
     interpolate: bool, optional
         Whether to interpolate the target data in time, or whether to rephase.
         Default is to interpolate in time using a cubic spline.
+    interpolation_axis: str, optional
+        Which axis to perform interpolation over; must be one of 'freq', 'time',
+        or 'both'. Ignored if ``interpolate==False``. Default is 'time'.
     use_reference_positions: bool, optional
         Whether to use the reference antenna positions or a shifted version of
         the original target object's antenna positions. When adjusting simulated
@@ -157,23 +161,25 @@ def adjust_to_reference(
             print("Rephasing target data to reference data LSTs...")
 
     if interpolate:
-        target = interpolate_to_reference(target, reference_metadata)
+        target = interpolate_to_reference(
+            target, reference_metadata, axis=interpolation_axis
+        )
     else:
-        if not np.isclose(
-            target.integration_time.mean(), reference_metadata.integration_time.mean()
-        ):
-            msg = "Target and reference integration times do not match. "
-            msg += "This may result in discontinuities in the result."
-            warn(msg)
-
         target = rephase_to_reference(target, reference_metadata)
 
-    if verbose:
-        print("Inflating target data by baseline redundancy...")
-    target.inflate_by_redundancy()
+    # Check if target is compressed by redundancy.
+    Nbls_with_autos = target.Nants_telescope * (target.Nants_telescope + 1) / 2
+    Nbls_mod_autos = Nbls_with_autos - target.Nants_telescope
+    if target.Nbls not in (Nbls_with_autos, Nbls_mod_autos):
+        if verbose:
+            print("Inflating target data by baseline redundancy...")
+        target.inflate_by_redundancy()
 
     if verbose:
         print("Adjusting target's antenna array to optimally match reference...")
+    # Make sure the reference metadata has had its times updated appropriately.
+    if not interpolate or interpolation_axis in ("time", "both"):
+        reference_metadata.select(times=target.time_array)
     target = match_antennas(
         target,
         reference_metadata,
@@ -265,10 +271,12 @@ def match_antennas(
     target_antpos = _get_antpos(target, ENU=ENU)
     ref_antpos = _get_antpos(reference, ENU=ENU)
     # This contains the downselected and shifted target antenna positions.
-    array_intersection = _get_array_intersection(target_antpos, ref_antpos, tol)
+    array_intersection, is_reflected = _get_array_intersection(
+        target_antpos, ref_antpos, tol
+    )
     target_to_reference_map = _get_antenna_map(array_intersection, ref_antpos, tol)
     reference_to_target_map = {
-        ref_ant: target_ant for ref_ant, target_ant in target_to_reference_map.items()
+        ref_ant: target_ant for target_ant, ref_ant in target_to_reference_map.items()
     }
 
     # Select only antennas that remain in the overlap.
@@ -280,12 +288,20 @@ def match_antennas(
     )
 
     # Update antenna and possibly telescope metadata.
-    target_copy.ant_1_array = np.asarray(
-        [target_to_reference_map[target_ant] for target_ant in target_copy.ant_1_array]
-    )
-    target_copy.ant_2_array = np.asarray(
-        [target_to_reference_map[target_ant] for target_ant in target_copy.ant_2_array]
-    )
+    if relabel_antennas:
+        target_copy.ant_1_array = np.asarray(
+            [
+                target_to_reference_map[target_ant]
+                for target_ant in target_copy.ant_1_array
+            ]
+        )
+        target_copy.ant_2_array = np.asarray(
+            [
+                target_to_reference_map[target_ant]
+                for target_ant in target_copy.ant_2_array
+            ]
+        )
+
     attrs_to_update = tuple()
     if relabel_antennas:
         attrs_to_update += ("antenna_numbers", "antenna_names")
@@ -355,9 +371,17 @@ def match_antennas(
             this_slice = (blts, 0, slice(None), pol_inds[0])
         else:
             # The new baseline is conjugated relative to the old one.
+            # Given the handling of the antenna relabeling, this might not actually
+            # ever be called.
             this_slice = (conj_blts, 0, slice(None), pol_inds[1])
             vis = vis.conj()
             new_antpairpol = new_antpairpol[:2][::-1] + (pol,)
+
+        # If we needed to reflect the entire array to find the best match, then
+        # we need to make sure to conjugate the visibilities since the reflection
+        # is effectively undone by baseline conjugation.
+        if is_reflected:
+            vis = vis.conj()
 
         # Update the data-like parameters.
         target_copy.data_array[this_slice] = vis
@@ -367,7 +391,9 @@ def match_antennas(
         # Update the baseline array in case the antenna numbers got jumbled.
         old_bl_int = target.antnums_to_baseline(ant1, ant2)
         new_bl_int = target.antnums_to_baseline(*new_antpairpol[:2])
-        target_copy.baseline_array[target.baseline_array == old_bl_int] = new_bl_int
+        target_copy.baseline_array[
+            target_copy.baseline_array == old_bl_int
+        ] = new_bl_int
 
     # Update the uvw array just to be safe.
     target_copy.set_uvws_from_antenna_positions()
@@ -518,6 +544,7 @@ def interpolate_to_reference(
         new_ant_2_array = np.empty(new_Nblts, dtype=int)
         new_baseline_array = np.empty(new_Nblts, dtype=int)
         new_uvw_array = np.empty((new_Nblts, 3), dtype=float)
+        new_integration_times = np.empty(new_Nblts, dtype=float)
         if axis == "both":
             new_data_shape = (new_Nblts, 1, ref_freqs.size, target.Npols)
         else:
@@ -546,6 +573,7 @@ def interpolate_to_reference(
         old_blt = target._key2inds(antpair)[0][0]  # As a reference
         this_uvw = target.uvw_array[old_blt]
         this_baseline = target.baseline_array[old_blt]
+        this_integration_time = target.integration_time[old_blt]
 
         # Now actually update the metadata.
         new_ant_1_array[this_slice] = ant1
@@ -554,6 +582,7 @@ def interpolate_to_reference(
         new_uvw_array[this_slice] = this_uvw
         new_time_array[this_slice] = ref_times
         new_lst_array[this_slice] = ref_lsts
+        new_integration_times[this_slice] = this_integration_time
 
         # Update the data.
         for pol_ind, pol in enumerate(target.polarization_array):
@@ -588,6 +617,7 @@ def interpolate_to_reference(
         target.ant_2_array = new_ant_2_array
         target.baseline_array = new_baseline_array
         target.uvw_array = new_uvw_array
+        target.integration_time = new_integration_times
         target.blt_order = None
 
     # Now update the data-like attributes
@@ -628,7 +658,7 @@ def rephase_to_reference(
         The times in this object are relabeled to be the reference times with
         LSTs sufficiently close to target LSTs for rephasing.
     """
-    if not HERA_CAL:
+    if not HERA_CAL:  # pragma: no cover
         raise NotImplementedError(
             "You must have ``hera_cal`` installed to use this function."
         )
@@ -646,7 +676,10 @@ def rephase_to_reference(
     # Validate the reference information.
     if reference is not None:
         if not isinstance(reference, UVData):
-            raise TypeError("reference must be a UVData object.")
+            try:
+                reference = _to_uvdata(reference)
+            except TypeError:
+                raise TypeError("reference must be convertible to a UVData object.")
 
         ref_time_to_lst_map = {
             ref_time: ref_lst
@@ -707,7 +740,7 @@ def rephase_to_reference(
     # Notify the user if there's a discontinuity in rephasing amount.
     dlst_diff = np.diff(dlst)
     avg_diff = np.median(dlst_diff)
-    if np.any(not np.isclose(dlst_diff, avg_diff, rtol=0.1)):
+    if np.any(np.logical_not(np.isclose(dlst_diff, avg_diff, rtol=0.1))):
         warn(
             "Rephasing amount is discontinuous; there may be discontinuities "
             "in the rephased visibilities."
@@ -715,7 +748,7 @@ def rephase_to_reference(
 
     # Prepare the target data for rephasing.
     target.select(times=np.unique(target_times))
-    data, _, _ = target.build_datacontainers()
+    data = target.build_datacontainers()[0]
     data.select_or_expand_times(target_times)
     antpos = data.antpos
     bls = {(ai, aj, pol): antpos[aj] - antpos[ai] for ai, aj, pol in data.bls()}
@@ -724,6 +757,7 @@ def rephase_to_reference(
     new_data = np.zeros((new_Nblts, 1, target.Nfreqs, target.Npols), dtype=np.complex)
     new_time_array = np.empty(new_Nblts, dtype=float)
     new_lst_array = np.empty(new_Nblts, dtype=float)
+    new_integration_times = np.empty(new_Nblts, dtype=float)
     new_ant_1_array = np.empty(new_Nblts, dtype=int)
     new_ant_2_array = np.empty(new_Nblts, dtype=int)
     new_baseline_array = np.empty(new_Nblts, dtype=int)
@@ -736,6 +770,7 @@ def rephase_to_reference(
         old_blt = target._key2inds(antpair)[0][0]  # As a reference
         this_uvw = target.uvw_array[old_blt]
         this_baseline = target.baseline_array[old_blt]
+        this_integration_time = target.integration_time[old_blt]
 
         # Update the metadata.
         new_ant_1_array[this_slice] = ant1
@@ -743,6 +778,7 @@ def rephase_to_reference(
         new_baseline_array[this_slice] = this_baseline
         new_uvw_array[this_slice] = this_uvw
         new_time_array[this_slice] = ref_times
+        new_integration_times[this_slice] = this_integration_time
 
         # Update the data
         for pol_ind, pol in enumerate(target.polarization_array):
@@ -763,13 +799,17 @@ def rephase_to_reference(
 
     # Times/LSTs need special treatment.
     for ref_time, target_time in ref_to_target_time_map.items():
+        if target_time is None:
+            continue
         this_slice = np.argwhere(new_time_array == ref_time).flatten()
-        new_lst_array[this_slice] = target_time_to_lst_map[target_time]
+        new_lst_array[this_slice] = ref_time_to_lst_map[ref_time]
 
     # Now update all of the data/metadata.
     target.Ntimes = np.unique(new_time_array).size
+    target.Nblts = new_Nblts
     target.time_array = new_time_array
     target.lst_array = new_lst_array
+    target.integration_time = new_integration_times
     target.ant_1_array = new_ant_1_array
     target.ant_2_array = new_ant_2_array
     target.baseline_array = new_baseline_array
@@ -793,6 +833,8 @@ def _validate_file_list(file_list, name="file list"):
             f"{name} must be either a collection of path-like objects or a "
             "UVData object or Simulator object"
         )
+    if not all(os.path.exists(item) for item in file_list):
+        raise ValueError(f"At least one path in {name} does not exist.")
 
 
 def _to_uvdata(sim):
@@ -802,19 +844,23 @@ def _to_uvdata(sim):
     elif isinstance(sim, Simulator):
         return sim.data.copy()
     elif isinstance(sim, (str, pathlib.Path)):
+        if not os.path.exists(sim):
+            raise ValueError("Path to data file does not exist.")
         uvd = UVData()
         uvd.read(sim)
         return uvd
     else:
         try:
             _ = iter(sim)
-            if not all(os.path.exists(entry) for entry in sim):
-                raise TypeError
+            _validate_file_list(sim)
             uvd = UVData()
             uvd.read(sim)
             return uvd
-        except TypeError:
-            raise TypeError("Input object could not be converted to UVData object.")
+        except (TypeError, ValueError) as err:
+            if type(err) is TypeError:
+                raise TypeError("Input object could not be converted to UVData object.")
+            else:
+                raise ValueError("At least one of the files does not exist.")
 
 
 def _get_antpos(uvd, ENU=False):
@@ -823,7 +869,7 @@ def _get_antpos(uvd, ENU=False):
         pos, ant = uvd.get_ENU_antpos()
     else:
         ant = uvd.antenna_numbers
-        pos = uvd.antenna_numbers
+        pos = uvd.antenna_positions
 
     return dict(zip(ant, pos))
 
@@ -857,14 +903,15 @@ def _get_array_intersection(antpos_1, antpos_2, tol=1.0):
     # Choose the option with a greater number of antennas in the intersection.
     if len(ant_1_to_2_map) >= len(alt_ant_map):
         intersection = {ant_1: new_antpos_1[ant_1] for ant_1 in ant_1_to_2_map.keys()}
+        is_reflected = False
     else:
         # Conjugation convention reverses (b_ij -> b_ji)
-        # TODO: account for this somehow
         intersection = {
             ant_1: reflected_shifted_antpos_1[ant_1] for ant_1 in alt_ant_map.keys()
         }
+        is_reflected = True
 
-    return intersection
+    return intersection, is_reflected
 
 
 def _get_antenna_map(antpos_1, antpos_2, tol=1.0):
