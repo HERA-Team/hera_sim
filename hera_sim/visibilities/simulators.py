@@ -102,7 +102,7 @@ class VisibilitySimulator(object):
                     point_source_pos = np.array([catalog['ra_j2000'], catalog['dec_j2000']]).T * np.pi/180.
 
                     # This gets the 'I' component of the flux density
-                    point_source_flux = np.atleast_2d(catalog['flux_density'][:, 0])
+                    point_source_flux = np.atleast_2d(catalog['I'][:])
                 except KeyError:
                     # If 'catalog' was not defined in obsparams, that's fine. We assume
                     # the user has passed some sky model directly (we'll catch it later).
