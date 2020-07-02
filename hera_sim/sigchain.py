@@ -4,6 +4,8 @@ import os
 import numpy as np
 import warnings
 
+from scipy import stats
+
 from . import interpolators
 from . import utils
 from .components import registry
@@ -81,11 +83,15 @@ class Bandpass(Gain, is_multiplicative=True):
 class Reflections(Gain, is_multiplicative=True):
     _alias = ("reflection_gains", "sigchain_reflections")
 
-    def __init__(self, amp=None, dly=None, phs=None, conj=False, amp_jitter=0, dly_jitter=0):
+    def __init__(
+        self, amp=None, dly=None, phs=None, conj=False, amp_jitter=0, dly_jitter=0
+    ):
         # TODO: docstring
         """
         """
-        super().__init__(amp=amp, dly=dly, phs=phs, conj=conj, amp_jitter=0, dly_jitter=0)
+        super().__init__(
+            amp=amp, dly=dly, phs=phs, conj=conj, amp_jitter=0, dly_jitter=0
+        )
 
     def __call__(self, freqs, ants, **kwargs):
         # TODO: docstring
@@ -95,10 +101,14 @@ class Reflections(Gain, is_multiplicative=True):
         self._check_kwargs(**kwargs)
 
         # unpack the kwargs
-        amp, dly, phs, conj, amp_jitter, dly_jitter = self._extract_kwarg_values(**kwargs)
+        amp, dly, phs, conj, amp_jitter, dly_jitter = self._extract_kwarg_values(
+            **kwargs
+        )
 
         # fill in missing kwargs
-        amp, dly, phs = self._complete_params(ants, amp, dly, phs, amp_jitter, dly_jitter)
+        amp, dly, phs = self._complete_params(
+            ants, amp, dly, phs, amp_jitter, dly_jitter
+        )
 
         # determine gains iteratively
         gains = {}
@@ -150,7 +160,9 @@ class Reflections(Gain, is_multiplicative=True):
         return np.conj(eps) if conj else eps
 
     @staticmethod
-    def _complete_params(ants, amp=None, dly=None, phs=None, amp_jitter=0, dly_jitter=0):
+    def _complete_params(
+        ants, amp=None, dly=None, phs=None, amp_jitter=0, dly_jitter=0
+    ):
         """
         Generate parameters to calculate a reflection coefficient.
 
@@ -193,6 +205,7 @@ class Reflections(Gain, is_multiplicative=True):
         phases: array-like of float
             Phase of each reflection coefficient for each antenna.
         """
+
         def broadcast_param(param, lower_bound, upper_bound, size):
             if param is None:
                 return stats.uniform.rvs(lower_bound, upper_bound, size)
@@ -213,7 +226,7 @@ class Reflections(Gain, is_multiplicative=True):
         amps *= stats.norm.rvs(1, amp_jitter, len(ants))
         dlys += stats.norm.rvs(0, dly_jitter, len(ants))
 
-        return amp, dly, phs
+        return amp, dly, phases
 
 
 @registry
@@ -224,11 +237,15 @@ class Crosstalk:
 class CrossCouplingCrosstalk(Crosstalk, Reflections):
     _alias = ("cross_coupling_xtalk",)
 
-    def __init__(self, amp=None, dly=None, phs=None, conj=False, amp_jitter=0, dly_jitter=0):
+    def __init__(
+        self, amp=None, dly=None, phs=None, conj=False, amp_jitter=0, dly_jitter=0
+    ):
         # TODO: docstring
         """
         """
-        super().__init__(amp=amp, dly=dly, phs=phs, conj=conj, amp_jitter=0, dly_jitter=0)
+        super().__init__(
+            amp=amp, dly=dly, phs=phs, conj=conj, amp_jitter=0, dly_jitter=0
+        )
 
     def __call__(self, freqs, autovis, **kwargs):
         # TODO: docstring
@@ -238,13 +255,19 @@ class CrossCouplingCrosstalk(Crosstalk, Reflections):
         self._check_kwargs(**kwargs)
 
         # now unpack them
-        amp, dly, phs, conj, amp_jitter, dly_jitter = self._extract_kwarg_values(**kwargs)
+        amp, dly, phs, conj, amp_jitter, dly_jitter = self._extract_kwarg_values(
+            **kwargs
+        )
 
         # handle the amplitude, phase, and delay
-        amp, dly, phs = self._complete_params([1], amp, dly, phs, amp_jitter, dly_jitter)
+        amp, dly, phs = self._complete_params(
+            [1], amp, dly, phs, amp_jitter, dly_jitter
+        )
 
-        # make a reflection coefficient
-        eps = self.gen_reflection_coefficient(freqs, amp, dly, phs, conj=conj)
+        # Make reflection coefficient; enforce symmetry in delay.
+        eps_1 = self.gen_reflection_coefficient(freqs, amp, dly, phs, conj=conj)
+        eps_2 = self.gen_reflection_coefficient(freqs, amp, -dly, phs, conj=conj)
+        eps = eps_1 + eps_2
 
         # reshape if necessary
         if eps.ndim == 1:
@@ -252,6 +275,7 @@ class CrossCouplingCrosstalk(Crosstalk, Reflections):
 
         # scale it by the autocorrelation and return the result
         return autovis * eps
+
 
 class CrossCouplingSpectrum(Crosstalk):
     _alias = ("cross_coupling_spectrum", "xtalk_spectrum")
@@ -275,9 +299,38 @@ class CrossCouplingSpectrum(Crosstalk):
         )
 
     def __call__(self, freqs, autovis, **kwargs):
-        # amps = np.logspace(*amp_range, Ncopies)
-        # dlys = np.linspace(*dly_range, Ncopies)
-        pass
+        # TODO: docstring
+        """
+        """
+        self._check_kwargs(**kwargs)
+
+        (
+            Ncopies,
+            amp_range,
+            dly_range,
+            phs_range,
+            amp_jitter,
+            dly_jitter,
+        ) = self._extract_kwarg_values(**kwargs)
+
+        # Construct the arrays of amplitudes and delays.
+        amps = np.logspace(*amp_range, Ncopies)
+        dlys = np.linspace(*dly_range, Ncopies)
+
+        # Construct the spectrum of crosstalk.
+        crosstalk_spectrum = np.zeros(autovis.shape, dtype=np.complex)
+        for amp, dly in zip(amps, dlys):
+            gen_xtalk = CrossCouplingCrosstalk(
+                amp=amp,
+                dly=dly,
+                phs=phs_range,
+                amp_jitter=amp_jitter,
+                dly_jitter=dly_jitter,
+            )
+
+            crosstalk_spectrum += gen_xtalk(freqs, autovis)
+
+        return crosstalk_spectrum
 
 
 class WhiteNoiseCrosstalk(Crosstalk):
