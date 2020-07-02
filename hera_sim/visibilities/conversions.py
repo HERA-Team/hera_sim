@@ -2,6 +2,7 @@
 A number of mappings which may be useful for visibility simulators.
 """
 import astropy_healpix as aph
+from astropy_healpix import healpy
 import numpy as np
 
 
@@ -105,8 +106,6 @@ def healpix_to_crd_eq(h, nest=False):
     assert h.ndim == 1, "h must be a 1D array."
 
     px = np.arange(len(h))
-    lon, lat = aph.healpix_to_lonlat(
-        aph.npix_to_nside(len(h)), px, order="nest" if nest else "ring"
+    return np.array(
+        healpy.pix2vec(aph.npix_to_nside(len(h)), px, nest=nest), dtype=np.float32
     )
-
-    return np.array([lon.to("rad").value, lat.to("rad").value], dtype=np.float32)
