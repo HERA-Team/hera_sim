@@ -1,2 +1,0 @@
-[console_scripts]
-hera_sim = hera_sim.cli:main

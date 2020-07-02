@@ -1,6 +1,5 @@
 from __future__ import division
 
-# from astropy_healpix import healpy
 import astropy_healpix as aph
 import numpy as np
 from cached_property import cached_property
