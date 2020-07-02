@@ -253,6 +253,32 @@ class CrossCouplingCrosstalk(Crosstalk, Reflections):
         # scale it by the autocorrelation and return the result
         return autovis * eps
 
+class CrossCouplingSpectrum(Crosstalk):
+    _alias = ("cross_coupling_spectrum", "xtalk_spectrum")
+
+    def __init__(
+        self,
+        Ncopies=10,
+        amp_range=(-4, -6),
+        dly_range=(1000, 1200),
+        phs_range=(-np.pi, np.pi),
+        amp_jitter=0,
+        dly_jitter=0,
+    ):
+        super().__init__(
+            Ncopies=Ncopies,
+            amp_range=amp_range,
+            dly_range=dly_range,
+            phs_range=phs_range,
+            amp_jitter=amp_jitter,
+            dly_jitter=dly_jitter,
+        )
+
+    def __call__(self, freqs, autovis, **kwargs):
+        # amps = np.logspace(*amp_range, Ncopies)
+        # dlys = np.linspace(*dly_range, Ncopies)
+        pass
+
 
 class WhiteNoiseCrosstalk(Crosstalk):
     _alias = (
