@@ -2,12 +2,13 @@ from __future__ import division
 from builtins import range
 import numpy as np
 from scipy.interpolate import RectBivariateSpline
-import healpy
+import astropy_healpix as aph
 
 from . import conversions
 from .simulators import VisibilitySimulator
 
 from astropy.constants import c
+from astropy.units import rad
 
 
 class VisCPU(VisibilitySimulator):
@@ -219,7 +220,8 @@ class VisCPU(VisibilitySimulator):
         crd_eq = self.get_diffuse_crd_eq()
         # Multiply intensity by pix area because the algorithm doesn't.
         return self._base_simulate(
-            crd_eq, self.sky_intensity * healpy.nside2pixarea(self.nside)
+            crd_eq,
+            self.sky_intensity * aph.nside_to_pixel_area(self.nside).to(rad ** 2).value,
         )
 
     def _simulate_points(self):
