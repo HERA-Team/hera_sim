@@ -210,10 +210,10 @@ class Reflections(Gain, is_multiplicative=True):
             if param is None:
                 return stats.uniform.rvs(lower_bound, upper_bound, size)
             elif np.isscalar(param):
-                return np.ones(size) * param
+                return np.ones(size, dtype=np.float) * param
             else:
                 if len(param) == size:
-                    return np.array(param)
+                    return np.array(param, dtype=np.float)
                 else:
                     return stats.uniform.rvs(*param, size)
 
