@@ -1,7 +1,8 @@
 """
 A number of mappings which may be useful for visibility simulators.
 """
-import healpy
+import astropy_healpix as aph
+from astropy_healpix import healpy
 import numpy as np
 
 
@@ -105,7 +106,6 @@ def healpix_to_crd_eq(h, nest=False):
     assert h.ndim == 1, "h must be a 1D array."
 
     px = np.arange(len(h))
-    crd_eq = np.array(
-        healpy.pix2vec(healpy.get_nside(h), px, nest=nest), dtype=np.float32
+    return np.array(
+        healpy.pix2vec(aph.npix_to_nside(len(h)), px, nest=nest), dtype=np.float32
     )
-    return crd_eq
