@@ -1,10 +1,11 @@
 import unittest
 
-import healpy
+import astropy_healpix as aph
+
 import healvis
 import numpy as np
 import pytest
-from astropy.units import sday
+from astropy.units import sday, rad
 from pyuvsim.analyticbeam import AnalyticBeam
 from hera_sim.defaults import defaults
 
@@ -304,18 +305,20 @@ def align_src_to_healpix(point_source_pos, point_source_flux, nside=2 ** 4):
         Corresponding new flux values.
     """
 
-    hmap = np.zeros((len(point_source_flux), healpy.nside2npix(nside)))
+    hmap = np.zeros((len(point_source_flux), aph.nside_to_npix(nside)))
 
     # Get which pixel every point source lies in.
-    pix = healpy.ang2pix(
-        nside, np.pi / 2 - point_source_pos[:, 1], point_source_pos[:, 0]
+    pix = aph.lonlat_to_healpix(
+        lon=point_source_pos[:, 0] * rad, lat=point_source_pos[:, 1] * rad, nside=nside
     )
 
-    hmap[:, pix] += point_source_flux / healpy.nside2pixarea(nside)
-    nside = healpy.get_nside(hmap[0])
-    ra, dec = healpy.pix2ang(nside, np.arange(len(hmap[0])), lonlat=True)
-    flux = hmap * healpy.nside2pixarea(nside)
-    return np.array([ra * np.pi / 180, dec * np.pi / 180]).T, flux
+    hmap[:, pix] += (
+        point_source_flux / aph.nside_to_pixel_area(nside).to(rad ** 2).value
+    )
+    nside = aph.npix_to_nside(len(hmap[0]))
+    ra, dec = aph.healpix_to_lonlat(np.arange(len(hmap[0])), nside)
+    flux = hmap * aph.nside_to_pixel_area(nside).to(rad ** 2).value
+    return np.array([ra.to(rad).value, dec.to(rad).value]).T, flux
 
 
 def test_comparison_zenith(uvdata2):
@@ -428,9 +431,12 @@ def test_comparison_half(uvdata2):
 
     I_sky = create_uniform_sky(nbase=nbase)
 
-    vec = healpy.ang2vec(np.pi / 2, 0)
     # Zero out values within pi/2 of (theta=pi/2, phi=0)
-    ipix_disc = healpy.query_disc(nside=nside, vec=vec, radius=np.pi / 2)
+    H = aph.HEALPix(nside=nside)
+
+    ipix_disc = H.cone_search_lonlat(
+        lat=np.pi / 2 * rad, lon=0 * rad, radius=np.pi / 2 * rad
+    )
     for i in range(len(freqs)):
         I_sky[i][ipix_disc] = 0
 
@@ -453,9 +459,11 @@ def test_comparision_airy(uvdata2):
 
     I_sky = create_uniform_sky(nbase=nbase)
 
-    vec = healpy.ang2vec(np.pi / 2, 0)
     # Zero out values within pi/2 of (theta=pi/2, phi=0)
-    ipix_disc = healpy.query_disc(nside=nside, vec=vec, radius=np.pi / 2)
+    H = aph.HEALPix(nside=nside)
+    ipix_disc = H.cone_search_lonlat(
+        lat=np.pi / 2 * rad, lon=0 * rad, radius=np.pi / 2 * rad
+    )
     for i in range(len(freqs)):
         I_sky[i][ipix_disc] = 0
 
