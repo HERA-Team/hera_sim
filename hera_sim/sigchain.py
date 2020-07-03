@@ -437,7 +437,7 @@ def vary_gains_in_time(
     else:
         envelope = 2 * np.pi * np.outer(envelope - 1, freqs)
         gains = {
-            ant: np.atleast_2d(gain) * delays[ant] * envelope
+            ant: np.atleast_2d(gain) * np.exp(1j * delays[ant] * envelope)
             for ant, gain in gains.items()
         }
 
