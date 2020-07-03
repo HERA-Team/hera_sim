@@ -1,7 +1,7 @@
 import os
 import unittest
 from hera_sim import sigchain, noise, foregrounds
-from hera_sim.interpolators import Beam
+from hera_sim.interpolators import Bandpass, Beam
 from hera_sim import DATA_PATH
 import numpy as np
 import nose.tools as nt
@@ -181,6 +181,41 @@ class TestSigchainReflections(unittest.TestCase):
             np.isclose(np.angle(ovfft[:, select]), -1, atol=1e-4, rtol=1e-4).all()
         )
 
+class TestTimeVariation(unittest.TestCase):
+    def setUp(self):
+        # Mock up some gains.
+        freqs = np.linspace(0.1, 0.2, 1024)
+        times = np.linspace(0, 1, 500)
+        dly = 20  # ns
+        delays = {0: dly}
+        bp_poly = Bandpass(datafile="HERA_H1C_BANDPASS.npy")
+        gains = sigchain.gen_gains(
+            freqs, ants=delays, dly_rng=(dly, dly), bp_poly=bp_poly
+        )
+        self.gains = gains
+        self.freqs = freqs
+        self.times = times
+        self.delays = delays
+
+    def test_vary_gain_amp(self):
+        varied_gains = sigchain.vary_gains_in_time(
+            gains=self.gains,
+            times=self.times,
+            parameter="amp",
+            variation_ref_times=(self.times.mean(),),
+            variation_timescales=(2 * (self.times[-1] - self.times[0]),),
+            variation_amps=(0.1,),
+            variation_modes=("linear",),
+        )
+
+        # Check that the gains are their original value at the center time.
+        varied_gain = varied_gains[0]
+        original_gain = self.gains[0]
+        assert np.allclose(
+            varied_gain[np.argmin(np.abs(self.times - self.times.mean())),:],
+            original_gain,
+            rtol=0.001,
+        )
 
 if __name__ == "__main__":
     unittest.main()
