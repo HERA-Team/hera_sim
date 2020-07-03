@@ -3,8 +3,10 @@ import unittest
 from hera_sim import sigchain, noise, foregrounds
 from hera_sim.interpolators import Bandpass, Beam
 from hera_sim import DATA_PATH
+import uvtools
 import numpy as np
 import nose.tools as nt
+from astropy import units
 from scipy.signal import windows
 
 np.random.seed(0)
@@ -185,12 +187,12 @@ class TestTimeVariation(unittest.TestCase):
     def setUp(self):
         # Mock up some gains.
         freqs = np.linspace(0.1, 0.2, 1024)
-        times = np.linspace(0, 1, 500)
+        times = np.linspace(0, 1, 500)  # hours
         dly = 20  # ns
         delays = {0: dly}
         bp_poly = Bandpass(datafile="HERA_H1C_BANDPASS.npy")
         gains = sigchain.gen_gains(
-            freqs, ants=delays, dly_rng=(dly, dly), bp_poly=bp_poly
+            freqs, ants=delays, gain_spread=0, dly_rng=(dly, dly), bp_poly=bp_poly
         )
         self.gains = gains
         self.freqs = freqs
@@ -216,6 +218,38 @@ class TestTimeVariation(unittest.TestCase):
             original_gain,
             rtol=0.001,
         )
+
+        # Check that the amount of variation in the amplitudes is as expected.
+        assert np.allclose(varied_gain[-1,:] / original_gain, 1.1)
+        assert np.allclose(varied_gain[0,:] / original_gain, 0.9)
+
+        # Now add sinusoidal variation, check that it shows up where it's expected.
+        vary_timescale = 30 * units.s.to("hour")  # Fast variations
+        vary_freq = 1 / (vary_timescale * units.h.to("s"))  # In case numerical issues
+        varied_gains = sigchain.vary_gains_in_time(
+            gains=self.gains,
+            times=self.times,
+            parameter="amp",
+            variation_timescales=(vary_timescale,),
+            variation_amps=(0.5,),
+            variation_modes=("sinusoidal",),
+        )
+
+        fringe_rates = uvtools.utils.fourier_freqs(self.times * units.h.to("s"))
+        pos_fringe_key = np.argwhere(
+            fringe_rates > 5 * np.mean(np.diff(fringe_rates))
+        ).flatten()
+        neg_fringe_key = np.argwhere(
+            fringe_rates < -5 * np.mean(np.diff(fringe_rates))
+        ).flatten()
+        varied_gain = varied_gains[0]
+        varied_gain_fft = uvtools.utils.FFT(varied_gain, axis=0, taper="bh7")
+        for fringe_key in (neg_fringe_key, pos_fringe_key):
+            peak_index = np.argmax(np.abs(varied_gain_fft[fringe_key,150]))
+            assert np.isclose(
+                vary_freq, np.abs(fringe_rates[fringe_key][peak_index]), rtol=0.01
+            )
+
 
 if __name__ == "__main__":
     unittest.main()
