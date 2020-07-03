@@ -183,6 +183,7 @@ class TestSigchainReflections(unittest.TestCase):
             np.isclose(np.angle(ovfft[:, select]), -1, atol=1e-4, rtol=1e-4).all()
         )
 
+
 class TestTimeVariation(unittest.TestCase):
     def setUp(self):
         # Mock up some gains.
@@ -214,14 +215,14 @@ class TestTimeVariation(unittest.TestCase):
         varied_gain = varied_gains[0]
         original_gain = self.gains[0]
         assert np.allclose(
-            varied_gain[np.argmin(np.abs(self.times - self.times.mean())),:],
+            varied_gain[np.argmin(np.abs(self.times - self.times.mean())), :],
             original_gain,
             rtol=0.001,
         )
 
         # Check that the amount of variation in the amplitudes is as expected.
-        assert np.allclose(varied_gain[-1,:] / original_gain, 1.1)
-        assert np.allclose(varied_gain[0,:] / original_gain, 0.9)
+        assert np.allclose(varied_gain[-1, :] / original_gain, 1.1)
+        assert np.allclose(varied_gain[0, :] / original_gain, 0.9)
 
         # Now add sinusoidal variation, check that it shows up where it's expected.
         vary_timescale = 30 * units.s.to("hour")  # Fast variations
@@ -245,10 +246,26 @@ class TestTimeVariation(unittest.TestCase):
         varied_gain = varied_gains[0]
         varied_gain_fft = uvtools.utils.FFT(varied_gain, axis=0, taper="bh7")
         for fringe_key in (neg_fringe_key, pos_fringe_key):
-            peak_index = np.argmax(np.abs(varied_gain_fft[fringe_key,150]))
+            peak_index = np.argmax(np.abs(varied_gain_fft[fringe_key, 150]))
             assert np.isclose(
                 vary_freq, np.abs(fringe_rates[fringe_key][peak_index]), rtol=0.01
             )
+
+        # Finally, check noiselike variations.
+        vary_amp = 0.1
+        varied_gains = sigchain.vary_gains_in_time(
+            gains=self.gains,
+            times=self.times,
+            parameter="amp",
+            variation_modes="noiselike",
+            variation_amps=vary_amp,
+        )
+
+        varied_gain = varied_gains[0]
+        standard_deviations = np.std(np.abs(varied_gain), axis=0)
+        assert np.allclose(
+            standard_deviations, vary_amp * np.abs(self.gains[0]), rtol=0.05
+        )
 
 
 if __name__ == "__main__":
