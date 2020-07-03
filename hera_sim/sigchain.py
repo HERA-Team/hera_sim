@@ -338,8 +338,12 @@ def vary_gains_in_time(
         ``times`` array.
     variation_amps: float or array-like of float, optional
         Amplitude(s) of the variation(s) introduced. This is *not* the peak-to-peak
-        amplitude! For example, setting this to 0.05 will produce a peak-to-peak
-        variation of 10%. Default is to set the amplitude to 5%.
+        amplitude! This also does not have exactly the same interpretation for each
+        type of variation mode. For amplitude and delay variation, this represents
+        the amplitude of modulations--so it can be interpreted as a fractional
+        variation. For phase variation, this represents an absolute, time-dependent
+        phase offset to introduce to the gains; however, it is still *not* a
+        peak-to-peak amplitude.
     variation_modes: str or array-like of str, optional
         Which type(s) of variation to simulate. Supported modes are "linear",
         "sinusoidal", and "noiselike". Default is "linear". Note that the "linear"
@@ -432,7 +436,7 @@ def vary_gains_in_time(
     if parameter in ("amp", "phs"):
         envelope = np.outer(envelope, np.ones(gain_shape[-1]))
         if parameter == "phs":
-            envelope = np.exp(1j * envelope)
+            envelope = np.exp(1j * (envelope - 1))
         gains = {ant: np.atleast_2d(gain) * envelope for ant, gain in gains.items()}
     else:
         envelope = 2 * np.pi * np.outer(envelope - 1, freqs)
