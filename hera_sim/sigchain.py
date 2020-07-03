@@ -389,6 +389,8 @@ def vary_gains_in_time(
         variation_ref_times = (np.median(times),)
     if variation_timescales is None:
         variation_timescales = (times[-1] - times[0],)
+        if utils._listify(variation_modes)[0] == "linear":
+            variation_timescales = (variation_timescales[0] * 2,)
     variation_ref_times = utils._listify(variation_ref_times)
     variation_timescales = utils._listify(variation_timescales)
     variation_amps = utils._listify(variation_amps)
