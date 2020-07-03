@@ -19,7 +19,7 @@ class VisCPU(VisibilitySimulator):
     """
 
     def __init__(self, bm_pix=100, use_pixel_beams=True, precision=1,
-                 mpi_comm=None, **kwargs):
+                 use_gpu=False, mpi_comm=None, **kwargs):
         """
         Parameters
         ----------
@@ -36,6 +36,8 @@ class VisCPU(VisibilitySimulator):
                 - 1: float32, complex64
                 - 2: float64, complex128
             Default: 1.
+        use_gpu : bool, optional
+            Whether to use the GPU version of vis_cpu or not. Default: False.
         mpi_comm : MPI communicator
             MPI communicator, for parallelization.
         **kwargs
@@ -409,10 +411,13 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube=None, beam_list=None,
         
         A_s = np.where(tz > 0, A_s, 0)
 
-        # Calculate delays, where tau = (b * s) / c.
+        # Calculate delays, where tau = (b * s) / c
         np.dot(antpos, crd_top, out=tau)
         tau /= c.value
-
+        
+        # Component of complex phase factor for one antenna 
+        # (actually, b = (antpos1 - antpos2) * crd_top / c; need dot product 
+        # below to build full phase factor for a given baseline)
         np.exp(1.j * (ang_freq * tau), out=v)
 
         # Complex voltages.
