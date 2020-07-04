@@ -1,5 +1,6 @@
 import os
 import unittest
+import pytest
 from hera_sim import sigchain, noise, foregrounds
 from hera_sim.interpolators import Bandpass, Beam
 from hera_sim import DATA_PATH
@@ -422,6 +423,100 @@ class TestTimeVariation(unittest.TestCase):
         )
         assert np.isclose(gain_delays.mean(), dly, rtol=0.05)
         assert np.isclose(gain_delays.std(), vary_amp * dly, rtol=0.1)
+
+    def test_exceptions(self):
+        with pytest.raises(TypeError) as err:
+            sigchain.vary_gains_in_time(gains={}, times=42)
+        assert err.value.args[0] == "times must be an array of real numbers."
+
+        with pytest.raises(TypeError) as err:
+            sigchain.vary_gains_in_time(gains={}, times=np.ones(10, dtype=np.complex))
+        assert err.value.args[0] == "times must be an array of real numbers."
+
+        with pytest.raises(TypeError) as err:
+            sigchain.vary_gains_in_time(gains=[], times=[1, 2, 3])
+        assert err.value.args[0] == "gains must be provided as a dictionary."
+
+        with pytest.raises(ValueError) as err:
+            sigchain.vary_gains_in_time(gains={}, times=[1, 2], parameter="bad choice")
+        assert "parameter must be one of" in err.value.args[0]
+
+        with pytest.raises(ValueError) as err:
+            sigchain.vary_gains_in_time(
+                gains={0: np.ones(10), 1: np.ones(15)}, times=[1, 2, 3]
+            )
+        assert err.value.args[0] == "Gains must all have the same shape."
+
+        with pytest.raises(ValueError) as err:
+            sigchain.vary_gains_in_time(
+                gains=self.gains, times=self.times, parameter="dly", freqs=self.freqs
+            )
+        assert "you must provide both" in err.value.args[0]
+
+        with pytest.raises(ValueError) as err:
+            sigchain.vary_gains_in_time(
+                gains=self.gains, times=self.times, parameter="dly", delays=self.delays
+            )
+        assert "you must provide both" in err.value.args[0]
+
+        with pytest.raises(ValueError) as err:
+            sigchain.vary_gains_in_time(
+                gains={0: 0, 1: 1},
+                times=self.times,
+                parameter="dly",
+                freqs=self.freqs,
+                delays={1: 1, 2: 2},
+            )
+        assert err.value.args[0] == "Delays and gains must have the same keys."
+
+        with pytest.raises(ValueError) as err:
+            sigchain.vary_gains_in_time(
+                gains={0: np.ones((10, 15))},
+                times=self.times,
+                freqs=self.freqs,
+                delays={0: 20},
+                parameter="dly",
+            )
+        assert err.value.args[0] == "Gain waterfalls must have shape (Ntimes, Nfreqs)."
+
+        with pytest.raises(ValueError) as err:
+            sigchain.vary_gains_in_time(
+                gains={0: np.ones(37)},
+                times=self.times,
+                freqs=self.freqs,
+                delays={0: 20},
+                parameter="dly",
+            )
+        assert "Gain spectra must be" in err.value.args[0]
+
+        with pytest.raises(ValueError) as err:
+            sigchain.vary_gains_in_time(
+                gains={0: np.ones((10, 10, 10))},
+                times=self.times,
+                freqs=self.freqs,
+                delays=self.delays,
+                parameter="dly",
+            )
+        assert "must be at most 2-dimensional." in err.value.args[0]
+
+        with pytest.raises(ValueError) as err:
+            sigchain.vary_gains_in_time(
+                gains=self.gains,
+                times=self.times,
+                parameter="amp",
+                variation_modes=("linear", "sinusoidal"),
+                variation_amps=1,
+            )
+        assert "does not have the same number of entries" in err.value.args[0]
+
+        with pytest.raises(NotImplementedError) as err:
+            sigchain.vary_gains_in_time(
+                gains=self.gains,
+                times=self.times,
+                parameter="amp",
+                variation_modes="foobar",
+            )
+        assert err.value.args[0] == "Variation mode 'foobar' not supported."
 
 
 if __name__ == "__main__":
