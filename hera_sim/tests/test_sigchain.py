@@ -195,11 +195,8 @@ class TestTimeVariation(unittest.TestCase):
         gains = sigchain.gen_gains(
             freqs, ants=delays, gain_spread=0, dly_rng=(dly, dly), bp_poly=bp_poly
         )
-        # Throw in a random phase, since gains have zero phase offset.
-        gains = {
-            ant: gain * np.exp(1j * np.random.uniform(-np.pi, np.pi))
-            for ant, gain in gains.items()
-        }
+        # Throw in a phase, since gains have zero phase offset.
+        gains = {ant: gain * np.exp(1j * np.pi / 4) for ant, gain in gains.items()}
         self.delay_phases = (2 * np.pi * freqs * dly) % (2 * np.pi) - np.pi
         self.phases = np.angle(gains[0])
         phase_offsets = (self.phases - self.delay_phases) % (2 * np.pi)
@@ -221,7 +218,8 @@ class TestTimeVariation(unittest.TestCase):
         self.fringe_keys = {"pos": pos_fringe_key, "neg": neg_fringe_key}
 
     def test_vary_gain_amp(self):
-        varied_gains = sigchain.vary_gains_in_time(
+        # Vary gain amplitude linearly.
+        varied_gain = sigchain.vary_gains_in_time(
             gains=self.gains,
             times=self.times,
             parameter="amp",
@@ -229,10 +227,9 @@ class TestTimeVariation(unittest.TestCase):
             variation_timescales=(2 * (self.times[-1] - self.times[0]),),
             variation_amps=(0.1,),
             variation_modes=("linear",),
-        )
+        )[0]
 
         # Check that the gains are their original value at the center time.
-        varied_gain = varied_gains[0]
         assert np.allclose(
             varied_gain[np.argmin(np.abs(self.times - self.times.mean())), :],
             self.gains[0],
@@ -246,16 +243,15 @@ class TestTimeVariation(unittest.TestCase):
         # Now add sinusoidal variation, check that it shows up where it's expected.
         vary_timescale = 30 * units.s.to("hour")  # Fast variations
         vary_freq = 1 / (vary_timescale * units.h.to("s"))  # In case numerical issues
-        varied_gains = sigchain.vary_gains_in_time(
+        varied_gain = sigchain.vary_gains_in_time(
             gains=self.gains,
             times=self.times,
             parameter="amp",
             variation_timescales=(vary_timescale,),
             variation_amps=(0.5,),
             variation_modes=("sinusoidal",),
-        )
+        )[0]
 
-        varied_gain = varied_gains[0]
         varied_gain_fft = uvtools.utils.FFT(varied_gain, axis=0, taper="bh7")
         for fringe_key in self.fringe_keys.values():
             peak_index = np.argmax(np.abs(varied_gain_fft[fringe_key, 150]))
@@ -265,15 +261,14 @@ class TestTimeVariation(unittest.TestCase):
 
         # Finally, check noiselike variations.
         vary_amp = 0.1
-        varied_gains = sigchain.vary_gains_in_time(
+        varied_gain = sigchain.vary_gains_in_time(
             gains=self.gains,
             times=self.times,
             parameter="amp",
             variation_modes="noiselike",
             variation_amps=vary_amp,
-        )
+        )[0]
 
-        varied_gain = varied_gains[0]
         standard_deviations = np.std(np.abs(varied_gain), axis=0)
         gain_avg = np.mean(np.abs(varied_gain), axis=0)
         assert np.allclose(gain_avg, np.abs(self.gains[0]), rtol=0.05)
@@ -284,7 +279,7 @@ class TestTimeVariation(unittest.TestCase):
     def test_vary_gain_phase(self):
         # Vary phase offsets linearly.
         vary_amp = 0.1  # Vary by 0.1 radians over half the variation time.
-        varied_gains = sigchain.vary_gains_in_time(
+        varied_gain = sigchain.vary_gains_in_time(
             gains=self.gains,
             times=self.times,
             parameter="phs",
@@ -292,9 +287,8 @@ class TestTimeVariation(unittest.TestCase):
             variation_amps=vary_amp,
             variation_ref_times=self.times.mean(),
             variation_timescales=2 * (self.times[-1] - self.times[0]),
-        )
+        )[0]
 
-        varied_gain = varied_gains[0]
         varied_phases = np.angle(varied_gain)
         varied_phase_offsets = (varied_phases - self.delay_phases) % (2 * np.pi) - np.pi
         assert np.allclose(
@@ -312,16 +306,15 @@ class TestTimeVariation(unittest.TestCase):
         # Vary phase offsets sinusoidally.
         timescale = 1 * units.min.to("h")
         vary_freq = 1 / (timescale * units.h.to("s"))
-        varied_gains = sigchain.vary_gains_in_time(
+        varied_gain = sigchain.vary_gains_in_time(
             gains=self.gains,
             times=self.times,
             parameter="phs",
             variation_modes="sinusoidal",
             variation_amps=vary_amp,
             variation_timescales=timescale,
-        )
+        )[0]
 
-        varied_gain = varied_gains[0]
         varied_phases = np.angle(varied_gain)
         varied_phase_offsets = (varied_phases - self.delay_phases) % (2 * np.pi) - np.pi
         varied_phs_offset_fft = uvtools.utils.FFT(
@@ -336,27 +329,99 @@ class TestTimeVariation(unittest.TestCase):
             )
 
         # Finally, check noiselike variation.
-        varied_gains = sigchain.vary_gains_in_time(
+        varied_gain = sigchain.vary_gains_in_time(
             gains=self.gains,
             times=self.times,
             parameter="phs",
             variation_modes="noiselike",
             variation_amps=vary_amp,
-        )
+        )[0]
 
-        varied_gain = varied_gains[0]
         varied_phases = np.angle(varied_gain)
         varied_phase_offsets = (varied_phases - self.delay_phases) % (2 * np.pi) - np.pi
         mean_offset = np.mean(varied_phase_offsets, axis=0)
         offset_std = np.std(varied_phase_offsets, axis=0)
-        assert np.allclose(mean_offset, self.phase_offsets, rtol=0.01)
+        assert np.allclose(mean_offset, self.phase_offsets, rtol=0.05)
         # In the amplitude test, this tolerance is a bit lower (5%). I think that the
         # complex exponentiation, among the other operations to extract the phase
         # offsets, introduces numerical artifacts that makes this sampled variance
         # a bit larger than the true variance. It may be worthwhile to do a test
         # somewhere that increasing the number of times improves the agreement
         # between the sampled variance and the true variance.
+        print(
+            self.phase_offsets[
+                np.logical_not(np.isclose(offset_std, vary_amp, rtol=0.1))
+            ]
+        )
         assert np.allclose(offset_std, vary_amp, rtol=0.1)
+
+    def test_vary_gain_delay(self):
+        # Vary delay linearly.
+        vary_amp = 0.5
+        dly = self.delays[0]
+        varied_gain = sigchain.vary_gains_in_time(
+            gains=self.gains,
+            times=self.times,
+            freqs=self.freqs,
+            delays=self.delays,
+            parameter="dly",
+            variation_amps=vary_amp,
+            variation_modes="linear",
+        )[0]
+
+        varied_gain_fft = uvtools.utils.FFT(varied_gain, axis=1, taper="bh7")
+        delays = uvtools.utils.fourier_freqs(self.freqs)
+        min_dly = delays[np.argmax(np.abs(varied_gain_fft[0, :]))]
+        assert np.isclose(min_dly, (1 - vary_amp) * dly, rtol=0.01)
+        center_index = np.argmin(np.abs(self.times - self.times.mean()))
+        mid_dly = delays[np.argmax(np.abs(varied_gain_fft[center_index, :]))]
+        assert np.isclose(mid_dly, dly, rtol=0.01)
+        high_dly = delays[np.argmax(np.abs(varied_gain_fft[-1, :]))]
+        assert np.isclose(high_dly, (1 + vary_amp) * dly, rtol=0.01)
+
+        # Vary delay sinusoidally.
+        timescale = 30 * units.s.to("h")
+        vary_freq = 1 / (timescale * units.h.to("s"))
+        varied_gain = sigchain.vary_gains_in_time(
+            gains=self.gains,
+            times=self.times,
+            freqs=self.freqs,
+            delays=self.delays,
+            parameter="dly",
+            variation_amps=vary_amp,
+            variation_modes="sinusoidal",
+            variation_timescales=timescale,
+        )[0]
+
+        varied_gain_fft = uvtools.utils.FFT(varied_gain, axis=1, taper="bh7")
+        gain_delays = np.array(
+            [delays[np.argmax(np.abs(gain))] for gain in varied_gain_fft]
+        )
+        delays_fft = uvtools.utils.FFT(gain_delays, axis=0, taper="bh7")
+        for fringe_key in self.fringe_keys.values():
+            peak_index = np.argmax(np.abs(delays_fft[fringe_key]))
+            assert np.isclose(
+                np.abs(self.fringe_rates[fringe_key][peak_index]), vary_freq, rtol=0.01
+            )
+
+        # Finally, check noiselike variation.
+        vary_amp = 0.5
+        varied_gain = sigchain.vary_gains_in_time(
+            gains=self.gains,
+            times=self.times,
+            freqs=self.freqs,
+            delays=self.delays,
+            parameter="dly",
+            variation_amps=vary_amp,
+            variation_modes="noiselike",
+        )[0]
+
+        varied_gain_fft = uvtools.utils.FFT(varied_gain, axis=1, taper="bh7")
+        gain_delays = np.array(
+            [delays[np.argmax(np.abs(gain))] for gain in varied_gain_fft]
+        )
+        assert np.isclose(gain_delays.mean(), dly, rtol=0.05)
+        assert np.isclose(gain_delays.std(), vary_amp * dly, rtol=0.1)
 
 
 if __name__ == "__main__":
