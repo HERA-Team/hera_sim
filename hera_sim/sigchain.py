@@ -365,7 +365,10 @@ def vary_gains_in_time(
         raise ValueError("parameter must be one of 'amp', 'phs', or 'dly'.")
 
     times = np.array(times)
-    gain_shape = np.array(list(gains.values())[0]).shape
+    gain_shapes = [np.array(gain).shape for gain in gains.values()]
+    if not all(gain_shape == gain_shapes[0] for gain_shape in gain_shapes):
+        raise ValueError("Gains must all have the same shape.")
+    gain_shape = gain_shapes[0]
 
     if parameter == "dly":
         if freqs is None or delays is None:
