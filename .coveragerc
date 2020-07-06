@@ -1,0 +1,5 @@
+[run]
+omit = hera_sim/tests/*
+
+[report]
+omit = hera_sim/tests/*
