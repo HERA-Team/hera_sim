@@ -14,7 +14,7 @@ from pyuvsim.simsetup import (
 )
 from os import path
 from abc import ABCMeta, abstractmethod
-
+from astropy import units
 
 class VisibilitySimulator(object):
     __metaclass__ = ABCMeta
@@ -98,11 +98,12 @@ class VisibilitySimulator(object):
                     # Try setting up point sources from the obsparams.
                     # Will only work, of course, if the "catalog" key is in obsparams['sources'].
                     # If it's not there, it will raise a KeyError.
-                    catalog = initialize_catalog_from_params(obsparams)[0]
-                    point_source_pos = np.array([catalog['ra_j2000'], catalog['dec_j2000']]).T * np.pi/180.
+                    catalog = initialize_catalog_from_params(obsparams, return_recarray=False)[0]
+                    catalog.at_frequencies(np.unique(self.uvdata.freq_array) * units.Hz)
+                    point_source_pos = np.array([catalog.ra.rad, catalog.dec.rad]).T
 
                     # This gets the 'I' component of the flux density
-                    point_source_flux = np.atleast_2d(catalog['I']).T
+                    point_source_flux = np.atleast_2d(catalog.stokes[0].to('Jy').value).T
                 except KeyError:
                     # If 'catalog' was not defined in obsparams, that's fine. We assume
                     # the user has passed some sky model directly (we'll catch it later).
@@ -175,7 +176,7 @@ class VisibilitySimulator(object):
         if self.point_source_flux is not None:
             flux_shape = self.point_source_flux.shape
             pos_shape = self.point_source_pos.shape
-            if (flux_shape[1] != pos_shape[0]):
+            if flux_shape[1] != pos_shape[0]:
                 raise ValueError("Number of sources in point_source_flux and "
                                  "point_source_pos is different.")
 
