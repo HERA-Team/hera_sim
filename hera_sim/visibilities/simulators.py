@@ -314,7 +314,7 @@ class VisibilitySimulator:
             Shape=(N_SOURCES, 2). Fluxes in [Jy]. Shape=(NFREQ, N_SOURCES).
         """
         nside = aph.npix_to_nside(len(hmap[0]))
-        ra, dec = aph.healpix_to_lonlat(np.arange(len(hmap[0])), nside, lonlat=True)
+        ra, dec = aph.healpix_to_lonlat(np.arange(len(hmap[0])), nside)
         flux = hmap * aph.nside_to_pixel_area(nside).to(units.rad ** 2).value
         return np.array([ra.to(units.rad).value, dec.to(units.rad).value]).T, flux
 
