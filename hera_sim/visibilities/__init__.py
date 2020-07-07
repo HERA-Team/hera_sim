@@ -10,8 +10,6 @@ of simulators.
 from .simulators import VisibilitySimulator
 from .conversions import *
 
-import warnings
-
 # Registered Simulators
 from .vis_cpu import VisCPU
 
@@ -19,9 +17,4 @@ from .vis_cpu import VisCPU
 try:
     from .healvis_wrapper import HealVis
 except (ImportError, NameError):
-    warnings.warn("HealVis failed to import.")
-
-try:
-    from .prisim_wrapper import PRISim
-except ImportError:
-    warnings.warn("PRISim failed to import.")
+    pass
