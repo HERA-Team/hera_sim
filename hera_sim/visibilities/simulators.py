@@ -1,8 +1,6 @@
 from __future__ import division
-from builtins import object
 import warnings
 
-import healpy
 import numpy as np
 from cached_property import cached_property
 from pyuvsim import analyticbeam as ab
@@ -14,9 +12,21 @@ from pyuvsim.simsetup import (
 )
 from os import path
 from abc import ABCMeta, abstractmethod
+import astropy_healpix as aph
+from astropy import units
 
 
-class VisibilitySimulator(object):
+def _is_power_of_2(n):
+    # checking if a power of 2 from https://stackoverflow.com/a/57025941/1467820
+    return (n & (n - 1) == 0) and n != 0
+
+
+def _isnpixok(npix):
+    n = npix // 12
+    return npix % 12 == 0 and _is_power_of_2(n)
+
+
+class VisibilitySimulator:
     __metaclass__ = ABCMeta
     """
     Base VisibilitySimulator class.
@@ -105,17 +115,18 @@ class VisibilitySimulator(object):
             if point_source_pos is None:
                 try:
                     # Try setting up point sources from the obsparams.
-                    # Will only work, of course, if the "catalog" key is in obsparams.
+                    # Will only work, of course, if the "catalog" key is in obsparams['sources'].
                     # If it's not there, it will raise a KeyError.
-                    catalog = initialize_catalog_from_params(obsparams)[0]
-                    point_source_pos = (
-                        np.array([catalog["ra_j2000"], catalog["dec_j2000"]]).T
-                        * np.pi
-                        / 180.0
-                    )
+                    catalog = initialize_catalog_from_params(
+                        obsparams, return_recarray=False
+                    )[0]
+                    catalog.at_frequencies(np.unique(self.uvdata.freq_array) * units.Hz)
+                    point_source_pos = np.array([catalog.ra.rad, catalog.dec.rad]).T
 
                     # This gets the 'I' component of the flux density
-                    point_source_flux = np.atleast_2d(catalog["I"][:, 0])
+                    point_source_flux = np.atleast_2d(
+                        catalog.stokes[0].to("Jy").value
+                    ).T
                 except KeyError:
                     # If 'catalog' was not defined in obsparams, that's fine. We assume
                     # the user has passed some sky model directly (we'll catch it later).
@@ -135,11 +146,7 @@ class VisibilitySimulator(object):
 
             self.uvdata = uvdata
 
-            if beams is None:
-                self.beams = [ab.AnalyticBeam("uniform")]
-            else:
-                self.beams = beams
-
+            self.beams = [ab.AnalyticBeam("uniform")] if beams is None else beams
             if beam_ids is None:
                 self.beam_ids = np.zeros(self.n_ant, dtype=np.int)
             else:
@@ -166,12 +173,12 @@ class VisibilitySimulator(object):
                 "point_source_flux must be given."
             )
 
-        if self.sky_intensity is not None and not healpy.isnpixok(self.n_pix):
-            raise ValueError("The sky_intensity map is not compatible with " "healpy.")
+        if self.sky_intensity is not None and not _isnpixok(self.n_pix):
+            raise ValueError("The sky_intensity map is not compatible with healpix.")
 
         if self.point_source_pos is None and self.sky_intensity is None:
             raise ValueError(
-                "You must pass at least one of sky_intensity or " "point_sources."
+                "You must pass at least one of sky_intensity or point_sources."
             )
 
         if np.max(self.beam_ids) >= self.n_beams:
@@ -180,11 +187,19 @@ class VisibilitySimulator(object):
                 "as great as the greatest beam_id."
             )
 
-        if self.point_source_flux is not None:
-            if self.point_source_flux.shape[0] != self.sky_freqs.shape[0]:
+        if (
+            self.point_source_flux is not None
+            and self.point_source_flux.shape[0] != self.sky_freqs.shape[0]
+        ):
+            if self.point_source_flux.shape[0] == 1:
+                self.point_source_flux = np.repeat(
+                    self.point_source_flux, self.sky_freqs.shape[0]
+                ).reshape((self.sky_freqs.shape[0], -1))
+            else:
                 raise ValueError(
-                    "point_source_flux must have the same number "
-                    "of freqs as sky_freqs."
+                    f"point_source_flux must have the same number of freqs as sky_freqs. "
+                    f"point_source_flux.shape = {self.point_source_flux.shape}."
+                    f"sky_freq.shape = {self.sky_freqs.shape}"
                 )
 
         if self.point_source_flux is not None:
@@ -209,7 +224,7 @@ class VisibilitySimulator(object):
                 "sky_intensity must be a 2D array (a healpix map " "per frequency)."
             )
 
-        if not self.point_source_ability and self.point_source_pos is not None:
+        if not (self.point_source_ability or self.point_source_pos is None):
             warnings.warn(
                 "This visibility simulator is unable to explicitly "
                 "simulate point sources. Adding point sources to "
@@ -267,14 +282,16 @@ class VisibilitySimulator(object):
             The HEALPix diffuse model. Shape=(NFREQ, NPIX).
         """
 
-        hmap = np.zeros((len(point_source_flux), healpy.nside2npix(nside)))
+        hmap = np.zeros((len(point_source_flux), aph.nside_to_npix(nside)))
 
         # Get which pixel every point source lies in.
-        pix = healpy.ang2pix(
-            nside, np.pi / 2 - point_source_pos[:, 1], point_source_pos[:, 0]
+        pix = aph.lonlat_to_healpix(
+            lon=point_source_pos[:, 0] * units.rad,
+            lat=point_source_pos[:, 1] * units.rad,
+            nside=nside,
         )
 
-        hmap[:, pix] += point_source_flux / healpy.nside2pixarea(nside)
+        hmap[:, pix] += point_source_flux / aph.nside_to_pixel_area(nside).value
 
         return hmap
 
@@ -292,14 +309,14 @@ class VisibilitySimulator(object):
 
         Returns
         -------
-            array_like
-                The point source approximation. Positions in (ra, dec) (J2000).
-                Shape=(N_SOURCES, 2). Fluxes in [Jy]. Shape=(NFREQ, N_SOURCES).
+        array_like
+            The point source approximation. Positions in (ra, dec) (J2000).
+            Shape=(N_SOURCES, 2). Fluxes in [Jy]. Shape=(NFREQ, N_SOURCES).
         """
-        nside = healpy.get_nside(hmap[0])
-        ra, dec = healpy.pix2ang(nside, np.arange(len(hmap[0])), lonlat=True)
-        flux = hmap * healpy.nside2pixarea(nside)
-        return np.array([ra * np.pi / 180, dec * np.pi / 180]).T, flux
+        nside = aph.npix_to_nside(len(hmap[0]))
+        ra, dec = aph.healpix_to_lonlat(np.arange(len(hmap[0])), nside)
+        flux = hmap * aph.nside_to_pixel_area(nside).to(units.rad ** 2).value
+        return np.array([ra.to(units.rad).value, dec.to(units.rad).value]).T, flux
 
     def simulate(self):
         """Perform the visibility simulation."""
@@ -317,10 +334,10 @@ class VisibilitySimulator(object):
     def nside(self):
         """Nside parameter of the sky healpix map."""
         try:
-            return healpy.get_nside(self.sky_intensity[0])
+            return aph.npix_to_nside(len(self.sky_intensity[0]))
         except TypeError:
 
-            if not healpy.isnsideok(self._nside):
+            if not _is_power_of_2(self._nside):
                 raise ValueError("nside must be a power of 2")
 
             return self._nside
