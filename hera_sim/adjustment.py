@@ -261,6 +261,15 @@ def match_antennas(
         Object containing the ``target`` data with its antenna array modified and
         a downselect performed to only keep data for remaining antennas.
     """
+    # TODO: This function should be updated so that the antenna matching is
+    # performed locally in ENU coordinates, though the process of updating to
+    # that routine brings with it some questions that need to be thought about
+    # carefully and should be discussed. In particular, it is important to
+    # address whether it is acceptable to modify the target antenna positions
+    # in a way that allows them to be reflected through the local origin. While
+    # this is a mathematically necessary consideration for finding the optimal
+    # match in non-exponential time, adjusting the antenna positions like-so
+    # is pretty unrealistic.
     target_is_simulator = isinstance(target, Simulator)
     target = _to_uvdata(target)
     target_copy = copy.deepcopy(target)
