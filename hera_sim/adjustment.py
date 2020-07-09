@@ -145,7 +145,7 @@ def adjust_to_reference(
             reference_metadata = reference.data.copy(metadata_only=True)
         else:
             reference_files = _listify(reference)
-            _validate_file_list(reference_files, "reference")
+            _validate_file_list(reference_files)
             reference_metadata = UVData()
             reference_metadata.read(reference_files, read_data=False)
     else:
@@ -828,15 +828,12 @@ def rephase_to_reference(
     return target
 
 
-def _validate_file_list(file_list, name="file list"):
+def _validate_file_list(file_list):
     """Ensure all entries in the file list are path-like objects."""
     if not all(isinstance(item, (str, pathlib.Path)) for item in file_list):
-        raise TypeError(
-            f"{name} must be either a collection of path-like objects or a "
-            "UVData object or Simulator object"
-        )
+        raise TypeError("Not all objects in the list are path-like.")
     if not all(os.path.exists(item) for item in file_list):
-        raise ValueError(f"At least one path in {name} does not exist.")
+        raise ValueError("At least one path in the list does not exist.")
 
 
 def _to_uvdata(sim):
