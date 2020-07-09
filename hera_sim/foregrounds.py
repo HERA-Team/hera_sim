@@ -59,7 +59,11 @@ class DiffuseForeground(Foreground):
                 fringe_filter_type : tophat
         """
         if delay_filter_kwargs is None:
-            delay_filter_kwargs = {"standoff": 0.0, "delay_filter_type": "tophat"}
+            delay_filter_kwargs = {
+                "standoff": 0.0,
+                "delay_filter_type": "tophat",
+                "normalize": None,
+            }
         if fringe_filter_kwargs is None:
             fringe_filter_kwargs = {"fringe_filter_type": "tophat"}
 
@@ -145,7 +149,7 @@ class DiffuseForeground(Foreground):
             omega_p = omega_p(freqs)
 
         # resample the sky temperature model
-        Tsky = Tsky_mdl(lsts, freqs)
+        Tsky = Tsky_mdl(lsts=lsts, freqs=freqs)  # K
         vis = np.asarray(Tsky / utils.Jy2T(freqs, omega_p), np.complex)
 
         if np.isclose(np.linalg.norm(bl_vec), 0):
