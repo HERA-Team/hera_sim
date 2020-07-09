@@ -936,29 +936,26 @@ def redundant_sim(base_config):
 
 
 def test_adjust_to_reference_verbosity_with_interpolating(
-    ref_sim, redundant_sim, capsys
+    ref_sim, redundant_sim, caplog
 ):
-    _ = adjustment.adjust_to_reference(
-        target=redundant_sim,
-        reference=ref_sim,
-        conjugation_convention="ant1<ant2",
-        verbose=True,
-    )
-    stdout, stderr = capsys.readouterr()
-    assert "Validating positional arguments..." in stdout
-    assert "Interpolating target data to reference data LSTs..." in stdout
-    assert "Inflating target data by baseline redundancy..." in stdout
-    assert "Conjugating target to ant1<ant2 convention..." in stdout
+    with caplog.at_level(logging.INFO):
+        _ = adjustment.adjust_to_reference(
+            target=redundant_sim, reference=ref_sim, conjugation_convention="ant1<ant2",
+        )
+    assert "Validating positional arguments..." in caplog.text
+    assert "Interpolating target data to reference data LSTs..." in caplog.text
+    assert "Inflating target data by baseline redundancy..." in caplog.text
+    assert "Conjugating target to ant1<ant2 convention..." in caplog.text
 
 
-def test_adjust_to_reference_verbosity_with_rephasing(ref_sim, redundant_sim, capsys):
-    _ = adjustment.adjust_to_reference(
-        target=redundant_sim, reference=ref_sim, interpolate=False, verbose=True
-    )
-    stdout, stderr = capsys.readouterr()
-    assert "Validating positional arguments..." in stdout
-    assert "Rephasing target data to reference data LSTs..." in stdout
-    assert "Inflating target data by baseline redundancy..." in stdout
+def test_adjust_to_reference_verbosity_with_rephasing(ref_sim, redundant_sim, caplog):
+    with caplog.at_level(logging.INFO):
+        _ = adjustment.adjust_to_reference(
+            target=redundant_sim, reference=ref_sim, interpolate=False
+        )
+    assert "Validating positional arguments..." in caplog.text
+    assert "Rephasing target data to reference data LSTs..." in caplog.text
+    assert "Inflating target data by baseline redundancy..." in caplog.text
 
 
 def test_position_tolerance_exception_bad_value():

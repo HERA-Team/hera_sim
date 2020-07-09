@@ -1,6 +1,7 @@
 """Module providing tools for adjusting simulation data/metadata to a reference."""
 
 import copy
+import logging
 import os
 import pathlib
 
@@ -22,6 +23,8 @@ except ImportError:  # pragma: no cover
     warn("hera_cal is not installed. Certain features will be unavailable.")
     HERA_CAL = False
 
+logger = logging.getLogger(__name__)
+
 
 def adjust_to_reference(
     target,
@@ -34,7 +37,6 @@ def adjust_to_reference(
     relabel_antennas=True,
     conjugation_convention=None,
     overwrite_telescope_metadata=False,
-    verbose=False,
 ):
     """
     Modify target data/metadata to be consistent with some reference.
@@ -82,9 +84,6 @@ def adjust_to_reference(
         Whether to overwrite the target object's telescope metadata with that
         of the reference data. Default is to leave the target object's telescope
         metadata unchanged.
-    verbose: bool, optional
-        Whether to print brief statements noting progress. Default is to not
-        print updates.
 
     Returns
     -------
@@ -119,11 +118,9 @@ def adjust_to_reference(
     possible to perform the antenna array adjustment step for an object with
     arbitrary compression by redundancy.)
     """
-    if verbose:
-        print("Validating positional arguments...")
-
     # Quickly check that the tolerance for the antenna adjustment is valid.
     # (Processing prior to antenna adjustment can be long, so do this early.)
+    logger.info("Validating positional arguments...")
     if np.isrealobj(position_tolerance):
         if np.isscalar(position_tolerance):
             position_tolerance = np.ones(3) * position_tolerance
@@ -154,11 +151,10 @@ def adjust_to_reference(
     else:
         reference_metadata = reference.copy(metadata_only=True)
 
-    if verbose:
-        if interpolate:
-            print("Interpolating target data to reference data LSTs...")
-        else:
-            print("Rephasing target data to reference data LSTs...")
+    if interpolate:
+        logger.info("Interpolating target data to reference data LSTs...")
+    else:
+        logger.info("Rephasing target data to reference data LSTs...")
 
     if interpolate:
         target = interpolate_to_reference(
@@ -171,12 +167,10 @@ def adjust_to_reference(
     Nbls_with_autos = target.Nants_telescope * (target.Nants_telescope + 1) / 2
     Nbls_mod_autos = Nbls_with_autos - target.Nants_telescope
     if target.Nbls not in (Nbls_with_autos, Nbls_mod_autos):
-        if verbose:
-            print("Inflating target data by baseline redundancy...")
+        logger.info("Inflating target data by baseline redundancy...")
         target.inflate_by_redundancy()
 
-    if verbose:
-        print("Adjusting target's antenna array to optimally match reference...")
+    logger.info("Adjusting target's antenna array to optimally match reference...")
     # Make sure the reference metadata has had its times updated appropriately.
     if not interpolate or interpolation_axis in ("time", "both"):
         reference_metadata.select(times=target.time_array)
@@ -191,8 +185,7 @@ def adjust_to_reference(
     )
 
     if conjugation_convention is not None:
-        if verbose:
-            print(f"Conjugating target to {conjugation_convention} convention...")
+        logger.info(f"Conjugating target to {conjugation_convention} convention...")
         target.conjugate_bls(conjugation_convention)
 
     if target_is_simulator:
