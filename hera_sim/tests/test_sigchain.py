@@ -20,6 +20,7 @@ def test_gen_bandpass():
     g = sigchain.gen_bandpass(fqs, list(range(10)), 0.2)
     assert not np.all(g[1] == g[2])
 
+
 def test_gen_delay_phs():
     fqs = np.linspace(0.12, 0.18, 1024, endpoint=False)
     phs = sigchain.gen_delay_phs(fqs, [1, 2], dly_rng=(0, 20))
@@ -32,6 +33,7 @@ def test_gen_delay_phs():
     assert p[0] <= 20 * 2 * np.pi
     assert p[0] >= 0
 
+
 def test_gen_gains():
     fqs = np.linspace(0.12, 0.18, 1024, endpoint=False)
     g = sigchain.gen_gains(fqs, [1, 2], gain_spread=0, dly_rng=(10, 20))
@@ -41,6 +43,7 @@ def test_gen_gains():
         assert np.any(np.isclose(p[-1] % (2 * np.pi), (0, 2 * np.pi), atol=1e-2))
         assert p[0] <= 20 * 2 * np.pi
         assert p[0] >= 10 * 2 * np.pi
+
 
 def test_apply_gains():
     fqs = np.linspace(0.12, 0.18, 1024, endpoint=False)
@@ -54,44 +57,57 @@ def test_apply_gains():
 def fqs():
     return np.linspace(0.1, 0.2, 100, endpoint=False)
 
+
 @pytest.fixture(scope="function")
 def lsts():
     return np.linspace(0, 2 * np.pi, 200)
+
 
 @pytest.fixture(scope="function")
 def Tsky_mdl():
     return noise.HERA_Tsky_mdl["xx"]
 
+
 @pytest.fixture(scope="function")
 def Tsky(Tsky_mdl, lsts, fqs):
     return Tsky_mdl(lsts, fqs)
+
 
 @pytest.fixture(scope="function")
 def bl_vec():
     return np.array([50, 0, 0], dtype=np.float)
 
+
 @pytest.fixture(scope="function")
 def vis(lsts, fqs, bl_vec, Tsky_mdl):
     beamfile = DATA_PATH / "HERA_H1C_BEAM_POLY.npy"
     omega_p = Beam(beamfile)
-    return foregrounds.diffuse_foreground(
-        lsts,
-        fqs,
-        bl_vec,
-        Tsky_mdl=Tsky_mdl,
-        omega_p=omega_p,
-        delay_filter_kwargs={"delay_filter_type": "gauss"},
-    ) + 20
+    return (
+        foregrounds.diffuse_foreground(
+            lsts,
+            fqs,
+            bl_vec,
+            Tsky_mdl=Tsky_mdl,
+            omega_p=omega_p,
+            delay_filter_kwargs={"delay_filter_type": "gauss"},
+        )
+        + 20
+    )
+
 
 @pytest.fixture(scope="function")
 def dlys(fqs):
     return uvtools.utils.fourier_freqs(fqs)
 
+
 @pytest.fixture(scope="function")
 def vfft(vis):
     return uvtools.utils.FFT(vis, axis=1)
 
-def test_reflection_gains_correct_delays(fqs, vis, dlys, ):
+
+def test_reflection_gains_correct_delays(
+    fqs, vis, dlys,
+):
     # introduce a cable reflection into the autocorrelation
     gains = sigchain.gen_reflection_gains(fqs, [0], amp=[1e-1], dly=[300], phs=[1])
     outvis = sigchain.apply_gains(vis, gains, [0, 0])
@@ -100,9 +116,7 @@ def test_reflection_gains_correct_delays(fqs, vis, dlys, ):
     # assert reflection is at +300 ns and check its amplitude
     select = dlys > 200
     assert np.allclose(
-        dlys[select][np.argmax(np.mean(np.abs(ovfft), axis=0)[select])],
-        300,
-        atol=1e-7
+        dlys[select][np.argmax(np.mean(np.abs(ovfft), axis=0)[select])], 300, atol=1e-7
     )
     select = np.argmin(np.abs(dlys - 300))
     m = np.mean(np.abs(ovfft), axis=0)
@@ -111,13 +125,12 @@ def test_reflection_gains_correct_delays(fqs, vis, dlys, ):
     # assert also reflection at -300 ns
     select = dlys < -200
     assert np.allclose(
-        dlys[select][np.argmax(np.mean(np.abs(ovfft), axis=0)[select])],
-        -300,
-        atol=1e-7
+        dlys[select][np.argmax(np.mean(np.abs(ovfft), axis=0)[select])], -300, atol=1e-7
     )
     select = np.argmin(np.abs(dlys - -300))
     m = np.mean(np.abs(ovfft), axis=0)
     assert np.isclose(m[select] / m[np.argmin(np.abs(dlys))], 1e-1, atol=1e-2)
+
 
 def test_reflection_gains_reshape(fqs):
     # test reshaping into Ntimes
@@ -125,11 +138,13 @@ def test_reflection_gains_reshape(fqs):
     gains = sigchain.gen_reflection_gains(fqs, [0], amp=[amp], dly=[300], phs=[1])
     assert gains[0].shape == (3, 100)
 
+
 def test_reflection_gains_evolution_single_time(fqs):
     # test frequency evolution with one time
     amp = np.linspace(1e-2, 1e-3, 100).reshape(1, -1)
     gains = sigchain.gen_reflection_gains(fqs, [0], amp=[amp], dly=[300], phs=[1])
     assert gains[0].shape == (1, 100)
+
 
 def test_reflection_gains_evolution_many_times(fqs):
     # now test with multiple times
@@ -137,11 +152,13 @@ def test_reflection_gains_evolution_many_times(fqs):
     gains = sigchain.gen_reflection_gains(fqs, [0], amp=[amp], dly=[300], phs=[1])
     assert gains[0].shape == (10, 100)
 
+
 def test_reflection_gains_exception(fqs):
     # exception
     amp = np.linspace(1e-2, 1e-3, 2).reshape(1, -1)
     with pytest.raises(AssertionError):
         sigchain.gen_reflection_gains(fqs, [0], amp=[amp], dly=[300], phs=[1])
+
 
 def test_cross_coupling_xtalk_correct_delay(fqs, dlys, Tsky):
     # introduce a cross reflection at a single delay
@@ -156,6 +173,7 @@ def test_cross_coupling_xtalk_correct_delay(fqs, dlys, Tsky):
     assert np.isclose(dlys[select][np.argmax(mcov[select])], 300, atol=1e-7)
     # inspect for yourself: plt.matshow(np.log10(np.abs(cov)))
 
+
 def test_cross_coupling_xtalk_conj_correct_delay(fqs, dlys, Tsky):
     # conjugate it and assert it shows up at -300
     outvis = sigchain.gen_cross_coupling_xtalk(
@@ -167,6 +185,7 @@ def test_cross_coupling_xtalk_conj_correct_delay(fqs, dlys, Tsky):
     select = np.argsort(np.abs(dlys - -300))[:10]
     assert np.isclose(dlys[select][np.argmax(mcov[select])], -300, atol=1e-7)
 
+
 def test_cross_coupling_xtalk_phase_stability(fqs, dlys, Tsky):
     # assert its phase stable across time
     outvis = sigchain.gen_cross_coupling_xtalk(
@@ -176,22 +195,27 @@ def test_cross_coupling_xtalk_phase_stability(fqs, dlys, Tsky):
     select = np.argmin(np.abs(dlys - -300))
     assert np.allclose(np.angle(ovfft[:, select]), -1, atol=1e-4, rtol=1e-4)
 
+
 @pytest.fixture(scope="function")
 def freqs():
     return np.linspace(0.1, 0.2, 1024)
-    
+
+
 @pytest.fixture(scope="function")
 def times():
     return np.linspace(0, 1, 500)
+
 
 @pytest.fixture(scope="function")
 def delays():
     dlys = {0: 20}  # ns
     return dlys
 
+
 @pytest.fixture(scope="function")
 def bp_poly():
     return Bandpass(datafile="HERA_H1C_BANDPASS.npy")
+
 
 @pytest.fixture(scope="function")
 def gains(freqs, delays, bp_poly):
@@ -203,19 +227,23 @@ def gains(freqs, delays, bp_poly):
     gain_dict[0] *= np.exp(1j * np.pi / 4)
     return gain_dict
 
+
 @pytest.fixture(scope="function")
 def delay_phases(freqs, delays):
     dly = delays[0]
     return (2 * np.pi * freqs * dly) % (2 * np.pi) - np.pi
+
 
 @pytest.fixture(scope="function")
 def phase_offsets(gains, delay_phases):
     phases = np.angle(gains[0])
     return (phases - delay_phases) % (2 * np.pi) - np.pi
 
+
 @pytest.fixture(scope="function")
 def fringe_rates(times):
     return uvtools.utils.fourier_freqs(times * units.h.to("s"))
+
 
 @pytest.fixture(scope="function")
 def fringe_keys(fringe_rates):
@@ -227,10 +255,14 @@ def fringe_keys(fringe_rates):
     ).flatten()
     return (pos_fringe_key, neg_fringe_key)
 
+
 def varies_as_expected(quantity, vary_freq, fringe_key, fringe_rates):
     quantity_fft = uvtools.utils.FFT(quantity, axis=0, taper="bh7")
     peak_index = np.argmax(np.abs(quantity_fft[fringe_key]))
-    return np.isclose(vary_freq, np.abs(fringe_rates[fringe_key][peak_index]), rtol=0.01)
+    return np.isclose(
+        vary_freq, np.abs(fringe_rates[fringe_key][peak_index]), rtol=0.01
+    )
+
 
 def test_vary_gain_amp_linear(gains, times):
     varied_gain = sigchain.vary_gains_in_time(
@@ -245,14 +277,13 @@ def test_vary_gain_amp_linear(gains, times):
 
     # Check that the original value is at the center time.
     assert np.allclose(
-        varied_gain[np.argmin(np.abs(times - times.mean())), :],
-        gains[0],
-        rtol=0.001,
+        varied_gain[np.argmin(np.abs(times - times.mean())), :], gains[0], rtol=0.001,
     )
 
     # Check that the variation amount is as expected.
     assert np.allclose(varied_gain[-1, :] / gains[0], 1.1)
     assert np.allclose(varied_gain[0, :] / gains[0], 0.9)
+
 
 def test_vary_gain_amp_sinusoidal(gains, times, fringe_rates, fringe_keys):
     vary_timescale = 30 * units.s.to("hour")
@@ -268,7 +299,10 @@ def test_vary_gain_amp_sinusoidal(gains, times, fringe_rates, fringe_keys):
 
     # Check that there's variation at the expected timescale.
     for fringe_key in fringe_keys:
-        assert varies_as_expected(varied_gain[:,150], vary_freq, fringe_key, fringe_rates)
+        assert varies_as_expected(
+            varied_gain[:, 150], vary_freq, fringe_key, fringe_rates
+        )
+
 
 def test_vary_gain_amp_noiselike(gains, times):
     vary_amp = 0.1
@@ -287,6 +321,7 @@ def test_vary_gain_amp_noiselike(gains, times):
     # Check that the spread in gain amplitudes is as expected.
     standard_deviations = np.std(np.abs(varied_gain), axis=0)
     assert np.allclose(standard_deviations, vary_amp * np.abs(gains[0]), rtol=0.05)
+
 
 def test_vary_gain_phase_linear(gains, times, phase_offsets, delay_phases):
     vary_amp = 0.1
@@ -314,7 +349,10 @@ def test_vary_gain_phase_linear(gains, times, phase_offsets, delay_phases):
     assert np.allclose(varied_phase_offsets[-1] - phase_offsets, vary_amp, rtol=0.01)
     assert np.allclose(varied_phase_offsets[0] - phase_offsets, -vary_amp, rtol=0.01)
 
-def test_vary_gain_phase_sinusoidal(gains, times, delay_phases, fringe_rates, fringe_keys):
+
+def test_vary_gain_phase_sinusoidal(
+    gains, times, delay_phases, fringe_rates, fringe_keys
+):
     timescale = 1 * units.min.to("h")
     vary_freq = 1 / (timescale * units.h.to("s"))
     vary_amp = 0.1
@@ -335,6 +373,7 @@ def test_vary_gain_phase_sinusoidal(gains, times, delay_phases, fringe_rates, fr
         assert varies_as_expected(
             varied_phase_offsets[:, 150], vary_freq, fringe_key, fringe_rates
         )
+
 
 def test_vary_gain_phase_noiselike(gains, times, delay_phases, phase_offsets):
     vary_amp = 0.1
@@ -357,6 +396,7 @@ def test_vary_gain_phase_noiselike(gains, times, delay_phases, phase_offsets):
     offset_std = np.std(varied_phase_offsets, axis=0)
     assert np.allclose(offset_std, vary_amp, rtol=0.1)
 
+
 def test_vary_gain_delay_linear(gains, times, freqs, delays):
     vary_amp = 0.5
     dly = delays[0]
@@ -376,11 +416,12 @@ def test_vary_gain_delay_linear(gains, times, freqs, delays):
     max_dly = dlys[np.argmax(np.abs(varied_gain_fft[-1, :]))]
     center_index = np.argmin(np.abs(times - times.mean()))
     mid_dly = dlys[np.argmax(np.abs(varied_gain_fft[center_index, :]))]
-    
+
     # Check that the delays vary as expected.
     assert np.isclose(min_dly, (1 - vary_amp) * dly, rtol=0.01)
     assert np.isclose(mid_dly, dly, rtol=0.01)
     assert np.isclose(max_dly, (1 + vary_amp) * dly, rtol=0.01)
+
 
 def test_vary_gain_delay_sinusoidal(
     gains, times, freqs, delays, fringe_rates, fringe_keys
@@ -402,13 +443,12 @@ def test_vary_gain_delay_sinusoidal(
     # Determine the bandpass delay at each time.
     varied_gain_fft = uvtools.utils.FFT(varied_gain, axis=1, taper="bh7")
     dlys = uvtools.utils.fourier_freqs(freqs)
-    gain_delays = np.array(
-        [dlys[np.argmax(np.abs(gain))] for gain in varied_gain_fft]
-    )
+    gain_delays = np.array([dlys[np.argmax(np.abs(gain))] for gain in varied_gain_fft])
 
     # Check that delays vary at the expected timescale.
     for fringe_key in fringe_keys:
         assert varies_as_expected(gain_delays, vary_freq, fringe_key, fringe_rates)
+
 
 def test_vary_gain_delay_noiselike(gains, times, freqs, delays):
     vary_amp = 0.5
@@ -425,33 +465,36 @@ def test_vary_gain_delay_noiselike(gains, times, freqs, delays):
     # Determine the bandpass delay at each time.
     dlys = uvtools.utils.fourier_freqs(freqs)
     varied_gain_fft = uvtools.utils.FFT(varied_gain, axis=1, taper="bh7")
-    gain_delays = np.array(
-        [dlys[np.argmax(np.abs(gain))] for gain in varied_gain_fft]
-    )
+    gain_delays = np.array([dlys[np.argmax(np.abs(gain))] for gain in varied_gain_fft])
 
     # Check that the delays vary as expected.
     assert np.isclose(gain_delays.mean(), delays[0], rtol=0.05)
     assert np.isclose(gain_delays.std(), vary_amp * delays[0], rtol=0.1)
+
 
 def test_vary_gains_exception_bad_times():
     with pytest.raises(TypeError) as err:
         sigchain.vary_gains_in_time(gains={}, times=42)
     assert err.value.args[0] == "times must be an array of real numbers."
 
+
 def test_vary_gains_exception_complex_times():
     with pytest.raises(TypeError) as err:
         sigchain.vary_gains_in_time(gains={}, times=np.ones(10, dtype=np.complex))
     assert err.value.args[0] == "times must be an array of real numbers."
+
 
 def test_vary_gains_exception_bad_gains():
     with pytest.raises(TypeError) as err:
         sigchain.vary_gains_in_time(gains=[], times=[1, 2, 3])
     assert err.value.args[0] == "gains must be provided as a dictionary."
 
+
 def test_vary_gains_exception_bad_param():
     with pytest.raises(ValueError) as err:
         sigchain.vary_gains_in_time(gains={}, times=[1, 2], parameter="bad choice")
     assert "parameter must be one of" in err.value.args[0]
+
 
 def test_vary_gains_exception_bad_gain_shapes():
     with pytest.raises(ValueError) as err:
@@ -460,6 +503,7 @@ def test_vary_gains_exception_bad_gain_shapes():
         )
     assert err.value.args[0] == "Gains must all have the same shape."
 
+
 def test_vary_gains_exception_insufficient_delay_info(gains, times):
     with pytest.raises(ValueError) as err:
         sigchain.vary_gains_in_time(
@@ -467,12 +511,14 @@ def test_vary_gains_exception_insufficient_delay_info(gains, times):
         )
     assert "you must provide both" in err.value.args[0]
 
+
 def test_vary_gains_exception_insufficient_freq_info(gains, times):
     with pytest.raises(ValueError) as err:
         sigchain.vary_gains_in_time(
             gains=gains, times=times, parameter="dly", delays=delays
         )
     assert "you must provide both" in err.value.args[0]
+
 
 def test_vary_gains_exception_mismatched_keys(times, freqs):
     with pytest.raises(ValueError) as err:
@@ -485,6 +531,7 @@ def test_vary_gains_exception_mismatched_keys(times, freqs):
         )
     assert err.value.args[0] == "Delays and gains must have the same keys."
 
+
 def test_vary_gains_exception_bad_gain_waterfall_shape(times, freqs):
     with pytest.raises(ValueError) as err:
         sigchain.vary_gains_in_time(
@@ -495,6 +542,7 @@ def test_vary_gains_exception_bad_gain_waterfall_shape(times, freqs):
             parameter="dly",
         )
     assert err.value.args[0] == "Gain waterfalls must have shape (Ntimes, Nfreqs)."
+
 
 def test_vary_gains_exception_bad_gain_spectrum_shape(times, freqs):
     with pytest.raises(ValueError) as err:
@@ -507,6 +555,7 @@ def test_vary_gains_exception_bad_gain_spectrum_shape(times, freqs):
         )
     assert "Gain spectra must be" in err.value.args[0]
 
+
 def test_vary_gains_exception_too_many_dimensions(times, freqs, delays):
     with pytest.raises(ValueError) as err:
         sigchain.vary_gains_in_time(
@@ -517,6 +566,7 @@ def test_vary_gains_exception_too_many_dimensions(times, freqs, delays):
             parameter="dly",
         )
     assert "must be at most 2-dimensional." in err.value.args[0]
+
 
 def test_vary_gains_exception_not_enough_parameters(gains, times):
     with pytest.raises(ValueError) as err:
@@ -529,14 +579,10 @@ def test_vary_gains_exception_not_enough_parameters(gains, times):
         )
     assert "does not have the same number of entries" in err.value.args[0]
 
+
 def test_vary_gains_exception_bad_variation_mode(gains, times):
     with pytest.raises(NotImplementedError) as err:
         sigchain.vary_gains_in_time(
-            gains=gains,
-            times=times,
-            parameter="amp",
-            variation_mode="foobar",
+            gains=gains, times=times, parameter="amp", variation_mode="foobar",
         )
     assert err.value.args[0] == "Variation mode 'foobar' not supported."
-
-
