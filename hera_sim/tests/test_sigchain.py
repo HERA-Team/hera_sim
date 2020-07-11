@@ -469,7 +469,7 @@ def test_vary_gain_delay_noiselike(gains, times, freqs, delays):
 
     # Check that the delays vary as expected.
     assert np.isclose(gain_delays.mean(), delays[0], rtol=0.05)
-    assert np.isclose(gain_delays.std(), vary_amp * delays[0], rtol=0.1)
+    assert np.isclose(gain_delays.std(), vary_amp * delays[0], rtol=0.2)
 
 
 def test_vary_gains_exception_bad_times():
