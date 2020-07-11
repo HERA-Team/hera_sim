@@ -295,10 +295,10 @@ def vary_gains_in_time(
     freqs=None,
     delays=None,
     parameter="amp",
-    variation_ref_times=None,
-    variation_timescales=None,
-    variation_amps=(0.05,),
-    variation_modes=("linear",),
+    variation_ref_time=None,
+    variation_timescale=None,
+    variation_amp=0.05,
+    variation_mode="linear",
 ):
     """
     Vary gain amplitudes, phases, or delays in time.
@@ -319,7 +319,7 @@ def vary_gains_in_time(
     times: array-like of float
         Times at which to simulate time variation. Should be the same length as
         the data to which the gains will be applied. Should also be in the same
-        units as ``variation_ref_times`` and ``variation_timescales``.
+        units as ``variation_ref_time`` and ``variation_timescale``.
     freqs: array-like of float, optional
         Frequencies at which the gains are evaluated, in GHz. Only needs to be
         specified for adding time variation to the delays.
@@ -327,16 +327,16 @@ def vary_gains_in_time(
         Dictionary mapping antenna numbers to gain delays, in ns.
     parameter: str, optional
         Which gain parameter to vary; must be one of ("amp", "phs", "dly").
-    variation_ref_times: float or array-like of float, optional
+    variation_ref_time: float or array-like of float, optional
         Reference time(s) used for generating time variation. For linear and
         sinusoidal variation, this is the time where the gains are equal to their
         original, time-independent values. Should be in the same units as the
         ``times`` array. Default is to use the center of the ``times`` provided.
-    variation_timescales: float or array-like of float, optional
+    variation_timescale: float or array-like of float, optional
         Timescale(s) for one cycle of the variation(s), in the same units as
         the provided ``times``. Default is to use the duration of the entire
         ``times`` array.
-    variation_amps: float or array-like of float, optional
+    variation_amp: float or array-like of float, optional
         Amplitude(s) of the variation(s) introduced. This is *not* the peak-to-peak
         amplitude! This also does not have exactly the same interpretation for each
         type of variation mode. For amplitude and delay variation, this represents
@@ -344,7 +344,7 @@ def vary_gains_in_time(
         variation. For phase variation, this represents an absolute, time-dependent
         phase offset to introduce to the gains; however, it is still *not* a
         peak-to-peak amplitude.
-    variation_modes: str or array-like of str, optional
+    variation_mode: str or array-like of str, optional
         Which type(s) of variation to simulate. Supported modes are "linear",
         "sinusoidal", and "noiselike". Default is "linear". Note that the "linear"
         mode produces a triangle wave variation with period twice the corresponding
@@ -392,25 +392,25 @@ def vary_gains_in_time(
             raise ValueError("Gain dictionary values must be at most 2-dimensional.")
 
     # Setup for handling multiple modes of variation.
-    if variation_ref_times is None:
-        variation_ref_times = (np.median(times),)
-    if variation_timescales is None:
-        variation_timescales = (times[-1] - times[0],)
-        if utils._listify(variation_modes)[0] == "linear":
-            variation_timescales = (variation_timescales[0] * 2,)
-    variation_ref_times = utils._listify(variation_ref_times)
-    variation_timescales = utils._listify(variation_timescales)
-    variation_amps = utils._listify(variation_amps)
-    variation_modes = utils._listify(variation_modes)
+    if variation_ref_time is None:
+        variation_ref_time = (np.median(times),)
+    if variation_timescale is None:
+        variation_timescale = (times[-1] - times[0],)
+        if utils._listify(variation_mode)[0] == "linear":
+            variation_timescale = (variation_timescale[0] * 2,)
+    variation_ref_time = utils._listify(variation_ref_time)
+    variation_timescale = utils._listify(variation_timescale)
+    variation_amp = utils._listify(variation_amp)
+    variation_mode = utils._listify(variation_mode)
     variation_settings = (
-        variation_modes,
-        variation_amps,
-        variation_ref_times,
-        variation_timescales,
+        variation_mode,
+        variation_amp,
+        variation_ref_time,
+        variation_timescale,
     )
 
     # Check that everything is the same length.
-    Nmodes = len(variation_modes)
+    Nmodes = len(variation_mode)
     if any(len(settings) != Nmodes for settings in variation_settings):
         raise ValueError(
             "At least one of the variation settings does not have the same "
@@ -419,7 +419,7 @@ def vary_gains_in_time(
 
     # Now generate a multiplicative envelope to use for applying time variation.
     iterator = zip(
-        variation_modes, variation_amps, variation_ref_times, variation_timescales
+        variation_mode, variation_amp, variation_ref_time, variation_timescale
     )
     envelope = 1
     for mode, amp, ref_time, timescale in iterator:
