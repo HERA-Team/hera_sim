@@ -15,6 +15,7 @@ except PackageNotFoundError:
 
 
 from . import __yaml_constructors
+from . import adjustment
 from . import antpos
 from . import cli_utils
 from . import foregrounds

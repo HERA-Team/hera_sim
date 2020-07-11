@@ -388,6 +388,168 @@ def apply_gains(vis, gains, bl):
     return vis * gain
 
 
+def vary_gains_in_time(
+    gains,
+    times,
+    freqs=None,
+    delays=None,
+    parameter="amp",
+    variation_ref_time=None,
+    variation_timescale=None,
+    variation_amp=0.05,
+    variation_mode="linear",
+):
+    """
+    Vary gain amplitudes, phases, or delays in time.
+
+    If the gains initially have the form
+
+    :math:`g(\\nu) = g_0(\\nu)\\exp(i2\\pi\\nu\\tau + i\\phi),`
+
+    then the output gains have the form
+
+    :math:`g(\\nu,t) = g_0(\\nu,t)\\exp\\bigl(i2\\pi\\nu\\tau(t) + i\\phi(t)\\bigr).`
+
+
+    Parameters
+    ----------
+    gains: dict
+        Dictionary mapping antenna numbers to gain spectra/waterfalls.
+    times: array-like of float
+        Times at which to simulate time variation. Should be the same length as
+        the data to which the gains will be applied. Should also be in the same
+        units as ``variation_ref_time`` and ``variation_timescale``.
+    freqs: array-like of float, optional
+        Frequencies at which the gains are evaluated, in GHz. Only needs to be
+        specified for adding time variation to the delays.
+    delays: dict, optional
+        Dictionary mapping antenna numbers to gain delays, in ns.
+    parameter: str, optional
+        Which gain parameter to vary; must be one of ("amp", "phs", "dly").
+    variation_ref_time: float or array-like of float, optional
+        Reference time(s) used for generating time variation. For linear and
+        sinusoidal variation, this is the time where the gains are equal to their
+        original, time-independent values. Should be in the same units as the
+        ``times`` array. Default is to use the center of the ``times`` provided.
+    variation_timescale: float or array-like of float, optional
+        Timescale(s) for one cycle of the variation(s), in the same units as
+        the provided ``times``. Default is to use the duration of the entire
+        ``times`` array.
+    variation_amp: float or array-like of float, optional
+        Amplitude(s) of the variation(s) introduced. This is *not* the peak-to-peak
+        amplitude! This also does not have exactly the same interpretation for each
+        type of variation mode. For amplitude and delay variation, this represents
+        the amplitude of modulations--so it can be interpreted as a fractional
+        variation. For phase variation, this represents an absolute, time-dependent
+        phase offset to introduce to the gains; however, it is still *not* a
+        peak-to-peak amplitude.
+    variation_mode: str or array-like of str, optional
+        Which type(s) of variation to simulate. Supported modes are "linear",
+        "sinusoidal", and "noiselike". Default is "linear". Note that the "linear"
+        mode produces a triangle wave variation with period twice the corresponding
+        timescale; this ensures that the gains vary linearly over the entire set of
+        provided times if the default variation timescale is used.
+
+    Returns
+    -------
+    time_varied_gains: dict
+        Dictionary mapping antenna numbers to gain waterfalls.
+    """
+    # Parameter checking/preparation.
+    if np.isscalar(times) or not np.isrealobj(times):
+        raise TypeError("times must be an array of real numbers.")
+    if not isinstance(gains, dict):
+        raise TypeError("gains must be provided as a dictionary.")
+    if parameter not in ("amp", "phs", "dly"):
+        raise ValueError("parameter must be one of 'amp', 'phs', or 'dly'.")
+
+    times = np.array(times)
+    gain_shapes = [np.array(gain).shape for gain in gains.values()]
+    if not all(gain_shape == gain_shapes[0] for gain_shape in gain_shapes):
+        raise ValueError("Gains must all have the same shape.")
+    gain_shape = gain_shapes[0]
+
+    if parameter == "dly":
+        if freqs is None or delays is None:
+            raise ValueError(
+                "In order to vary delays, you must provide both the corresponding "
+                "frequency array and a dictionary mapping antenna numbers to delays."
+            )
+
+        freqs = np.array(freqs)
+        if set(delays.keys()) != set(gains.keys()):
+            raise ValueError("Delays and gains must have the same keys.")
+        if len(gain_shape) == 2:
+            if gain_shape != (times.size, freqs.size):
+                raise ValueError("Gain waterfalls must have shape (Ntimes, Nfreqs).")
+        elif len(gain_shape) == 1:
+            if gain_shape[0] != freqs.size:
+                raise ValueError(
+                    "Gain spectra must be the same length as the provided frequencies."
+                )
+        else:
+            raise ValueError("Gain dictionary values must be at most 2-dimensional.")
+
+    # Setup for handling multiple modes of variation.
+    if variation_ref_time is None:
+        variation_ref_time = (np.median(times),)
+    if variation_timescale is None:
+        variation_timescale = (times[-1] - times[0],)
+        if utils._listify(variation_mode)[0] == "linear":
+            variation_timescale = (variation_timescale[0] * 2,)
+    variation_ref_time = utils._listify(variation_ref_time)
+    variation_timescale = utils._listify(variation_timescale)
+    variation_amp = utils._listify(variation_amp)
+    variation_mode = utils._listify(variation_mode)
+    variation_settings = (
+        variation_mode,
+        variation_amp,
+        variation_ref_time,
+        variation_timescale,
+    )
+
+    # Check that everything is the same length.
+    Nmodes = len(variation_mode)
+    if any(len(settings) != Nmodes for settings in variation_settings):
+        raise ValueError(
+            "At least one of the variation settings does not have the same "
+            "number of entries as the number of variation modes specified."
+        )
+
+    # Now generate a multiplicative envelope to use for applying time variation.
+    iterator = zip(
+        variation_mode, variation_amp, variation_ref_time, variation_timescale
+    )
+    envelope = 1
+    for mode, amp, ref_time, timescale in iterator:
+        phases = ((times - ref_time) / timescale) % 1  # Map times to [0, 1)
+        if mode == "linear":
+            phases = (phases + 0.25) % 1  # Shift left a quarter period.
+            # Map phases to [-1, 1].
+            response = np.where(phases <= 0.5, 4 * phases - 1, 3 - 4 * phases)
+            envelope *= 1 + amp * response
+        elif mode == "sinusoidal":
+            envelope *= 1 + amp * np.sin(2 * np.pi * phases)
+        elif mode == "noiselike":
+            envelope *= stats.norm.rvs(1, amp, times.size)
+        else:
+            raise NotImplementedError(f"Variation mode '{mode}' not supported.")
+
+    if parameter in ("amp", "phs"):
+        envelope = np.outer(envelope, np.ones(gain_shape[-1]))
+        if parameter == "phs":
+            envelope = np.exp(1j * (envelope - 1))
+        gains = {ant: np.atleast_2d(gain) * envelope for ant, gain in gains.items()}
+    else:
+        envelope = 2 * np.pi * np.outer(envelope - 1, freqs)
+        gains = {
+            ant: np.atleast_2d(gain) * np.exp(1j * delays[ant] * envelope)
+            for ant, gain in gains.items()
+        }
+
+    return gains
+
+
 # to minimize breaking changes
 gen_gains = Bandpass()
 gen_bandpass = gen_gains._gen_bandpass

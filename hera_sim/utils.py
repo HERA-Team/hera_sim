@@ -361,11 +361,11 @@ def Jy2T(freqs, omega_p):
     Parameters
     ----------
     freqs : ndarray
-        Frequencies for which to calculate the conversion. Units of Hz.
+        Frequencies for which to calculate the conversion. Units of GHz.
     omega_p : ndarray or interpolators.Beam
         Beam area as a function of frequency. Must have the same shape
         as ``freqs`` if an ndarray. Otherwise, must be an interpolation
-        object which converts frequencies (in Hz) to beam size.
+        object which converts frequencies (in GHz) to beam size.
 
     Returns
     -------
@@ -375,10 +375,14 @@ def Jy2T(freqs, omega_p):
     # get actual values of omega_p if it's an interpolation object
     if callable(omega_p):
         omega_p = omega_p(freqs)
-    wavelengths = const.c.value / freqs
-    # scaling went from 1e-23 -> 1e-34 in converting to SI
-    # what is the point of this multiplicative constant?
-    return 1e-34 * wavelengths ** 2 / (2 * const.k_B.value * omega_p)
+    wavelengths = const.c.value / (freqs * 1e9)  # meters
+    # scaling went from 1e-23 -> 1e-26 in converting to SI
+    # return 1e-23 * wavelengths_cm ** 2 / (2 * aipy.const.k * omega_p)
+    # return 1e-23 * (1e2 * wavelengths_m) ** 2 / (2 * 1e7 * const.k_B.value * omega_p)
+    # return 1e-23 * 1e4 * 1e-7 * (wavelengths_m) ** 2 / (2 * const.k_B.value * omega_p)
+    #
+    # XXX what is the point of this multiplicative constant?
+    return 1e-26 * wavelengths ** 2 / (2 * const.k_B.value * omega_p)
 
 
 def _listify(x):
