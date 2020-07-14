@@ -105,7 +105,7 @@ class VisibilitySimulator(object):
                     try:
                         # This gets the 'I' component of the flux density
                         point_source_flux = np.atleast_2d(catalog.stokes[0].to('Jy').value).T
-                    except UnitConversionError:
+                    except units.UnitConversionError:
                         # If the catalog is healpix, converting Stokes 'I' to 'Jy' will give
                         # `UnitConversionError`. Then, we get the 'I' component as sky intensity.
                         sky_intensity = np.atleast_2d(catalog.stokes[0].to('K').value).T
