@@ -102,8 +102,13 @@ class VisibilitySimulator(object):
                     catalog.at_frequencies(np.unique(self.uvdata.freq_array) * units.Hz)
                     point_source_pos = np.array([catalog.ra.rad, catalog.dec.rad]).T
 
-                    # This gets the 'I' component of the flux density
-                    point_source_flux = np.atleast_2d(catalog.stokes[0].to('Jy').value).T
+                    try:
+                        # This gets the 'I' component of the flux density
+                        point_source_flux = np.atleast_2d(catalog.stokes[0].to('Jy').value).T
+                    except UnitConversionError:
+                        # If the catalog is healpix, converting Stokes 'I' to 'Jy' will give
+                        # `UnitConversionError`. Then, we get the 'I' component as sky intensity.
+                        sky_intensity = np.atleast_2d(catalog.stokes[0].to('K').value).T
                 except KeyError:
                     # If 'catalog' was not defined in obsparams, that's fine. We assume
                     # the user has passed some sky model directly (we'll catch it later).
