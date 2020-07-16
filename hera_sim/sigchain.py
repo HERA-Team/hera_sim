@@ -226,7 +226,7 @@ class Reflections(Gain, is_multiplicative=True):
         amps *= stats.norm.rvs(1, amp_jitter, len(ants))
         dlys += stats.norm.rvs(0, dly_jitter, len(ants))
 
-        return amp, dly, phases
+        return amps, dlys, phases
 
 
 @registry
