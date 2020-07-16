@@ -203,8 +203,8 @@ def test_amp_jitter():
     jittered_amps = sigchain.Reflections._complete_params(
         ants, amp=amp, amp_jitter=amp_jitter
     )[0]
-    assert np.isclose(jittered_amps.mean(), amp, rtol=0.01)
-    assert np.isclose(jittered_amps.std(), amp * amp_jitter, rtol=0.01)
+    assert np.isclose(jittered_amps.mean(), amp, rtol=0.05)
+    assert np.isclose(jittered_amps.std(), amp * amp_jitter, rtol=0.05)
 
 
 def test_dly_jitter():
@@ -214,8 +214,8 @@ def test_dly_jitter():
     jittered_dlys = sigchain.Reflections._complete_params(
         ants, dly=dly, dly_jitter=dly_jitter
     )[1]
-    assert np.isclose(jittered_dlys.mean(), dly, rtol=0.01)
-    assert np.isclose(jittered_dlys.std(), dly_jitter, rtol=0.01)
+    assert np.isclose(jittered_dlys.mean(), dly, rtol=0.05)
+    assert np.isclose(jittered_dlys.std(), dly_jitter, rtol=0.05)
 
 
 def test_cross_coupling_spectrum(fqs, dlys, Tsky):
