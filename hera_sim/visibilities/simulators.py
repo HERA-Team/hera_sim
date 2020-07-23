@@ -100,9 +100,9 @@ class VisibilitySimulator(object):
                     # If it's not there, it will raise a KeyError.
                     catalog = initialize_catalog_from_params(obsparams, return_recarray=False)[0]
                     catalog.at_frequencies(np.unique(self.uvdata.freq_array) * units.Hz)
-                    point_source_pos = np.array([catalog.ra.rad, catalog.dec.rad]).T
 
                     try:
+                        point_source_pos = np.array([catalog.ra.rad, catalog.dec.rad]).T
                         # This gets the 'I' component of the flux density
                         point_source_flux = np.atleast_2d(catalog.stokes[0].to('Jy').value).T
                     except units.UnitConversionError:
