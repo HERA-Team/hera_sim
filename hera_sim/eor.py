@@ -89,8 +89,11 @@ class NoiselikeEoR(EoR):
         )
 
         # dirty trick to make autocorrelations real-valued
+        # TODO Figure out the statistically correct way to handle autos.
+        # Handling autos this way makes the covariance look like it has
+        # no structure... which is wrong.
         if np.all(np.isclose(bl_vec, 0)):
-            data = data.real + np.zeros(data.shape, dtype=np.complex)
+            data = data.real.astype(np.complex)
 
         return data
 
