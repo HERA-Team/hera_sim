@@ -208,14 +208,16 @@ class Reflections(Gain, is_multiplicative=True):
 
         def broadcast_param(param, lower_bound, upper_bound, size):
             if param is None:
-                return stats.uniform.rvs(lower_bound, upper_bound, size)
+                params = stats.uniform.rvs(lower_bound, upper_bound, size)
             elif np.isscalar(param):
-                return np.ones(size) * param
+                params = np.ones(size) * param
             else:
                 if len(param) == size:
-                    return np.array(param)
+                    params = np.array(param)
                 else:
-                    return stats.uniform.rvs(*param, size)
+                    params = stats.uniform.rvs(*param, size)
+
+            return params.astype(np.float)
 
         # Transform parameters into arrays.
         amps = broadcast_param(amp, 0, 1, len(ants))
