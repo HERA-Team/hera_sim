@@ -16,6 +16,7 @@ from os import path
 from abc import ABCMeta, abstractmethod
 from astropy import units
 
+
 class VisibilitySimulator(object):
     __metaclass__ = ABCMeta
     """
@@ -92,6 +93,12 @@ class VisibilitySimulator(object):
             (self.uvdata,
              self.beams,
              self.beam_ids) = initialize_uvdata_from_params(obsparams)
+
+            if not (sky_intensity is None and point_source_pos is None and
+                    point_source_flux is None):
+                raise ValueError("If obsparams is given, sky_intensity, "
+                                 "point_source_pos, and point_source_flux "
+                                 "must be None.")
 
             if point_source_pos is None:
                 try:
