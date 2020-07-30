@@ -108,7 +108,7 @@ class VisibilitySimulator(object):
                     except units.UnitConversionError:
                         # If the catalog is healpix, converting Stokes 'I' to 'Jy' will give
                         # `UnitConversionError`. Then, we get the 'I' component as sky intensity.
-                        sky_intensity = np.atleast_2d(catalog.stokes[0].to('K').value).T
+                        sky_intensity = np.atleast_2d(catalog.stokes[0].to('K').value)
                 except KeyError:
                     # If 'catalog' was not defined in obsparams, that's fine. We assume
                     # the user has passed some sky model directly (we'll catch it later).
