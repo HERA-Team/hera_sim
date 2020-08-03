@@ -100,26 +100,29 @@ class VisibilitySimulator(object):
                                  "point_source_pos, and point_source_flux "
                                  "must be None.")
 
-            if point_source_pos is None:
-                try:
-                    # Try setting up point sources from the obsparams.
-                    # Will only work, of course, if the "catalog" key is in obsparams['sources'].
-                    # If it's not there, it will raise a KeyError.
-                    catalog = initialize_catalog_from_params(obsparams, return_recarray=False)[0]
-                    catalog.at_frequencies(np.unique(self.uvdata.freq_array) * units.Hz)
+            # Try setting up SkyModel.catalog from the obsparams. Will only work,
+            # of course, if the "catalog" key is in obsparams['sources'].
+            # If it's not there, it will raise a KeyError.
+            try:
+                catalog = initialize_catalog_from_params(obsparams, return_recarray=False)[0]
+                catalog.at_frequencies(np.unique(self.uvdata.freq_array) * units.Hz)
 
-                    try:
-                        # This gets the 'I' component of the flux density
-                        point_source_flux = np.atleast_2d(catalog.stokes[0].to('Jy').value).T
-                        point_source_pos = np.array([catalog.ra.rad, catalog.dec.rad]).T
-                    except units.UnitConversionError:
-                        # If the catalog is healpix, converting Stokes 'I' to 'Jy' will give
-                        # `UnitConversionError`. Then, we get the 'I' component as sky intensity.
-                        sky_intensity = np.atleast_2d(catalog.stokes[0].to('K').value)
-                except KeyError:
-                    # If 'catalog' was not defined in obsparams, that's fine. We assume
-                    # the user has passed some sky model directly (we'll catch it later).
-                    pass
+                if catalog.component_type == 'point':
+                    # If the catalog is point source, gets the 'I' component
+                    # of the flux density and the source positions.
+                    point_source_flux = np.atleast_2d(catalog.stokes[0].to('Jy').value).T
+                    point_source_pos = np.array([catalog.ra.rad, catalog.dec.rad]).T
+                elif catalog.component_type == 'healpix':
+                    # If the catalog is healpix, get the 'I' component as sky intensity.
+                    sky_intensity = np.atleast_2d(catalog.stokes[0].to('K').value)
+                else:
+                    # At the moment, only 'point' and 'healpix' are available as component types
+                    raise AttributeError("catalog.component_type is neither 'point' nor 'healpix'. "
+                                         "Something is wrong here.")
+            except KeyError:
+                # If 'catalog' was not defined in obsparams, that's fine. We assume
+                # the user has passed some sky model directly (we'll catch it later).
+                pass
 
             # convert the beam_ids dict to an array of ints
             nms = list(self.uvdata.antenna_names)
