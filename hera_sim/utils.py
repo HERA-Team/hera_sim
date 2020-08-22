@@ -376,12 +376,11 @@ def Jy2T(freqs, omega_p):
     if callable(omega_p):
         omega_p = omega_p(freqs)
     wavelengths = const.c.value / (freqs * 1e9)  # meters
-    # scaling went from 1e-23 -> 1e-26 in converting to SI
     # return 1e-23 * wavelengths_cm ** 2 / (2 * aipy.const.k * omega_p)
     # return 1e-23 * (1e2 * wavelengths_m) ** 2 / (2 * 1e7 * const.k_B.value * omega_p)
     # return 1e-23 * 1e4 * 1e-7 * (wavelengths_m) ** 2 / (2 * const.k_B.value * omega_p)
     #
-    # XXX what is the point of this multiplicative constant?
+    # The factor of 1e-26 converts from Jy to W/m^2/Hz.
     return 1e-26 * wavelengths ** 2 / (2 * const.k_B.value * omega_p)
 
 
