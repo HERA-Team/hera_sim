@@ -53,16 +53,20 @@ class VisCPU(VisibilitySimulator):
             self._complex_dtype = np.complex128
 
         if use_gpu:
+            if use_pixel_beams:
+                raise RuntimeError("GPU cannot be used with pixel beams") 
             try:
                 from hera_gpu.vis import vis_gpu
                 self._vis_cpu = vis_gpu
+                print("Using GPU")
             except ImportError:
                 raise ImportError(
                     'GPU acceleration requires hera_gpu (`pip install hera_sim[gpu]`).'
                 )
         else:
             self._vis_cpu = vis_cpu
-        
+
+        self.use_gpu = use_gpu 
         self.bm_pix = bm_pix
         self.use_pixel_beams = use_pixel_beams
         self.mpi_comm = mpi_comm
@@ -191,6 +195,8 @@ class VisCPU(VisibilitySimulator):
         if self.mpi_comm is not None:
             myid = self.mpi_comm.Get_rank()
             nproc = self.mpi_comm.Get_size()
+            if self.use_gpu and nproc > 1:
+              raise RuntimeError("Can't use multiple MPI processes with GPU (yet)")
         
         # Convert equatorial to topocentric coords
         eq2tops = self.get_eq2tops()
@@ -201,6 +207,25 @@ class VisCPU(VisibilitySimulator):
         else:
             beam_list = [self.beams[self.beam_ids[i]] for i in range(self.n_ant)]
             
+        if self.use_gpu:
+            if self.use_pixel_beams:
+               raise RuntimeError("GPU cannot be used with pixel beams")
+
+            # vis_gpu does the whole thing inside itself.
+            # Does not need the surrounding frequency loop.
+            # It will stop here and return the vis.
+
+            return self._vis_cpu(    
+                       antpos=self.antpos,
+                       frequencies=self.freqs,
+                       eq2tops=eq2tops,
+                       crd_eq=crd_eq,
+                       I_skies=I,
+                       beam_list=beam_list,
+                       vis_spec=(self.uvdata.data_array.shape, self._complex_dtype),
+                       precision=self._precision
+                   )
+
         visfull = np.zeros_like(self.uvdata.data_array,
                                 dtype=self._complex_dtype)
         
@@ -408,7 +433,7 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube=None, beam_list=None,
             for i in range(nant):
                 interp_beam = beam_list[i].interp(az, za, np.atleast_1d(freq))[0]
                 A_s[i] = interp_beam[0,0,1] # FIXME: assumes xx pol for now
-        
+
         A_s = np.where(tz > 0, A_s, 0)
 
         # Calculate delays, where tau = (b * s) / c
