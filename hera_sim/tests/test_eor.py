@@ -3,7 +3,6 @@ from hera_sim import eor
 import numpy as np
 
 
-
 @pytest.fixture(scope="function")
 def freqs():
     return np.linspace(0.1, 0.2, 500)
@@ -48,7 +47,9 @@ def test_noiselike_eor_autocorr_is_real(base_eor):
 def test_noiselike_eor_is_noiselike_in_freq(base_eor):
     covariance = np.cov(base_eor.T)  # Compute covariance across freq axis.
     mean_diagonal = np.mean(covariance.diagonal())
-    mean_offdiagonal = np.mean(covariance - np.eye(len(covariance)) * covariance.diagonal())
+    mean_offdiagonal = np.mean(
+        covariance - np.eye(len(covariance)) * covariance.diagonal()
+    )
     assert np.abs(mean_diagonal / mean_offdiagonal) > 1000
     # To manually check: plt.matshow(np.abs(covariance))
 
@@ -57,7 +58,9 @@ def test_noiselike_eor_is_noiselike_in_freq(base_eor):
 def test_noiselike_eor_is_sky_locked(base_eor):
     covariance = np.cov(base_eor)  # Compute covariance across time axis.
     mean_diagonal = np.mean(covariance.diagonal())
-    mean_offdiagonal = np.mean(covariance - np.eye(len(covariance)) * covariance.diagonal())
+    mean_offdiagonal = np.mean(
+        covariance - np.eye(len(covariance)) * covariance.diagonal()
+    )
     assert np.abs(mean_diagonal / mean_offdiagonal) < 20
 
 
@@ -70,6 +73,4 @@ def test_noiselike_eor_crosscorr_scales_appropriately(base_eor, scaled_eor):
 
 @pytest.mark.parametrize("base_eor, scaled_eor", [("auto",) * 2], indirect=True)
 def test_noiselike_eor_autocorr_scales_appropriately(base_eor, scaled_eor):
-    assert np.isclose(
-        np.mean(np.abs(base_eor / scaled_eor)) / 2, 1e-2, atol=0.01
-    )
+    assert np.isclose(np.mean(np.abs(base_eor / scaled_eor)) / 2, 1e-2, atol=0.01)
