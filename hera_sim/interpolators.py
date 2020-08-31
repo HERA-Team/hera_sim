@@ -172,6 +172,8 @@ class Tsky(Interpolator):
         # get the tsky data
         tsky_data = self.tsky[pol_index]
 
+        # XXX this isn't always what we want to do and will give unexpected behavior
+        # for sky models where the LST range only covers a subset of the sky.
         # do some wrapping in LST
         lsts = np.concatenate(
             [self.lsts[-10:] - 2 * np.pi, self.lsts, self.lsts[:10] + 2 * np.pi]
