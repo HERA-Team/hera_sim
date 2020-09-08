@@ -113,7 +113,7 @@ class PolyBeam(AnalyticBeam):
 
     def beam_val(self, az_arr, za_arr, freqs, pol="XX"):
         """
-        The entry point for heavis beam interpolation. Passes az_arr, za_arr, freqs,
+        The entry point for healvis beam interpolation. Passes az_arr, za_arr, freqs,
         to interp and returns the visibilities in the right shape.
         """
         if pol != "XX":
@@ -278,7 +278,7 @@ class PerturbedPolyBeam(PolyBeam):
         
     def beam_val(self, az_arr, za_arr, freqs, pol="XX"):
         """
-        The entry point for heavis beam interpolation. Passes az_arr, za_arr, freqs,
+        The entry point for healvis beam interpolation. Passes az_arr, za_arr, freqs,
         to interp and returns the visibilities in the right shape.
         """
         if pol != "XX":
