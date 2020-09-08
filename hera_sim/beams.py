@@ -111,6 +111,17 @@ class PolyBeam(AnalyticBeam):
         else:
             return False
 
+    def beam_val(self, az_arr, za_arr, freqs, pol="XX"):
+        """
+        The entry point for heavis beam interpolation. Passes az_arr, za_arr, freqs,
+        to interp and returns the visibilities in the right shape.
+        """
+        if pol != "XX":
+            raise RuntimeError("Polybeam only does pol XX, not "+pol+". Called from healvis.")
+        interp_data, interp_basis_vector = self.interp(az_arr, za_arr, freqs)
+        return interp_data[0, 0, 1].T   # just want Npix, Nfreq
+
+
 
 class PerturbedPolyBeam(PolyBeam):
     
@@ -265,3 +276,14 @@ class PerturbedPolyBeam(PolyBeam):
         
         return interp_data, interp_basis_vector
         
+    def beam_val(self, az_arr, za_arr, freqs, pol="XX"):
+        """
+        The entry point for heavis beam interpolation. Passes az_arr, za_arr, freqs,
+        to interp and returns the visibilities in the right shape.
+        """
+        if pol != "XX":
+            raise RuntimeError("Polybeam only does pol XX, not "+pol+". Called from healvis.")
+        interp_data, interp_basis_vector = self.interp(az_arr, za_arr, freqs)
+        return interp_data[0, 0, 1].T   # just want Npix, Nfreq
+
+
