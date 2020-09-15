@@ -14,6 +14,7 @@ from pyuvsim.simsetup import (
 )
 from os import path
 from abc import ABCMeta, abstractmethod
+from astropy import units
 
 
 class VisibilitySimulator(object):
@@ -93,20 +94,35 @@ class VisibilitySimulator(object):
              self.beams,
              self.beam_ids) = initialize_uvdata_from_params(obsparams)
 
-            if point_source_pos is None:
-                try:
-                    # Try setting up point sources from the obsparams.
-                    # Will only work, of course, if the "catalog" key is in obsparams.
-                    # If it's not there, it will raise a KeyError.
-                    catalog = initialize_catalog_from_params(obsparams)[0]
-                    point_source_pos = np.array([catalog['ra_j2000'], catalog['dec_j2000']]).T * np.pi/180.
+            if not (sky_intensity is None and point_source_pos is None and
+                    point_source_flux is None):
+                raise ValueError("If obsparams is given, sky_intensity, "
+                                 "point_source_pos, and point_source_flux "
+                                 "must be None.")
 
-                    # This gets the 'I' component of the flux density
-                    point_source_flux = np.atleast_2d(catalog['flux_density'][:, 0])
-                except KeyError:
-                    # If 'catalog' was not defined in obsparams, that's fine. We assume
-                    # the user has passed some sky model directly (we'll catch it later).
-                    pass
+            # Try setting up SkyModel.catalog from the obsparams. Will only work,
+            # of course, if the "catalog" key is in obsparams['sources'].
+            # If it's not there, it will raise a KeyError.
+            try:
+                catalog = initialize_catalog_from_params(obsparams, return_recarray=False)[0]
+                catalog.at_frequencies(np.unique(self.uvdata.freq_array) * units.Hz)
+
+                if catalog.component_type == 'point':
+                    # If the catalog is point source, gets the 'I' component
+                    # of the flux density and the source positions.
+                    point_source_flux = np.atleast_2d(catalog.stokes[0].to('Jy').value).T
+                    point_source_pos = np.array([catalog.ra.rad, catalog.dec.rad]).T
+                elif catalog.component_type == 'healpix':
+                    # If the catalog is healpix, get the 'I' component as sky intensity.
+                    sky_intensity = np.atleast_2d(catalog.stokes[0].to('K').value)
+                else:
+                    # At the moment, only 'point' and 'healpix' are available as component types
+                    raise AttributeError("catalog.component_type is neither 'point' nor 'healpix'. "
+                                         "Something is wrong here.")
+            except KeyError:
+                # If 'catalog' was not defined in obsparams, that's fine. We assume
+                # the user has passed some sky model directly (we'll catch it later).
+                pass
 
             # convert the beam_ids dict to an array of ints
             nms = list(self.uvdata.antenna_names)
@@ -122,11 +138,7 @@ class VisibilitySimulator(object):
 
             self.uvdata = uvdata
 
-            if beams is None:
-                self.beams = [ab.AnalyticBeam("uniform")]
-            else:
-                self.beams = beams
-
+            self.beams = [ab.AnalyticBeam("uniform")] if beams is None else beams
             if beam_ids is None:
                 self.beam_ids = np.zeros(self.n_ant, dtype=np.int)
             else:
@@ -151,7 +163,7 @@ class VisibilitySimulator(object):
             raise ValueError("Either both or neither of point_source_pos and "
                              "point_source_flux must be given.")
 
-        if self.sky_intensity is not None and not healpy.isnpixok(self.n_pix):
+        if not (self.sky_intensity is None or healpy.isnpixok(self.n_pix)):
             raise ValueError("The sky_intensity map is not compatible with "
                              "healpy.")
 
@@ -163,20 +175,30 @@ class VisibilitySimulator(object):
             raise ValueError("The number of beams provided must be at least "
                              "as great as the greatest beam_id.")
 
-        if self.point_source_flux is not None:
-            if self.point_source_flux.shape[0] != self.sky_freqs.shape[0]:
-                raise ValueError("point_source_flux must have the same number "
-                                 "of freqs as sky_freqs.")
+        if (
+            self.point_source_flux is not None
+            and self.point_source_flux.shape[0] != self.sky_freqs.shape[0]
+        ):
+            if self.point_source_flux.shape[0] == 1:
+                self.point_source_flux = np.repeat(self.point_source_flux, self.sky_freqs.shape[0]).reshape((self.sky_freqs.shape[0], -1))
+            else:
+                raise ValueError(
+                    f"point_source_flux must have the same number of freqs as sky_freqs. "
+                    f"point_source_flux.shape = {self.point_source_flux.shape}."
+                    f"sky_freq.shape = {self.sky_freqs.shape}"
+                )
 
         if self.point_source_flux is not None:
             flux_shape = self.point_source_flux.shape
             pos_shape = self.point_source_pos.shape
-            if (flux_shape[1] != pos_shape[0]):
+            if flux_shape[1] != pos_shape[0]:
                 raise ValueError("Number of sources in point_source_flux and "
                                  "point_source_pos is different.")
 
-        if (self.sky_intensity is not None
-                and self.sky_intensity.shape[0] != self.sky_freqs.shape[0]):
+        if not (
+            self.sky_intensity is None
+            or self.sky_intensity.shape[0] == self.sky_freqs.shape[0]
+        ):
             raise ValueError("sky_intensity has a different number of freqs "
                              "than sky_freqs.")
 
@@ -184,7 +206,7 @@ class VisibilitySimulator(object):
             raise ValueError("sky_intensity must be a 2D array (a healpix map "
                              "per frequency).")
 
-        if not self.point_source_ability and self.point_source_pos is not None:
+        if not (self.point_source_ability or self.point_source_pos is None):
             warnings.warn("This visibility simulator is unable to explicitly "
                           "simulate point sources. Adding point sources to "
                           "diffuse pixels.")
@@ -194,7 +216,7 @@ class VisibilitySimulator(object):
                 self.point_source_pos, self.point_source_flux, self.nside
             )
 
-        if not self.diffuse_ability and self.sky_intensity is not None:
+        if not (self.diffuse_ability or self.sky_intensity is None):
             warnings.warn("This visibility simulator is unable to explicitly "
                           "simulate diffuse structure. Converting diffuse "
                           "intensity to approximate points.")
