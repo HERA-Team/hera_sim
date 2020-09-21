@@ -42,7 +42,8 @@ class VisCPU(VisibilitySimulator):
         mpi_comm : MPI communicator
             MPI communicator, for parallelization.
         az_za_corrections: str, optional
-            Use pyuvsim/astropy to calculate source positions.
+            Use pyuvsim/astropy to calculate source positions. Its value
+            indicates what approximations to apply.
         **kwargs
             Arguments of :class:`VisibilitySimulator`.
         """
@@ -84,6 +85,7 @@ class VisCPU(VisibilitySimulator):
         # Convert some arguments to forms more simple for vis_cpu.
         self.antpos = self.uvdata.get_ENU_antpos()[0].astype(self._real_dtype)
         self.freqs = self.uvdata.freq_array[0]
+        
         if az_za_corrections:
             self.jd_times=np.unique(self.uvdata.get_times("XX"))    # Julian times will be needed
             # Set up object 
@@ -276,7 +278,9 @@ class VisCPU(VisibilitySimulator):
                     crd_eq=crd_eq,
                     I_sky=I[i],
                     beam_list=beam_list,
-                    precision=self._precision
+                    precision=self._precision,
+                    point_source_pos=self.point_source_pos,
+                    az_za_transforms=self.az_za_transforms
                 )
 
             indices = np.triu_indices(vis.shape[1])
@@ -462,7 +466,7 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube=None, beam_list=None,
                 # Supplies more accurate az/za and crd_top (overwrites crd_top)
                 az, za, crd_top = az_za_transforms.transform(point_source_pos[:, 0], point_source_pos[:, 1], t)
             else:
-            az, za = conversions.lm_to_az_za(ty, tx) # FIXME: Order of tx, ty
+                az, za = conversions.lm_to_az_za(ty, tx) # FIXME: Order of tx, ty
             for i in range(nant):
                 interp_beam = beam_list[i].interp(az, za, np.atleast_1d(freq))[0]
                 A_s[i] = interp_beam[0,0,1] # FIXME: assumes xx pol for now

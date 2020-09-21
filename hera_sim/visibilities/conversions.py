@@ -163,6 +163,7 @@ class AzZaTransforms:
             
             Cannot be True if use_central_time_values=True.
         """
+        
         self.obstimes = obstimes
         self.use_central_time_values = use_central_time_values
         if not astropy:
@@ -195,7 +196,6 @@ class AzZaTransforms:
         print("Pre-computing az/za for all times.")
         start = time.time()
         try:
-            raise
             if astropy:
                 self.az = np.zeros((len(obstimes), len(ra)))
                 self.za = np.zeros((len(obstimes), len(ra)))
