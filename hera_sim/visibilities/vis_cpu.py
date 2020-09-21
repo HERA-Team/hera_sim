@@ -19,7 +19,8 @@ class VisCPU(VisibilitySimulator):
     """
 
     def __init__(self, bm_pix=100, use_pixel_beams=True, precision=1,
-                 use_gpu=False, mpi_comm=None, **kwargs):
+                 use_gpu=False, mpi_comm=None, 
+                 az_za_corrections=None, **kwargs):
         """
         Parameters
         ----------
@@ -40,6 +41,8 @@ class VisCPU(VisibilitySimulator):
             Whether to use the GPU version of vis_cpu or not. Default: False.
         mpi_comm : MPI communicator
             MPI communicator, for parallelization.
+        az_za_corrections: str, optional
+            Use pyuvsim/astropy to calculate source positions.
         **kwargs
             Arguments of :class:`VisibilitySimulator`.
         """
@@ -69,6 +72,11 @@ class VisCPU(VisibilitySimulator):
         self.use_gpu = use_gpu 
         self.bm_pix = bm_pix
         self.use_pixel_beams = use_pixel_beams
+        # Parse az_za_corrections. Should be done in validate() but it's not called.
+        if az_za_corrections:
+            allowed = [ "minimal", "maximal", "astropy" ]
+            if az_za_corrections not in allowed:
+                raise ValueError("Invalid az_za_correction option: \""+str(az_za_corrections)+"\"")
         self.mpi_comm = mpi_comm
         
         super(VisCPU, self).__init__(**kwargs)
@@ -76,6 +84,19 @@ class VisCPU(VisibilitySimulator):
         # Convert some arguments to forms more simple for vis_cpu.
         self.antpos = self.uvdata.get_ENU_antpos()[0].astype(self._real_dtype)
         self.freqs = self.uvdata.freq_array[0]
+        if az_za_corrections:
+            self.jd_times=np.unique(self.uvdata.get_times("XX"))    # Julian times will be needed
+            # Set up object 
+            self.az_za_transforms = conversions.AzZaTransforms(
+                        obstimes=self.jd_times,
+                        ra=self.point_source_pos[:, 0],
+                        dec=self.point_source_pos[:, 1],
+                        use_central_time_values=(az_za_corrections=="minimal"),
+                        astropy=(az_za_corrections=="astropy")
+                        )
+            
+        else: 
+            self.az_za_transforms = None
 
     @property
     def lsts(self):
@@ -324,7 +345,7 @@ class VisCPU(VisibilitySimulator):
 
 
 def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube=None, beam_list=None,
-            precision=1):
+            precision=1, point_source_pos=None, az_za_transforms=None):
     """
     Calculate visibility from an input intensity map and beam model.
 
@@ -359,6 +380,12 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube=None, beam_list=None,
             - 1: float32, complex64
             - 2: float64, complex128
         Default: 1.
+    point_source_pos: 2-D ndarray
+        Source catalog ra/dec needed for az_za_transforms. Shape (nsource, 2)
+        Not used if az_za_transforms is None.
+    az_za_transforms: an AzZaTransforms object (conversions.py)
+        If not None, used to produce more accurate az/za and crd_top values.
+        point_source_pos must also be present.
 
     Returns
     -------
@@ -392,6 +419,7 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube=None, beam_list=None,
     else:
         assert len(beam_list) == nant, "beam_list must have length nant"
 
+    I_sky /= 2      # To match pyuvsim, it splits the flux between XX, YY
     # Intensity distribution (sqrt) and antenna positions. Does not support
     # negative sky.
     Isqrt = np.sqrt(I_sky).astype(real_dtype)
@@ -429,6 +457,11 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube=None, beam_list=None,
                 # FIXME: Try using a log-space beam for accuracy!
         else:
             # Primary beam pattern using direct interpolation of UVBeam object
+
+            if az_za_transforms:
+                # Supplies more accurate az/za and crd_top (overwrites crd_top)
+                az, za, crd_top = az_za_transforms.transform(point_source_pos[:, 0], point_source_pos[:, 1], t)
+            else:
             az, za = conversions.lm_to_az_za(ty, tx) # FIXME: Order of tx, ty
             for i in range(nant):
                 interp_beam = beam_list[i].interp(az, za, np.atleast_1d(freq))[0]
