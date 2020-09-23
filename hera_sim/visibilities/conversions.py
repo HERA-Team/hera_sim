@@ -230,10 +230,12 @@ class AzZaTransforms:
                         self.cirs_to_az_za(cirs_ra[i], cirs_dec[i], obstimes[i], polar_x[i], polar_y[i], dut1utc[i])
 
             self.crd_top = self.calc_crd_top(self.az, self.za)
+            # pyuvsim does a UVBeam correction for az, za used for beam interpolation only
+            self.za, self.az = self.altaz_to_zenithangle_azimuth(np.pi/2-self.za, self.az)
             self.precomputed = True
 
 
-        except: 
+        except:
             self.precomputed = False
             print("<<< AzZaTransforms precomputation failed. >>>")
             print("<<< Try increasing memory. Execution will be slow. >>>")
@@ -270,23 +272,26 @@ class AzZaTransforms:
         # If precomputation was successful, the values are already calculated
         # for all obstimes, so just return the appropriate ones.
         if self.precomputed:
-                return self.az[obstime_index], self.za[obstime_index], self.crd_top[:, obstime_index, :]
+            return self.az[obstime_index], self.za[obstime_index], self.crd_top[:, obstime_index, :]
 
         # Otherwise we must calculate the values now.
         if self.astropy:
             az, za = self.call_astropy(ra, dec, self.obstimes[obstime_index])
-            return az, za, self.calc_crd_top(az, za)
         else:
             if self.use_central_time_values:
                 az, za = self.cirs_to_az_za(self.cirs_ra_centre, self.cirs_dec_centre, self.obstimes[obstime_index], 
                         self.polar_x_centre, self.polar_y_centre, self.dut1utc_centre)
-                return za, za, self.calc_crd_top(az, za)
             else:
                 cirs_ra, cirs_dec = self.icrs_to_cirs(ra, dec, self.obstimes[obstime_index])
                 polar_x, polar_y = self.get_polar_motion(self.obstimes[obstime_index])
                 dut1utc = self.get_dut1utc(self.obstimes[obstime_index])
-                az, za = self.cirs_to_az_za(cirs_ra, cirs_dec, self.obstimes[obstime_index], polar_x, polar_y, dut1utc)
-                return za, za, self.calc_crd_top(az, za)
+                az, za = self.cirs_to_az_za(cirs_ra, cirs_dec, self.obstimes[obstime_index], 
+                        polar_x, polar_y, dut1utc)
+
+        crd_top = self.calc_crd_top(az, za)
+        za, az = self.altaz_to_zenithangle_azimuth(np.pi/2-za, az)
+        return az, za, crd_top
+
 
     def calc_crd_top(self, az, za):
         """
@@ -308,8 +313,8 @@ class AzZaTransforms:
         alt = np.pi/2-za
         if len(az.shape) == 2: crd_top = np.empty((3, az.shape[0], az.shape[1]))  # Multiple times
         else: crd_top = np.empty((3, az.shape[0]))
-        crd_top[1] = np.sin(az) * np.cos(alt)  # (obstime, nsources)
-        crd_top[0] = np.cos(az) * np.cos(alt)
+        crd_top[0] = np.sin(az) * np.cos(alt)  # (obstime, nsources)
+        crd_top[1] = np.cos(az) * np.cos(alt)
         crd_top[2] = np.sin(alt)
         return crd_top
 
@@ -331,8 +336,6 @@ class AzZaTransforms:
     def cirs_to_az_za(self, cirs_ra, cirs_dec, obstime, polar_x, polar_y, dut1utc):
         """
         Do cirs_to_altaz in astropy/coordinates/builtin_frames/cirs_observed_transforms.py
-        Also convert to UVBeam convention, which is pyuvsim code, the function
-        altaz_to_zenithangle_azimuth.
         """
         lon, lat, height = self.to_geodetic()
         jd1, jd2 = self.get_jd12(obstime, 'utc')
@@ -349,9 +352,8 @@ class AzZaTransforms:
                          relative_humidity_value,
                          obswl_value)
         az, zen, _, _, _ = self.erfa.atioq(cirs_ra, cirs_dec, astrom)
-        za, az = self.altaz_to_zenithangle_azimuth(np.pi/2-zen, az)
 
-        return az, za
+        return az, zen
 
     
     def two_sum(self, a, b):
@@ -720,6 +722,5 @@ class AzZaTransforms:
         source_altaz = skycoord_use.transform_to(
             self.AltAz(obstime=time_array, location=telescope.location))
         alt_az = np.array([source_altaz.alt.rad, source_altaz.az.rad])
-        za, az = self.altaz_to_zenithangle_azimuth(alt_az[0], alt_az[1])
-        return az, za
+        return alt_az[1], np.pi/2-alt_az[0] 
 
