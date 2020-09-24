@@ -19,7 +19,7 @@ class VisCPU(VisibilitySimulator):
     """
 
     def __init__(self, bm_pix=100, use_pixel_beams=True, precision=1,
-                 use_gpu=False, mpi_comm=None, 
+                 use_gpu=False, mpi_comm=None, split_I=False,
                  az_za_corrections=None, **kwargs):
         """
         Parameters
@@ -41,6 +41,10 @@ class VisCPU(VisibilitySimulator):
             Whether to use the GPU version of vis_cpu or not. Default: False.
         mpi_comm : MPI communicator
             MPI communicator, for parallelization.
+        split_I: bool
+            To match pyuvsim, assume the source flux is split between
+            XX and YY (half each). Since hera_sim only simulates one 
+            unspecified pol, this means halving the source flux.
         az_za_corrections: str, optional
             Use pyuvsim/astropy to calculate source positions. Its value
             indicates what approximations to apply.
@@ -73,19 +77,14 @@ class VisCPU(VisibilitySimulator):
         self.use_gpu = use_gpu 
         self.bm_pix = bm_pix
         self.use_pixel_beams = use_pixel_beams
-        # Parse az_za_corrections. Should be done in validate() but it's not called.
-        if az_za_corrections:
-            allowed = [ "minimal", "maximal", "astropy" ]
-            if az_za_corrections not in allowed:
-                raise ValueError("Invalid az_za_correction option: \""+str(az_za_corrections)+"\"")
+        self.split_I = split_I
         self.mpi_comm = mpi_comm
-        
+        self.az_za_corrections = az_za_corrections 
         super(VisCPU, self).__init__(**kwargs)
 
         # Convert some arguments to forms more simple for vis_cpu.
         self.antpos = self.uvdata.get_ENU_antpos()[0].astype(self._real_dtype)
         self.freqs = self.uvdata.freq_array[0]
-        
         if az_za_corrections:
             self.jd_times=np.unique(self.uvdata.get_times("XX"))    # Julian times will be needed
             # Set up object 
@@ -93,8 +92,9 @@ class VisCPU(VisibilitySimulator):
                         obstimes=self.jd_times,
                         ra=self.point_source_pos[:, 0],
                         dec=self.point_source_pos[:, 1],
-                        use_central_time_values=(az_za_corrections=="minimal"),
-                        astropy=(az_za_corrections=="astropy")
+                        use_central_time_values=("minimal" in az_za_corrections),
+                        uvbeam_az_correction=("uvbeam_az" in az_za_corrections),
+                        astropy=("astropy" in az_za_corrections)
                         )
             
         else: 
@@ -132,6 +132,23 @@ class VisCPU(VisibilitySimulator):
                 * len(self.lsts)):
             raise ValueError("VisCPU requires that every baseline uses the "
                              "same LSTS.")
+
+        # Parse az_za_corrections. 
+        if self.az_za_corrections:
+            if isinstance(self.az_za_corrections, str):
+                self.az_za_corrections = [ self.az_za_corrections ]
+            allowed = [ "minimal", "maximal", "astropy" ]
+            extra = [ "uvbeam_az" ]
+            for azt in self.az_za_corrections:
+                if azt not in allowed+extra:
+                    raise ValueError("Invalid az_za_correction option: \""+str(azt)+"\"")
+            # Check only one of min/max/astropy
+            num = 0
+            for a in allowed:
+                if a in self.az_za_corrections: num += 1
+            if num > 1:
+                raise RuntimeError("Only one of "+str(allowed)+" can be specified in az_za_corrections")
+
 
     def get_beam_lm(self):
         """
@@ -229,6 +246,8 @@ class VisCPU(VisibilitySimulator):
             beam_lm = self.get_beam_lm()
         else:
             beam_list = [self.beams[self.beam_ids[i]] for i in range(self.n_ant)]
+        
+        if self.split_I: I /= 2    # Match pyuvsim where pol XX/YY is half I
             
         if self.use_gpu:
             if self.use_pixel_beams:
@@ -279,6 +298,7 @@ class VisCPU(VisibilitySimulator):
                     I_sky=I[i],
                     beam_list=beam_list,
                     precision=self._precision,
+                    # These for astropy az/za calcs if used
                     point_source_pos=self.point_source_pos,
                     az_za_transforms=self.az_za_transforms
                 )

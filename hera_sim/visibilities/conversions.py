@@ -141,7 +141,8 @@ class AzZaTransforms:
     """
 
 
-    def __init__(self, obstimes=None, ra=None, dec=None, use_central_time_values=False, astropy=False):
+    def __init__(self, obstimes=None, ra=None, dec=None, use_central_time_values=False, 
+            uvbeam_az_correction=False, astropy=False):
         """
         Initialize the object, precomputing values for later use.
 
@@ -156,6 +157,9 @@ class AzZaTransforms:
             This speeds computation. These values must not change significantly
             over the time range. The values are: CIRS ra/dec, polar motion, and
             delta ut1 -> utc. Cannot be True if astropy=True.
+        uvbeam_az_correction: bool
+            If True, apply the correction to the azimuth that pyuvsim applies to
+            satisfy the UVBeam convention. Done by altaz_to_zenithangle_azimuth().
         astropy: bool
             If True, call astropy to do the calculations. If False, use code in this object
             that has been extracted from astropy, and stripped of the astropy type system,
@@ -166,6 +170,7 @@ class AzZaTransforms:
         
         self.obstimes = obstimes
         self.use_central_time_values = use_central_time_values
+        self.uvbeam_az_correction = uvbeam_az_correction
         if not astropy:
             from astropy import _erfa as erfa
             self.erfa = erfa    
@@ -231,7 +236,8 @@ class AzZaTransforms:
 
             self.crd_top = self.calc_crd_top(self.az, self.za)
             # pyuvsim does a UVBeam correction for az, za used for beam interpolation only
-            self.za, self.az = self.altaz_to_zenithangle_azimuth(np.pi/2-self.za, self.az)
+            if self.uvbeam_az_correction: 
+                self.za, self.az = self.altaz_to_zenithangle_azimuth(np.pi/2-self.za, self.az) # alt, az
             self.precomputed = True
 
 
@@ -289,7 +295,8 @@ class AzZaTransforms:
                         polar_x, polar_y, dut1utc)
 
         crd_top = self.calc_crd_top(az, za)
-        za, az = self.altaz_to_zenithangle_azimuth(np.pi/2-za, az)
+        if self.uvbeam_az_correction:
+            za, az = self.altaz_to_zenithangle_azimuth(np.pi/2-za, az)  # alt, az
         return az, za, crd_top
 
 
@@ -708,8 +715,6 @@ class AzZaTransforms:
         Extracted from update_positions() in pyradiosky/skymodel.py.
         Some astropy types need to be setup, then use SkyCoord.
         Does the work necessary to call astropy to convert ra/dec to az/za (AltAz).
-        Also converts to UVBeam convention which is altaz_to_zenithangle_azimuth()
-        from pyuvsim.
         """
        
         tloc = [5109342.82705015, 2005241.839292723, -3239939.404619622]  # HERA
