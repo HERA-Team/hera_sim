@@ -1,5 +1,3 @@
-# let's figure out some tests
-
 import numpy as np
 import pytest
 
