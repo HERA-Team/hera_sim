@@ -443,7 +443,6 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube=None, beam_list=None,
     else:
         assert len(beam_list) == nant, "beam_list must have length nant"
 
-    I_sky /= 2      # To match pyuvsim, it splits the flux between XX, YY
     # Intensity distribution (sqrt) and antenna positions. Does not support
     # negative sky.
     Isqrt = np.sqrt(I_sky).astype(real_dtype)
