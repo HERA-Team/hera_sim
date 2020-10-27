@@ -92,9 +92,10 @@ class VisCPU(VisibilitySimulator):
                         obstimes=self.jd_times,
                         ra=self.point_source_pos[:, 0],
                         dec=self.point_source_pos[:, 1],
-                        use_central_time_values=("minimal" in az_za_corrections),
+                        precompute=("precompute" in az_za_corrections),
+                        use_central_time_values=("level_0" in az_za_corrections),
                         uvbeam_az_correction=("uvbeam_az" in az_za_corrections),
-                        astropy=("astropy" in az_za_corrections)
+                        astropy=("level_2" in az_za_corrections)
                         )
             
         else: 
@@ -137,8 +138,8 @@ class VisCPU(VisibilitySimulator):
         if self.az_za_corrections:
             if isinstance(self.az_za_corrections, str):
                 self.az_za_corrections = [ self.az_za_corrections ]
-            allowed = [ "minimal", "maximal", "astropy" ]
-            extra = [ "uvbeam_az" ]
+            allowed = [ "level_0", "level_1", "level_2" ]
+            extra = [ "uvbeam_az", "precompute" ]
             for azt in self.az_za_corrections:
                 if azt not in allowed+extra:
                     raise ValueError("Invalid az_za_correction option: \""+str(azt)+"\"")
@@ -148,6 +149,8 @@ class VisCPU(VisibilitySimulator):
                 if a in self.az_za_corrections: num += 1
             if num > 1:
                 raise RuntimeError("Only one of "+str(allowed)+" can be specified in az_za_corrections")
+            elif num == 0:
+                raise RuntimeError("One of "+str(allowed)+" must be specified in az_za_corrections")
 
 
     def get_beam_lm(self):

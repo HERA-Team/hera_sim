@@ -130,19 +130,19 @@ def lm_to_az_za(l, m):
 import time
 class AzZaTransforms:
     """
-    A class for converting source ra/dec to az/za/lmn based on the 
+    A class for converting source ra/dec to az/za/lmn based on 
     multiple observing times (Julian dates), using the same operations and code 
     that pyuvsim/astropy uses.  Once initialized, the main entry point 
     is the transform() method.
 
-    An attempt is made to calculate all values on initialization. If 
-    this fails (likely due to insufficient memory), values will be
-    computed when they are needed.
+    An attempt is made to calculate all values on initialization if
+    precomput=True. If this fails (likely due to insufficient memory), 
+    values will be computed when they are needed.
     """
 
 
     def __init__(self, obstimes=None, ra=None, dec=None, use_central_time_values=False, 
-            uvbeam_az_correction=False, astropy=False):
+            precompute=True, uvbeam_az_correction=False, astropy=False):
         """
         Initialize the object, precomputing values for later use.
 
@@ -154,9 +154,15 @@ class AzZaTransforms:
             Source ra/dec from catalogue, in radians.
         use_central_time_values : bool
             If True, calculate some internal values based on the central (mid) observing time. 
-            This speeds computation. These values must not change significantly
-            over the time range. The values are: CIRS ra/dec, polar motion, and
+            This speeds computation. Assumes that these values do not change significantly
+            over the time range (user beware). The values are: CIRS ra/dec, polar motion, and
             delta ut1 -> utc. Cannot be True if astropy=True.
+        precompute: bool
+            Attempt to compute all the angles for all the times, on initialization.
+            This will fail if it takes a lot of memory, in which case execution will
+            proceed without precomputation. The advantage is that the values
+            are not recomputed for every frequency i.e. in the hera_sim frequency
+            loop.
         uvbeam_az_correction: bool
             If True, apply the correction to the azimuth that pyuvsim applies to
             satisfy the UVBeam convention. Done by altaz_to_zenithangle_azimuth().
@@ -168,6 +174,7 @@ class AzZaTransforms:
             Cannot be True if use_central_time_values=True.
         """
         
+        print("Initializing AzZaTransforms for az_za_corrections")
         self.obstimes = obstimes
         self.use_central_time_values = use_central_time_values
         self.uvbeam_az_correction = uvbeam_az_correction
@@ -196,64 +203,68 @@ class AzZaTransforms:
             self.iers_info = None
             self.astropy = True
         
-        # Precompute
-        # Some functions cannot be vectorized, hence the loops
-        print("Pre-computing az/za for all times.")
-        start = time.time()
-        try:
-            if astropy:
-                self.az = np.zeros((len(obstimes), len(ra)))
-                self.za = np.zeros((len(obstimes), len(ra)))
-                for i in range(len(obstimes)):
-                    self.az[i], self.za[i] = self.call_astropy(ra, dec, obstimes[i])
-                
-            elif use_central_time_values:
-                polar_x, polar_y = self.get_polar_motion(obstimes[len(obstimes)//2])
-                dut1utc = self.get_dut1utc(obstimes[len(obstimes)//2])
+        self.precomputed = False
+        
+        if precompute:         
+            # Some functions cannot be vectorized, hence the loops.
+            # TODO: See if can vectorize them by flattening the arrays.
+            print("Pre-computing az/za for all times.")
+            start = time.time()
+            try:
+                if astropy:
+                    self.az = np.zeros((len(obstimes), len(ra)))
+                    self.za = np.zeros((len(obstimes), len(ra)))
+                    for i in range(len(obstimes)):
+                        self.az[i], self.za[i] = self.call_astropy(ra, dec, obstimes[i])
+                    
+                elif use_central_time_values:
+                    polar_x, polar_y = self.get_polar_motion(obstimes[len(obstimes)//2])
+                    dut1utc = self.get_dut1utc(obstimes[len(obstimes)//2])
+        
+                    cirs_ra, cirs_dec = self.icrs_to_cirs(ra, dec, obstimes[len(obstimes)//2])
+                    self.az, self.za = \
+                        self.cirs_to_az_za(cirs_ra, cirs_dec, obstimes[len(obstimes)//2],
+                                    polar_x, polar_y, dut1utc)
+                    self.az = np.zeros((len(obstimes), len(ra)))
+                    self.za = np.zeros((len(obstimes), len(ra)))
+                    for i in range(len(obstimes)):      # az, za must use the correct time, so obstimes[i]
+                        self.az[i], self.za[i] = \
+                            self.cirs_to_az_za(cirs_ra, cirs_dec, obstimes[i], polar_x, polar_y, dut1utc)
+        
+                else:
+                    cirs_ra = np.zeros((len(obstimes), len(ra)))
+                    cirs_dec = np.zeros((len(obstimes), len(ra)))
+                    # Might be able to vectorize this if flattened
+                    for i in range(len(obstimes)):
+                        cirs_ra[i], cirs_dec[i] = self.icrs_to_cirs(ra, dec, obstimes[i])
+                    polar_x, polar_y = self.get_polar_motion(obstimes)
+                    dut1utc = self.get_dut1utc(obstimes)
+                    self.az = np.zeros((len(obstimes), len(ra)))
+                    self.za = np.zeros((len(obstimes), len(ra)))
+                    for i in range(len(obstimes)):
+                        self.az[i], self.za[i] = \
+                            self.cirs_to_az_za(cirs_ra[i], cirs_dec[i], obstimes[i], polar_x[i], polar_y[i], dut1utc[i])
     
-                cirs_ra, cirs_dec = self.icrs_to_cirs(ra, dec, obstimes[len(obstimes)//2])
-                self.az, self.za = \
-                    self.cirs_to_az_za(cirs_ra, cirs_dec, obstimes[len(obstimes)//2],
-                                polar_x, polar_y, dut1utc)
-                self.az = np.zeros((len(obstimes), len(ra)))
-                self.za = np.zeros((len(obstimes), len(ra)))
-                for i in range(len(obstimes)):      # az, za must use the correct time, so obstimes[i]
-                    self.az[i], self.za[i] = \
-                        self.cirs_to_az_za(cirs_ra, cirs_dec, obstimes[i], polar_x, polar_y, dut1utc)
+                self.crd_top = self.calc_crd_top(self.az, self.za)
+                # pyuvsim does a UVBeam correction for az, za used for beam interpolation only
+                if self.uvbeam_az_correction: 
+                    self.za, self.az = self.altaz_to_zenithangle_azimuth(np.pi/2-self.za, self.az) # alt, az
+                self.precomputed = True
     
-            else:
-                cirs_ra = np.zeros((len(obstimes), len(ra)))
-                cirs_dec = np.zeros((len(obstimes), len(ra)))
-                for i in range(len(obstimes)):
-                    cirs_ra[i], cirs_dec[i] = self.icrs_to_cirs(ra, dec, obstimes[i])
-                polar_x, polar_y = self.get_polar_motion(obstimes)
-                dut1utc = self.get_dut1utc(obstimes)
-                self.az = np.zeros((len(obstimes), len(ra)))
-                self.za = np.zeros((len(obstimes), len(ra)))
-                for i in range(len(obstimes)):
-                    self.az[i], self.za[i] = \
-                        self.cirs_to_az_za(cirs_ra[i], cirs_dec[i], obstimes[i], polar_x[i], polar_y[i], dut1utc[i])
+            except:
+                self.precomputed = False
+                print("<<< AzZaTransforms precomputation failed. >>>")
+                print("<<< Try increasing memory. Execution will be slow. >>>")
 
-            self.crd_top = self.calc_crd_top(self.az, self.za)
-            # pyuvsim does a UVBeam correction for az, za used for beam interpolation only
-            if self.uvbeam_az_correction: 
-                self.za, self.az = self.altaz_to_zenithangle_azimuth(np.pi/2-self.za, self.az) # alt, az
-            self.precomputed = True
+            if self.precomputed:
+                end = time.time()
+                print("Finished pre-computing. Execution time: "+'{:.6f}'.format(end-start))
 
-
-        except:
-            self.precomputed = False
-            print("<<< AzZaTransforms precomputation failed. >>>")
-            print("<<< Try increasing memory. Execution will be slow. >>>")
-            if not astropy:
-                # Save these for later use in transform()
-                self.polar_x_centre, self.polar_y_centre = self.get_polar_motion(obstimes[len(obstimes)//2])
-                self.dut1utc_centre = self.get_dut1utc(obstimes[len(obstimes)//2])
-                self.cirs_ra_centre, self.cirs_dec_centre = self.icrs_to_cirs(ra, dec, obstimes[len(obstimes)//2])
-
-        if self.precomputed:
-            end = time.time()
-            print("Finished precomputing. Execution time: "+'{:.6f}'.format(end-start))
+        if use_central_time_values and not self.precomputed:
+            # Save these for later use in transform()
+            self.polar_x_centre, self.polar_y_centre = self.get_polar_motion(obstimes[len(obstimes)//2])
+            self.dut1utc_centre = self.get_dut1utc(obstimes[len(obstimes)//2])
+            self.cirs_ra_centre, self.cirs_dec_centre = self.icrs_to_cirs(ra, dec, obstimes[len(obstimes)//2])
 
     def transform(self, ra, dec, obstime_index):
         """
