@@ -220,7 +220,15 @@ class PerturbedPolyBeam(PolyBeam):
         # FIXME: This should include a frequency scaling of the zenith angle
         
         # Get positional arguments
-        az_array, za_array, freq_array, = (arg for arg in args)
+        try:
+            az_array, za_array, freq_array, = (arg for arg in args)
+        except:
+            # This is for pyuvsim
+            az_array, za_array, freq_array = kwargs["az_array"], kwargs["za_array"], kwargs["freq_array"]
+            args = ( az_array, za_array, freq_array )
+            del kwargs["az_array"]
+            del kwargs["za_array"]
+            del kwargs["freq_array"]
         
         # Apply shearing, stretching, or rotation
         if self.xstretch != 1. or self.ystretch != 1.:
