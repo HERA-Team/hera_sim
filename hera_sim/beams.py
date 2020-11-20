@@ -31,8 +31,13 @@ class PolyBeam(AnalyticBeam):
         self.freq_interp_kind = None
         self.beam_type = 'efield'
         self.beam_coeffs = beam_coeffs
-    
-    
+
+    def serialize(self, **kwargs):
+        setup_dict = dict(beam_coeffs = self.beam_coeffs,
+                          spectral_index = self.spectral_index,
+                          ref_freq = self.ref_freq)
+        return setup_dict
+        
     def peak_normalize(self):
         # Not required
         pass
@@ -214,6 +219,22 @@ class PerturbedPolyBeam(PolyBeam):
         if perturb_scale >= 1.:
             raise ValueError("'perturb_scale' must be less than 1; otherwise "
                              "the beam can go negative.")
+
+    def serialize(self, **kwargs):
+        setup_dict = dict(beam_coeffs = self.beam_coeffs,
+                          spectral_index = self.spectral_index,
+                          ref_freq = self.ref_freq, 
+                          perturb_coeffs = self.perturb_coeffs,
+                          perturb_scale = self.perturb_scale,
+                          mainlobe_width = self.mainlobe_width,
+                          mainlobe_scale = self.mainlobe_scale,
+                          transition_width = self.transition_width,
+                          xstretch = self.xstretch,
+                          ystretch = self.ystretch,
+                          rotation = self.rotation)
+        return setup_dict
+
+    
         
     
     def interp(self, *args, **kwargs):
