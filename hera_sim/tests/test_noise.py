@@ -1,6 +1,4 @@
-import os
 import pytest
-import unittest
 
 import numpy as np
 from astropy import units
