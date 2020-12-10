@@ -285,14 +285,23 @@ class DTV(RFI):
             )
 
         # define an iterator, just to keep things neat
+        df = np.mean(np.diff(freqs))
         dtv_iterator = zip(bands, dtv_chance, dtv_strength, dtv_std)
 
         # loop over the DTV bands, generating rfi where appropriate
         for band, chance, strength, std in dtv_iterator:
             # get the channels affected
-            ch1 = np.argwhere(band <= freqs)[0][0]
+            if any(np.isclose(band, freqs, 0.01 * df)):
+                ch1 = np.argwhere(np.isclose(band, freqs)).flatten()[0]
+            else:
+                ch1 = np.argwhere(band <= freqs).flatten()[0]
             try:
-                ch2 = np.argwhere(band + width <= freqs)[0][0]
+                if any(np.isclose(band + width, freqs, 0.01 * df)):
+                    ch2 = np.argwhere(np.isclose(band + width, freqs)).flatten()[0]
+                else:
+                    ch2 = np.argwhere(band + width <= freqs).flatten()[0]
+                if ch2 == freqs.size - 1:
+                    raise IndexError
             except IndexError:
                 # in case the upper edge of the DTV band is outside
                 # the range of observed frequencies
@@ -304,11 +313,11 @@ class DTV(RFI):
             # find out which times are affected
             rfis = np.random.uniform(size=lsts.size) <= chance
 
-            # calculate the signal... whomever did this first, tsk tsk...
+            # calculate the signal
             signal = np.atleast_2d(
                 np.random.normal(strength, std, size=rfis.sum())
                 * np.exp(2j * np.pi * np.random.uniform(size=rfis.sum()))
-            ).T  # don't ask me why we're taking the transpose...
+            ).T
 
             # add the signal to the rfi array
             this_rfi[rfis] += signal
