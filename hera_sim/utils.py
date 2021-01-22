@@ -21,7 +21,7 @@ def _get_bl_len_vec(bl_len_ns):
     """
     if np.isscalar(bl_len_ns):
         return np.array([bl_len_ns, 0, 0])
-    elif len(bl_len_ns) < 3:
+    elif len(bl_len_ns) <= 3:
         # make a length-3 array
         return np.pad(bl_len_ns, pad_width=3 - len(bl_len_ns), mode="constant")[-3:]
 
