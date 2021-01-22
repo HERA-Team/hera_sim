@@ -8,9 +8,13 @@ class PolyBeam(AnalyticBeam):
     
     def __init__(self, beam_coeffs=[], spectral_index=0.0, ref_freq=1e8, **kwargs):
         """
-        Analytic, azimuthally-symmetric beam model based on Chebyshev 
-        polynomials. Defines an object with similar functionality to 
-        pyuvdata.UVBeam.
+        Analytic, azimuthally-symmetric beam model based on Chebyshev polynomials.
+
+        The frequency-dependence of the beam is implemented by scaling source zenith 
+        angles when the beam is interpolated, using a power law.
+
+        See HERA memo 
+        http://reionization.org/wp-content/uploads/2013/03/Power_Spectrum_Normalizations_for_HERA.pdf.
 
         Parameters
         ----------
@@ -69,6 +73,7 @@ class PolyBeam(AnalyticBeam):
             if az/za_arrays are not passed), shape: (Naxes_vec, Ncomponents_vec,
             Npixels/(Naxis1, Naxis2) or az_array.size if az/za_arrays are passed)
         """
+
         # Empty data array
         interp_data = np.zeros((2, 1, 2, freq_array.size, az_array.size),
                                dtype=np.float)
@@ -89,7 +94,6 @@ class PolyBeam(AnalyticBeam):
         interp_data[0, 0, 1, :, :] = values
         interp_basis_vector = None
     
-        #FIXME: Check if power beam is being handled correctly
         if self.beam_type == 'power':
             # Cross-multiplying feeds, adding vector components
             pairs = [(i, j) for i in range(2) for j in range(2)]
@@ -111,17 +115,6 @@ class PolyBeam(AnalyticBeam):
         else:
             return False
 
-    def beam_val(self, az_arr, za_arr, freqs, pol="XX"):
-        """
-        The entry point for healvis beam interpolation. Passes az_arr, za_arr, freqs,
-        to interp and returns the visibilities in the right shape.
-        """
-        if pol != "XX":
-            raise RuntimeError("Polybeam only does pol XX, not "+pol+". Called from healvis.")
-        interp_data, interp_basis_vector = self.interp(az_arr, za_arr, freqs)
-        return interp_data[0, 0, 1].T   # just want Npix, Nfreq
-
-
 
 class PerturbedPolyBeam(PolyBeam):
     
@@ -130,12 +123,10 @@ class PerturbedPolyBeam(PolyBeam):
                  xstretch=1., ystretch=1., rotation=0.,
                  **kwargs):
         """
-        Analytic, azimuthally-symmetric beam model based on Chebyshev 
-        polynomials, with perturbations added to the mainlobe and/or sidelobes.
-        Defines an object with similar functionality to pyuvdata.UVBeam.
-        
-        The perturbations are implemented in two different ways, depending on 
-        whether the main lobe or sidelobes are being perturbed.
+        A PolyBeam in which the shape of the beam has been modified.
+
+        The perturbations can be applied to the mainlobe, sidelobes, or
+        the entire beam.
         
         Mainlobe: A Gaussian of width FWHM is subtracted and then a new 
         Gaussian with width `mainlobe_width` is added back in. This perturbs 
@@ -143,7 +134,9 @@ class PerturbedPolyBeam(PolyBeam):
         unchanged.
         
         Sidelobes: The baseline primary beam model, PB, is moduled by a (sine)
-        Fourier series at angles above some only 
+        Fourier series at angles beyond some zenith angle.
+        
+        Entire beam: may be sheared, stretched, and rotated.
         
         Parameters
         ----------
@@ -191,7 +184,7 @@ class PerturbedPolyBeam(PolyBeam):
             Default: None.
         """
         # Initialize base class
-        super(PerturbedPolyBeam, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         
         # Check for valid input parameters
         if mainlobe_width is None:
@@ -216,11 +209,11 @@ class PerturbedPolyBeam(PolyBeam):
                              "the beam can go negative.")
         
     
-    def interp(self, *args, **kwargs):
-        # FIXME: This should include a frequency scaling of the zenith angle
-        
-        # Get positional arguments
-        az_array, za_array, freq_array, = (arg for arg in args)
+    def interp(self, az_array, za_array, freq_array, reuse_spline=None):
+        """
+        Evaluate the primary beam, after applying, shearing, stretching, or rotation.
+        """
+
         
         # Apply shearing, stretching, or rotation
         if self.xstretch != 1. or self.ystretch != 1.:
@@ -229,38 +222,37 @@ class PerturbedPolyBeam(PolyBeam):
             # Notation: phi = az, theta = za. Subscript 's' are transformed coords
             a = self.rotation * np.pi / 180.
             X = za_array * np.cos(az_array)
-            Y = za_array * np.sin(az_array)
+            Y = za_array * np.sin(az_array)     
             Xs = (X * np.cos(a) - Y * np.sin(a)) / self.xstretch
             Ys = (X * np.sin(a) + Y * np.cos(a)) / self.ystretch
-            
+      
             # Updated polar coordinates
-            theta_s = np.sqrt(Xs**2. + Ys**2.)
+            theta_s = np.sqrt(Xs**2. + Ys**2.) 
             phi_s = np.arccos(Xs / theta_s)
             phi_s[Ys < 0.] *= -1.
-            
+     
             # Fix coordinates below the horizon of the unstretched beam
             theta_s[np.where(theta_s < 0.)] = 0.5 * np.pi
             theta_s[np.where(theta_s >= np.pi/2.)] = 0.5 * np.pi
             
             # Update za_array and az_array
-            args = (phi_s, theta_s, freq_array)
             az_array, za_array = phi_s, theta_s
-        
+    
         # Call interp() method on parent class
-        interp_fn = super(PerturbedPolyBeam, self).interp
-        interp_data, interp_basis_vector = interp_fn(*args, **kwargs)
+        interp_data, interp_basis_vector = super().interp(az_array, za_array, 
+                                                        freq_array, reuse_spline)
         
         # Smooth step function
         step = 0.5 * (1. + np.tanh((za_array - self.mainlobe_width)
                                    / self.transition_width))
         
         # Add sidelobe perturbations
-        if self.nmodes != 0:
+        if self.nmodes > 0:
             # Build Fourier series
             p = 0
             f_fac = 2.*np.pi / (np.pi/2.) #  Fourier series with period pi/2
             for n in range(self.nmodes):
-                p += self.perturb_coeffs[n] * np.sin(f_fac * n * za_array)
+                p += self.perturb_coeffs[n] * np.sin(f_fac * n * za_array)          
             p /= (np.max(p) - np.min(p)) / 2.
             
             # Modulate primary beam by perturbation function
@@ -276,14 +268,3 @@ class PerturbedPolyBeam(PolyBeam):
         
         return interp_data, interp_basis_vector
         
-    def beam_val(self, az_arr, za_arr, freqs, pol="XX"):
-        """
-        The entry point for healvis beam interpolation. Passes az_arr, za_arr, freqs,
-        to interp and returns the visibilities in the right shape.
-        """
-        if pol != "XX":
-            raise RuntimeError("Polybeam only does pol XX, not "+pol+". Called from healvis.")
-        interp_data, interp_basis_vector = self.interp(az_arr, za_arr, freqs)
-        return interp_data[0, 0, 1].T   # just want Npix, Nfreq
-
-

@@ -52,13 +52,15 @@ class VisCPU(VisibilitySimulator):
             self._real_dtype = np.float64
             self._complex_dtype = np.complex128
 
+        if use_gpu and mpi_comm is not None and mpi_comm.Get_size() > 1:
+              raise RuntimeError("Can't use multiple MPI processes with GPU (yet)")
+
         if use_gpu:
-            if use_pixel_beams:
-                raise RuntimeError("GPU cannot be used with pixel beams") 
+            if not use_pixel_beams:
+                raise RuntimeError("GPU can only be used with pixel beams (use_pixel_beams=True)") 
             try:
                 from hera_gpu.vis import vis_gpu
                 self._vis_cpu = vis_gpu
-                print("Using GPU")
             except ImportError:
                 raise ImportError(
                     'GPU acceleration requires hera_gpu (`pip install hera_sim[gpu]`).'
@@ -195,8 +197,6 @@ class VisCPU(VisibilitySimulator):
         if self.mpi_comm is not None:
             myid = self.mpi_comm.Get_rank()
             nproc = self.mpi_comm.Get_size()
-            if self.use_gpu and nproc > 1:
-              raise RuntimeError("Can't use multiple MPI processes with GPU (yet)")
         
         # Convert equatorial to topocentric coords
         eq2tops = self.get_eq2tops()
@@ -207,25 +207,6 @@ class VisCPU(VisibilitySimulator):
         else:
             beam_list = [self.beams[self.beam_ids[i]] for i in range(self.n_ant)]
             
-        if self.use_gpu:
-            if self.use_pixel_beams:
-               raise RuntimeError("GPU cannot be used with pixel beams")
-
-            # vis_gpu does the whole thing inside itself.
-            # Does not need the surrounding frequency loop.
-            # It will stop here and return the vis.
-
-            return self._vis_cpu(    
-                       antpos=self.antpos,
-                       frequencies=self.freqs,
-                       eq2tops=eq2tops,
-                       crd_eq=crd_eq,
-                       I_skies=I,
-                       beam_list=beam_list,
-                       vis_spec=(self.uvdata.data_array.shape, self._complex_dtype),
-                       precision=self._precision
-                   )
-
         visfull = np.zeros_like(self.uvdata.data_array,
                                 dtype=self._complex_dtype)
         
@@ -237,7 +218,7 @@ class VisCPU(VisibilitySimulator):
             
             if self.use_pixel_beams:
                 # Use pixelized primary beams
-                vis = vis_cpu(
+                vis = self._vis_cpu(
                     antpos=self.antpos,
                     freq=freq,
                     eq2tops=eq2tops,
@@ -248,7 +229,7 @@ class VisCPU(VisibilitySimulator):
                 )
             else:
                 # Use UVBeam objects directly
-                vis = vis_cpu(
+                vis = self._vis_cpu(
                     antpos=self.antpos,
                     freq=freq,
                     eq2tops=eq2tops,
@@ -373,6 +354,11 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube=None, beam_list=None,
         real_dtype=np.float64
         complex_dtype=np.complex128
     
+    if bm_cube is None and beam_list is None:
+        raise RuntimeError("One of bm_cube/beam_list must be specified")
+    if bm_cube is not None and beam_list is not None:
+        raise RuntimeError("Cannot specify both bm_cube and beam_list")
+
     nant, ncrd = antpos.shape
     assert ncrd == 3, "antpos must have shape (NANTS, 3)."
     ntimes, ncrd1, ncrd2 = eq2tops.shape
@@ -416,7 +402,7 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube=None, beam_list=None,
             # Linear interpolation of primary beam pattern.
             spl = RectBivariateSpline(bm_pix_y, bm_pix_x, bm_cube[i], kx=1, ky=1)
             splines.append(spl)
-    
+            
     # Loop over time samples
     for t, eq2top in enumerate(eq2tops.astype(real_dtype)):
         tx, ty, tz = crd_top = np.dot(eq2top, crd_eq)
@@ -426,14 +412,14 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube=None, beam_list=None,
             # Primary beam pattern using pixelized primary beam
             for i in range(nant):
                 A_s[i] = splines[i](ty, tx, grid=False)
-                # FIXME: Try using a log-space beam for accuracy!
+                # TODO: Try using a log-space beam for accuracy!
         else:
             # Primary beam pattern using direct interpolation of UVBeam object
-            az, za = conversions.lm_to_az_za(ty, tx) # FIXME: Order of tx, ty
+            az, za = conversions.lm_to_az_za(tx, ty)       
             for i in range(nant):
                 interp_beam = beam_list[i].interp(az, za, np.atleast_1d(freq))[0]
                 A_s[i] = interp_beam[0,0,1] # FIXME: assumes xx pol for now
-
+        
         A_s = np.where(tz > 0, A_s, 0)
 
         # Calculate delays, where tau = (b * s) / c
