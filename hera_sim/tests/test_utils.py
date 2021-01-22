@@ -1,65 +1,158 @@
-from __future__ import print_function
+import os
+import numpy as np
+import pytest
+from astropy import units
 import unittest
 from hera_sim import utils
 from hera_sim import DATA_PATH
-import numpy as np
+from hera_sim.interpolators import Beam
 import nose.tools as nt
-import os
 
-np.random.seed(0)
+
+@pytest.fixture(scope="function")
+def lsts():
+    return np.linspace(0, 2 * np.pi, 200)
+
+
+@pytest.fixture(scope="function")
+def fringe_rates(lsts):
+    dlst = np.mean(np.diff(lsts))
+    dlst_sec = dlst * units.rad.to("cycle") * units.day.to("s")
+    return np.fft.fftfreq(lsts.size, dlst_sec)
+
+
+@pytest.fixture(scope="function")
+def freqs():
+    return np.linspace(0.1, 0.2, 100)
+
+
+@pytest.fixture(scope="function")
+def delays(freqs):
+    df = np.mean(np.diff(freqs))
+    return np.fft.fftfreq(freqs.size, df)
+
+
+@pytest.mark.parametrize("bl_len_ns", [50, 100])
+@pytest.mark.parametrize("standoff", [0, 20])
+def test_gen_delay_filter_tophat(freqs, delays, bl_len_ns, standoff):
+    delay_filter = utils.gen_delay_filter(
+        freqs, bl_len_ns, standoff=standoff, filter_type="tophat"
+    )
+    expected_filter = np.ones_like(delays)
+    expected_filter[np.abs(delays) > bl_len_ns + standoff] = 0
+    assert np.allclose(delay_filter, expected_filter, atol=1e-7)
+
+
+@pytest.mark.parametrize("filter_type", [None, "none", "None"])
+def test_gen_delay_filter_none(freqs, delays, filter_type):
+    delay_filter = utils.gen_delay_filter(freqs, 120, filter_type=filter_type)
+    assert np.all(delay_filter == 1)
+
+
+@pytest.mark.parametrize("filter_type", [None, "tophat", "gauss", "trunc_gauss"])
+@pytest.mark.parametrize("min_delay", [None, 50])
+@pytest.mark.parametrize("max_delay", [None, 250])
+def test_gen_delay_filter_bounded_delays(
+    freqs, delays, min_delay, max_delay, filter_type
+):
+    delay_filter = utils.gen_delay_filter(
+        freqs, 100, min_delay=min_delay, max_delay=max_delay, filter_type=filter_type,
+    )
+    min_delay = min_delay or 0
+    max_delay = max_delay or np.inf
+    region_of_interest = (np.abs(delays) >= min_delay) & (np.abs(delays) <= max_delay)
+    assert np.all(delay_filter[~region_of_interest] == 0)
+
+
+@pytest.mark.parametrize("normalize", [np.pi, 293])
+def test_gen_delay_filter_normalize(freqs, normalize):
+    delay_filter = utils.gen_delay_filter(
+        freqs, 100, filter_type=None, normalize=normalize
+    )
+    assert np.allclose(delay_filter, normalize, atol=1e-7)
+
+
+@pytest.mark.parametrize("bl_len_ns", [50, 100])
+@pytest.mark.parametrize("standoff", [0, 20])
+@pytest.mark.parametrize("filter_type", ["gauss", "trunc_gauss"])
+def test_gen_delay_filter_gauss(freqs, delays, bl_len_ns, standoff, filter_type):
+    delay_filter = utils.gen_delay_filter(
+        freqs, bl_len_ns, standoff=standoff, filter_type=filter_type
+    )
+    one_sigma = (bl_len_ns + standoff) / 4
+    expected_filter = np.exp(-0.5 * (delays / one_sigma) ** 2)
+    if filter_type == "trunc_gauss":
+        expected_filter[np.abs(delays) > bl_len_ns + standoff] = 0
+    assert np.allclose(delay_filter, expected_filter, atol=1e-7)
+
+
+@pytest.mark.parametrize("bl_len_ns", [[10, 0], [10, 0, 0]])
+def test_gen_delay_filter_vector_bl_len_ns(freqs, delays, bl_len_ns):
+    delay_filter = utils.gen_delay_filter(
+        freqs, np.array(bl_len_ns), standoff=0, filter_type="tophat"
+    )
+    expected_filter = np.ones_like(delays)
+    expected_filter[np.abs(delays) > np.linalg.norm(bl_len_ns)] = 0
+    assert np.all(delay_filter == expected_filter)
+
+
+def test_gen_delay_filter_bad_filter_type(freqs):
+    with pytest.raises(ValueError) as err:
+        _ = utils.gen_delay_filter(freqs, 0, filter_type="bad filter")
+    assert err.value.args[0] == "Didn't recognize filter_type bad filter"
+
+
+def test_rough_delay_filter_noisy_data(freqs, lsts):
+    Nrealizations = 1000
+    mean_values = np.zeros((Nrealizations, 2))
+    for i in range(Nrealizations):
+        data = utils.gen_white_noise((lsts.size, freqs.size))
+        filtered_data = utils.rough_delay_filter(
+            data, freqs, bl_len_ns=50, standoff=0, delay_filter_type="gauss"
+        )
+        filtered_data_mean = np.mean(filtered_data)
+        mean_values[i] = filtered_data_mean.real, filtered_data_mean.imag
+    one_sigma = 1 / np.sqrt(freqs.size * lsts.size)
+    # White noise is, on average, still white noise after a Gaussian filter.
+    assert np.isclose(
+        np.sum(np.abs(mean_values) < 3 * one_sigma) / mean_values.size,
+        1,
+        atol=0.01,
+        rtol=0,
+    )
+
+
+# TODO: figure out why this test passes--it should just be a little math.
+def test_delay_filter_norm(freqs):
+    tsky = np.ones(freqs.size)
+
+    np.random.seed(1234)  # set the seed for reproducibility.
+
+    out = 0
+    nreal = 5000
+    for i in range(nreal):
+        _noise = tsky * utils.gen_white_noise(freqs.size)
+        outnoise = utils.rough_delay_filter(_noise, freqs, 30, normalize=1)
+
+        out += np.sum(np.abs(outnoise) ** 2)
+
+    out /= nreal
+
+    assert np.isclose(out, np.sum(tsky ** 2), atol=0, rtol=1e-2)
+
+
+@pytest.mark.parametrize("bl_len_ns", [50, 150])
+def test_fringe_filter_tophat(freqs, lsts, bl_len_ns):
+    pass
+
+
+def test_fringe_filter_bad_type(freqs, lsts):
+    with pytest.raises(ValueError) as err:
+        _ = utils.gen_fringe_filter(lsts, freqs, 35, filter_type="bad type")
+    assert err.value.args[0] == "filter_type bad type not recognized"
 
 
 class TestUtils(unittest.TestCase):
-    def test_gen_delay_filter(self):
-        np.random.seed(0)
-        fqs = np.linspace(0.1, 0.2, 100, endpoint=False)
-        bl_len_ns = 50.0
-        standoff = 0.0
-
-        df = utils.gen_delay_filter(
-            fqs, bl_len_ns, standoff=standoff, filter_type="tophat"
-        )
-        nt.assert_almost_equal(np.sum(df), 11)
-
-        df = utils.gen_delay_filter(
-            fqs, bl_len_ns, standoff=standoff, filter_type="gauss"
-        )
-        nt.assert_almost_equal(np.sum(df), 3.133285343289006)
-
-        df = utils.gen_delay_filter(
-            fqs, bl_len_ns, standoff=standoff, filter_type="trunc_gauss"
-        )
-        nt.assert_almost_equal(np.sum(df), 3.1332651717678575)
-
-        df = utils.gen_delay_filter(
-            fqs, bl_len_ns, standoff=standoff, filter_type="none"
-        )
-        nt.assert_almost_equal(np.sum(df), 100)
-
-        df = utils.gen_delay_filter(
-            fqs, bl_len_ns, standoff=standoff, filter_type="tophat", min_delay=100.0
-        )
-        nt.assert_almost_equal(np.sum(df), 0)
-
-        df = utils.gen_delay_filter(
-            fqs, bl_len_ns, standoff=standoff, filter_type="tophat", max_delay=50.0
-        )
-        nt.assert_almost_equal(np.sum(df), 11)
-
-    def test_rough_delay_filter(self):
-        np.random.seed(0)
-        lsts = np.linspace(0, 2 * np.pi, 200)
-        fqs = np.linspace(0.1, 0.2, 100, endpoint=False)
-        bl_len_ns = 50.0
-        standoff = 0.0
-
-        data = utils.gen_white_noise((len(lsts), len(fqs)))
-        dfilt = utils.rough_delay_filter(
-            data, fqs, bl_len_ns, standoff=standoff, delay_filter_type="gauss"
-        )
-        dfft = np.mean(np.abs(np.fft.ifft(dfilt, axis=1)), axis=0)
-        nt.assert_true(np.isclose(dfft[20:-20], 0.0).all())
-
     def test_gen_fringe_filter(self):
         np.random.seed(0)
         lsts = np.linspace(0, 2 * np.pi, 200)
@@ -120,44 +213,47 @@ class TestUtils(unittest.TestCase):
         self.assertAlmostEqual(np.std(n3), 1, 2)
 
 
-def test_bl_vec():
-    bl = 1
-
-    assert len(utils._get_bl_len_vec(bl)) == 3
-
-    bl = (0, 1)
-
-    assert len(utils._get_bl_len_vec(bl)) == 3
-
-    bl = [0, 1]
-
-    assert len(utils._get_bl_len_vec(bl)) == 3
-
-    bl = np.array([0, 1, 2])
-
-    assert len(utils._get_bl_len_vec(bl)) == 3
+@pytest.mark.parametrize("baseline", [1, (0, 1), [0, 1], np.array([0, 1, 2])])
+def test_get_bl_len_vec(baseline):
+    assert len(utils._get_bl_len_vec(baseline)) == 3
 
 
-def test_delay_filter_norm():
-    N = 50
-    fqs = np.linspace(0.1, 0.2, N)
+@pytest.mark.parametrize("baseline", [1, [1 / np.sqrt(2),] * 2, [1 / np.sqrt(3),] * 3])
+def test_get_bl_len_magnitude(baseline):
+    assert np.isclose(utils.get_bl_len_magnitude(baseline), 1)
 
-    tsky = np.ones(N)
 
-    np.random.seed(1234)  # set the seed for reproducibility.
 
-    out = 0
-    nreal = 5000
-    for i in range(nreal):
-        _noise = tsky * utils.gen_white_noise(N)
-        outnoise = utils.rough_delay_filter(_noise, fqs, 30, normalize=1)
+@pytest.mark.parametrize("ra", [np.pi / 4, 3 * np.pi / 2])
+def test_compute_ha_bounds(lsts, ra):
+    hour_angles = utils.compute_ha(lsts, ra)
+    assert np.all((hour_angles >= -np.pi) & (hour_angles <= np.pi))
 
-        out += np.sum(np.abs(outnoise) ** 2)
 
-    out /= nreal
+@pytest.mark.parametrize("ra", [np.pi / 2, np.pi])
+def test_compute_ha_accuracy(lsts, ra):
+    hour_angles = utils.compute_ha(lsts, ra)
+    ref_lst = 3 * np.pi / 2
+    ref_ind = np.argmin(np.abs(lsts - ref_lst))
+    dlst = np.mean(np.diff(lsts))
+    assert np.isclose(hour_angles[ref_ind], ref_lst - ra, atol=0.5 * dlst)
 
-    print((out, np.sum(tsky ** 2)))
-    assert np.isclose(out, np.sum(tsky ** 2), atol=0, rtol=1e-2)
+
+@pytest.mark.parametrize("omega_p", ["array", "interp"])
+def test_Jy2T(freqs, omega_p):
+    if omega_p == "array":
+        omega_p = np.ones_like(freqs)
+    else:
+        beamfile = DATA_PATH / "HERA_H1C_BEAM_POLY.npy"
+        omega_p = Beam(beamfile)
+
+    conversion_factors = utils.Jy2T(freqs, omega_p)
+    assert conversion_factors.shape == freqs.shape
+
+
+@pytest.mark.parametrize("obj", [1, (1,2), "abc", np.array([13])])
+def test_listify(obj):
+    assert type(utils._listify(obj)) is list
 
 
 if __name__ == "__main__":
