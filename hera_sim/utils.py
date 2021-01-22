@@ -104,7 +104,7 @@ def gen_delay_filter(
         delay_filter[np.abs(delays) > max_delay] = 0.0
 
     # normalize
-    if normalize is not None:
+    if normalize is not None and np.any(delay_filter):
         norm = normalize / np.sqrt(np.sum(delay_filter ** 2))
         delay_filter *= norm * np.sqrt(len(delay_filter))
 
