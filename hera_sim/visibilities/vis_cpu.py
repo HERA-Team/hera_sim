@@ -72,8 +72,6 @@ class VisCPU(VisibilitySimulator):
         self.bm_pix = bm_pix
         self.use_pixel_beams = use_pixel_beams
         self.mpi_comm = mpi_comm
-        
-        super(VisCPU, self).__init__(**kwargs)
 
         # Convert some arguments to simpler forms for vis_cpu.
         self.freqs = self.uvdata.freq_array[0]
@@ -90,6 +88,8 @@ class VisCPU(VisibilitySimulator):
             idx = np.where(ant == self.uvdata.antenna_numbers)
             self.antpos.append(_antpos[idx].flatten())
         self.antpos = np.array(self.antpos)
+        
+        super(VisCPU, self).__init__(**kwargs)
         
 
     @property
