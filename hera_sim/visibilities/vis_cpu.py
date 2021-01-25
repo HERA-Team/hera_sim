@@ -75,9 +75,22 @@ class VisCPU(VisibilitySimulator):
         
         super(VisCPU, self).__init__(**kwargs)
 
-        # Convert some arguments to forms more simple for vis_cpu.
-        self.antpos = self.uvdata.get_ENU_antpos()[0].astype(self._real_dtype)
+        # Convert some arguments to simpler forms for vis_cpu.
         self.freqs = self.uvdata.freq_array[0]
+        
+        # Get antpos for active antennas only
+        #self.antpos = self.uvdata.get_ENU_antpos()[0].astype(self._real_dtype)
+        self.ant_list = self.uvdata.get_ants() # ordered list of active ants
+        self.antpos = []
+        _antpos = self.uvdata.get_ENU_antpos()[0].astype(self._real_dtype)
+        for ant in self.ant_list:
+            # uvdata.get_ENU_antpos() and uvdata.antenna_numbers have entries 
+            # for all telescope antennas, even ones that aren't included in the 
+            # data_array. This extracts only the data antennas.
+            idx = np.where(ant == self.uvdata.antenna_numbers)
+            self.antpos.append(_antpos[idx].flatten())
+        self.antpos = np.array(self.antpos)
+        
 
     @property
     def lsts(self):
@@ -101,7 +114,7 @@ class VisCPU(VisibilitySimulator):
         super(VisCPU, self).validate()
 
         # This one in particular requires that every baseline is used!
-        N = len(self.uvdata.antenna_numbers)
+        N = len(self.ant_list)
         # N(N-1)/2 unique cross-correlations + N autocorrelations.
         if len(self.uvdata.get_antpairs()) != N * (N + 1) / 2:
             raise ValueError("VisCPU requires using every pair of antennas, "
@@ -111,7 +124,13 @@ class VisCPU(VisibilitySimulator):
                 * len(self.lsts)):
             raise ValueError("VisCPU requires that every baseline uses the "
                              "same LSTS.")
-
+        
+        # Check to make sure enough beams are specified
+        if not self.use_pixel_beams:
+            for ant in self.ant_list:
+                assert len(np.where(self.beam_ids == ant)[0]), \
+                       "No beam found for antenna %d" % ant
+        
     def get_beam_lm(self):
         """
         Obtain the beam pattern in (l,m) co-ordinates for each antenna.
@@ -132,8 +151,8 @@ class VisCPU(VisibilitySimulator):
         """
         return np.asarray([
             conversions.uvbeam_to_lm(
-                self.beams[self.beam_ids[i]], self.freqs, self.bm_pix
-            ) for i in range(self.n_ant)
+                self.beams[np.where(self.beam_ids == ant)], self.freqs, self.bm_pix
+            ) for ant in self.ant_list
         ])
 
     def get_diffuse_crd_eq(self):
@@ -205,7 +224,8 @@ class VisCPU(VisibilitySimulator):
         if self.use_pixel_beams:
             beam_lm = self.get_beam_lm()
         else:
-            beam_list = [self.beams[self.beam_ids[i]] for i in range(self.n_ant)]
+            beam_list = [self.beams[np.where(self.beam_ids == ant)] 
+                         for ant in self.ant_list]
             
         visfull = np.zeros_like(self.uvdata.data_array,
                                 dtype=self._complex_dtype)
