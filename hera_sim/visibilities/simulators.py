@@ -140,10 +140,7 @@ class VisibilitySimulator(object):
 
             self.beams = [ab.AnalyticBeam("uniform")] if beams is None else beams
             if beam_ids is None:
-                if len(self.beams) == 1 :
-                    self.beam_ids = np.zeros(self.n_ant, dtype=np.int)
-                else:
-                    self.beam_ids = np.arange(self.n_ant, dtype=np.int)
+                self.beam_ids = np.arange(self.n_ant, dtype=np.int)
             else:
                 self.beam_ids = beam_ids
 
@@ -174,9 +171,9 @@ class VisibilitySimulator(object):
             raise ValueError("You must pass at least one of sky_intensity or "
                              "point_sources.")
 
-        if np.max(self.beam_ids) >= self.n_beams:
-            raise ValueError("The number of beams provided must be at least "
-                             "as great as the greatest beam_id.")
+        #if np.max(self.beam_ids) >= self.n_beams:
+        #    raise ValueError("The number of beams provided must be at least "
+        #                     "as great as the greatest beam_id.")
 
         if (
             self.point_source_flux is not None
