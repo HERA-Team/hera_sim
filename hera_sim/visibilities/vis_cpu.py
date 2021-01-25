@@ -72,6 +72,8 @@ class VisCPU(VisibilitySimulator):
         self.bm_pix = bm_pix
         self.use_pixel_beams = use_pixel_beams
         self.mpi_comm = mpi_comm
+        
+        super(VisCPU, self).__init__(**kwargs)
 
         # Convert some arguments to simpler forms for vis_cpu.
         self.freqs = self.uvdata.freq_array[0]
@@ -88,8 +90,6 @@ class VisCPU(VisibilitySimulator):
             idx = np.where(ant == self.uvdata.antenna_numbers)
             self.antpos.append(_antpos[idx].flatten())
         self.antpos = np.array(self.antpos)
-        
-        super(VisCPU, self).__init__(**kwargs)
         
 
     @property
@@ -114,7 +114,7 @@ class VisCPU(VisibilitySimulator):
         super(VisCPU, self).validate()
 
         # This one in particular requires that every baseline is used!
-        N = len(self.ant_list)
+        N = len(self.uvdata.get_ants())
         # N(N-1)/2 unique cross-correlations + N autocorrelations.
         if len(self.uvdata.get_antpairs()) != N * (N + 1) / 2:
             raise ValueError("VisCPU requires using every pair of antennas, "
@@ -127,7 +127,7 @@ class VisCPU(VisibilitySimulator):
         
         # Check to make sure enough beams are specified
         if not self.use_pixel_beams:
-            for ant in self.ant_list:
+            for ant in self.uvdata.get_ants():
                 assert len(np.where(self.beam_ids == ant)[0]), \
                        "No beam found for antenna %d" % ant
         
