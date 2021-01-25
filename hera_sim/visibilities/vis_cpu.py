@@ -151,7 +151,7 @@ class VisCPU(VisibilitySimulator):
         """
         return np.asarray([
             conversions.uvbeam_to_lm(
-                self.beams[np.where(self.beam_ids == ant)[0]], self.freqs, self.bm_pix
+                self.beams[np.where(self.beam_ids == ant)[0][0]], self.freqs, self.bm_pix
             ) for ant in self.ant_list
         ])
 
@@ -224,7 +224,7 @@ class VisCPU(VisibilitySimulator):
         if self.use_pixel_beams:
             beam_lm = self.get_beam_lm()
         else:
-            beam_list = [self.beams[np.where(self.beam_ids == ant)[0]] 
+            beam_list = [self.beams[np.where(self.beam_ids == ant)[0][0]] 
                          for ant in self.ant_list]
             
         visfull = np.zeros_like(self.uvdata.data_array,
