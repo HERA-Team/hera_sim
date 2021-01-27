@@ -146,7 +146,9 @@ class VisCPU(VisibilitySimulator):
         self.use_pixel_beams = use_pixel_beams
         self.split_I = split_I
         self.mpi_comm = mpi_comm
-        self.az_za_corrections = az_za_corrections 
+        self.az_za_corrections = az_za_corrections
+        self.cache_limit = cache_limit
+        
         super(VisCPU, self).__init__(**kwargs)
 
         # Convert some arguments to simpler forms for vis_cpu.
