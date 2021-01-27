@@ -383,10 +383,13 @@ class VisCPU(VisibilitySimulator):
                     transform_cache=cache
                 )
             
+            # Extract upper triangle (i.e. get each bl only once)
             indices = np.triu_indices(vis.shape[1])
             vis_upper_tri = vis[:, indices[0], indices[1]]
-
-            visfull[:, 0, i, 0] = vis_upper_tri.flatten()
+            
+            # Unpack into the same array ordering as the target UVData array
+            order = 'F' if np.isfortran(visfull) else 'C'
+            visfull[:, 0, i, 0] = vis_upper_tri.flatten(order=order)
         
         # Reduce visfull array if in MPI mode
         if self.mpi_comm is not None:
