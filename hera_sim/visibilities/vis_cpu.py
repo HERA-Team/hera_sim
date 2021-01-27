@@ -89,7 +89,10 @@ class VisCPU(VisibilitySimulator):
         
         # Compute coordinate correction terms
         if az_za_corrections:
-            self.jd_times=np.unique(self.uvdata.get_times("XX"))    # Julian times will be needed
+            # Julian times will be needed
+            pol = self.uvdata.get_pols()[0]
+            self.jd_times=np.unique(self.uvdata.get_times(pol))
+            
             # Set up object 
             self.az_za_transforms = conversions.AzZaTransforms(
                         obstimes=self.jd_times,
