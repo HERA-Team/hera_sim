@@ -269,7 +269,7 @@ class PerturbedPolyBeam(PolyBeam):
     
         # Call interp() method on parent class
         interp_data, interp_basis_vector = super().interp(az_array, za_array, 
-                                                        freq_array, reuse_spline)
+                                                        freq_array, **kwargs)
         
         # Smooth step function
         step = 0.5 * (1. + np.tanh((za_array - self.mainlobe_width)

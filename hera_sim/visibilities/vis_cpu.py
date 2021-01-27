@@ -10,6 +10,58 @@ from .simulators import VisibilitySimulator
 from astropy.constants import c
 
 
+class TransformCache(object):
+    
+    def __init__(self, limit=10, mode='oldest'):
+        
+        self.limit = limit
+        self.mode = mode
+        
+        self.keys = []
+        self.hits = []
+        self.data = []
+    
+    def retrieve(self, func, args, key):
+        if key in self.keys:
+            
+            # Update hit counter
+            idx = self.keys.index(key)
+            self.hits[idx] += 1
+            
+            # Retrieve from cache and return
+            return self.data[idx]
+        else:
+            # Run function
+            res = func(*args)
+            
+            # Store in cache
+            self.keys.append(key)
+            self.data.append(res)
+            self.hits.append(1)
+            
+            # Clean up cache
+            self.clean()
+            
+            # Return value
+            return res
+    
+    def clean(self):
+        if len(self.keys) > self.limit:
+            # Remove the oldest entry
+            if self.mode == 'oldest':
+                del self.keys[0]
+                del self.hits[0]
+                del self.data[0]
+    
+    def clear(self):
+        # Clear the entire cache
+        self.keys = []
+        self.data = []
+        self.hits = []
+
+
+
+
 class VisCPU(VisibilitySimulator):
     """
     vis_cpu visibility simulator.
@@ -20,34 +72,47 @@ class VisCPU(VisibilitySimulator):
 
     def __init__(self, bm_pix=100, use_pixel_beams=True, precision=1,
                  use_gpu=False, mpi_comm=None, split_I=False,
-                 az_za_corrections=None, **kwargs):
+                 az_za_corrections=None, cache_limit=10, **kwargs):
         """
         Parameters
         ----------
         bm_pix : int, optional
             The number of pixels along a side in the beam map when
             converted to (l, m) coordinates. Defaults to 100.
+        
         use_pixel_beams : bool, optional
             Whether to use primary beams that have been pixelated onto a 2D 
             grid, or directly evaluate the primary beams using the available 
             UVBeam objects. Default: True.
+        
         precision : int, optional
             Which precision level to use for floats and complex numbers. 
             Allowed values:
                 - 1: float32, complex64
                 - 2: float64, complex128
             Default: 1.
+        
         use_gpu : bool, optional
             Whether to use the GPU version of vis_cpu or not. Default: False.
-        mpi_comm : MPI communicator
-            MPI communicator, for parallelization.
-        split_I: bool
+        
+        mpi_comm : MPI communicator, optional
+            MPI communicator, for parallelization. Default: None.
+        
+        split_I: bool, optional
             To match pyuvsim, assume the source flux is split between
             XX and YY (half each). Since hera_sim only simulates one 
             unspecified pol, this means halving the source flux.
+        
         az_za_corrections: str, optional
             Use pyuvsim/astropy to calculate source positions. Its value
-            indicates what approximations to apply.
+            indicates which approximations to apply. Default: [] (do not use 
+            astropy)
+        
+        cache_limit : int, optional
+            Number of time-dependent transform results to cache. Increasing the 
+            size of the cache increases the max. memory usage of the object. 
+            Default: 10.
+        
         **kwargs
             Arguments of :class:`VisibilitySimulator`.
         """
@@ -281,6 +346,10 @@ class VisCPU(VisibilitySimulator):
         visfull = np.zeros_like(self.uvdata.data_array,
                                 dtype=self._complex_dtype)
         
+        # Create cache for coordinate transforms
+        # N.B. There will be one cache per MPI worker
+        cache = TransformCache(limit=self.cache_limit)
+        
         for i, freq in enumerate(self.freqs):
             
             # Divide tasks between MPI workers if needed
@@ -310,7 +379,8 @@ class VisCPU(VisibilitySimulator):
                     precision=self._precision,
                     # These for astropy az/za calcs if used
                     point_source_pos=self.point_source_pos,
-                    az_za_transforms=self.az_za_transforms
+                    az_za_transforms=self.az_za_transforms,
+                    transform_cache=cache
                 )
             
             indices = np.triu_indices(vis.shape[1])
@@ -379,7 +449,8 @@ class VisCPU(VisibilitySimulator):
 
 
 def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube=None, beam_list=None,
-            precision=1, point_source_pos=None, az_za_transforms=None):
+            precision=1, point_source_pos=None, az_za_transforms=None, 
+            transform_cache={}):
     """
     Calculate visibility from an input intensity map and beam model.
 
@@ -389,38 +460,50 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube=None, beam_list=None,
     ----------
     antpos : array_like
         Antenna position array. Shape=(NANT, 3).
+    
     freq : float
         Frequency to evaluate the visibilities at [GHz].
+    
     eq2tops : array_like
         Set of 3x3 transformation matrices converting equatorial
         coordinates to topocentric at each
         hour angle (and declination) in the dataset.
         Shape=(NTIMES, 3, 3).
+    
     crd_eq : array_like
         Equatorial coordinates of Healpix pixels, in Cartesian system.
         Shape=(3, NPIX).
+    
     I_sky : array_like
         Intensity distribution on the sky,
         stored as array of Healpix pixels. Shape=(NPIX,).
+    
     bm_cube : array_like, optional
         Pixelized beam maps for each antenna. Shape=(NANT, BM_PIX, BM_PIX).
+    
     beam_list : list of UVBeam, optional
         If specified, evaluate primary beam values directly using UVBeam 
         objects instead of using pixelized beam maps (`bm_cube` will be ignored 
         if `beam_list` is not None).
+    
     precision : int, optional
         Which precision level to use for floats and complex numbers. 
         Allowed values:
             - 1: float32, complex64
             - 2: float64, complex128
         Default: 1.
+    
     point_source_pos: 2-D ndarray
         Source catalog ra/dec needed for az_za_transforms. Shape (nsource, 2)
         Not used if az_za_transforms is None.
+    
     az_za_transforms: an AzZaTransforms object (conversions.py)
         If not None, used to produce more accurate az/za and crd_top values.
         point_source_pos must also be present.
-
+    
+    transform_cache : TransformCache object, optional
+        Cache the results of the angular coordinate transforms. Default: None.
+    
     Returns
     -------
     array_like
@@ -497,7 +580,20 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube=None, beam_list=None,
             # Primary beam pattern using direct interpolation of UVBeam object
             if az_za_transforms:
                 # Supplies more accurate az/za and crd_top (overwrites crd_top)
-                az, za, crd_top = az_za_transforms.transform(point_source_pos[:, 0], point_source_pos[:, 1], t)
+                # Use cached results, or compute directly
+                if transform_cache is not None:
+                    az, za, crd_top = transform_cache.retrieve(
+                                               func=az_za_transforms.transform, 
+                                               args=(point_source_pos[:, 0], 
+                                                     point_source_pos[:, 1], 
+                                                     t),
+                                               key=t)
+                else:
+                    az, za, crd_top = az_za_transforms.transform(
+                                                        point_source_pos[:, 0], 
+                                                        point_source_pos[:, 1], 
+                                                        t )
+                
             else:
                 az, za = conversions.lm_to_az_za(ty, tx) # FIXME: Order of tx, ty
             
