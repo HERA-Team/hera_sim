@@ -142,7 +142,39 @@ def test_delay_filter_norm(freqs):
 
 
 @pytest.mark.parametrize("bl_len_ns", [50, 150])
-def test_fringe_filter_tophat(freqs, lsts, bl_len_ns):
+def test_fringe_filter_tophat_symmetry(freqs, lsts, bl_len_ns):
+    fringe_filter = utils.gen_fringe_filter(
+        lsts, freqs, bl_len_ns, filter_type="tophat"
+    )
+    assert all(
+        np.allclose(fringe_filter[i], fringe_filter[-i])
+        for i in range(1, lsts.size // 2)
+    )
+
+
+@pytest.mark.parametrize("bl_len_ns", [50, 150])
+def test_fringe_filter_tophat_output(freqs, lsts, bl_len_ns):
+    pass
+
+
+@pytest.mark.parametrize("bl_len_ns", [50, 150])
+def test_fringe_filter_none(freqs, lsts, bl_len_ns):
+    pass
+
+
+@pytest.mark.parametrize("bl_len_ns", [50, 150])
+def test_fringe_filter_gauss(freqs, lsts, fringe_rates, bl_len_ns):
+    pass
+
+
+# play with this and see what the filter looks like before updating the test
+@pytest.mark.parametrize("bl_len_ns", [50, 150])
+def test_fringe_filter_custom(freqs, lsts, bl_len_ns):
+    pass
+
+
+@pytest.mark.parametrize("bl_len_ns", [50, 150])
+def test_rough_fringe_filter_noisy_data(freqs, lsts, bl_len_ns):
     pass
 
 
@@ -150,6 +182,33 @@ def test_fringe_filter_bad_type(freqs, lsts):
     with pytest.raises(ValueError) as err:
         _ = utils.gen_fringe_filter(lsts, freqs, 35, filter_type="bad type")
     assert err.value.args[0] == "filter_type bad type not recognized"
+
+
+@pytest.mark.parametrize("shape", [100, (100,200)])
+def test_gen_white_noise_shape(shape):
+    noise = utils.gen_white_noise(shape)
+    if type(shape) is int:
+        shape = (shape,)
+    assert noise.shape == shape
+
+
+@pytest.mark.parametrize("shape", [100, (100,200)])
+def test_gen_white_noise_mean(shape):
+    noise = utils.gen_white_noise(shape)
+    assert np.allclose(
+        [noise.mean().real, noise.mean().imag], 0, rtol=0, atol=5/np.sqrt(noise.size)
+    )
+
+
+@pytest.mark.parametrize("shape", [100, (100,200)])
+def test_gen_white_noise_variance(shape):
+    noise = utils.gen_white_noise(shape)
+    assert np.isclose(np.std(noise), 1, rtol=0, atol=0.1)
+
+
+# choose some config where the max fr is known
+def test_max_fringe_rate_calculator():
+    pass
 
 
 class TestUtils(unittest.TestCase):
@@ -200,17 +259,6 @@ class TestUtils(unittest.TestCase):
         )
         dfft = np.mean(np.abs(np.fft.ifft(dfilt, axis=0)), axis=1)
         nt.assert_true(np.isclose(dfft[50:150], 0.0).all())
-
-    def test_gen_white_noise(self):
-        # this test is just ported from the old noise testing module
-        n1 = utils.gen_white_noise(100)
-        self.assertEqual(n1.size, 100)
-        self.assertEqual(n1.shape, (100,))
-        n2 = utils.gen_white_noise((100, 100))
-        self.assertEqual(n2.shape, (100, 100))
-        n3 = utils.gen_white_noise(100000)
-        self.assertAlmostEqual(np.average(n3), 0, 1)
-        self.assertAlmostEqual(np.std(n3), 1, 2)
 
 
 @pytest.mark.parametrize("baseline", [1, (0, 1), [0, 1], np.array([0, 1, 2])])
