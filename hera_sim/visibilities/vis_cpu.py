@@ -455,7 +455,7 @@ class VisCPU(VisibilitySimulator):
 
 def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube=None, beam_list=None,
             precision=1, point_source_pos=None, az_za_transforms=None, 
-            transform_cache={}):
+            transform_cache=None):
     """
     Calculate visibility from an input intensity map and beam model.
 
@@ -573,10 +573,11 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube=None, beam_list=None,
             
     # Loop over time samples
     for t, eq2top in enumerate(eq2tops.astype(real_dtype)):
-        tx, ty, tz = crd_top = np.dot(eq2top, crd_eq)
         
         # Primary beam response
         if beam_list is None:
+            tx, ty, tz = crd_top = np.dot(eq2top, crd_eq)
+            
             # Primary beam pattern using pixelized primary beam
             for i in range(nant):
                 A_s[i] = splines[i](ty, tx, grid=False)
@@ -587,6 +588,8 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube=None, beam_list=None,
                 # Supplies more accurate az/za and crd_top (overwrites crd_top)
                 # Use cached results, or compute directly
                 if transform_cache is not None:
+                    if t == 0:
+                        print("Cache in use")
                     az, za, crd_top = transform_cache.retrieve(
                                                func=az_za_transforms.transform, 
                                                args=(point_source_pos[:, 0], 
@@ -598,8 +601,9 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube=None, beam_list=None,
                                                         point_source_pos[:, 0], 
                                                         point_source_pos[:, 1], 
                                                         t )
-                
+                tz = crd_top[2] # pick out 3rd column
             else:
+                tx, ty, tz = crd_top = np.dot(eq2top, crd_eq)
                 az, za = conversions.lm_to_az_za(ty, tx) # FIXME: Order of tx, ty
             
             for i in range(nant):
