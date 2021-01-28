@@ -83,11 +83,15 @@ class Bandpass(Gain, is_multiplicative=True):
 class Reflections(Gain, is_multiplicative=True):
     _alias = ("reflection_gains", "sigchain_reflections")
 
-    def __init__(self, amp=None, dly=None, phs=None, conj=False, randomize=False):
+    def __init__(
+        self, amp=None, dly=None, phs=None, conj=False, amp_jitter=0, dly_jitter=0
+    ):
         # TODO: docstring
         """
         """
-        super().__init__(amp=amp, dly=dly, phs=phs, conj=conj, randomize=randomize)
+        super().__init__(
+            amp=amp, dly=dly, phs=phs, conj=conj, amp_jitter=0, dly_jitter=0
+        )
 
     def __call__(self, freqs, ants, **kwargs):
         # TODO: docstring
@@ -97,10 +101,14 @@ class Reflections(Gain, is_multiplicative=True):
         self._check_kwargs(**kwargs)
 
         # unpack the kwargs
-        (amp, dly, phs, conj, randomize) = self._extract_kwarg_values(**kwargs)
+        amp, dly, phs, conj, amp_jitter, dly_jitter = self._extract_kwarg_values(
+            **kwargs
+        )
 
         # fill in missing kwargs
-        amp, dly, phs = self._complete_params(ants, amp, dly, phs, randomize)
+        amp, dly, phs = self._complete_params(
+            ants, amp, dly, phs, amp_jitter, dly_jitter
+        )
 
         # determine gains iteratively
         gains = {}
@@ -152,48 +160,73 @@ class Reflections(Gain, is_multiplicative=True):
         return np.conj(eps) if conj else eps
 
     @staticmethod
-    def _complete_params(ants, amp, dly, phs, randomize):
-        # TODO: docstring
+    def _complete_params(
+        ants, amp=None, dly=None, phs=None, amp_jitter=0, dly_jitter=0
+    ):
         """
+        Generate parameters to calculate a reflection coefficient.
+
+        Parameters
+        ----------
+        ants: iterable
+            Iterable providing information about antenna numbers. Only used to
+            determine how many entries each parameter needs to have.
+        amp: float or length-2 array-like of float, optional
+            If a single number is provided, then every antenna is assigned that
+            number as the amplitude of the reflection. Otherwise, it should
+            specify the lower and upper bounds, respectively, of the uniform
+            distribution from which to randomly assign an amplitude for each
+            antenna. Default is to randomly choose a number between 0 and 1.
+        dly: float or length-2 array-like of float
+            If a single number provided, then the reflection shows up at that
+            delay for every antenna. Otherwise, it should specify the lower and
+            upper bounds, respectively, of the uniform distribution from which
+            to randomly assign delays. This should be specified in units of ns.
+            Default is to randomly choose a delay between -20 and 20 ns.
+        phs: float or length-2 array-like of float
+            The phase of the reflection, or the bounds to use for assigning
+            random phases. Default is to randomly choose a phase on [-pi, pi).
+        amp_jitter: float, optional
+            Standard deviation of multiplicative jitter to apply to amplitudes.
+            For example, setting this to 1e-4 will introduce, on average, 0.01%
+            deviations to each amplitude. Default is to not add any jitter.
+        dly_jitter: float, optional
+            Standard deviation of additive jitter to apply to delays, in ns.
+            For example, setting this to 10 will introduce, on average, delay
+            deviations up to 10 ns. (This is drawn from a normal distribution, so
+            it is possible that delays will exceed the value provided.)
+
+        Returns
+        -------
+        amps: array-like of float
+            Amplitude of reflection coefficient for each antenna.
+        dlys: array-like of float
+            Delay of each reflection coefficient, in ns, for each antenna.
+        phases: array-like of float
+            Phase of each reflection coefficient for each antenna.
         """
-        # if we're randomizing, then amp, dly, phs should define which
-        # bounds to use for making random numbers
-        if randomize:
-            # convert these to bounds if they're None
-            if amp is None:
-                amp = (0, 1)
-            if dly is None:
-                dly = (-20, 20)
-            if phs is None:
-                phs = (-np.pi, np.pi)
-            # now make sure that they're all correctly formatted
-            assert all(
-                [
-                    isinstance(param, (list, tuple)) and len(param) == 2
-                    for param in (amp, dly, phs)
-                ]
-            ), (
-                "You have chosen to randomize the amplitude, delay, "
-                "and phase parameters, but at least one parameter "
-                "was not specified as None or a length-2 tuple or "
-                "list. Please check your parameter settings."
-            )
 
-            # in the future, expand this to allow for freq-dependence?
-            # randomly generate the parameters
-            amp = [np.random.uniform(amp[0], amp[1]) for ant in ants]
-            dly = [np.random.uniform(dly[0], dly[1]) for ant in ants]
-            phs = [np.random.uniform(phs[0], phs[1]) for ant in ants]
-        else:
-            # set the amplitude to 1, delay and phase both to zero
-            if amp is None:
-                amp = [1.0 for ant in ants]
-            if dly is None:
-                dly = [0.0 for ant in ants]
-            if phs is None:
-                phs = [0.0 for ant in ants]
+        def broadcast_param(param, lower_bound, upper_bound, size):
+            if param is None:
+                return stats.uniform.rvs(lower_bound, upper_bound, size)
+            elif np.isscalar(param):
+                return np.ones(size, dtype=np.float) * param
+            else:
+                if len(param) == size:
+                    return np.array(param, dtype=np.float)
+                else:
+                    return stats.uniform.rvs(*param, size)
 
-        return amp, dly, phs
+        # Transform parameters into arrays.
+        amps = broadcast_param(amp, 0, 1, len(ants))
+        dlys = broadcast_param(dly, -20, 20, len(ants))
+        phases = broadcast_param(phs, -np.pi, np.pi, len(ants))
+
+        # Apply jitter.
+        amps *= stats.norm.rvs(1, amp_jitter, len(ants))
+        dlys += stats.norm.rvs(0, dly_jitter, len(ants))
+
+        return amps, dlys, phases
 
 
 @registry
@@ -204,11 +237,15 @@ class Crosstalk:
 class CrossCouplingCrosstalk(Crosstalk, Reflections):
     _alias = ("cross_coupling_xtalk",)
 
-    def __init__(self, amp=None, dly=None, phs=None, conj=False, randomize=False):
+    def __init__(
+        self, amp=None, dly=None, phs=None, conj=False, amp_jitter=0, dly_jitter=0
+    ):
         # TODO: docstring
         """
         """
-        super().__init__(amp=amp, dly=dly, phs=phs, conj=conj, randomize=randomize)
+        super().__init__(
+            amp=amp, dly=dly, phs=phs, conj=conj, amp_jitter=0, dly_jitter=0
+        )
 
     def __call__(self, freqs, autovis, **kwargs):
         # TODO: docstring
@@ -218,12 +255,16 @@ class CrossCouplingCrosstalk(Crosstalk, Reflections):
         self._check_kwargs(**kwargs)
 
         # now unpack them
-        (amp, dly, phs, conj, randomize) = self._extract_kwarg_values(**kwargs)
+        amp, dly, phs, conj, amp_jitter, dly_jitter = self._extract_kwarg_values(
+            **kwargs
+        )
 
         # handle the amplitude, phase, and delay
-        amp, dly, phs = self._complete_params([1], amp, dly, phs, randomize)
+        amp, dly, phs = self._complete_params(
+            [1], amp, dly, phs, amp_jitter, dly_jitter
+        )
 
-        # make a reflection coefficient
+        # Make reflection coefficient.
         eps = self.gen_reflection_coefficient(freqs, amp, dly, phs, conj=conj)
 
         # reshape if necessary
@@ -232,6 +273,69 @@ class CrossCouplingCrosstalk(Crosstalk, Reflections):
 
         # scale it by the autocorrelation and return the result
         return autovis * eps
+
+
+class CrossCouplingSpectrum(Crosstalk):
+    _alias = ("cross_coupling_spectrum", "xtalk_spectrum")
+
+    def __init__(
+        self,
+        Ncopies=10,
+        amp_range=(-4, -6),
+        dly_range=(1000, 1200),
+        phs_range=(-np.pi, np.pi),
+        amp_jitter=0,
+        dly_jitter=0,
+        symmetrize=True,
+    ):
+        super().__init__(
+            Ncopies=Ncopies,
+            amp_range=amp_range,
+            dly_range=dly_range,
+            phs_range=phs_range,
+            amp_jitter=amp_jitter,
+            dly_jitter=dly_jitter,
+            symmetrize=symmetrize,
+        )
+
+    def __call__(self, freqs, autovis, **kwargs):
+        # TODO: docstring
+        """
+        """
+        self._check_kwargs(**kwargs)
+
+        (
+            Ncopies,
+            amp_range,
+            dly_range,
+            phs_range,
+            amp_jitter,
+            dly_jitter,
+            symmetrize,
+        ) = self._extract_kwarg_values(**kwargs)
+
+        # Construct the arrays of amplitudes and delays.
+        amps = np.logspace(*amp_range, Ncopies)
+        dlys = np.linspace(*dly_range, Ncopies)
+
+        # Construct the spectrum of crosstalk.
+        crosstalk_spectrum = np.zeros(autovis.shape, dtype=np.complex)
+        for amp, dly in zip(amps, dlys):
+            gen_xtalk = CrossCouplingCrosstalk(
+                amp=amp,
+                dly=dly,
+                phs=phs_range,
+                amp_jitter=amp_jitter,
+                dly_jitter=dly_jitter,
+            )
+
+            crosstalk_spectrum += gen_xtalk(freqs, autovis)
+            if symmetrize:
+                # Note: this will have neither the same jitter realization nor
+                # the same phase as the first crosstalk spectrum.
+                crosstalk_spectrum += gen_xtalk(freqs, autovis, dly=-dly)
+
+        return crosstalk_spectrum
 
 
 class WhiteNoiseCrosstalk(Crosstalk):

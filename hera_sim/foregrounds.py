@@ -1,9 +1,8 @@
 """Reimagining of the foregrounds module, using an object-oriented approach."""
 
 import numpy as np
-import astropy.constants as const
-import astropy.units as u
-from aipy.const import sidereal_day
+from astropy import constants
+from astropy import units
 from abc import abstractmethod
 from cached_property import cached_property
 
@@ -277,7 +276,7 @@ class PointSourceForeground(Foreground):
         ) = self._extract_kwarg_values(**kwargs)
 
         # get baseline length in nanoseconds
-        bl_len_ns = np.linalg.norm(bl_vec) / const.c.value * u.s.to("ns")
+        bl_len_ns = np.linalg.norm(bl_vec) / constants.c.value * units.s.to("ns")
 
         # randomly generate source RAs
         ras = np.random.uniform(0, 2 * np.pi, nsrcs)
@@ -288,7 +287,7 @@ class PointSourceForeground(Foreground):
         )
 
         # calculate beam width, hardcoded for HERA
-        beam_width = (40 * 60) * (f0 / freqs) / sidereal_day * 2 * np.pi
+        beam_width = (40 * 60) * (f0 / freqs) / units.sday.to("s") * 2 * np.pi
 
         # draw flux densities from a power law
         alpha = beta + 1

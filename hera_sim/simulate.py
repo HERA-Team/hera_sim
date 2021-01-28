@@ -765,7 +765,6 @@ class Simulator:
             else:
                 # issubclass will not raise a TypeError in python <= 3.6
                 raise TypeError
-
         except TypeError:
             # this is raised if ``component`` is not a class
             if component.__class__.__name__ == "function":
