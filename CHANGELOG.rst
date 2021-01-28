@@ -47,6 +47,8 @@ Changed
   single parameter ``dtv_band``, which is a tuple denoting the edges of \
   the DTV band in GHz.
 
+- Functions in ``utils`` now use ``freqs`` instead of ``fqs``.
+
 v0.3.0 [2019.12.10]
 ===================
 

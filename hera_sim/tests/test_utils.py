@@ -4,7 +4,6 @@ from hera_sim import utils
 from hera_sim import DATA_PATH
 import numpy as np
 import nose.tools as nt
-import os
 
 np.random.seed(0)
 
@@ -17,32 +16,40 @@ class TestUtils(unittest.TestCase):
         standoff = 0.0
 
         df = utils.gen_delay_filter(
-            fqs, bl_len_ns, standoff=standoff, filter_type="tophat"
+            freqs=fqs, bl_len_ns=bl_len_ns, standoff=standoff, filter_type="tophat"
         )
         nt.assert_almost_equal(np.sum(df), 11)
 
         df = utils.gen_delay_filter(
-            fqs, bl_len_ns, standoff=standoff, filter_type="gauss"
+            freqs=fqs, bl_len_ns=bl_len_ns, standoff=standoff, filter_type="gauss"
         )
         nt.assert_almost_equal(np.sum(df), 3.133285343289006)
 
         df = utils.gen_delay_filter(
-            fqs, bl_len_ns, standoff=standoff, filter_type="trunc_gauss"
+            freqs=fqs, bl_len_ns=bl_len_ns, standoff=standoff, filter_type="trunc_gauss"
         )
         nt.assert_almost_equal(np.sum(df), 3.1332651717678575)
 
         df = utils.gen_delay_filter(
-            fqs, bl_len_ns, standoff=standoff, filter_type="none"
+            freqs=fqs, bl_len_ns=bl_len_ns, standoff=standoff, filter_type="none"
         )
         nt.assert_almost_equal(np.sum(df), 100)
 
         df = utils.gen_delay_filter(
-            fqs, bl_len_ns, standoff=standoff, filter_type="tophat", min_delay=100.0
+            freqs=fqs,
+            bl_len_ns=bl_len_ns,
+            standoff=standoff,
+            filter_type="tophat",
+            min_delay=100.0,
         )
         nt.assert_almost_equal(np.sum(df), 0)
 
         df = utils.gen_delay_filter(
-            fqs, bl_len_ns, standoff=standoff, filter_type="tophat", max_delay=50.0
+            freqs=fqs,
+            bl_len_ns=bl_len_ns,
+            standoff=standoff,
+            filter_type="tophat",
+            max_delay=50.0,
         )
         nt.assert_almost_equal(np.sum(df), 11)
 
@@ -55,7 +62,11 @@ class TestUtils(unittest.TestCase):
 
         data = utils.gen_white_noise((len(lsts), len(fqs)))
         dfilt = utils.rough_delay_filter(
-            data, fqs, bl_len_ns, standoff=standoff, delay_filter_type="gauss"
+            data,
+            freqs=fqs,
+            bl_len_ns=bl_len_ns,
+            standoff=standoff,
+            delay_filter_type="gauss",
         )
         dfft = np.mean(np.abs(np.fft.ifft(dfilt, axis=1)), axis=0)
         nt.assert_true(np.isclose(dfft[20:-20], 0.0).all())
@@ -70,23 +81,27 @@ class TestUtils(unittest.TestCase):
         fr_frates = FRF["frates"]
         fr_freqs = FRF["freqs"] / 1e9
 
-        ff = utils.gen_fringe_filter(lsts, fqs, bl_len_ns, filter_type="none")
+        ff = utils.gen_fringe_filter(
+            lsts=lsts, freqs=fqs, ew_bl_len_ns=bl_len_ns, filter_type="none"
+        )
         nt.assert_true(np.isclose(ff, 1.0).all())
 
-        ff = utils.gen_fringe_filter(lsts, fqs, bl_len_ns, filter_type="tophat")
+        ff = utils.gen_fringe_filter(
+            lsts=lsts, freqs=fqs, ew_bl_len_ns=bl_len_ns, filter_type="tophat"
+        )
         nt.assert_almost_equal(np.sum(ff[50]), np.sum(ff[-50]), 41)
 
         # for some reason this fails, but no changes have been made
         # or sometimes it doesn't fail? really bizarre
         ff = utils.gen_fringe_filter(
-            lsts, fqs, bl_len_ns, filter_type="gauss", fr_width=1e-4
+            lsts, freqs=fqs, ew_bl_len_ns=bl_len_ns, filter_type="gauss", fr_width=1e-4
         )
         nt.assert_almost_equal(np.sum(ff[50]), 63.06179070109816)
 
         ff = utils.gen_fringe_filter(
             lsts,
-            fqs,
-            bl_len_ns,
+            freqs=fqs,
+            ew_bl_len_ns=bl_len_ns,
             filter_type="custom",
             FR_filter=fr_filt,
             FR_frates=fr_frates,
@@ -103,7 +118,12 @@ class TestUtils(unittest.TestCase):
 
         data = utils.gen_white_noise((len(lsts), len(fqs)))
         dfilt = utils.rough_fringe_filter(
-            data, lsts, fqs, bl_len_ns, fringe_filter_type="gauss", fr_width=1e-4
+            data,
+            lsts=lsts,
+            freqs=fqs,
+            ew_bl_len_ns=bl_len_ns,
+            fringe_filter_type="gauss",
+            fr_width=1e-4,
         )
         dfft = np.mean(np.abs(np.fft.ifft(dfilt, axis=0)), axis=1)
         nt.assert_true(np.isclose(dfft[50:150], 0.0).all())
@@ -148,9 +168,11 @@ def test_delay_filter_norm():
 
     out = 0
     nreal = 5000
-    for i in range(nreal):
+    for _ in range(nreal):
         _noise = tsky * utils.gen_white_noise(N)
-        outnoise = utils.rough_delay_filter(_noise, fqs, 30, normalize=1)
+        outnoise = utils.rough_delay_filter(
+            _noise, freqs=fqs, bl_len_ns=30, normalize=1
+        )
 
         out += np.sum(np.abs(outnoise) ** 2)
 

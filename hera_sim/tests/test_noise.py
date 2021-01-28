@@ -54,7 +54,7 @@ class TestNoise(unittest.TestCase):
         Tsky = noise.resample_Tsky(lsts, freqs, Tsky_mdl=Tsky_mdl)
 
         # get the conversion from Jy -> K
-        Jy2T = utils.Jy2T(freqs, omega_p)
+        Jy2T = utils.jansky_to_kelvin(freqs, omega_p)
         Jy2T.shape = (1, -1)
 
         # simulate the noise
