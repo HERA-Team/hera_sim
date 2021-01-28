@@ -175,7 +175,7 @@ def rough_delay_filter(
                 "If you don't provide a pre-computed delay filter, you must provide bl_len_ns"
             )
 
-        delay_filter = gen_delay_filter(**kwargs)
+        delay_filter = gen_delay_filter(freqs=freqs, bl_len_ns=bl_len_ns, **kwargs)
 
     # apply filtering and fft back
     filt_data = np.fft.ifft(dfft * delay_filter, axis=-1)
@@ -335,7 +335,9 @@ def rough_fringe_filter(
                 "Must provide 'lsts', 'freqs' and 'ew_bl_len_ns' if fringe_filter not given."
             )
 
-        fringe_filter = gen_fringe_filter(**kwargs)
+        fringe_filter = gen_fringe_filter(
+            freqs=freqs, lsts=lsts, ew_bl_len_ns=ew_bl_len_ns, **kwargs
+        )
 
     # apply filter
     filt_data = np.fft.ifft(dfft * fringe_filter, axis=0)
