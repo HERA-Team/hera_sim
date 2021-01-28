@@ -16,22 +16,28 @@ class TestUtils(unittest.TestCase):
         standoff = 0.0
 
         df = utils.gen_delay_filter(
-            freqs=fqs, bl_len_ns=bl_len_ns, standoff=standoff, filter_type="tophat"
+            freqs=fqs,
+            bl_len_ns=bl_len_ns,
+            standoff=standoff,
+            delay_filter_type="tophat",
         )
         nt.assert_almost_equal(np.sum(df), 11)
 
         df = utils.gen_delay_filter(
-            freqs=fqs, bl_len_ns=bl_len_ns, standoff=standoff, filter_type="gauss"
+            freqs=fqs, bl_len_ns=bl_len_ns, standoff=standoff, delay_filter_type="gauss"
         )
         nt.assert_almost_equal(np.sum(df), 3.133285343289006)
 
         df = utils.gen_delay_filter(
-            freqs=fqs, bl_len_ns=bl_len_ns, standoff=standoff, filter_type="trunc_gauss"
+            freqs=fqs,
+            bl_len_ns=bl_len_ns,
+            standoff=standoff,
+            delay_filter_type="trunc_gauss",
         )
         nt.assert_almost_equal(np.sum(df), 3.1332651717678575)
 
         df = utils.gen_delay_filter(
-            freqs=fqs, bl_len_ns=bl_len_ns, standoff=standoff, filter_type="none"
+            freqs=fqs, bl_len_ns=bl_len_ns, standoff=standoff, delay_filter_type="none"
         )
         nt.assert_almost_equal(np.sum(df), 100)
 
@@ -39,7 +45,7 @@ class TestUtils(unittest.TestCase):
             freqs=fqs,
             bl_len_ns=bl_len_ns,
             standoff=standoff,
-            filter_type="tophat",
+            delay_filter_type="tophat",
             min_delay=100.0,
         )
         nt.assert_almost_equal(np.sum(df), 0)
@@ -48,7 +54,7 @@ class TestUtils(unittest.TestCase):
             freqs=fqs,
             bl_len_ns=bl_len_ns,
             standoff=standoff,
-            filter_type="tophat",
+            delay_filter_type="tophat",
             max_delay=50.0,
         )
         nt.assert_almost_equal(np.sum(df), 11)
@@ -82,19 +88,23 @@ class TestUtils(unittest.TestCase):
         fr_freqs = FRF["freqs"] / 1e9
 
         ff = utils.gen_fringe_filter(
-            lsts=lsts, freqs=fqs, ew_bl_len_ns=bl_len_ns, filter_type="none"
+            lsts=lsts, freqs=fqs, ew_bl_len_ns=bl_len_ns, fringe_filter_type="none"
         )
         nt.assert_true(np.isclose(ff, 1.0).all())
 
         ff = utils.gen_fringe_filter(
-            lsts=lsts, freqs=fqs, ew_bl_len_ns=bl_len_ns, filter_type="tophat"
+            lsts=lsts, freqs=fqs, ew_bl_len_ns=bl_len_ns, fringe_filter_type="tophat"
         )
         nt.assert_almost_equal(np.sum(ff[50]), np.sum(ff[-50]), 41)
 
         # for some reason this fails, but no changes have been made
         # or sometimes it doesn't fail? really bizarre
         ff = utils.gen_fringe_filter(
-            lsts, freqs=fqs, ew_bl_len_ns=bl_len_ns, filter_type="gauss", fr_width=1e-4
+            lsts,
+            freqs=fqs,
+            ew_bl_len_ns=bl_len_ns,
+            fringe_filter_type="gauss",
+            fr_width=1e-4,
         )
         nt.assert_almost_equal(np.sum(ff[50]), 63.06179070109816)
 
@@ -102,7 +112,7 @@ class TestUtils(unittest.TestCase):
             lsts,
             freqs=fqs,
             ew_bl_len_ns=bl_len_ns,
-            filter_type="custom",
+            fringe_filter_type="custom",
             FR_filter=fr_filt,
             FR_frates=fr_frates,
             FR_freqs=fr_freqs,

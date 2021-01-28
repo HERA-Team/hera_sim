@@ -57,7 +57,7 @@ def gen_delay_filter(
     freqs: np.ndarray,
     bl_len_ns: [float, np.ndarray, Sequence],
     standoff: float = 0.0,
-    filter_type: str = "gauss",
+    delay_filter_type: str = "gauss",
     min_delay: Optional[float] = None,
     max_delay: Optional[float] = None,
     normalize: Optional[float] = None,
@@ -75,7 +75,7 @@ def gen_delay_filter(
         [EW, NS, Z] length. Unspecified dimensions are assumed to be zero.
     standoff
         Supra-horizon buffer [nanosec]
-    filter_type
+    delay_filter_type
         Options are ``['gauss', 'trunc_gauss', 'tophat', 'none']``.
         This sets the filter profile. ``gauss`` has a 1-sigma as horizon (+ standoff)
         divided by four, ``trunc_gauss`` is same but truncated above 1-sigma. ``'none'``
@@ -103,17 +103,17 @@ def gen_delay_filter(
     one_sigma = (bl_len_ns + standoff) / 4.0
 
     # create filter
-    if filter_type in [None, "none", "None"]:
+    if delay_filter_type in [None, "none", "None"]:
         delay_filter = np.ones_like(delays)
-    elif filter_type in ["gauss", "trunc_gauss"]:
+    elif delay_filter_type in ["gauss", "trunc_gauss"]:
         delay_filter = np.exp(-0.5 * (delays / one_sigma) ** 2)
-        if filter_type == "trunc_gauss":
+        if delay_filter_type == "trunc_gauss":
             delay_filter[np.abs(delays) > (one_sigma * 4)] = 0.0
-    elif filter_type == "tophat":
+    elif delay_filter_type == "tophat":
         delay_filter = np.ones_like(delays)
         delay_filter[np.abs(delays) > (one_sigma * 4)] = 0.0
     else:
-        raise ValueError(f"Didn't recognize filter_type {filter_type}")
+        raise ValueError(f"Didn't recognize filter_type {delay_filter_type}")
 
     # set bounds
     if min_delay is not None:
@@ -184,11 +184,10 @@ def rough_delay_filter(
 
 
 def gen_fringe_filter(
-    *,
     lsts: np.ndarray,
     freqs: np.ndarray,
     ew_bl_len_ns: float,
-    filter_type: str = "tophat",
+    fringe_filter_type: str = "tophat",
     **filter_kwargs,
 ) -> np.ndarray:
     """
@@ -202,7 +201,7 @@ def gen_fringe_filter(
         Frequency array [GHz]
     ew_bl_len_ns
         Projected East-West baseline length [nanosec]
-    filter_type
+    fringe_filter_type
         Options ``['tophat', 'gauss', 'custom', 'none']``
 
     Other Parameters
@@ -245,15 +244,15 @@ def gen_fringe_filter(
     times = lsts / (2 * np.pi) * u.sday.to("s")
     fringe_rates = np.fft.fftfreq(times.size, times[1] - times[0])
 
-    if filter_type in [None, "none", "None"]:
+    if fringe_filter_type in [None, "none", "None"]:
         fringe_filter = np.ones((len(times), len(freqs)), dtype=np.float)
-    elif filter_type == "tophat":
+    elif fringe_filter_type == "tophat":
         fr_max = np.repeat(
             calc_max_fringe_rate(freqs, ew_bl_len_ns)[None, :], len(lsts), axis=0
         )
         fringe_rates = np.repeat(fringe_rates[:, None], len(freqs), axis=1)
         fringe_filter = np.where(np.abs(fringe_rates) <= np.abs(fr_max), 1.0, 0)
-    elif filter_type == "gauss":
+    elif fringe_filter_type == "gauss":
         assert (
             "fr_width" in filter_kwargs
         ), "If filter_type=='gauss' must feed fr_width kwarg"
@@ -264,7 +263,7 @@ def gen_fringe_filter(
         fringe_filter = np.exp(
             -0.5 * ((fringe_rates - fr_max) / filter_kwargs["fr_width"]) ** 2
         )
-    elif filter_type == "custom":
+    elif fringe_filter_type == "custom":
         assert (
             "FR_filter" in filter_kwargs
         ), "If filter_type=='custom', must feed 2D FR_filter array"
@@ -289,7 +288,7 @@ def gen_fringe_filter(
         fringe_filter[np.isclose(fringe_filter, 0.0)] = 0.0
 
     else:
-        raise ValueError(f"filter_type {filter_type} not recognized")
+        raise ValueError(f"filter_type {fringe_filter_type} not recognized")
 
     return fringe_filter
 
