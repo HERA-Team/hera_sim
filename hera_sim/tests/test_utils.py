@@ -1,12 +1,11 @@
-import os
 import numpy as np
 import pytest
+
 from astropy import units
-import unittest
+
 from hera_sim import utils
 from hera_sim import DATA_PATH
 from hera_sim.interpolators import Beam
-import nose.tools as nt
 
 
 @pytest.fixture(scope="function")
@@ -17,7 +16,7 @@ def lsts():
 @pytest.fixture(scope="function")
 def fringe_rates(lsts):
     dlst = np.mean(np.diff(lsts))
-    dlst_sec = dlst * units.rad.to("cycle") * units.day.to("s")
+    dlst_sec = dlst * units.rad.to("cycle") * units.sday.to("s")
     return np.fft.fftfreq(lsts.size, dlst_sec)
 
 
@@ -102,14 +101,27 @@ def test_gen_delay_filter_bad_filter_type(freqs):
     assert err.value.args[0] == "Didn't recognize filter_type bad filter"
 
 
-def test_rough_delay_filter_noisy_data(freqs, lsts):
+@pytest.mark.parametrize("filter_type", ["delay", "fringe"])
+def test_rough_filter_noisy_data(freqs, lsts, filter_type):
     Nrealizations = 1000
     mean_values = np.zeros((Nrealizations, 2))
+    if filter_type == "delay":
+        filt = utils.rough_delay_filter
+        args = [freqs, 50]
+        kwargs = {
+            "standoff": 0,
+            "delay_filter_type": "gauss",
+        }
+    else:
+        filt = utils.rough_fringe_filter
+        args = [lsts, freqs, 50]
+        kwargs = {
+            "fringe_filter_type": "gauss",
+            "fr_width": 1e-4,
+        }
     for i in range(Nrealizations):
         data = utils.gen_white_noise((lsts.size, freqs.size))
-        filtered_data = utils.rough_delay_filter(
-            data, freqs, bl_len_ns=50, standoff=0, delay_filter_type="gauss"
-        )
+        filtered_data = filt(data, *args, **kwargs)
         filtered_data_mean = np.mean(filtered_data)
         mean_values[i] = filtered_data_mean.real, filtered_data_mean.imag
     one_sigma = 1 / np.sqrt(freqs.size * lsts.size)
@@ -153,29 +165,117 @@ def test_fringe_filter_tophat_symmetry(freqs, lsts, bl_len_ns):
 
 
 @pytest.mark.parametrize("bl_len_ns", [50, 150])
-def test_fringe_filter_tophat_output(freqs, lsts, bl_len_ns):
-    pass
+def test_fringe_filter_tophat_output(freqs, lsts, fringe_rates, bl_len_ns):
+    fringe_filter = utils.gen_fringe_filter(
+        lsts, freqs, bl_len_ns, filter_type="tophat"
+    )
+    max_fringe_rates = utils.calc_max_fringe_rate(freqs, bl_len_ns)
+    # Check that we get a low-pass fringe-rate filter.
+    assert all(
+        np.all(fringe_filter[np.abs(fringe_rates) > max_fringe_rate, i] == 0)
+        & np.all(fringe_filter[np.abs(fringe_rates) < max_fringe_rate, i] == 1)
+        for i, max_fringe_rate in enumerate(max_fringe_rates)
+    )
 
 
 @pytest.mark.parametrize("bl_len_ns", [50, 150])
 def test_fringe_filter_none(freqs, lsts, bl_len_ns):
-    pass
+    fringe_filter = utils.gen_fringe_filter(lsts, freqs, bl_len_ns, filter_type="none")
+    assert np.all(fringe_filter == 1)
+
+
+# 75 ns baseline is about the upper bound for the measured fringe rates.
+# If we want to use a longer baseline for testing, we need finer LST resolution.
+@pytest.mark.parametrize("bl_len_ns", [50, 75])
+def test_fringe_filter_gauss_center(freqs, lsts, fringe_rates, bl_len_ns):
+    fringe_filter = utils.gen_fringe_filter(
+        lsts, freqs, bl_len_ns, filter_type="gauss", fr_width=1e-4
+    )
+    max_fringe_rates = utils.calc_max_fringe_rate(freqs, bl_len_ns)
+    # Check that the peak of the filter is at the maximum fringe rate.
+    assert np.allclose(
+        fringe_rates[np.argmax(fringe_filter, axis=0)],
+        max_fringe_rates,
+        rtol=0,
+        atol=fringe_rates[1] - fringe_rates[0],
+    )
+
+
+@pytest.mark.parametrize("fr_width", [1e-4, 3e-4])
+def test_fringe_filter_gauss_width(freqs, lsts, fringe_rates, fr_width):
+    bl_len_ns = 50.0
+    fringe_filter = utils.gen_fringe_filter(
+        lsts, freqs, bl_len_ns, filter_type="gauss", fr_width=fr_width
+    )
+    half_max_fringe_rates = fringe_rates[np.argmin(np.abs(fringe_filter - 0.5), axis=0)]
+    fringe_fwhm = 2 * fr_width * np.sqrt(2 * np.log(2))
+    max_fringe_rates = utils.calc_max_fringe_rate(freqs, bl_len_ns)
+    # Check that the half-max occurs at the correct locations.
+    assert np.all(
+        np.isclose(
+            half_max_fringe_rates,
+            max_fringe_rates - fringe_fwhm / 2,
+            rtol=0,
+            atol=fringe_rates[1] - fringe_rates[0],
+        )
+        | np.isclose(
+            half_max_fringe_rates,
+            max_fringe_rates + fringe_fwhm / 2,
+            rtol=0,
+            atol=fringe_rates[1] - fringe_rates[0],
+        )
+    )
+
+
+def test_fringe_filter_custom(freqs, lsts, fringe_rates):
+    fringe_filter_npz = np.load(DATA_PATH / "H37_FR_Filters_small.npz")
+    model_filter = fringe_filter_npz["PB_rms"][0].T
+    filter_freqs = fringe_filter_npz["freqs"] / 1e9
+    filter_frates = fringe_filter_npz["frates"]
+    bl_len_ns = 20  # This doesn't matter for this test.
+    fringe_filter = utils.gen_fringe_filter(
+        lsts,
+        freqs,
+        bl_len_ns,
+        filter_type="custom",
+        FR_filter=model_filter,
+        FR_frates=filter_frates,
+        FR_freqs=filter_freqs,
+    )
+    peak_frates_model = filter_frates[np.argmax(model_filter, axis=0)]
+    peak_frates_interp = fringe_rates[np.argmax(fringe_filter, axis=0)]
+    nearest_neighbors = np.array(
+        [np.argmin(np.abs(filter_freqs - freq)) for freq in freqs]
+    )
+    # Check that the filters peak at roughly the same fringe rates.
+    assert np.allclose(
+        peak_frates_model[nearest_neighbors], peak_frates_interp, rtol=0.05, atol=0,
+    )
 
 
 @pytest.mark.parametrize("bl_len_ns", [50, 150])
-def test_fringe_filter_gauss(freqs, lsts, fringe_rates, bl_len_ns):
-    pass
-
-
-# play with this and see what the filter looks like before updating the test
-@pytest.mark.parametrize("bl_len_ns", [50, 150])
-def test_fringe_filter_custom(freqs, lsts, bl_len_ns):
-    pass
-
-
-@pytest.mark.parametrize("bl_len_ns", [50, 150])
-def test_rough_fringe_filter_noisy_data(freqs, lsts, bl_len_ns):
-    pass
+@pytest.mark.parametrize("fr_width", [1e-4, 3e-4])
+def test_rough_fringe_filter_noisy_data(freqs, lsts, fringe_rates, bl_len_ns, fr_width):
+    data = utils.gen_white_noise((lsts.size, freqs.size))
+    max_fringe_rates = utils.calc_max_fringe_rate(freqs, bl_len_ns)
+    filt_data = utils.rough_fringe_filter(
+        data, lsts, freqs, bl_len_ns, fringe_filter_type="gauss", fr_width=fr_width
+    )
+    filt_data_fft = np.abs(np.fft.fft(filt_data, axis=0))
+    # Check that there is no power at fringe-rates that have been filtered.
+    # Note that not all power outside of the fringe filter is actually removed;
+    # the use of a FFT-based filter causes power to leak. 5-sigma apparently isn't
+    # enough to make it consistent with zero to machine precision, but 7-sigma
+    # seems to work.
+    assert all(
+        np.allclose(
+            filt_data_fft[np.abs(fringe_rates - max_fringe_rate) > 7 * fr_width, i],
+            0,
+            rtol=0,
+            atol=1e-7,
+        )
+        for i, max_fringe_rate in enumerate(max_fringe_rates)
+    )
 
 
 def test_fringe_filter_bad_type(freqs, lsts):
@@ -184,7 +284,7 @@ def test_fringe_filter_bad_type(freqs, lsts):
     assert err.value.args[0] == "filter_type bad type not recognized"
 
 
-@pytest.mark.parametrize("shape", [100, (100,200)])
+@pytest.mark.parametrize("shape", [100, (100, 200)])
 def test_gen_white_noise_shape(shape):
     noise = utils.gen_white_noise(shape)
     if type(shape) is int:
@@ -192,73 +292,18 @@ def test_gen_white_noise_shape(shape):
     assert noise.shape == shape
 
 
-@pytest.mark.parametrize("shape", [100, (100,200)])
+@pytest.mark.parametrize("shape", [100, (100, 200)])
 def test_gen_white_noise_mean(shape):
     noise = utils.gen_white_noise(shape)
     assert np.allclose(
-        [noise.mean().real, noise.mean().imag], 0, rtol=0, atol=5/np.sqrt(noise.size)
+        [noise.mean().real, noise.mean().imag], 0, rtol=0, atol=5 / np.sqrt(noise.size)
     )
 
 
-@pytest.mark.parametrize("shape", [100, (100,200)])
+@pytest.mark.parametrize("shape", [100, (100, 200)])
 def test_gen_white_noise_variance(shape):
     noise = utils.gen_white_noise(shape)
     assert np.isclose(np.std(noise), 1, rtol=0, atol=0.1)
-
-
-# choose some config where the max fr is known
-def test_max_fringe_rate_calculator():
-    pass
-
-
-class TestUtils(unittest.TestCase):
-    def test_gen_fringe_filter(self):
-        np.random.seed(0)
-        lsts = np.linspace(0, 2 * np.pi, 200)
-        fqs = np.linspace(0.1, 0.2, 100, endpoint=False)
-        bl_len_ns = 50.0
-        FRF = np.load(DATA_PATH / "H37_FR_Filters_small.npz")
-        fr_filt = FRF["PB_rms"][0].T
-        fr_frates = FRF["frates"]
-        fr_freqs = FRF["freqs"] / 1e9
-
-        ff = utils.gen_fringe_filter(lsts, fqs, bl_len_ns, filter_type="none")
-        nt.assert_true(np.isclose(ff, 1.0).all())
-
-        ff = utils.gen_fringe_filter(lsts, fqs, bl_len_ns, filter_type="tophat")
-        nt.assert_almost_equal(np.sum(ff[50]), np.sum(ff[-50]), 41)
-
-        # for some reason this fails, but no changes have been made
-        # or sometimes it doesn't fail? really bizarre
-        ff = utils.gen_fringe_filter(
-            lsts, fqs, bl_len_ns, filter_type="gauss", fr_width=1e-4
-        )
-        nt.assert_almost_equal(np.sum(ff[50]), 63.06179070109816)
-
-        ff = utils.gen_fringe_filter(
-            lsts,
-            fqs,
-            bl_len_ns,
-            filter_type="custom",
-            FR_filter=fr_filt,
-            FR_frates=fr_frates,
-            FR_freqs=fr_freqs,
-        )
-        nt.assert_almost_equal(np.sum(ff[50]), 14.66591593210259, places=3)
-
-    def test_rough_fringe_filter(self):
-        np.random.seed(0)
-        lsts = np.linspace(0, 2 * np.pi, 400)
-        fqs = np.linspace(0.1, 0.2, 100, endpoint=False)
-        bl_len_ns = 50.0
-        # FRF = np.load(DATA_PATH / "H37_FR_Filters_small.npz")
-
-        data = utils.gen_white_noise((len(lsts), len(fqs)))
-        dfilt = utils.rough_fringe_filter(
-            data, lsts, fqs, bl_len_ns, fringe_filter_type="gauss", fr_width=1e-4
-        )
-        dfft = np.mean(np.abs(np.fft.ifft(dfilt, axis=0)), axis=1)
-        nt.assert_true(np.isclose(dfft[50:150], 0.0).all())
 
 
 @pytest.mark.parametrize("baseline", [1, (0, 1), [0, 1], np.array([0, 1, 2])])
@@ -269,7 +314,6 @@ def test_get_bl_len_vec(baseline):
 @pytest.mark.parametrize("baseline", [1, [1 / np.sqrt(2),] * 2, [1 / np.sqrt(3),] * 3])
 def test_get_bl_len_magnitude(baseline):
     assert np.isclose(utils.get_bl_len_magnitude(baseline), 1)
-
 
 
 @pytest.mark.parametrize("ra", [np.pi / 4, 3 * np.pi / 2])
@@ -299,10 +343,6 @@ def test_Jy2T(freqs, omega_p):
     assert conversion_factors.shape == freqs.shape
 
 
-@pytest.mark.parametrize("obj", [1, (1,2), "abc", np.array([13])])
+@pytest.mark.parametrize("obj", [1, (1, 2), "abc", np.array([13])])
 def test_listify(obj):
     assert type(utils._listify(obj)) is list
-
-
-if __name__ == "__main__":
-    unittest.main()
