@@ -185,7 +185,7 @@ class Simulator:
         model, is_class = self._get_component(component)
 
         # get the kwargs
-        kwargs = self._components[component]
+        kwargs = self._components[component].copy()
 
         # figure out whether or not to seed the rng
         seed = kwargs.pop("seed", None)
@@ -196,7 +196,7 @@ class Simulator:
         # figure out whether or not to apply defaults
         use_defaults = kwargs.pop("defaults", {})
         if use_defaults:
-            self.apply_defaults(**use_defaults)
+            self.apply_defaults(use_defaults)
 
         # instantiate the model if it's a class
         if is_class:
