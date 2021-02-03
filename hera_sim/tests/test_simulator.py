@@ -53,7 +53,7 @@ def base_sim():
 
 @pytest.fixture(scope="function")
 def ref_sim(base_sim):
-    base_sim.add("noiselike_eor")
+    base_sim.add("noiselike_eor", seed="redundant")
     return base_sim
 
 
@@ -135,6 +135,11 @@ def test_io_bad_format(base_sim, tmp_path):
     with pytest.raises(ValueError) as err:
         base_sim.write(tmp_path / "data.bad_extension", save_format="bad_type")
     assert "must correspond to a write method" in err.value.args[0]
+
+
+def test_get_full_data(ref_sim):
+    data = ref_sim.get("noiselike_eor")
+    assert np.allclose(data, ref_sim.data.data_array)
 
 
 def test_get_nonexistent_component(ref_sim):
