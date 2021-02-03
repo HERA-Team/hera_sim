@@ -195,12 +195,6 @@ def test_match_antennas_default_settings(base_config, base_sim):
 
     # Check that the matched array is identical to the overlap array, up to labels.
     assert arrays_are_equal(overlap_array, modified_sim.antpos)
-    # assert all(
-    #    np.allclose(ref_antpos, modified_antpos)
-    #    for ref_antpos, modified_antpos in zip(
-    #        overlap_array.values(), modified_sim.antpos.values()
-    #    )
-    # )
 
     # Check that the antenna labels are updated correctly.
     assert np.all(modified_sim.data.antenna_numbers == list(overlap_array.keys()))
