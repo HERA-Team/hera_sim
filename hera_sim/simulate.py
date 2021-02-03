@@ -237,7 +237,9 @@ class Simulator:
                 pol_ind = self.data.get_pols().index(pol)
                 return data[blt_inds, 0, :, pol_ind]
         elif seed == "redundant":
-            if any([(ant2, ant1) == item for item in antpairpol_cache]):
+            # XXX: this will need to be modified when polarization handling is fixed
+            # putting the comment here for lack of a "best" place to put it
+            if any([(ant2, ant1) == item[:-1] for item in antpairpol_cache]):
                 self._seed_rng(seed, model, ant2, ant1)
             else:
                 self._seed_rng(seed, model, ant1, ant2)
@@ -841,6 +843,7 @@ class Simulator:
         model = self._get_model_name(model)
         if model not in self._seeds:
             self._generate_seed(model, key)
+        # TODO: handle conjugate baselines here instead of other places
         if key not in self._seeds[model]:
             self._generate_seed(model, key)
         return self._seeds[model][key]
