@@ -137,9 +137,27 @@ def test_io_bad_format(base_sim, tmp_path):
     assert "must correspond to a write method" in err.value.args[0]
 
 
-def test_get_full_data(ref_sim):
-    data = ref_sim.get("noiselike_eor")
-    assert np.allclose(data, ref_sim.data.data_array)
+@pytest.mark.parametrize("pol", [None, "xx"])
+def test_get_full_data(ref_sim, pol):
+    data = ref_sim.get("noiselike_eor", pol=pol)
+    if pol is None:
+        assert np.allclose(data, ref_sim.data.data_array, rtol=0, atol=1e-7)
+    else:
+        assert np.allclose(data, ref_sim.data.data_array[...,0], rtol=0, atol=1e-7)
+
+
+@pytest.mark.parametrize("pol", [None, "xx"])
+def test_get_with_one_seed(base_sim, pol):
+    # Set the seed mode to "once" even if that's not realistic.
+    base_sim.add("noiselike_eor", seed="once")
+    ant1, ant2 = (1, 0)  # Use convention ant1 > ant2 for conjugation considerations.
+    data = base_sim.get("noiselike_eor", ant1=ant1, ant2=ant2, pol=pol)
+    antpairpol = (ant1, ant2) if pol is None else (ant1, ant2, pol)
+    true_data = base_sim.data.get_data(antpairpol)
+    if pol is None:
+        assert np.allclose(data[...,0], true_data, rtol=0, atol=1e-7)
+    else:
+        assert np.allclose(data, true_data, rtol=0, atol=1e-7)
 
 
 def test_get_nonexistent_component(ref_sim):
