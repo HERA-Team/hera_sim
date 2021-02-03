@@ -46,18 +46,21 @@ def create_sim(autos=False, **kwargs):
     )
 
 
-def test_from_empty():
-    sim = create_sim()
+@pytest.fixture(scope="function")
+def base_sim():
+    return create_sim()
 
+
+def test_from_empty(base_sim):
     assert all(
         [
-            sim.data.Ntimes == Ntimes,
-            sim.data.Nfreqs == Nfreqs,
-            np.all(sim.data.data_array == 0),
-            sim.freqs.size == Nfreqs,
-            sim.freqs.ndim == 1,
-            sim.lsts.size == Ntimes,
-            sim.lsts.ndim == 1,
+            base_sim.data.Ntimes == Ntimes,
+            base_sim.data.Nfreqs == Nfreqs,
+            np.all(base_sim.data.data_array == 0),
+            base_sim.freqs.size == Nfreqs,
+            base_sim.freqs.ndim == 1,
+            base_sim.lsts.size == Ntimes,
+            base_sim.lsts.ndim == 1,
         ]
     )
 
@@ -81,45 +84,37 @@ def test_initialize_from_defaults():
     )
 
 
-def test_add_with_str():
-    sim = create_sim()
-    sim.add("noiselike_eor")
-    assert not np.all(sim.data.data_array == 0)
+def test_add_with_str(base_sim):
+    base_sim.add("noiselike_eor")
+    assert not np.all(base_sim.data.data_array == 0)
 
 
-def test_add_with_builtin_class():
-    sim = create_sim()
-    sim.add(DiffuseForeground, Tsky_mdl=Tsky_mdl, omega_p=omega_p)
-    assert not np.all(np.isclose(sim.data.data_array, 0))
+def test_add_with_builtin_class(base_sim):
+    base_sim.add(DiffuseForeground, Tsky_mdl=Tsky_mdl, omega_p=omega_p)
+    assert not np.all(np.isclose(base_sim.data.data_array, 0))
 
 
-def test_add_with_class_instance():
-    sim = create_sim()
-
-    sim.add(diffuse_foreground, Tsky_mdl=Tsky_mdl, omega_p=omega_p)
-    assert not np.all(np.isclose(sim.data.data_array, 0))
+def test_add_with_class_instance(base_sim):
+    base_sim.add(diffuse_foreground, Tsky_mdl=Tsky_mdl, omega_p=omega_p)
+    assert not np.all(np.isclose(base_sim.data.data_array, 0))
 
 
-def test_refresh():
-    sim = create_sim()
+def test_refresh(base_sim):
+    base_sim.add("noiselike_eor")
+    base_sim.refresh()
 
-    sim.add("noiselike_eor")
-    sim.refresh()
-
-    assert np.all(sim.data.data_array == 0)
+    assert np.all(base_sim.data.data_array == 0)
 
 
-def test_io():
-    sim = create_sim()
-
+def test_io(base_sim):
     # create a temporary directory to write stuff to
     tempdir = tempfile.mkdtemp()
     filename = os.path.join(tempdir, "tmp_data.uvh5")
 
-    sim.add("pntsrc_foreground")
-    sim.add("gains")
+    base_sim.add("pntsrc_foreground")
+    base_sim.add("gains")
 
-    sim.write(filename)
+    base_sim.write(filename)
 
     sim2 = Simulator(data=filename)
 
@@ -128,11 +123,11 @@ def test_io():
 
     sim3 = Simulator(data=uvd)
 
-    assert np.all(sim.data.data_array == sim2.data.data_array)
-    assert np.all(sim.data.data_array == sim3.data.data_array)
+    assert np.all(base_sim.data.data_array == sim2.data.data_array)
+    assert np.all(base_sim.data.data_array == sim3.data.data_array)
 
     with assert_raises(ValueError):
-        sim.write(
+        base_sim.write(
             os.path.join(tempdir, "tmp_data.bad_extension"), save_format="bad_type"
         )
         Simulator(data=13)
@@ -141,34 +136,32 @@ def test_io():
     shutil.rmtree(tempdir)
 
 
-def test_not_add_vis():
-    sim = create_sim()
-    vis = sim.add("noiselike_eor", add_vis=False, ret_vis=True)
+def test_not_add_vis(base_sim):
+    vis = base_sim.add("noiselike_eor", add_vis=False, ret_vis=True)
 
-    assert np.all(sim.data.data_array == 0)
+    assert np.all(base_sim.data.data_array == 0)
 
     assert not np.all(vis == 0)
 
-    assert "noiselike_eor" not in sim.data.history
-    assert "noiselike_eor" not in sim._components.keys()
+    assert "noiselike_eor" not in base_sim.data.history
+    assert "noiselike_eor" not in base_sim._components.keys()
 
     # make sure None is returned if neither adding nor returning
-    assert sim.add("noiselike_eor", add_vis=False, ret_vis=False) is None
+    assert base_sim.add("noiselike_eor", add_vis=False, ret_vis=False) is None
 
 
-def test_adding_vis_but_also_returning():
-    sim = create_sim()
-    vis = sim.add("noiselike_eor", ret_vis=True)
+def test_adding_vis_but_also_returning(base_sim):
+    vis = base_sim.add("noiselike_eor", ret_vis=True)
 
     assert not np.all(vis == 0)
-    assert np.all(np.isclose(vis, sim.data.data_array))
+    assert np.all(np.isclose(vis, base_sim.data.data_array))
 
     # use season defaults for simplicity
     defaults.set("h1c")
-    vis += sim.add("diffuse_foreground", ret_vis=True)
+    vis += base_sim.add("diffuse_foreground", ret_vis=True)
     # deactivate defaults for good measure
     defaults.deactivate()
-    assert np.all(np.isclose(vis, sim.data.data_array))
+    assert np.all(np.isclose(vis, base_sim.data.data_array))
 
 
 def test_filter():
@@ -300,7 +293,7 @@ def test_run_sim():
 
 
 @raises(ValueError)
-def test_run_sim_both_args():
+def test_run_sim_both_args(base_sim):
     # make a temporary test file
     tmp_sim_file = tempfile.mkstemp()[1]
     with open(tmp_sim_file, "w") as sim_file:
@@ -311,12 +304,11 @@ def test_run_sim_both_args():
                 """
         )
     sim_params = {"diffuse_foreground": {"Tsky_mdl": HERA_Tsky_mdl["xx"]}}
-    sim = create_sim()
-    sim.run_sim(tmp_sim_file, **sim_params)
+    base_sim.run_sim(tmp_sim_file, **sim_params)
 
 
 @raises(SystemExit)
-def test_bad_yaml_config():
+def test_bad_yaml_config(base_sim):
     # make a bad config file
     tmp_sim_file = tempfile.mkstemp()[1]
     with open(tmp_sim_file, "w") as sim_file:
@@ -327,19 +319,16 @@ def test_bad_yaml_config():
                  bad: file
                  """
         )
-    sim = create_sim()
-    sim.run_sim(tmp_sim_file)
+    base_sim.run_sim(tmp_sim_file)
 
 
 @raises(UnboundLocalError)
-def test_run_sim_bad_param_key():
+def test_run_sim_bad_param_key(base_sim):
     bad_key = {"something": {"something else": "another different thing"}}
-    sim = create_sim()
-    sim.run_sim(**bad_key)
+    base_sim.run_sim(**bad_key)
 
 
 @raises(TypeError)
-def test_run_sim_bad_param_value():
+def test_run_sim_bad_param_value(base_sim):
     bad_value = {"diffuse_foreground": 13}
-    sim = create_sim()
-    sim.run_sim(**bad_value)
+    base_sim.run_sim(**bad_value)
