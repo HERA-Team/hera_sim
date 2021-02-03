@@ -31,6 +31,8 @@ def _generator_to_list(func, *args, **kwargs):
     return new_func
 
 
+# XXX: some of the code in here is pretty brittle and breaks (sometimes silently)
+# if not used carefully. This definitely needs a review and cleanup.
 class Simulator:
     """Class for managing a simulation.
 
