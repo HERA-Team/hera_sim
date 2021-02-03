@@ -12,7 +12,7 @@ import os
 import yaml
 
 import numpy as np
-from nose.tools import raises, assert_raises
+import pytest
 
 from hera_sim.foregrounds import DiffuseForeground, diffuse_foreground
 from hera_sim.noise import HERA_Tsky_mdl
@@ -106,34 +106,29 @@ def test_refresh(base_sim):
     assert np.all(base_sim.data.data_array == 0)
 
 
-def test_io(base_sim):
-    # create a temporary directory to write stuff to
-    tempdir = tempfile.mkdtemp()
-    filename = os.path.join(tempdir, "tmp_data.uvh5")
-
+@pytest.mark.parametrize("make_sim_from", ["uvdata", "file"])
+def test_io(base_sim, make_sim_from, tmp_path):
+    # Simulate some data and write it to disk.
+    filename = tmp_path / "tmp_data.uvh5"
     base_sim.add("pntsrc_foreground")
     base_sim.add("gains")
-
     base_sim.write(filename)
 
-    sim2 = Simulator(data=filename)
+    if make_sim_from == "file":
+        sim2 = Simulator(data=filename)
+    elif make_sim_from == "uvdata":
+        uvd = UVData()
+        uvd.read_uvh5(filename)
+        sim2 = Simulator(data=uvd)
 
-    uvd = UVData()
-    uvd.read_uvh5(filename)
+    # Make sure that the data agree to numerical precision.
+    assert np.allclose(base_sim.data.data_array, sim2.data.data_array, rtol=0, atol=1e-7)
 
-    sim3 = Simulator(data=uvd)
 
-    assert np.all(base_sim.data.data_array == sim2.data.data_array)
-    assert np.all(base_sim.data.data_array == sim3.data.data_array)
-
-    with assert_raises(ValueError):
-        base_sim.write(
-            os.path.join(tempdir, "tmp_data.bad_extension"), save_format="bad_type"
-        )
-        Simulator(data=13)
-
-    # delete the temporary directory
-    shutil.rmtree(tempdir)
+def test_io_bad_format(base_sim, tmp_path):
+    with pytest.raises(ValueError) as err:
+        base_sim.write(tmp_path / "data.bad_extension", save_format="bad_type")
+    assert "must correspond to a write method" in err.value.args[0]
 
 
 def test_not_add_vis(base_sim):
@@ -292,10 +287,9 @@ def test_run_sim():
     defaults.deactivate()
 
 
-@raises(ValueError)
-def test_run_sim_both_args(base_sim):
+def test_run_sim_both_args(base_sim, tmp_path):
     # make a temporary test file
-    tmp_sim_file = tempfile.mkstemp()[1]
+    tmp_sim_file = tmp_path / "temp_config.yaml"
     with open(tmp_sim_file, "w") as sim_file:
         sim_file.write(
             """
@@ -304,13 +298,14 @@ def test_run_sim_both_args(base_sim):
                 """
         )
     sim_params = {"diffuse_foreground": {"Tsky_mdl": HERA_Tsky_mdl["xx"]}}
-    base_sim.run_sim(tmp_sim_file, **sim_params)
+    with pytest.raises(ValueError) as err:
+        base_sim.run_sim(tmp_sim_file, **sim_params)
+    assert "Please only pass one of the two." in err.value.args[0]
 
 
-@raises(SystemExit)
-def test_bad_yaml_config(base_sim):
+def test_bad_yaml_config(base_sim, tmp_path):
     # make a bad config file
-    tmp_sim_file = tempfile.mkstemp()[1]
+    tmp_sim_file = tmp_path / "bad_config.yaml"
     with open(tmp_sim_file, "w") as sim_file:
         sim_file.write(
             """
@@ -319,16 +314,20 @@ def test_bad_yaml_config(base_sim):
                  bad: file
                  """
         )
-    base_sim.run_sim(tmp_sim_file)
+    with pytest.raises(SystemExit) as err:
+        base_sim.run_sim(tmp_sim_file)
+    assert err.value.args[0] == "The configuration file was not able to be loaded."
 
 
-@raises(UnboundLocalError)
 def test_run_sim_bad_param_key(base_sim):
     bad_key = {"something": {"something else": "another different thing"}}
-    base_sim.run_sim(**bad_key)
+    with pytest.raises(UnboundLocalError) as err:
+        base_sim.run_sim(**bad_key)
+    assert "The component 'something' wasn't found." in err.value.args[0]
 
 
-@raises(TypeError)
 def test_run_sim_bad_param_value(base_sim):
     bad_value = {"diffuse_foreground": 13}
-    base_sim.run_sim(**bad_value)
+    with pytest.raises(TypeError) as err:
+        base_sim.run_sim(**bad_value)
+    assert "The parameters for diffuse_foreground are not" in err.value.args[0]
