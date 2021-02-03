@@ -143,6 +143,12 @@ def test_get_nonexistent_component(ref_sim):
     assert "has not been simulated" in err.value.args[0]
 
 
+def test_get_without_specifying_antenna(ref_sim):
+    with pytest.raises(TypeError) as err:
+        _ = ref_sim.get("noiselike_eor", ant1=1, ant2=None)
+    assert "specify an antenna pair" in err.value.args[0]
+
+
 def test_not_add_vis(base_sim):
     vis = base_sim.add("noiselike_eor", add_vis=False, ret_vis=True)
 
