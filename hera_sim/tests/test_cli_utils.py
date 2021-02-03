@@ -37,6 +37,7 @@ def test_filing_params_parser():
         cli_utils.get_filing_params(bad_params)
 
 
+# TODO: break this up into multiple tests
 def test_config_validation(tmp_path):
     # Construct various possible configurations.
     freq_params = {
