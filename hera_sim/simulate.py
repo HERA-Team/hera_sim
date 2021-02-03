@@ -7,6 +7,7 @@ import sys
 import warnings
 import yaml
 import time
+from pathlib import Path
 
 import numpy as np
 from cached_property import cached_property
@@ -282,7 +283,7 @@ class Simulator:
         """
         """
         try:
-            getattr(self.data, "write_%s" % save_format)(filename, **kwargs)
+            getattr(self.data, f"write_{save_format}")(filename, **kwargs)
         except AttributeError:
             raise ValueError(
                 "The save_format must correspond to a write method in UVData."
@@ -311,9 +312,7 @@ class Simulator:
                 try:
                     sim_params = yaml.load(config.read(), Loader=yaml.FullLoader)
                 except Exception:
-                    print("The configuration file was not able to be loaded.")
-                    print("Please fix the file and try again.")
-                    sys.exit()
+                    sys.exit("The configuration file was not able to be loaded.")
 
         # loop over the entries in the configuration dictionary
         for component, params in sim_params.items():
@@ -462,7 +461,7 @@ class Simulator:
         """
         if data is None:
             self.data = io.empty_uvdata(**kwargs)
-        elif isinstance(data, str):
+        elif isinstance(data, (str, Path)):
             self.data = self._read_datafile(data, **kwargs)
             self.extras["data_file"] = data
         elif isinstance(data, UVData):
