@@ -230,7 +230,7 @@ class Simulator:
             # otherwise, the seeding will be wrong
             kwargs["seed"] = seed
             data = self._iteratively_apply(model, add_vis=False, ret_vis=True, **kwargs)
-            blt_inds = self.data.antpair2ind((ant1, ant2))
+            blt_inds = self.data.antpair2ind((ant1, ant2), ordered=False)
             if pol is None:
                 return data[blt_inds, 0, :, :]
             else:
