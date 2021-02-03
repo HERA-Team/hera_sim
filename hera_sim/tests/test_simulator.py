@@ -9,6 +9,7 @@ import shutil
 import tempfile
 import sys
 import os
+import yaml
 
 import numpy as np
 from nose.tools import raises, assert_raises
@@ -17,7 +18,7 @@ from hera_sim.foregrounds import DiffuseForeground, diffuse_foreground
 from hera_sim.noise import HERA_Tsky_mdl
 from hera_sim.simulate import Simulator
 from hera_sim.antpos import hex_array
-from hera_sim import DATA_PATH
+from hera_sim import DATA_PATH, CONFIG_PATH
 from hera_sim.defaults import defaults
 from hera_sim.interpolators import Beam
 from pyuvdata import UVData
@@ -48,12 +49,36 @@ def create_sim(autos=False, **kwargs):
 def test_from_empty():
     sim = create_sim()
 
-    assert sim.data.data_array.shape == (20, 1, 10, 1)
-    assert np.all(sim.data.data_array == 0)
-    assert sim.freqs.size == Nfreqs
-    assert sim.freqs.ndim == 1
-    assert sim.lsts.size == Ntimes
-    assert sim.lsts.ndim == 1
+    assert all(
+        [
+            sim.data.Ntimes == Ntimes,
+            sim.data.Nfreqs == Nfreqs,
+            np.all(sim.data.data_array == 0),
+            sim.freqs.size == Nfreqs,
+            sim.freqs.ndim == 1,
+            sim.lsts.size == Ntimes,
+            sim.lsts.ndim == 1,
+        ]
+    )
+
+
+def test_initialize_from_defaults():
+    with open(CONFIG_PATH / "H1C.yaml") as config:
+        defaults = yaml.load(config.read())
+    setup = defaults["setup"]
+    freq_params = setup["frequency_array"]
+    time_params = setup["time_array"]
+    array = defaults["telescope"]["array_layout"]
+    sim = Simulator(defaults_config="h1c")
+    assert all(
+        [
+            sim.freqs.size == freq_params["Nfreqs"],
+            sim.freqs[0] == freq_params["start_freq"] / 1e9,
+            sim.lsts.size == time_params["Ntimes"],
+            sim.times[0] == time_params["start_time"],
+            len(sim.antpos) == len(array),
+        ]
+    )
 
 
 def test_add_with_str():
