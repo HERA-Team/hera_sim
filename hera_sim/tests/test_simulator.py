@@ -51,6 +51,12 @@ def base_sim():
     return create_sim()
 
 
+@pytest.fixture(scope="function")
+def ref_sim(base_sim):
+    base_sim.add("noiselike_eor")
+    return base_sim
+
+
 def test_from_empty(base_sim):
     assert all(
         [
@@ -129,6 +135,12 @@ def test_io_bad_format(base_sim, tmp_path):
     with pytest.raises(ValueError) as err:
         base_sim.write(tmp_path / "data.bad_extension", save_format="bad_type")
     assert "must correspond to a write method" in err.value.args[0]
+
+
+def test_get_nonexistent_component(ref_sim):
+    with pytest.raises(AttributeError) as err:
+        _ = ref_sim.get("diffuse_foreground")
+    assert "has not been simulated" in err.value.args[0]
 
 
 def test_not_add_vis(base_sim):
