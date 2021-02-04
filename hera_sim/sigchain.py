@@ -208,16 +208,14 @@ class Reflections(Gain, is_multiplicative=True):
 
         def broadcast_param(param, lower_bound, upper_bound, size):
             if param is None:
-                params = stats.uniform.rvs(lower_bound, upper_bound, size)
+                return stats.uniform.rvs(lower_bound, upper_bound, size)
             elif np.isscalar(param):
-                params = np.ones(size) * param
+                return np.ones(size, dtype=np.float) * param
             else:
                 if len(param) == size:
-                    params = np.array(param)
+                    return np.array(param, dtype=np.float)
                 else:
-                    params = stats.uniform.rvs(*param, size)
-
-            return params.astype(np.float)
+                    return stats.uniform.rvs(*param, size)
 
         # Transform parameters into arrays.
         amps = broadcast_param(amp, 0, 1, len(ants))
@@ -228,7 +226,7 @@ class Reflections(Gain, is_multiplicative=True):
         amps *= stats.norm.rvs(1, amp_jitter, len(ants))
         dlys += stats.norm.rvs(0, dly_jitter, len(ants))
 
-        return amp, dly, phases
+        return amps, dlys, phases
 
 
 @registry
@@ -266,11 +264,9 @@ class CrossCouplingCrosstalk(Crosstalk, Reflections):
             [1], amp, dly, phs, amp_jitter, dly_jitter
         )
 
-        # Make reflection coefficient; enforce symmetry in delay.
-        eps_1 = self.gen_reflection_coefficient(freqs, amp, dly, phs, conj=conj)
-        eps_2 = self.gen_reflection_coefficient(freqs, amp, -dly, phs, conj=conj)
-        eps = eps_1 + eps_2
-
+        # Make reflection coefficient.
+        eps = self.gen_reflection_coefficient(freqs, amp, dly, phs, conj=conj)
+        
         # reshape if necessary
         if eps.ndim == 1:
             eps = eps.reshape((1, -1))
@@ -290,6 +286,7 @@ class CrossCouplingSpectrum(Crosstalk):
         phs_range=(-np.pi, np.pi),
         amp_jitter=0,
         dly_jitter=0,
+        symmetrize=True,
     ):
         super().__init__(
             Ncopies=Ncopies,
@@ -298,6 +295,7 @@ class CrossCouplingSpectrum(Crosstalk):
             phs_range=phs_range,
             amp_jitter=amp_jitter,
             dly_jitter=dly_jitter,
+            symmetrize=symmetrize,
         )
 
     def __call__(self, freqs, autovis, **kwargs):
@@ -313,6 +311,7 @@ class CrossCouplingSpectrum(Crosstalk):
             phs_range,
             amp_jitter,
             dly_jitter,
+            symmetrize,
         ) = self._extract_kwarg_values(**kwargs)
 
         # Construct the arrays of amplitudes and delays.
@@ -331,6 +330,10 @@ class CrossCouplingSpectrum(Crosstalk):
             )
 
             crosstalk_spectrum += gen_xtalk(freqs, autovis)
+            if symmetrize:
+                # Note: this will have neither the same jitter realization nor
+                # the same phase as the first crosstalk spectrum.
+                crosstalk_spectrum += gen_xtalk(freqs, autovis, dly=-dly)
 
         return crosstalk_spectrum
 

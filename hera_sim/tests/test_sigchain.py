@@ -196,6 +196,52 @@ def test_cross_coupling_xtalk_phase_stability(fqs, dlys, Tsky):
     assert np.allclose(np.angle(ovfft[:, select]), -1, atol=1e-4, rtol=1e-4)
 
 
+def test_amp_jitter():
+    ants = range(10000)
+    amp = 5
+    amp_jitter = 0.1
+    jittered_amps = sigchain.Reflections._complete_params(
+        ants, amp=amp, amp_jitter=amp_jitter
+    )[0]
+    assert np.isclose(jittered_amps.mean(), amp, rtol=0.05)
+    assert np.isclose(jittered_amps.std(), amp * amp_jitter, rtol=0.05)
+
+
+def test_dly_jitter():
+    ants = range(10000)
+    dly = 500
+    dly_jitter = 20
+    jittered_dlys = sigchain.Reflections._complete_params(
+        ants, dly=dly, dly_jitter=dly_jitter
+    )[1]
+    assert np.isclose(jittered_dlys.mean(), dly, rtol=0.05)
+    assert np.isclose(jittered_dlys.std(), dly_jitter, rtol=0.05)
+
+
+def test_cross_coupling_spectrum(fqs, dlys, Tsky):
+    Ncopies = 5
+    amp_range = (-2, -5)
+    dly_range = (50, 450)
+    xtalk_spectrum = sigchain.CrossCouplingSpectrum(
+        Ncopies=Ncopies, amp_range=amp_range, dly_range=dly_range, symmetrize=True,
+    )
+    amplitudes = np.logspace(*amp_range, Ncopies)
+    delays = np.linspace(*dly_range, Ncopies)
+    xtalk = xtalk_spectrum(freqs=fqs, autovis=Tsky)
+    Tsky_avg = np.abs(
+        uvtools.utils.FFT(Tsky, axis=1, taper="bh7")[:, np.argmin(np.abs(dlys))]
+    )  # Take the average this way to avoid numerical oddities with FFTs
+    xt_fft = uvtools.utils.FFT(xtalk, axis=1, taper="bh7")
+    # Check that there are spikes at expected delays w/ expected amplitudes.
+    for dly, amp in zip(delays, amplitudes):
+        # The crosstalk should be a scaled down, phased version of zero delay mode.
+        dly_ind = np.argmin(np.abs(dlys - dly))
+        neg_dly_ind = np.argmin(np.abs(dlys - -dly))
+        for ind in (dly_ind, neg_dly_ind):
+            ratio = np.abs(xt_fft[:, ind]) / Tsky_avg
+            assert np.allclose(ratio, amp, rtol=0.01)
+
+
 @pytest.fixture(scope="function")
 def freqs():
     return np.linspace(0.1, 0.2, 1024)
