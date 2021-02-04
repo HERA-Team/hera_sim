@@ -266,7 +266,7 @@ class CrossCouplingCrosstalk(Crosstalk, Reflections):
 
         # Make reflection coefficient.
         eps = self.gen_reflection_coefficient(freqs, amp, dly, phs, conj=conj)
-        
+
         # reshape if necessary
         if eps.ndim == 1:
             eps = eps.reshape((1, -1))

@@ -128,7 +128,9 @@ def test_io(base_sim, make_sim_from, tmp_path):
         sim2 = Simulator(data=uvd)
 
     # Make sure that the data agree to numerical precision.
-    assert np.allclose(base_sim.data.data_array, sim2.data.data_array, rtol=0, atol=1e-7)
+    assert np.allclose(
+        base_sim.data.data_array, sim2.data.data_array, rtol=0, atol=1e-7
+    )
 
 
 def test_io_bad_format(base_sim, tmp_path):
@@ -143,7 +145,7 @@ def test_get_full_data(ref_sim, pol):
     if pol is None:
         assert np.allclose(data, ref_sim.data.data_array, rtol=0, atol=1e-7)
     else:
-        assert np.allclose(data, ref_sim.data.data_array[...,0], rtol=0, atol=1e-7)
+        assert np.allclose(data, ref_sim.data.data_array[..., 0], rtol=0, atol=1e-7)
 
 
 @pytest.mark.parametrize("pol", [None, "xx"])
@@ -155,7 +157,7 @@ def test_get_with_one_seed(base_sim, pol):
     antpairpol = (ant1, ant2) if pol is None else (ant1, ant2, pol)
     true_data = base_sim.data.get_data(antpairpol)
     if pol is None:
-        assert np.allclose(data[...,0], true_data, rtol=0, atol=1e-7)
+        assert np.allclose(data[..., 0], true_data, rtol=0, atol=1e-7)
     else:
         assert np.allclose(data, true_data, rtol=0, atol=1e-7)
 
