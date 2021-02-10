@@ -331,7 +331,7 @@ class Simulator:
 
             # if the user wanted to return the data, then
             if value is not None:
-                yield (component, value)
+                yield component, value
 
     def chunk_sim_and_save(
         self,
