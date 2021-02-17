@@ -288,16 +288,20 @@ class DTV(RFI):
         df = np.mean(np.diff(freqs))
         dtv_iterator = zip(bands, dtv_chance, dtv_strength, dtv_std)
 
+        # TODO: update the documentation here to make it more clear what's happening.
         # loop over the DTV bands, generating rfi where appropriate
         for band, chance, strength, std in dtv_iterator:
-            # get the channels affected
-            if any(np.isclose(band, freqs, 0.01 * df)):
-                ch1 = np.argwhere(np.isclose(band, freqs)).flatten()[0]
+            # Find the first channel affected.
+            if any(np.isclose(band, freqs, atol=0.01 * df)):
+                ch1 = np.argwhere(np.isclose(band, freqs, atol=0.01 * df)).flatten()[0]
             else:
                 ch1 = np.argwhere(band <= freqs).flatten()[0]
             try:
-                if any(np.isclose(band + width, freqs, 0.01 * df)):
-                    ch2 = np.argwhere(np.isclose(band + width, freqs)).flatten()[0]
+                # Find the last channel affected.
+                if any(np.isclose(band + width, freqs, atol=0.01 * df)):
+                    ch2 = np.argwhere(
+                        np.isclose(band + width, freqs, atol=0.01 * df)
+                    ).flatten()[0]
                 else:
                     ch2 = np.argwhere(band + width <= freqs).flatten()[0]
                 if ch2 == freqs.size - 1:
