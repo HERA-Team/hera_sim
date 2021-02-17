@@ -1,23 +1,15 @@
 """Module for testing the various new YAML tags in this package."""
 
+import pytest
 import yaml
-import tempfile
-import os
 
-from nose.tools import raises
 from astropy.units.quantity import Quantity
 
 import hera_sim.__yaml_constructors
 
 
-def make_empty_yaml():
-    tempdir = tempfile.mkdtemp()
-    tfile = os.path.join(tempdir, "temp.yaml")
-    return tfile
-
-
-def test_astropy_units_constructor():
-    tfile = make_empty_yaml()
+def test_astropy_units_constructor(tmp_path):
+    tfile = tmp_path / "test_astro.yaml"
     with open(tfile, "w") as f:
         f.write(
             """
@@ -38,8 +30,8 @@ def test_astropy_units_constructor():
         assert isinstance(value, Quantity)
 
 
-def test_astropy_constructor_nonetypes():
-    tfile = make_empty_yaml()
+def test_astropy_constructor_nonetypes(tmp_path):
+    tfile = tmp_path / "test_astro_nones.yaml"
     with open(tfile, "w") as f:
         f.write(
             """
@@ -55,15 +47,16 @@ def test_astropy_constructor_nonetypes():
         assert value is None
 
 
-@raises(ValueError)
-def bad_astropy_units():
-    tfile = make_empty_yaml()
+def bad_astropy_units(tmp_path):
+    tfile = tmp_path / "bad_units.yaml"
     with open(tfile, "w") as f:
         f.write(
             """
             quantity: !dimensionful
                 value: 1
-                units: seconds"""
+                units: bad_units"""
         )
-    with open(tfile, "r") as f:
-        yaml.load(f.read(), Loader=yaml.FullLoader)
+    with pytest.raises(ValueError) as err:
+        with open(tfile, "r") as f:
+            yaml.load(f.read(), Loader=yaml.FullLoader)
+    assert "Please check your configuration" in err.value.args[0]
