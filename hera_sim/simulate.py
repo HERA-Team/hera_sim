@@ -315,7 +315,7 @@ class Simulator:
                 try:
                     sim_params = yaml.load(config.read(), Loader=yaml.FullLoader)
                 except Exception:
-                    sys.exit("The configuration file was not able to be loaded.")
+                    raise IOError("The configuration file was not able to be loaded.")
 
         # loop over the entries in the configuration dictionary
         for component, params in sim_params.items():
