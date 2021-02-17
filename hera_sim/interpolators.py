@@ -1,7 +1,7 @@
 """
 This module provides interfaces to different interpolation classes.
 """
-
+import warnings
 import numpy as np
 from cached_property import cached_property
 from scipy.interpolate import RectBivariateSpline, interp1d
@@ -69,6 +69,7 @@ class Interpolator:
         self._interp_kwargs = interp_kwargs
 
 
+# TODO: add support for multiple polarizations
 class Tsky(Interpolator):
     """Sky temperature interpolator; subclass of `Interpolator`."""
 
@@ -172,13 +173,29 @@ class Tsky(Interpolator):
         # get the tsky data
         tsky_data = self.tsky[pol_index]
 
-        # XXX this isn't always what we want to do and will give unexpected behavior
-        # for sky models where the LST range only covers a subset of the sky.
-        # do some wrapping in LST
+        # TODO: make LST wrapping a little smarter
+        # (that is, are 10 extra LSTs on each side really needed?)
+        dlst = np.mean(np.diff(self.lsts))
+        wrap_length = 10
+        if (self.lsts[0] - dlst * wrap_length > 0) or (
+            self.lsts[-1] + dlst * wrap_length < 2 * np.pi
+        ):
+            warnings.warn(
+                "The provided LSTs do not sufficiently cover [0, 2*pi). "
+                "The interpolated sky temperature may have unexpected behavior "
+                "near 0 and 2*pi."
+            )
+
         lsts = np.concatenate(
-            [self.lsts[-10:] - 2 * np.pi, self.lsts, self.lsts[:10] + 2 * np.pi]
+            [
+                self.lsts[-wrap_length:] - 2 * np.pi,
+                self.lsts,
+                self.lsts[:wrap_length] + 2 * np.pi,
+            ]
         )
-        tsky_data = np.concatenate([tsky_data[-10:], tsky_data, tsky_data[:10]])
+        tsky_data = np.concatenate(
+            [tsky_data[-wrap_length:], tsky_data, tsky_data[:wrap_length]]
+        )
 
         # now make the interpolation object
         return RectBivariateSpline(lsts, self.freqs, tsky_data, **self._interp_kwargs)
@@ -186,6 +203,7 @@ class Tsky(Interpolator):
     def _check_npz_format(self):
         """Check that the npz archive is formatted properly."""
 
+        # TODO: change all assert statements to appropriate error raises
         assert "freqs" in self._data.keys(), (
             "The frequencies corresponding to the sky temperature array "
             "must be provided. They must be saved to the npz file using "
@@ -206,6 +224,12 @@ class Tsky(Interpolator):
             "provide information about the units of the various arrays "
             "and the polarizations of the sky temperature array."
         )
+
+        if not np.all(self.freqs[1:] > self.freqs[:-1]):
+            raise ValueError("Frequencies must be strictly increasing.")
+
+        if not np.all(self.lsts[1:] > self.lsts[:-1]):
+            raise ValueError("LSTs must be strictly increasing.")
 
         # check that tsky has the correct shape
         assert self.tsky.shape == (
