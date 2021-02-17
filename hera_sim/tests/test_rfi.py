@@ -126,13 +126,13 @@ def test_rfi_dtv_occupancy_variable_chance(freqs, lsts):
 def test_rfi_dtv_warning_when_no_overlap(freqs, lsts):
     dtv_band = (0.25, 0.37)
     with pytest.warns(UserWarning) as warning:
-        _ = rfi.rfi_dtv(lsts, freqs, dtv_band=dtv_band)
+        rfi.rfi_dtv(lsts, freqs, dtv_band=dtv_band)
     assert "DTV band does not overlap" in warning[0].message.args[0]
 
 
 def test_rfi_dtv_bad_parameters(freqs, lsts):
     with pytest.raises(ValueError) as err:
-        _ = rfi.rfi_dtv(
+        rfi.rfi_dtv(
             lsts, freqs, dtv_band=(0.15, 0.2), dtv_chance=[0.1, 0.2], dtv_std=[1, 2, 3]
         )
     assert "not formatted properly." in err.value.args[0]
@@ -157,5 +157,5 @@ def test_rfi_station_bad_station_parameters(freqs, lsts):
         [0.1, 0.2, 0.3],
     ]
     with pytest.raises(ValueError) as err:
-        _ = rfi.rfi_stations(lsts, freqs, stations=stations)
+        rfi.rfi_stations(lsts, freqs, stations=stations)
     assert "Please check the format of your stations." in err.value.args[0]

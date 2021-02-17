@@ -97,7 +97,7 @@ def test_gen_delay_filter_vector_bl_len_ns(freqs, delays, bl_len_ns):
 
 def test_gen_delay_filter_bad_filter_type(freqs):
     with pytest.raises(ValueError) as err:
-        _ = utils.gen_delay_filter(freqs, 0, filter_type="bad filter")
+        utils.gen_delay_filter(freqs, 0, filter_type="bad filter")
     assert err.value.args[0] == "Didn't recognize filter_type bad filter"
 
 
@@ -280,7 +280,7 @@ def test_rough_fringe_filter_noisy_data(freqs, lsts, fringe_rates, bl_len_ns, fr
 
 def test_fringe_filter_bad_type(freqs, lsts):
     with pytest.raises(ValueError) as err:
-        _ = utils.gen_fringe_filter(lsts, freqs, 35, filter_type="bad type")
+        utils.gen_fringe_filter(lsts, freqs, 35, filter_type="bad type")
     assert err.value.args[0] == "filter_type bad type not recognized"
 
 

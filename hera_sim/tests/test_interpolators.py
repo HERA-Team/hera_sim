@@ -93,7 +93,7 @@ def test_tsky_exception_no_freqs(lsts, Tsky_mdl, tmp_path):
     data_file = str(tmp_path / "test_tsky_no_freqs.npz")
     np.savez(data_file, lsts=lsts, tsky=Tsky_mdl[None, :, :], meta={"pols": ("xx",)})
     with pytest.raises(AssertionError) as err:
-        _ = Tsky(data_file)
+        Tsky(data_file)
     assert "frequencies corresponding to the sky temperature" in err.value.args[0]
 
 
@@ -101,7 +101,7 @@ def test_tsky_exception_no_lsts(freqs, Tsky_mdl, tmp_path):
     data_file = str(tmp_path / "test_tsky_no_lsts.npz")
     np.savez(data_file, freqs=freqs, tsky=Tsky_mdl[None, :, :], meta={"pols": ("xx",)})
     with pytest.raises(AssertionError) as err:
-        _ = Tsky(data_file)
+        Tsky(data_file)
     assert "LSTs corresponding to the sky temperature" in err.value.args[0]
 
 
@@ -109,7 +109,7 @@ def test_tsky_exception_no_tsky(freqs, lsts, tmp_path):
     data_file = str(tmp_path / "test_tsky_no_tsky.npz")
     np.savez(data_file, freqs=freqs, lsts=lsts, meta={"pols": ("xx",)})
     with pytest.raises(AssertionError) as err:
-        _ = Tsky(data_file)
+        Tsky(data_file)
     assert "sky temperature array must be saved" in err.value.args[0]
 
 
@@ -117,7 +117,7 @@ def test_tsky_exception_no_meta_dict(freqs, lsts, Tsky_mdl, tmp_path):
     data_file = str(tmp_path / "test_tsky_no_meta.npz")
     np.savez(data_file, freqs=freqs, lsts=lsts, tsky=Tsky_mdl[None, :, :])
     with pytest.raises(AssertionError) as err:
-        _ = Tsky(data_file)
+        Tsky(data_file)
     assert "npz file must contain a metadata dictionary" in err.value.args[0]
 
 
@@ -125,7 +125,7 @@ def test_tsky_exception_bad_tsky_shape(freqs, lsts, Tsky_mdl, tmp_path):
     data_file = str(tmp_path / "test_tsky_bad_tsky_shape.npz")
     np.savez(data_file, freqs=freqs, lsts=lsts, tsky=Tsky_mdl, meta={"pols": ("xx",)})
     with pytest.raises(AssertionError) as err:
-        _ = Tsky(data_file)
+        Tsky(data_file)
     assert "tsky array is incorrectly shaped." in err.value.args[0]
 
 
@@ -139,7 +139,7 @@ def test_tsky_exception_pol_not_found(freqs, lsts, Tsky_mdl, tmp_path):
         meta={"pols": ("xx",)},
     )
     with pytest.raises(AssertionError) as err:
-        _ = Tsky(data_file, pol="yy")
+        Tsky(data_file, pol="yy")
     assert "Polarization must be in the metadata's" in err.value.args[0]
 
 
@@ -149,9 +149,7 @@ def test_1d_interpolators_bad_interp_type(model, tmp_path):
     data = np.array([1, 2, 3])
     np.save(data_file, data)
     with pytest.raises(AssertionError) as err:
-        _ = {"beam": Beam, "bandpass": Bandpass}[model](
-            data_file, interpolator="bad_type"
-        )
+        {"beam": Beam, "bandpass": Bandpass}[model](data_file, interpolator="bad_type")
     assert (
         err.value.args[0]
         == "Interpolator choice must either be 'poly1d' or 'interp1d'."
@@ -170,7 +168,7 @@ def test_1d_interpolators_bad_file_ext(freqs, model, interpolator, tmp_path):
         data_file = f"{data_file}.npy"
         np.save(data_file, np.array([1, 2, 3, 4, 5]))
     with pytest.raises(AssertionError) as err:
-        _ = INTERPOLATORS[model](data_file, interpolator=interpolator)
+        INTERPOLATORS[model](data_file, interpolator=interpolator)
     article = {"poly1d": "a", "interp1d": "an"}[interpolator]
     assert f"In order to use {article} '{interpolator}' object" in err.value.args[0]
 
@@ -185,14 +183,14 @@ def test_1d_interpolators_missing_npz_keys(freqs, model, param, tmp_path):
     }
     np.savez(data_file, **kwds[param])
     with pytest.raises(AssertionError) as err:
-        _ = INTERPOLATORS[model](data_file, interpolator="interp1d")
+        INTERPOLATORS[model](data_file, interpolator="interp1d")
     assert "Please ensure that the `.npz` archive has" in err.value.args[0]
 
 
 def test_path_checking_nonexistent_file():
     data_file = "does_not_exist.npz"
     with pytest.raises(AssertionError) as err:
-        _ = _check_path(data_file)
+        _check_path(data_file)
     assert "If datafile is not an absolute path" in err.value.args[0]
 
 

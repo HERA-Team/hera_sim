@@ -164,13 +164,13 @@ def test_get_with_one_seed(base_sim, pol):
 
 def test_get_nonexistent_component(ref_sim):
     with pytest.raises(AttributeError) as err:
-        _ = ref_sim.get("diffuse_foreground")
+        ref_sim.get("diffuse_foreground")
     assert "has not been simulated" in err.value.args[0]
 
 
 def test_get_without_specifying_antenna(ref_sim):
     with pytest.raises(TypeError) as err:
-        _ = ref_sim.get("noiselike_eor", ant1=1, ant2=None)
+        ref_sim.get("noiselike_eor", ant1=1, ant2=None)
     assert "specify an antenna pair" in err.value.args[0]
 
 
@@ -357,7 +357,7 @@ def test_bad_yaml_config(base_sim, tmp_path):
                  bad: file
                  """
         )
-    with pytest.raises(SystemExit) as err:
+    with pytest.raises(IOError) as err:
         base_sim.run_sim(tmp_sim_file)
     assert err.value.args[0] == "The configuration file was not able to be loaded."
 
