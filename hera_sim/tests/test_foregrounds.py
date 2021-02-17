@@ -1,3 +1,4 @@
+from contextlib import ExitStack as does_not_raise
 import pytest
 from hera_sim import foregrounds, noise
 from hera_sim import DATA_PATH
@@ -59,9 +60,12 @@ def test_foreground_autos_are_real(freqs, lsts, Tsky_mdl, omega_p, model):
 
 @pytest.mark.parametrize("orientation", ["east", "west", "north"])
 @pytest.mark.parametrize(
-    "model", ["pntsrc", "diffuse"],
+    "model, expectation",
+    [("pntsrc", pytest.raises(AssertionError)), ("diffuse", does_not_raise()),],
 )
-def test_foreground_orientation(freqs, lsts, Tsky_mdl, omega_p, model, orientation):
+def test_foreground_orientation(
+    freqs, lsts, Tsky_mdl, omega_p, model, orientation, expectation
+):
     baselines = {"east": [100, 0, 0], "west": [-100, 0, 0], "north": [0, 100, 0]}
     bl_vec = baselines[orientation]
     fringe_filter_kwargs = {"fringe_filter_type": "gauss", "fr_width": 1e-5}
@@ -78,9 +82,13 @@ def test_foreground_orientation(freqs, lsts, Tsky_mdl, omega_p, model, orientati
         )
     elif model == "pntsrc":
         # FIXME: point source foregrounds do not behave correctly in fringe-rate.
-        # TODO: update parametrization to raise an xfail for point source foregrounds.
-        return
         model = foregrounds.pntsrc_foreground
+        # Hack to make the tests pass for the eastward-orientation. This should
+        # be extra motivation for really digging into how we're simulating point
+        # source visibilities, since it doesn't consistently give the wrong
+        # fringe-rate behavior.
+        if orientation == "east":
+            expectation = does_not_raise()
 
     vis = model(**kwargs)
     vis_fft = FFT(vis, axis=0, taper="blackmanharris")
@@ -89,7 +97,8 @@ def test_foreground_orientation(freqs, lsts, Tsky_mdl, omega_p, model, orientati
     divisor = 1 if orientation == "north" else np.abs(max_frs)
     fr_signs = max_frs / divisor
     expected_sign = {"east": 1, "west": -1, "north": 0}[orientation]
-    assert np.allclose(fr_signs, expected_sign, atol=1e-4)
+    with expectation:
+        assert np.allclose(fr_signs, expected_sign, atol=1e-4)
 
 
 @pytest.mark.parametrize("model", ["pntsrc", "diffuse"])
