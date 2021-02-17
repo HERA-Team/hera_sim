@@ -15,11 +15,12 @@ class Foreground:
     pass
 
 
+# TODO: choose at which level we'll be documenting classes.
 class DiffuseForeground(Foreground):
-    # XXX do we want to document the classes at this level?
     """
 
     """
+
     _alias = ("diffuse_foreground",)
 
     def __init__(

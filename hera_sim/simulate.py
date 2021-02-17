@@ -31,7 +31,7 @@ def _generator_to_list(func, *args, **kwargs):
     return new_func
 
 
-# XXX: some of the code in here is pretty brittle and breaks (sometimes silently)
+# FIXME: some of the code in here is pretty brittle and breaks (sometimes silently)
 # if not used carefully. This definitely needs a review and cleanup.
 class Simulator:
     """Class for managing a simulation.
@@ -163,10 +163,10 @@ class Simulator:
 
     def get(self, component, ant1=None, ant2=None, pol=None):
         # TODO: docstring
-        # XXX ideally, this could be handled by _iteratively_apply
+        # TODO: figure out if this could be handled by _iteratively_apply
         """
         """
-        # XXX do we want to leave this check in there?
+        # TODO: determine whether to leave this check here.
         if component not in self._components:
             raise AttributeError(
                 "You are trying to retrieve a component that has not "
@@ -239,7 +239,7 @@ class Simulator:
                 pol_ind = self.data.get_pols().index(pol)
                 return data[blt_inds, 0, :, pol_ind]
         elif seed == "redundant":
-            # XXX: this will need to be modified when polarization handling is fixed
+            # TODO: this will need to be modified when polarization handling is fixed
             # putting the comment here for lack of a "best" place to put it
             if any([(ant2, ant1) == item[:-1] for item in antpairpol_cache]):
                 self._seed_rng(seed, model, ant2, ant1)
@@ -293,10 +293,9 @@ class Simulator:
                 "The save_format must correspond to a write method in UVData."
             )
 
-    # XXX with the new version of the CLI, this should not need to be wrapped
-    # by the _generator_to_list wrapper. That said, it's worth thinking about
-    # whether we want to give the user the option to retrieve the simulation
-    # components as a return value from run_sim
+    # TODO: Determine if we want to provide the user the option to retrieve
+    # simulation components as a return value from run_sim. Remove the
+    # _generator_to_list wrapper if we do not make that a feature.
     @_generator_to_list
     def run_sim(self, sim_file=None, **sim_params):
         # TODO: docstring
@@ -863,18 +862,13 @@ class Simulator:
             # check if it's a user defined function
             if model.__class__.__name__ == "function":
                 # don't allow users to pass functions, only classes
-                # XXX find out if this check always happens before
+                # TODO: find out if this check always happens before
                 # _get_component is called
-                msg = "You are trying to simulate an effect using a "
-                msg += "custom function. Please convert your "
-                msg += "function into a callable class that inherits "
-                msg += "from a registry. To make a registry, simply "
-                msg += "define a class and decorate it with the "
-                msg += "hera_sim.registry decorator. The registry "
-                msg += "does not need to perform any tasks or be "
-                msg += "instantiated; it just needs to exist and be "
-                msg += "a base class for the custom callable class."
-                raise TypeError(msg)
+                raise TypeError(
+                    "You are trying to simulate an effect using a custom function. "
+                    "Please refer to the tutorial for instructions regarding how "
+                    "to define new simulation components compatible with the Simulator."
+                )
             else:
                 return model.__class__.__name__
 

@@ -59,16 +59,16 @@ class NoiselikeEoR(EoR):
             fringe_filter_kwargs,
         ) = self._extract_kwarg_values(**kwargs)
 
-        # make white noise in freq/time
-        # XXX: original says in frate/freq, not sure why
+        # make white noise in freq/time (original says in frate/freq, not sure why)
         data = utils.gen_white_noise(size=(len(lsts), len(freqs)))
 
         # scale data by EoR amplitude
         data *= eor_amp
 
         # apply delay filter; default does nothing
-        # XXX find out why bl_len_ns is hardcoded as 1e10
-        # XXX also find out why a tophat filter is hardcoded
+        # TODO: find out why bl_len_ns is hardcoded as 1e10, also
+        # why a tophat filter is hardcoded; isn't this the same as just
+        # using no filter but setting min/max delay?
         data = utils.rough_delay_filter(
             data,
             freqs,
@@ -89,7 +89,7 @@ class NoiselikeEoR(EoR):
         )
 
         # dirty trick to make autocorrelations real-valued
-        # TODO Figure out the statistically correct way to handle autos.
+        # TODO: Figure out the statistically correct way to handle autos.
         # Handling autos this way makes the covariance look like it has
         # no structure... which is wrong.
         if np.all(np.isclose(bl_vec, 0)):

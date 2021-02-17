@@ -66,7 +66,7 @@ def test_foreground_orientation(freqs, lsts, Tsky_mdl, omega_p, model, orientati
     bl_vec = baselines[orientation]
     fringe_filter_kwargs = {"fringe_filter_type": "gauss", "fr_width": 1e-5}
     kwargs = dict(freqs=freqs, lsts=lsts, bl_vec=bl_vec)
-    # XXX Can this be made into a function to avoid repeated code?
+    # TODO: Update this to avoid repeated code?
     if model == "diffuse":
         model = foregrounds.diffuse_foreground
         kwargs.update(
@@ -77,9 +77,8 @@ def test_foreground_orientation(freqs, lsts, Tsky_mdl, omega_p, model, orientati
             )
         )
     elif model == "pntsrc":
-        # XXX point source foregrounds do not behave correctly in fringe-rate
-        # Is there a way to parametrize this that gives an xfail when point source
-        # foregrounds are being tested?
+        # FIXME: point source foregrounds do not behave correctly in fringe-rate.
+        # TODO: update parametrization to raise an xfail for point source foregrounds.
         return
         model = foregrounds.pntsrc_foreground
 
