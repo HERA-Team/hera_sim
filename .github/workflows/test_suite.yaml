@@ -39,7 +39,7 @@ jobs:
 
       - name: Setup Environment
         run: |
-          python -m pip install -U coverage
+          python -m pip install -U coverage numpy
           python -m pip install .[dev]
 
 #      - name: Setup Miniconda
@@ -56,11 +56,6 @@ jobs:
 #          conda info -a
 #          conda list
 #          PYVER=`python -c "import sys; print('{:d}.{:d}'.format(sys.version_info.major, sys.version_info.minor))"`
-
-      - name: Install
-        run: |
-          pip install numpy
-          python -m pip install .
 
       - name: Run Tests
         run: |
