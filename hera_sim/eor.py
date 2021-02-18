@@ -93,7 +93,7 @@ class NoiselikeEoR(EoR):
         # Handling autos this way makes the covariance look like it has
         # no structure... which is wrong.
         if np.all(np.isclose(bl_vec, 0)):
-            data = data.real.astype(np.complex)
+            data = data.real.astype(np.complex128)
 
         return data
 

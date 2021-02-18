@@ -277,7 +277,7 @@ class Simulator:
         This zeros the data array, resets the history, and clears the
         instance's _components dictionary.
         """
-        self.data.data_array = np.zeros(self.data.data_array.shape, dtype=np.complex)
+        self.data.data_array = np.zeros(self.data.data_array.shape, dtype=np.complex128)
         self.data.history = ""
         self._components.clear()
         self._antpairpol_cache = {}
@@ -603,7 +603,7 @@ class Simulator:
 
                 # filter what's actually having data simulated
                 if apply_filter:
-                    vis = np.zeros(vis.shape, dtype=np.complex)
+                    vis = np.zeros(vis.shape, dtype=np.complex128)
 
                 # and add it in
                 data_copy[blt_inds, 0, :, pol_ind] += vis

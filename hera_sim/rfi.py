@@ -29,7 +29,7 @@ class RfiStation:
         """
         """
         # initialize an array for storing the rfi
-        rfi = np.zeros((lsts.size, freqs.size), dtype=np.complex)
+        rfi = np.zeros((lsts.size, freqs.size), dtype=np.complex128)
 
         # get the mean channel width
         channel_width = np.mean(np.diff(freqs))
@@ -93,7 +93,7 @@ class Stations(RFI):
         (stations,) = self._extract_kwarg_values(**kwargs)
 
         # initialize an array to store the rfi in
-        rfi = np.zeros((lsts.size, freqs.size), dtype=np.complex)
+        rfi = np.zeros((lsts.size, freqs.size), dtype=np.complex128)
 
         if stations is None:
             warnings.warn("You did not specify any stations to simulate.")
@@ -144,7 +144,7 @@ class Impulse(RFI):
         chance, strength = self._extract_kwarg_values(**kwargs)
 
         # initialize the rfi array
-        rfi = np.zeros((lsts.size, freqs.size), dtype=np.complex)
+        rfi = np.zeros((lsts.size, freqs.size), dtype=np.complex128)
 
         # find times when an impulse occurs
         impulses = np.where(np.random.uniform(size=lsts.size) <= chance)[0]
@@ -191,7 +191,7 @@ class Scatter(RFI):
         chance, strength, std = self._extract_kwarg_values(**kwargs)
 
         # make an empty rfi array
-        rfi = np.zeros((lsts.size, freqs.size), dtype=np.complex)
+        rfi = np.zeros((lsts.size, freqs.size), dtype=np.complex128)
 
         # find out where to put the rfi
         rfis = np.where(np.random.uniform(size=rfi.size) <= chance)[0]
@@ -249,7 +249,7 @@ class DTV(RFI):
         ) = self._extract_kwarg_values(**kwargs)
 
         # make an empty rfi array
-        rfi = np.zeros((lsts.size, freqs.size), dtype=np.complex)
+        rfi = np.zeros((lsts.size, freqs.size), dtype=np.complex128)
 
         # get the lower and upper frequencies of the DTV band
         freq_min, freq_max = dtv_band

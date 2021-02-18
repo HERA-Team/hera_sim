@@ -204,7 +204,7 @@ def gen_fringe_filter(lsts, fqs, ew_bl_len_ns, filter_type="tophat", **filter_kw
     frates = np.fft.fftfreq(times.size, times[1] - times[0])
 
     if filter_type in [None, "none", "None"]:
-        fringe_filter = np.ones((len(times), len(fqs)), dtype=np.float)
+        fringe_filter = np.ones((len(times), len(fqs)), dtype=float)
     elif filter_type == "tophat":
         fr_max = np.repeat(
             calc_max_fringe_rate(fqs, ew_bl_len_ns)[None, :], len(lsts), axis=0
