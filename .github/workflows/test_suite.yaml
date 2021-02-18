@@ -40,7 +40,7 @@ jobs:
       - name: Setup Environment
         run: |
           python -m pip install -U coverage numpy
-          python -m pip install .[dev]
+          python -m pip install .[tests]
 
 #      - name: Setup Miniconda
 #        uses: conda-incubator/setup-miniconda@v2.0.0
