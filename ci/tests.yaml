@@ -19,6 +19,7 @@ dependencies:
   - astropy-healpix
   - basemap
   - pyuvdata
+  - blas<2.0
   - pip:
     - cached-property
     - git+https://github.com/RadioAstronomySoftwareGroup/pyuvsim.git
