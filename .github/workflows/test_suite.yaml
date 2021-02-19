@@ -42,8 +42,10 @@ jobs:
       # are updated to be able to install without pre-installed deps.
       - name: Setup Environment
         run: |
-          python -m pip install numpy astropy pyuvdata six
-          python -m pip install .[tests]
+          which pip
+          pip install numpy
+          pip install astropy pyuvdata six
+          pip install .[tests]
 
 #      - name: Setup Miniconda
 #        uses: conda-incubator/setup-miniconda@v2.0.0
