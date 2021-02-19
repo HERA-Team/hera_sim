@@ -49,14 +49,10 @@ that this is not a one-step process is because some of the packages inadvertantl
 other packages to be installed before they can even be installed, let alone used, and ``pip``
 reads the ``setup.py`` file for each package before installing anything).
 
-First install the basic dependencies:
+First install `numpy`, as one of the dependencies requires it to be installed before
+it can be installed:
 
-``$ pip install numpy``
-
-The [pyuvsim](https://github.com/RadioAstronomySoftwareGroup/pyuvsim) module is required
-for simulation setup in this module. For use without installing the `mpi4py` module it
-is recommended to install this repo manually or through pip by excuting
-```pip install git+https://github.com/RadioAstronomySoftwareGroup/pyuvsim.git```
+``pip install numpy``
 
 Then to install this repo, either download and run ``pip install -e .`` or
 run
