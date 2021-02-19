@@ -195,12 +195,6 @@ def test_match_antennas_default_settings(base_config, base_sim):
 
     # Check that the matched array is identical to the overlap array, up to labels.
     assert arrays_are_equal(overlap_array, modified_sim.antpos)
-    # assert all(
-    #    np.allclose(ref_antpos, modified_antpos)
-    #    for ref_antpos, modified_antpos in zip(
-    #        overlap_array.values(), modified_sim.antpos.values()
-    #    )
-    # )
 
     # Check that the antenna labels are updated correctly.
     assert np.all(modified_sim.data.antenna_numbers == list(overlap_array.keys()))
@@ -704,7 +698,7 @@ def test_interpolate_warning_partial_frequency_match(base_config, base_sim):
     base_config["start_freq"] = 120e6
     ref_sim = Simulator(**base_config)
     with pytest.warns(UserWarning) as record:
-        _ = adjustment.interpolate_to_reference(
+        adjustment.interpolate_to_reference(
             target=base_sim, reference=ref_sim, axis="both",
         )
     assert "Reference frequencies not a subset" in record[0].message.args[0]
@@ -727,7 +721,7 @@ def test_interpolate_warning_partial_lst_match(base_config, base_sim):
     base_config["start_time"] = base_config["start_time"] + time_offset
     ref_sim = Simulator(**base_config)
     with pytest.warns(UserWarning) as record:
-        _ = adjustment.interpolate_to_reference(
+        adjustment.interpolate_to_reference(
             target=base_sim, reference=ref_sim, axis="both",
         )
     assert "Reference LSTs not a subset" in record[0].message.args[0]
@@ -820,7 +814,7 @@ def test_rephasing_warning_out_of_bounds_lsts(base_sim):
     dt = np.mean(np.diff(base_sim.times))
     dlst = np.mean(np.diff(base_sim.lsts))
     with pytest.warns(UserWarning) as record:
-        _ = adjustment.rephase_to_reference(
+        adjustment.rephase_to_reference(
             target=base_sim,
             ref_times=base_sim.times + 5 * dt,
             ref_lsts=base_sim.lsts + 5 * dlst,
@@ -832,7 +826,7 @@ def test_rephasing_warning_discontinuous_dlst(base_config, base_sim):
     base_config["integration_time"] = 10.3  # Mismatch with integration time of 10.7 s
     ref_sim = Simulator(**base_config)
     with pytest.warns(UserWarning) as record:
-        _ = adjustment.rephase_to_reference(target=base_sim, reference=ref_sim)
+        adjustment.rephase_to_reference(target=base_sim, reference=ref_sim)
     assert "Rephasing amount is discontinuous" in record[0].message.args[0]
 
 
@@ -939,7 +933,7 @@ def test_adjust_to_reference_verbosity_with_interpolating(
     ref_sim, redundant_sim, caplog
 ):
     with caplog.at_level(logging.INFO):
-        _ = adjustment.adjust_to_reference(
+        adjustment.adjust_to_reference(
             target=redundant_sim, reference=ref_sim, conjugation_convention="ant1<ant2",
         )
     assert "Validating positional arguments..." in caplog.text
@@ -950,7 +944,7 @@ def test_adjust_to_reference_verbosity_with_interpolating(
 
 def test_adjust_to_reference_verbosity_with_rephasing(ref_sim, redundant_sim, caplog):
     with caplog.at_level(logging.INFO):
-        _ = adjustment.adjust_to_reference(
+        adjustment.adjust_to_reference(
             target=redundant_sim, reference=ref_sim, interpolate=False
         )
     assert "Validating positional arguments..." in caplog.text

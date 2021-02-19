@@ -397,7 +397,7 @@ def test_comparison_zenith(uvdata2):
     ).simulate()
 
     assert viscpu.shape == healvis.shape
-    np.testing.assert_allclose(viscpu, healvis, rtol=0.05)
+    assert np.allclose(viscpu, healvis, atol=0.05, rtol=0)
 
 
 def test_comparision_horizon(uvdata2):

@@ -7,9 +7,9 @@ to the ENU position of the antennas.
 import numpy as np
 from .components import registry
 
-# XXX old docstrings state that the positions are returned in topocentric
+# FIXME: old docstrings state that the positions are returned in topocentric
 # coordinates, but this is contradictory to the claim that a linear array
-# is constructed as purely east-west
+# is constructed as purely east-west. Let's resolve this before publishing v1
 
 
 @registry

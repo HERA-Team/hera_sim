@@ -7,6 +7,7 @@ except ImportError:
 
 try:
     DATA_PATH = Path(__file__).parent / "data"
+    CONFIG_PATH = Path(__file__).parent / "config"
     __version__ = version(__name__)
 except PackageNotFoundError:
     print("package not found")

@@ -1,27 +1,25 @@
-# minimum-spec development environment for travis
 name: tests
 channels:
-  - defaults
   - conda-forge
+  - defaults
 dependencies:
   - aipy>=3.0
-  - astropy
-  - attrs
-  - h5py
-  - hdf5
-  - healpy
-  - nose
-  - numpy
-  - pip
-  - pytest-cov
-  - scipy
-  - pyyaml
-  - future # only for python 2
-  - numba
+  - astropy>=4.0
+  - attrs>=19.3.0
+  - h5py>=2.10
+  - hdf5>=1.10.4
+  - healpy>=1.13.0
+  - numpy>=1.18
+  - pip>=20.0
+  - pytest-cov>=2.7.1
+  - scipy>=1.4.1
+  - pyyaml>=5.1
+  - numba>=0.49.1
   - psutil
-  - astropy-healpix
+  - astropy-healpix>=0.5
   - basemap
-  - pyuvdata
+  - pyuvdata>=2.1.4
+  - blas<2.0
   - pip:
     - cached-property
     - git+https://github.com/RadioAstronomySoftwareGroup/pyuvsim.git

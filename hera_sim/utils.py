@@ -21,7 +21,7 @@ def _get_bl_len_vec(bl_len_ns):
     """
     if np.isscalar(bl_len_ns):
         return np.array([bl_len_ns, 0, 0])
-    elif len(bl_len_ns) < 3:
+    elif len(bl_len_ns) <= 3:
         # make a length-3 array
         return np.pad(bl_len_ns, pad_width=3 - len(bl_len_ns), mode="constant")[-3:]
 
@@ -104,7 +104,7 @@ def gen_delay_filter(
         delay_filter[np.abs(delays) > max_delay] = 0.0
 
     # normalize
-    if normalize is not None:
+    if normalize is not None and np.any(delay_filter):
         norm = normalize / np.sqrt(np.sum(delay_filter ** 2))
         delay_filter *= norm * np.sqrt(len(delay_filter))
 
@@ -204,7 +204,7 @@ def gen_fringe_filter(lsts, fqs, ew_bl_len_ns, filter_type="tophat", **filter_kw
     frates = np.fft.fftfreq(times.size, times[1] - times[0])
 
     if filter_type in [None, "none", "None"]:
-        fringe_filter = np.ones((len(times), len(fqs)), dtype=np.float)
+        fringe_filter = np.ones((len(times), len(fqs)), dtype=float)
     elif filter_type == "tophat":
         fr_max = np.repeat(
             calc_max_fringe_rate(fqs, ew_bl_len_ns)[None, :], len(lsts), axis=0
@@ -376,12 +376,8 @@ def Jy2T(freqs, omega_p):
     if callable(omega_p):
         omega_p = omega_p(freqs)
     wavelengths = const.c.value / (freqs * 1e9)  # meters
-    # scaling went from 1e-23 -> 1e-26 in converting to SI
-    # return 1e-23 * wavelengths_cm ** 2 / (2 * aipy.const.k * omega_p)
-    # return 1e-23 * (1e2 * wavelengths_m) ** 2 / (2 * 1e7 * const.k_B.value * omega_p)
-    # return 1e-23 * 1e4 * 1e-7 * (wavelengths_m) ** 2 / (2 * const.k_B.value * omega_p)
-    #
-    # XXX what is the point of this multiplicative constant?
+
+    # The factor of 1e-26 converts from Jy to W/m^2/Hz.
     return 1e-26 * wavelengths ** 2 / (2 * const.k_B.value * omega_p)
 
 
