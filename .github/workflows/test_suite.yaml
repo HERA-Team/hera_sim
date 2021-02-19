@@ -37,9 +37,12 @@ jobs:
       - name: set PY
         run: echo "PY=$(python -c 'import hashlib, sys;print(hashlib.sha256(sys.version.encode()+sys.executable.encode()).hexdigest())')" >> $GITHUB_ENV
 
+
+      # NOTE that numpy, astropy, pyuvdata and six can be removed once aipy and bda
+      # are updated to be able to install without pre-installed deps.
       - name: Setup Environment
         run: |
-          python -m pip install -U coverage numpy
+          python -m pip install numpy astropy pyuvdata six
           python -m pip install .[tests]
 
 #      - name: Setup Miniconda
