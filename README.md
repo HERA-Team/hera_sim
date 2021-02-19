@@ -49,8 +49,8 @@ that this is not a one-step process is because some of the packages inadvertantl
 other packages to be installed before they can even be installed, let alone used, and ``pip``
 reads the ``setup.py`` file for each package before installing anything).
 
-First install `numpy`, as one of the dependencies requires it to be installed before
-it can be installed:
+First install `numpy`, as one of the dependencies requires `numpy` to be installed before
+it can be installed itself:
 
 ``pip install numpy``
 
