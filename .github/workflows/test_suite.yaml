@@ -14,10 +14,6 @@ jobs:
       ENV_NAME: tests
       PYTHON: ${{ matrix.python-version }}
       OS: ${{ matrix.os }}
-    defaults:
-      run:
-        # Adding -l {0} helps ensure conda can be found properly in windows.
-        shell: bash -l {0}
     name: Testing
     runs-on: ${{ matrix.os }}
     strategy:
