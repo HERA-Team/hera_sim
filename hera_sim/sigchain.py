@@ -210,10 +210,10 @@ class Reflections(Gain, is_multiplicative=True):
             if param is None:
                 return stats.uniform.rvs(lower_bound, upper_bound, size)
             elif np.isscalar(param):
-                return np.ones(size, dtype=np.float) * param
+                return np.ones(size, dtype=float) * param
             else:
                 if len(param) == size:
-                    return np.array(param, dtype=np.float)
+                    return np.array(param, dtype=float)
                 else:
                     return stats.uniform.rvs(*param, size)
 
@@ -319,7 +319,7 @@ class CrossCouplingSpectrum(Crosstalk):
         dlys = np.linspace(*dly_range, Ncopies)
 
         # Construct the spectrum of crosstalk.
-        crosstalk_spectrum = np.zeros(autovis.shape, dtype=np.complex)
+        crosstalk_spectrum = np.zeros(autovis.shape, dtype=np.complex128)
         for amp, dly in zip(amps, dlys):
             gen_xtalk = CrossCouplingCrosstalk(
                 amp=amp,

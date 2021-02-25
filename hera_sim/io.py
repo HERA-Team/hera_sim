@@ -26,6 +26,7 @@ def empty_uvdata(
     n_freq=None,
     n_times=None,
     antennas=None,  # back-compat
+    conjugation=None,
     **kwargs,
 ):
     # TODO: docstring
@@ -35,7 +36,7 @@ def empty_uvdata(
     if any([param is not None for param in (n_freq, n_times, antennas)]):
         warnings.warn(
             "The n_freq, n_times, and antennas parameters are being "
-            "deprecated and will be removed in version ???. Please "
+            "deprecated and will be removed in the future. Please "
             "update your code to use the Nfreqs, Ntimes, and "
             "array_layout parameters instead.",
             DeprecationWarning,
@@ -72,8 +73,8 @@ def empty_uvdata(
         **kwargs,
     )
 
-    # remove this once abscal is OK to use different conventions
-    uvd.conjugate_bls(convention="ant1<ant2")
+    if conjugation is not None:
+        uvd.conjugate_bls(convention=conjugation)
 
     return uvd
 
@@ -150,7 +151,7 @@ def chunk_sim_and_save(
     for Nfile in range(Nfiles):
         # Figure out filing and slicing information.
         if ref_files is not None:
-            jd = re.search(jd_pattern, ref_files[Nfile]).groupdict()
+            jd = re.search(jd_pattern, str(ref_files[Nfile])).groupdict()
             jd = float(f"{jd['major']}.{jd['minor']}")
             uvd = UVData()
             uvd.read(ref_files[Nfile], read_data=False)

@@ -8,13 +8,12 @@ repos:
   - id: check-added-large-files
   - id: check-ast
   - id: check-json
-  - id: check-merge-conflict
+  # - id: check-merge-conflict
   - id: check-xml
   - id: check-yaml
   - id: debug-statements
   - id: end-of-file-fixer
   - id: requirements-txt-fixer
-  - id: check-merge-conflict
   - id: mixed-line-ending
     args: ['--fix=no']
 -   repo: https://gitlab.com/pycqa/flake8

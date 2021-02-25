@@ -551,12 +551,12 @@ def interpolate_to_reference(
             new_data_shape = (new_Nblts, 1, ref_freqs.size, target.Npols)
         else:
             new_data_shape = (new_Nblts, 1, target_freqs.size, target.Npols)
-        new_data = np.zeros(new_data_shape, dtype=np.complex)
+        new_data = np.zeros(new_data_shape, dtype=np.complex128)
     else:
         new_data_shape = (target.Nblts, 1, ref_freqs.size, target.Npols)
 
     # Actually update metadata and interpolate the data.
-    new_data = np.empty(new_data_shape, dtype=np.complex)
+    new_data = np.empty(new_data_shape, dtype=np.complex128)
     for i, antpair in enumerate(target.get_antpairs()):
         if axis == "freq":
             for pol_ind, pol in enumerate(target.polarization_array):
@@ -756,7 +756,9 @@ def rephase_to_reference(
     bls = {(ai, aj, pol): antpos[aj] - antpos[ai] for ai, aj, pol in data.bls()}
     lat = target.telescope_location_lat_lon_alt_degrees[0]
     new_Nblts = target.Nbls * target_times.size
-    new_data = np.zeros((new_Nblts, 1, target.Nfreqs, target.Npols), dtype=np.complex)
+    new_data = np.zeros(
+        (new_Nblts, 1, target.Nfreqs, target.Npols), dtype=np.complex128
+    )
     new_time_array = np.empty(new_Nblts, dtype=float)
     new_lst_array = np.empty(new_Nblts, dtype=float)
     new_integration_times = np.empty(new_Nblts, dtype=float)

@@ -29,7 +29,7 @@ class RfiStation:
         """
         """
         # initialize an array for storing the rfi
-        rfi = np.zeros((lsts.size, freqs.size), dtype=np.complex)
+        rfi = np.zeros((lsts.size, freqs.size), dtype=np.complex128)
 
         # get the mean channel width
         channel_width = np.mean(np.diff(freqs))
@@ -93,7 +93,7 @@ class Stations(RFI):
         (stations,) = self._extract_kwarg_values(**kwargs)
 
         # initialize an array to store the rfi in
-        rfi = np.zeros((lsts.size, freqs.size), dtype=np.complex)
+        rfi = np.zeros((lsts.size, freqs.size), dtype=np.complex128)
 
         if stations is None:
             warnings.warn("You did not specify any stations to simulate.")
@@ -144,7 +144,7 @@ class Impulse(RFI):
         chance, strength = self._extract_kwarg_values(**kwargs)
 
         # initialize the rfi array
-        rfi = np.zeros((lsts.size, freqs.size), dtype=np.complex)
+        rfi = np.zeros((lsts.size, freqs.size), dtype=np.complex128)
 
         # find times when an impulse occurs
         impulses = np.where(np.random.uniform(size=lsts.size) <= chance)[0]
@@ -191,7 +191,7 @@ class Scatter(RFI):
         chance, strength, std = self._extract_kwarg_values(**kwargs)
 
         # make an empty rfi array
-        rfi = np.zeros((lsts.size, freqs.size), dtype=np.complex)
+        rfi = np.zeros((lsts.size, freqs.size), dtype=np.complex128)
 
         # find out where to put the rfi
         rfis = np.where(np.random.uniform(size=rfi.size) <= chance)[0]
@@ -249,7 +249,7 @@ class DTV(RFI):
         ) = self._extract_kwarg_values(**kwargs)
 
         # make an empty rfi array
-        rfi = np.zeros((lsts.size, freqs.size), dtype=np.complex)
+        rfi = np.zeros((lsts.size, freqs.size), dtype=np.complex128)
 
         # get the lower and upper frequencies of the DTV band
         freq_min, freq_max = dtv_band
@@ -285,14 +285,27 @@ class DTV(RFI):
             )
 
         # define an iterator, just to keep things neat
+        df = np.mean(np.diff(freqs))
         dtv_iterator = zip(bands, dtv_chance, dtv_strength, dtv_std)
 
+        # TODO: update the documentation here to make it more clear what's happening.
         # loop over the DTV bands, generating rfi where appropriate
         for band, chance, strength, std in dtv_iterator:
-            # get the channels affected
-            ch1 = np.argwhere(band <= freqs)[0][0]
+            # Find the first channel affected.
+            if any(np.isclose(band, freqs, atol=0.01 * df)):
+                ch1 = np.argwhere(np.isclose(band, freqs, atol=0.01 * df)).flatten()[0]
+            else:
+                ch1 = np.argwhere(band <= freqs).flatten()[0]
             try:
-                ch2 = np.argwhere(band + width <= freqs)[0][0]
+                # Find the last channel affected.
+                if any(np.isclose(band + width, freqs, atol=0.01 * df)):
+                    ch2 = np.argwhere(
+                        np.isclose(band + width, freqs, atol=0.01 * df)
+                    ).flatten()[0]
+                else:
+                    ch2 = np.argwhere(band + width <= freqs).flatten()[0]
+                if ch2 == freqs.size - 1:
+                    raise IndexError
             except IndexError:
                 # in case the upper edge of the DTV band is outside
                 # the range of observed frequencies
@@ -304,11 +317,11 @@ class DTV(RFI):
             # find out which times are affected
             rfis = np.random.uniform(size=lsts.size) <= chance
 
-            # calculate the signal... whomever did this first, tsk tsk...
+            # calculate the signal
             signal = np.atleast_2d(
                 np.random.normal(strength, std, size=rfis.sum())
                 * np.exp(2j * np.pi * np.random.uniform(size=rfis.sum()))
-            ).T  # don't ask me why we're taking the transpose...
+            ).T
 
             # add the signal to the rfi array
             this_rfi[rfis] += signal

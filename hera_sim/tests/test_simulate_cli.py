@@ -5,7 +5,6 @@ import pytest
 
 import numpy as np
 
-import hera_sim
 from pyuvdata import UVCal, UVData
 
 

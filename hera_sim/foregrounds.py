@@ -15,11 +15,12 @@ class Foreground:
     pass
 
 
+# TODO: choose at which level we'll be documenting classes.
 class DiffuseForeground(Foreground):
-    # XXX do we want to document the classes at this level?
     """
 
     """
+
     _alias = ("diffuse_foreground",)
 
     def __init__(
@@ -149,7 +150,7 @@ class DiffuseForeground(Foreground):
 
         # resample the sky temperature model
         Tsky = Tsky_mdl(lsts=lsts, freqs=freqs)  # K
-        vis = np.asarray(Tsky / utils.jansky_to_kelvin(freqs, omega_p), np.complex)
+        vis = np.asarray(Tsky / utils.jansky_to_kelvin(freqs, omega_p), np.complex128)
 
         if np.isclose(np.linalg.norm(bl_vec), 0):
             return vis
@@ -296,7 +297,7 @@ class PointSourceForeground(Foreground):
         ) ** (1 / alpha)
 
         # initialize the visibility array
-        vis = np.zeros((lsts.size, freqs.size), dtype=np.complex)
+        vis = np.zeros((lsts.size, freqs.size), dtype=np.complex128)
 
         # iterate over ra, flux, spectral indices
         for ra, flux, index in zip(ras, flux_densities, spec_indices):

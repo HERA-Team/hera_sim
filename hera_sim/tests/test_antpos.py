@@ -1,94 +1,97 @@
-import unittest
+import pytest
 from hera_sim import antpos
 import numpy as np
 
-np.random.seed(0)
+
+def check_ant_labels(Nants_expected, ants):
+    return set(range(Nants_expected)) == set(ants)
 
 
-class TestLinearArray(unittest.TestCase):
-    def test_nant(self):
-        for N in range(1, 200, 20):
-            xyz = antpos.linear_array(N)
-            self.assertEqual(len(xyz), N)
-        xyz = antpos.linear_array(300)
-        self.assertEqual(list(range(300)), sorted(xyz.keys()))
-
-    def test_positions(self):
-        xyz = antpos.linear_array(20, sep=1.0)
-        for i in range(20):
-            bl = xyz[i] - xyz[0]
-            bl_len = np.sqrt(np.dot(bl, bl))
-            self.assertEqual(bl_len, i)
-        xyz = antpos.linear_array(20, sep=2.0)
-        for i in range(20):
-            bl = xyz[i] - xyz[0]
-            bl_len = np.sqrt(np.dot(bl, bl))
-            self.assertEqual(bl_len, 2 * i)
+def test_linear_array_nants():
+    for Nants in range(1, 202, 20):
+        ants = antpos.linear_array(Nants)
+        assert check_ant_labels(Nants_expected=Nants, ants=ants)
 
 
-class TestHexArray(unittest.TestCase):
-    def test_nant(self):
-        # Test core scaling
-        for N in range(1, 15):
-            xyz = antpos.hex_array(N, split_core=False, outriggers=0)
-            self.assertEqual(len(xyz), 3 * N ** 2 - 3 * N + 1)
-        xyz = antpos.hex_array(15, split_core=False, outriggers=0)
-        self.assertEqual(list(range(3 * 15 ** 2 - 3 * 15 + 1)), sorted(xyz.keys()))
-        # Test outrigger scaling
-        N = 10
-        Ncore = 3 * N ** 2 - 3 * N + 1
-        for R in range(0, 3):
-            xyz = antpos.hex_array(N, split_core=False, outriggers=R)
-            self.assertEqual(len(xyz), Ncore + 3 * R ** 2 + 9 * R)
-        # Test core split
-        for N in range(2, 15):
-            xyz = antpos.hex_array(N, split_core=True, outriggers=0)
-            self.assertEqual(len(xyz), 3 * N ** 2 - 4 * N + 1)
-        xyz = antpos.hex_array(15, split_core=True, outriggers=0)
-        self.assertEqual(list(range(3 * 15 ** 2 - 4 * 15 + 1)), sorted(xyz.keys()))
+def test_linear_array_positions():
+    for sep in np.linspace(1, 10, 10):
+        for Nants in range(5, 21, 5):
+            ants = antpos.linear_array(Nants, sep=sep)
+            for i in range(Nants):
+                bl = ants[i] - ants[0]
+                bl_len = np.linalg.norm(bl)
+                assert bl_len == i * sep
 
-    def test_positions(self):
-        # Test one single answer
-        xyz = antpos.hex_array(2, split_core=False, outriggers=0, sep=1.0)
+
+def test_hex_array_core_nants():
+    for hex_num in range(1, 15):
+        Nants = 3 * hex_num * (hex_num - 1) + 1
+        ants = antpos.hex_array(hex_num, split_core=False, outriggers=0)
+        assert check_ant_labels(Nants_expected=Nants, ants=ants)
+
+
+def test_hex_array_outrigger_nants_scaling():
+    for hex_num in range(4, 15):
+        Nants_core = 3 * hex_num * (hex_num - 1) + 1
+        for Nrings in range(3):
+            Noutriggers = 3 * Nrings * (Nrings + 3)
+            Nants = Nants_core + Noutriggers
+            ants = antpos.hex_array(hex_num, split_core=False, outriggers=Nrings)
+            assert check_ant_labels(Nants_expected=Nants, ants=ants)
+
+
+def test_hex_array_split_core_nants_scaling():
+    for hex_num in range(2, 15):
+        Nants_core = 3 * hex_num * (hex_num - 1) + 1
+        Nants = Nants_core - hex_num
+        ants = antpos.hex_array(hex_num, split_core=True, outriggers=0)
+        assert check_ant_labels(Nants_expected=Nants, ants=ants)
+
+
+def test_hex_array_7_element_positions():
+    for sep in np.linspace(1, 10, 10):
+        ants = antpos.hex_array(2, split_core=False, outriggers=0, sep=sep)
+        # Central antenna is number 3; all should be equidistant from 3.
         for i in range(7):
             if i == 3:
                 continue
-            bl = xyz[i] - xyz[3]
-            bl_len = np.sqrt(np.dot(bl, bl))
-            self.assertAlmostEqual(bl_len, 1, 10)
-        xyz = antpos.hex_array(2, split_core=False, outriggers=0, sep=2.0)
-        # Test scaling with sep
-        for i in range(7):
-            if i == 3:
-                continue
-            bl = xyz[i] - xyz[3]
-            bl_len = np.sqrt(np.dot(bl, bl))
-            self.assertAlmostEqual(bl_len, 2, 10)
-        # Test top corner of a lot of configs
-        for N in range(2, 15):
-            xyz = antpos.hex_array(N, split_core=False, outriggers=0, sep=1.0)
-            bl1 = xyz[1] - xyz[0]
-            bl2 = xyz[N] - xyz[0]
-            np.testing.assert_allclose(bl1, [1, 0, 0], atol=1e-10)
-            np.testing.assert_allclose(bl2, [-0.5, -(3 ** 0.5) / 2, 0], atol=1e-10)
-        # Test split (this is rather brittle and could be improved)
-        xyz = antpos.hex_array(3, sep=14.6, split_core=True, outriggers=0)
-        np.testing.assert_allclose(
-            xyz[3] - xyz[7], np.array([0, 2 * 14.6 / 3 ** 0.5, 0])
-        )
-        np.testing.assert_allclose(
-            xyz[5] - xyz[10], np.array([-14.6, 14.6 / 3 ** 0.5, 0])
-        )
-        # Test outriggers (this is rather brittle and could be improved)
-        xyz = antpos.hex_array(11, sep=14.6, split_core=True, outriggers=2)
-        np.testing.assert_allclose(xyz[348] - xyz[347], np.array([10 * 14.6, 0, 0]))
-        np.testing.assert_allclose(
-            xyz[347] - xyz[346], np.array([10 * 14.6, 14.6 / 3 ** 0.5, 0])
-        )
-        np.testing.assert_allclose(
-            xyz[325] - xyz[324], np.array([10 * 14.6, -14.6 / 3 ** 0.5, 0])
-        )
+            bl = ants[i] - ants[3]
+            bl_len = np.linalg.norm(bl)
+            assert np.isclose(bl_len, sep)
 
 
-if __name__ == "__main__":
-    unittest.main()
+def test_hex_array_core_corner_positions():
+    for sep in np.linspace(1, 10, 10):
+        for hex_num in range(2, 15):
+            ants = antpos.hex_array(hex_num, split_core=False, outriggers=0, sep=sep)
+            bl1 = ants[1] - ants[0]
+            bl2 = ants[hex_num] - ants[0]
+            expected_bl1 = sep * np.array([1, 0, 0])
+            expected_bl2 = sep * np.array([-0.5, -np.sqrt(3) / 2, 0])
+            assert np.allclose(bl1, expected_bl1)
+            assert np.allclose(bl2, expected_bl2)
+
+
+def test_hex_array_split_core_positions():
+    # This test is rather brittle and could be improved.
+    ants = antpos.hex_array(3, sep=14.6, split_core=True, outriggers=0)
+    bl1 = ants[3] - ants[7]
+    bl2 = ants[5] - ants[10]
+    expected_bl1 = 14.6 * np.array([0, 2 / np.sqrt(3), 0])
+    expected_bl2 = 14.6 * np.array([-1, 1 / np.sqrt(3), 0])
+    assert np.allclose(bl1, expected_bl1)
+    assert np.allclose(bl2, expected_bl2)
+
+
+def test_hex_array_HERA350_positions():
+    # This test is rather brittle and could be improved.
+    ants = antpos.hex_array(11, sep=14.6, split_core=True, outriggers=2)
+    bl1 = ants[348] - ants[347]
+    bl2 = ants[347] - ants[346]
+    bl3 = ants[325] - ants[324]
+    expected_bl1 = 14.6 * np.array([10, 0, 0])
+    expected_bl2 = 14.6 * np.array([10, 1 / np.sqrt(3), 0])
+    expected_bl3 = 14.6 * np.array([10, -1 / np.sqrt(3), 0])
+    assert np.allclose(bl1, expected_bl1)
+    assert np.allclose(bl2, expected_bl2)
+    assert np.allclose(bl3, expected_bl3)
