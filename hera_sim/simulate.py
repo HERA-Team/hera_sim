@@ -222,9 +222,8 @@ class Simulator:
             # return a subset if a polarization is specified
             if pol is None:
                 return data
-            else:
-                pol_ind = self.data.get_pols().index(pol)
-                return data[:, 0, :, pol_ind]
+            pol_ind = self.data.get_pols().index(pol)
+            return data[:, 0, :, pol_ind]
 
         # seed the RNG if desired, but be careful...
         if seed == "once":
@@ -235,13 +234,12 @@ class Simulator:
             blt_inds = self.data.antpair2ind((ant1, ant2), ordered=False)
             if pol is None:
                 return data[blt_inds, 0, :, :]
-            else:
-                pol_ind = self.data.get_pols().index(pol)
-                return data[blt_inds, 0, :, pol_ind]
+            pol_ind = self.data.get_pols().index(pol)
+            return data[blt_inds, 0, :, pol_ind]
         elif seed == "redundant":
             # TODO: this will need to be modified when polarization handling is fixed
             # putting the comment here for lack of a "best" place to put it
-            if any([(ant2, ant1) == item[:-1] for item in antpairpol_cache]):
+            if any((ant2, ant1) == item[:-1] for item in antpairpol_cache):
                 self._seed_rng(seed, model, ant2, ant1)
             else:
                 self._seed_rng(seed, model, ant1, ant2)
@@ -333,7 +331,7 @@ class Simulator:
 
             # if the user wanted to return the data, then
             if value is not None:
-                yield (component, value)
+                yield component, value
 
     def chunk_sim_and_save(
         self,
@@ -379,6 +377,7 @@ class Simulator:
         Add foregrounds to the visibilities. See :meth:`add` for
         more details.
         """
+
         return self.add(model, **kwargs)
 
     def add_noise(self, model, **kwargs):
@@ -642,7 +641,7 @@ class Simulator:
         # TODO: docstring
         """
         """
-        if not type(seed) is str:
+        if not isinstance(seed, str):
             raise TypeError("The seeding mode must be specified as a string.")
         if seed == "redundant":
             if ant1 is None or ant2 is None:
@@ -779,42 +778,41 @@ class Simulator:
                 # if it's callable, then it's either a user-defined
                 # function or a class instance
                 return component, False
-            else:
-                if not isinstance(component, str):
-                    # TODO: update this error message to reflect the
-                    # change in allowed component types
-                    raise TypeError(
-                        "``component`` must be either a class which "
-                        "derives from ``SimulationComponent`` or an "
-                        "instance of a callable class, or a function, "
-                        "whose signature is:\n"
-                        "func(lsts, freqs, *args, **kwargs)\n"
-                        "If it is none of the above, then it must be "
-                        "a string which corresponds to the name of a "
-                        "``hera_sim`` class or an alias thereof."
-                    )
+            if not isinstance(component, str):
+                # TODO: update this error message to reflect the
+                # change in allowed component types
+                raise TypeError(
+                    "``component`` must be either a class which "
+                    "derives from ``SimulationComponent`` or an "
+                    "instance of a callable class, or a function, "
+                    "whose signature is:\n"
+                    "func(lsts, freqs, *args, **kwargs)\n"
+                    "If it is none of the above, then it must be "
+                    "a string which corresponds to the name of a "
+                    "``hera_sim`` class or an alias thereof."
+                )
 
-                # keep track of all known aliases in case desired
-                # component isn't found in the search
-                all_aliases = []
-                for registry in SimulationComponent.__subclasses__():
-                    for model in registry.__subclasses__():
-                        aliases = (model.__name__,)
-                        aliases += getattr(model, "_alias", ())
-                        aliases = [alias.lower() for alias in aliases]
-                        for alias in aliases:
-                            all_aliases.append(alias)
-                        if component.lower() in aliases:
-                            return model, True
+            # keep track of all known aliases in case desired
+            # component isn't found in the search
+            all_aliases = []
+            for registry in SimulationComponent.__subclasses__():
+                for model in registry.__subclasses__():
+                    aliases = (model.__name__,)
+                    aliases += getattr(model, "_alias", ())
+                    aliases = [alias.lower() for alias in aliases]
+                    for alias in aliases:
+                        all_aliases.append(alias)
+                    if component.lower() in aliases:
+                        return model, True
 
-                # if this part is executed, then the model wasn't found, so
-                msg = "The component '{component}' wasn't found. The "
-                msg += "following aliases are known: \n"
-                msg += ", ".join(set(all_aliases))
-                msg += "\nPlease ensure that the component you are trying "
-                msg += "to add is a subclass of a registry."
-                msg = msg.format(component=component)
-                raise UnboundLocalError(msg)
+            # if this part is executed, then the model wasn't found, so
+            string_of_aliases = ", ".join(set(all_aliases))
+            raise UnboundLocalError(
+                f"The component '{component}' wasn't found. The "
+                f"following aliases are known: \n{string_of_aliases}\n"
+                "Please ensure that the component you are trying "
+                "to add is a subclass of a registry."
+            )
 
     def _generate_seed(self, model, key):
         # TODO: docstring
@@ -879,11 +877,10 @@ class Simulator:
         has_data = not np.all(self.data.data_array == 0)
         is_multiplicative = getattr(model, "is_multiplicative", False)
         contains_multiplicative_effect = any(
-            [
-                self._get_component(component)[0].is_multiplicative
-                for component in self._components
-            ]
+            self._get_component(component)[0].is_multiplicative
+            for component in self._components
         )
+
         if is_multiplicative and not has_data:
             warnings.warn(
                 "You are trying to compute a multiplicative "

@@ -3,8 +3,6 @@
 import numpy as np
 from astropy import constants
 from astropy import units
-from abc import abstractmethod
-from cached_property import cached_property
 
 from . import utils
 from .components import registry
@@ -82,10 +80,8 @@ class DiffuseForeground(Foreground):
 
         lsts : array-like of float
             Array of LST values in units of radians.
-
         freqs : array-like of float
             Array of frequency values in units of GHz.
-
         bl_vec : array-like of float
             Length-3 array specifying the baseline vector in units of ns.
 
@@ -150,7 +146,7 @@ class DiffuseForeground(Foreground):
 
         # resample the sky temperature model
         Tsky = Tsky_mdl(lsts=lsts, freqs=freqs)  # K
-        vis = np.asarray(Tsky / utils.Jy2T(freqs, omega_p), dtype=np.complex128)
+        vis = np.asarray(Tsky / utils.jansky_to_kelvin(freqs, omega_p), np.complex128)
 
         if np.isclose(np.linalg.norm(bl_vec), 0):
             return vis

@@ -19,7 +19,7 @@ def config_file(tmp_path_factory):
             pre_fs_int_time: !dimensionful
                 value: 0.1
                 units: s
-            corr_FoV_angle: !dimensionful
+            corr_fov_angle: !dimensionful
                 value: 20
                 units: deg
             max_time: !dimensionful
