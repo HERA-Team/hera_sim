@@ -806,13 +806,13 @@ class Simulator:
                         return model, True
 
             # if this part is executed, then the model wasn't found, so
-            msg = "The component '{component}' wasn't found. The "
-            msg += "following aliases are known: \n"
-            msg += ", ".join(set(all_aliases))
-            msg += "\nPlease ensure that the component you are trying "
-            msg += "to add is a subclass of a registry."
-            msg = msg.format(component=component)
-            raise UnboundLocalError(msg)
+            string_of_aliases = ", ".join(set(all_aliases))
+            raise UnboundLocalError(
+                f"The component '{component}' wasn't found. The "
+                f"following aliases are known: \n{string_of_aliases}\n"
+                "Please ensure that the component you are trying "
+                "to add is a subclass of a registry."
+            )
 
     def _generate_seed(self, model, key):
         # TODO: docstring
