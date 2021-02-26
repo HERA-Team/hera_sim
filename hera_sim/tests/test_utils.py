@@ -138,6 +138,16 @@ def test_rough_filter_noisy_data(freqs, lsts, filter_type):
     )
 
 
+@pytest.mark.parametrize("missing_param", ["freqs", "bl_len_ns"])
+def test_rough_delay_filter_missing_param(freqs, lsts, missing_param):
+    data = np.zeros((lsts.size, freqs.size))
+    kwargs = {"freqs": freqs, "bl_len_ns": 100, "delay_filter": None}
+    kwargs[missing_param] = None
+    with pytest.raises(ValueError) as err:
+        utils.rough_delay_filter(data, **kwargs)
+    assert f"you must provide {missing_param}" in err.value.args[0]
+
+
 # TODO: figure out why this test passes--it should just be a little math.
 def test_delay_filter_norm(freqs):
     tsky = np.ones(freqs.size)
@@ -288,6 +298,16 @@ def test_fringe_filter_bad_type(freqs, lsts):
     with pytest.raises(ValueError) as err:
         utils.gen_fringe_filter(lsts, freqs, 35, fringe_filter_type="bad type")
     assert err.value.args[0] == "filter_type bad type not recognized"
+
+
+@pytest.mark.parametrize("missing_param", ["lsts", "freqs", "ew_bl_len_ns"])
+def test_rough_fringe_filter_missing_param(lsts, freqs, missing_param):
+    data = np.zeros((lsts.size, freqs.size))
+    kwargs = {"lsts": lsts, "freqs": freqs, "ew_bl_len_ns": 10, "fringe_filter": None}
+    kwargs[missing_param] = None
+    with pytest.raises(ValueError) as err:
+        utils.rough_fringe_filter(data, **kwargs)
+    assert "Must provide 'lsts', 'freqs' and 'ew_bl_len_ns'" in err.value.args[0]
 
 
 @pytest.mark.parametrize("shape", [100, (100, 200)])
