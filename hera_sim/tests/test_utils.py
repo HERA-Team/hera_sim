@@ -310,6 +310,15 @@ def test_rough_fringe_filter_missing_param(lsts, freqs, missing_param):
     assert "Must provide 'lsts', 'freqs' and 'ew_bl_len_ns'" in err.value.args[0]
 
 
+@pytest.mark.parametrize("filter_type", ["delay", "fringe"])
+def test_use_pre_computed_filter(freqs, lsts, filter_type):
+    data = np.outer(np.exp(2j * np.pi * lsts * 20), np.exp(2j * np.pi * freqs * 1000))
+    filt = np.ones(data.shape)
+    kwargs = {f"{filter_type}_filter": filt}
+    filt_data = getattr(utils, f"rough_{filter_type}_filter")(data, **kwargs)
+    assert np.allclose(data, filt_data)
+
+
 @pytest.mark.parametrize("shape", [100, (100, 200)])
 def test_gen_white_noise_shape(shape):
     noise = utils.gen_white_noise(shape)
