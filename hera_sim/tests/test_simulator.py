@@ -4,310 +4,373 @@ check for correctness of individual models, as they should be tested
 elsewhere.
 """
 
+import itertools
 import shutil
 import tempfile
 import sys
-from os import path
+import os
+import yaml
 
 import numpy as np
-from nose.tools import raises, assert_raises
+import pytest
 
-from hera_sim.foregrounds import diffuse_foreground
-from hera_sim.noise import thermal_noise, HERA_Tsky_mdl
+from hera_sim.foregrounds import DiffuseForeground, diffuse_foreground
+from hera_sim.noise import HERA_Tsky_mdl
 from hera_sim.simulate import Simulator
 from hera_sim.antpos import hex_array
-from hera_sim.data import DATA_PATH
+from hera_sim import DATA_PATH, CONFIG_PATH
+from hera_sim.defaults import defaults
+from hera_sim.interpolators import Beam
 from pyuvdata import UVData
+
+
+beamfile = os.path.join(DATA_PATH, "HERA_H1C_BEAM_POLY.npy")
+omega_p = Beam(beamfile)
+Tsky_mdl = HERA_Tsky_mdl["xx"]
+
+Nfreqs = 10
+Ntimes = 20
 
 
 def create_sim(autos=False, **kwargs):
     return Simulator(
-        n_freq=10,
-        n_times=20,
-        antennas={
-            0: (20.0, 20.0, 0),
-            1: (50.0, 50.0, 0)
-        },
+        Nfreqs=Nfreqs,
+        start_freq=1e8,
+        channel_width=1e8 / 1024,
+        Ntimes=Ntimes,
+        start_time=2458115.9,
+        integration_time=10.7,
+        array_layout={0: (20.0, 20.0, 0), 1: (50.0, 50.0, 0)},
         no_autos=not autos,
         **kwargs
     )
 
 
-# @raises(ValueError)
-# def test_wrong_antpairs():
-#     Simulator(
-#         n_freq=10,
-#         n_times=20,
-#         antennas={
-#             0: (20.0, 20.0, 0),
-#             1: (50.0, 50.0, 0)
-#         },
-#     )
-#
-#
-# @raises(KeyError)
-# def test_bad_antpairs():
-#     Simulator(
-#         n_freq=10,
-#         n_times=20,
-#         antennas={
-#             0: (20.0, 20.0, 0),
-#             1: (50.0, 50.0, 0)
-#         },
-#         antpairs=[(2, 2)]
-#     )
+@pytest.fixture(scope="function")
+def base_sim():
+    return create_sim()
 
 
-def test_from_empty():
-    sim = create_sim()
-
-    assert sim.data.data_array.shape == (20, 1, 10, 1)
-    assert np.all(np.isclose(sim.data.data_array, 0))
-
-
-def test_add_with_str():
-    sim = create_sim()
-    sim.add_eor("noiselike_eor")
-    assert not np.all(np.isclose(sim.data.data_array, 0))
+@pytest.fixture(scope="function")
+def ref_sim(base_sim):
+    base_sim.add("noiselike_eor", seed="redundant")
+    return base_sim
 
 
-def test_add_with_builtin():
-    sim = create_sim()
-    sim.add_foregrounds(diffuse_foreground, Tsky_mdl=HERA_Tsky_mdl['xx'])
-    assert not np.all(np.isclose(sim.data.data_array, 0))
-
-
-def test_add_with_custom():
-    sim = create_sim()
-
-    def custom_noise(**kwargs):
-        vis = thermal_noise(**kwargs)
-        return 2 * vis
-
-    sim.add_noise(custom_noise)
-    assert not np.all(np.isclose(sim.data.data_array, 0))
-
-
-def test_io():
-    sim = create_sim()
-
-    # Create a temporary directory to write stuff to (for python 3 this is much easier)
-    direc = tempfile.mkdtemp()
-
-    sim.add_foregrounds("pntsrc_foreground")
-    sim.add_gains()
-
-    sim.write_data(path.join(direc, 'tmp_data.uvh5'))
-
-    sim2 = Simulator(
-        data=path.join(direc, 'tmp_data.uvh5')
+def test_from_empty(base_sim):
+    assert all(
+        [
+            base_sim.data.Ntimes == Ntimes,
+            base_sim.data.Nfreqs == Nfreqs,
+            np.all(base_sim.data.data_array == 0),
+            base_sim.freqs.size == Nfreqs,
+            base_sim.freqs.ndim == 1,
+            base_sim.lsts.size == Ntimes,
+            base_sim.lsts.ndim == 1,
+        ]
     )
 
-    uvd = UVData()
-    uvd.read_uvh5(path.join(direc, 'tmp_data.uvh5'))
 
-    sim3 = Simulator(data=uvd)
-
-    assert np.all(sim.data.data_array == sim2.data.data_array)
-    assert np.all(sim.data.data_array == sim3.data.data_array)
-
-    with assert_raises(ValueError):
-        sim.write_data(path.join(direc, 'tmp_data.bad_extension'), file_type="bad_type")
-
-    # delete the tmp
-    shutil.rmtree(direc)
-
-
-@raises(AttributeError)
-def test_wrong_func():
-    sim = create_sim()
-
-    sim.add_eor("noiselike_EOR")  # wrong function name
+def test_initialize_from_defaults():
+    with open(CONFIG_PATH / "H1C.yaml") as config:
+        defaults = yaml.load(config.read())
+    setup = defaults["setup"]
+    freq_params = setup["frequency_array"]
+    time_params = setup["time_array"]
+    array = defaults["telescope"]["array_layout"]
+    sim = Simulator(defaults_config="h1c")
+    assert all(
+        [
+            sim.freqs.size == freq_params["Nfreqs"],
+            sim.freqs[0] == freq_params["start_freq"] / 1e9,
+            sim.lsts.size == time_params["Ntimes"],
+            sim.times[0] == time_params["start_time"],
+            len(sim.antpos) == len(array),
+        ]
+    )
 
 
-@raises(TypeError)
-def test_wrong_arguments():
-    sim = create_sim()
-    sim.add_foregrounds(diffuse_foreground, what=HERA_Tsky_mdl['xx'])
+def test_add_with_str(base_sim):
+    base_sim.add("noiselike_eor")
+    assert not np.all(base_sim.data.data_array == 0)
 
 
-def test_other_components():
+def test_add_with_builtin_class(base_sim):
+    base_sim.add(DiffuseForeground, Tsky_mdl=Tsky_mdl, omega_p=omega_p)
+    assert not np.all(np.isclose(base_sim.data.data_array, 0))
+
+
+def test_add_with_class_instance(base_sim):
+    base_sim.add(diffuse_foreground, Tsky_mdl=Tsky_mdl, omega_p=omega_p)
+    assert not np.all(np.isclose(base_sim.data.data_array, 0))
+
+
+def test_refresh(base_sim):
+    base_sim.add("noiselike_eor")
+    base_sim.refresh()
+
+    assert np.all(base_sim.data.data_array == 0)
+
+
+@pytest.mark.parametrize("make_sim_from", ["uvdata", "file"])
+def test_io(base_sim, make_sim_from, tmp_path):
+    # Simulate some data and write it to disk.
+    filename = tmp_path / "tmp_data.uvh5"
+    base_sim.add("pntsrc_foreground")
+    base_sim.add("gains")
+    base_sim.write(filename)
+
+    if make_sim_from == "file":
+        sim2 = Simulator(data=filename)
+    elif make_sim_from == "uvdata":
+        uvd = UVData()
+        uvd.read_uvh5(filename)
+        sim2 = Simulator(data=uvd)
+
+    # Make sure that the data agree to numerical precision.
+    assert np.allclose(
+        base_sim.data.data_array, sim2.data.data_array, rtol=0, atol=1e-7
+    )
+
+
+def test_io_bad_format(base_sim, tmp_path):
+    with pytest.raises(ValueError) as err:
+        base_sim.write(tmp_path / "data.bad_extension", save_format="bad_type")
+    assert "must correspond to a write method" in err.value.args[0]
+
+
+@pytest.mark.parametrize("pol", [None, "xx"])
+def test_get_full_data(ref_sim, pol):
+    data = ref_sim.get("noiselike_eor", pol=pol)
+    if pol is None:
+        assert np.allclose(data, ref_sim.data.data_array, rtol=0, atol=1e-7)
+    else:
+        assert np.allclose(data, ref_sim.data.data_array[..., 0], rtol=0, atol=1e-7)
+
+
+@pytest.mark.parametrize("pol", [None, "xx"])
+def test_get_with_one_seed(base_sim, pol):
+    # Set the seed mode to "once" even if that's not realistic.
+    base_sim.add("noiselike_eor", seed="once")
+    ant1, ant2 = (1, 0)  # Use convention ant1 > ant2 for conjugation considerations.
+    data = base_sim.get("noiselike_eor", ant1=ant1, ant2=ant2, pol=pol)
+    antpairpol = (ant1, ant2) if pol is None else (ant1, ant2, pol)
+    true_data = base_sim.data.get_data(antpairpol)
+    if pol is None:
+        assert np.allclose(data[..., 0], true_data, rtol=0, atol=1e-7)
+    else:
+        assert np.allclose(data, true_data, rtol=0, atol=1e-7)
+
+
+def test_get_nonexistent_component(ref_sim):
+    with pytest.raises(AttributeError) as err:
+        ref_sim.get("diffuse_foreground")
+    assert "has not been simulated" in err.value.args[0]
+
+
+def test_get_without_specifying_antenna(ref_sim):
+    with pytest.raises(TypeError) as err:
+        ref_sim.get("noiselike_eor", ant1=1, ant2=None)
+    assert "specify an antenna pair" in err.value.args[0]
+
+
+def test_not_add_vis(base_sim):
+    vis = base_sim.add("noiselike_eor", add_vis=False, ret_vis=True)
+
+    assert np.all(base_sim.data.data_array == 0)
+
+    assert not np.all(vis == 0)
+
+    assert "noiselike_eor" not in base_sim.data.history
+    assert "noiselike_eor" not in base_sim._components.keys()
+
+    # make sure None is returned if neither adding nor returning
+    assert base_sim.add("noiselike_eor", add_vis=False, ret_vis=False) is None
+
+
+def test_adding_vis_but_also_returning(base_sim):
+    vis = base_sim.add("noiselike_eor", ret_vis=True)
+
+    assert not np.all(vis == 0)
+    assert np.all(np.isclose(vis, base_sim.data.data_array))
+
+    # use season defaults for simplicity
+    defaults.set("h1c")
+    vis += base_sim.add("diffuse_foreground", ret_vis=True)
+    # deactivate defaults for good measure
+    defaults.deactivate()
+    assert np.all(np.isclose(vis, base_sim.data.data_array))
+
+
+def test_filter():
     sim = create_sim(autos=True)
 
-    sim.add_xtalk('gen_whitenoise_xtalk', bls=[(0, 1, 'xx')])
-    sim.add_xtalk('gen_cross_coupling_xtalk', bls=[(0, 1, 'xx')])
-    sim.add_sigchain_reflections(ants=[0])
+    # only add visibilities for the (0,1) baseline
+    vis_filter = (0, 1, "xx")
 
-    assert not np.all(np.isclose(sim.data.data_array,  0))
-    assert np.all(np.isclose(sim.data.get_data(0,0), 0))
+    sim.add("noiselike_eor", vis_filter=vis_filter)
+    assert np.all(sim.data.get_data(0, 0) == 0)
+    assert np.all(sim.data.get_data(1, 1) == 0)
+    assert np.all(sim.data.get_data(0, 1) != 0)
+    assert np.all(sim.data.get_data(1, 0) != 0)
+    assert np.all(sim.data.get_data(0, 1) == sim.data.get_data(1, 0).conj())
 
-    sim = create_sim()
-
-    sim.add_rfi("rfi_stations")
-
-    assert not np.all(np.isclose(sim.data.data_array,  0))
-
-
-def test_not_add_vis():
-    sim = create_sim()
-    vis = sim.add_eor("noiselike_eor", add_vis=False)
-
-    assert np.all(np.isclose(sim.data.data_array,  0))
-
-    assert not np.all(np.isclose(vis, 0))
-
-    assert "noiselike_eor" not in sim.data.history
-
-
-def test_adding_vis_but_also_returning():
-    sim = create_sim()
-    vis = sim.add_eor("noiselike_eor", ret_vis=True)
-
-    assert not np.all(np.isclose(vis, 0))
-    np.testing.assert_array_almost_equal(vis, sim.data.data_array)
-
-    vis = sim.add_foregrounds("diffuse_foreground", Tsky_mdl=HERA_Tsky_mdl['xx'], ret_vis=True)
-    np.testing.assert_array_almost_equal(vis, sim.data.data_array, decimal=5)
-
-def test_mult_pols():
-    sim = create_sim(polarization_array=['xx','yy'])
-    sim.add_foregrounds("diffuse_foreground", Tsky_mdl=HERA_Tsky_mdl['xx'], pol='xx')
-    assert np.all(sim.data.get_data((0,1,'yy'))==0)
-    assert not np.all(sim.data.get_data((0,1,'xx'))==0)
-
-@raises(AssertionError)
-def test_bad_pol():
-    sim = create_sim(polarization_array=['xx','yy'])
-    # not specifying polarization
-    sim.add_foregrounds("diffuse_foreground", Tsky_mdl=HERA_Tsky_mdl['xx'])
-    # specifying bad polarization
-    sim.add_foregrounds("diffuse_foreground", Tsky_mdl=HERA_Tsky_mdl['xx'], pol='xy')
 
 def test_consistent_across_reds():
-    ants = hex_array(2,split_core=False,outriggers=0)
-    sim = Simulator(n_freq=50, n_times=20, antennas=ants)
-    sim.add_foregrounds('diffuse_foreground', Tsky_mdl=HERA_Tsky_mdl['xx'],
-            seed_redundantly=True)
-    sim.add_eor('noiselike_eor', seed_redundantly=True)
-    reds = sim.data.get_redundancies()[0][1] # choose non-autos
-    key1 = sim.data.baseline_to_antnums(reds[0]) + ('xx',)
-    key2 = sim.data.baseline_to_antnums(reds[1]) + ('xx',)
-    assert np.all(np.isclose(sim.data.get_data(key1),sim.data.get_data(key2)))
-
-def test_return_and_save_seeds():
+    # initialize a sim with some redundant baselines
+    # this is a 7-element hex array
     ants = hex_array(2, split_core=False, outriggers=0)
-    sim = Simulator(n_freq=50, n_times=20, antennas=ants)
-    sim.add_foregrounds('diffuse_foreground', Tsky_mdl=HERA_Tsky_mdl['xx'],
-            seed_redundantly=True)
-    tempdir = tempfile.mkdtemp()
-    vis_file = path.join(tempdir, "test.uvh5")
-    seeds = sim.data.extra_keywords['seeds']
-    alt_seeds = sim.write_data(vis_file, ret_seeds=True, save_seeds=True)
-    saved_seeds = np.load(vis_file.replace(".uvh5", ".npy"), allow_pickle=True)
-    saved_seeds = saved_seeds[None][0]
-    assert seeds==alt_seeds
-    assert seeds==sim.data.extra_keywords['seeds']
-    assert np.all(seeds['diffuse_foreground']==saved_seeds['diffuse_foreground'])
+    sim = Simulator(
+        Nfreqs=20,
+        start_freq=1e8,
+        channel_width=5e6,
+        Ntimes=20,
+        start_time=2458115.9,
+        integration_time=10.7,
+        array_layout=ants,
+    )
 
-if sys.version_info.major < 3 or \
-   sys.version_info.major > 3 and sys.version_info.minor < 4:
-    @raises(NotImplementedError)
-    def test_run_sim():
-        sim_params = {}
-        sim = create_sim()
-        sim.run_sim(**sim_params)
-else:
-    def test_run_sim():
-        sim_params = {
-                "diffuse_foreground": {"Tsky_mdl":HERA_Tsky_mdl['xx']},
-                "pntsrc_foreground": {"nsrcs":500, "Smin":0.1},
-                "noiselike_eor": {"eor_amp":3e-2},
-                "thermal_noise": {"Tsky_mdl":HERA_Tsky_mdl['xx'], "inttime":8.59},
-                "rfi_scatter": {"chance":0.99, "strength":5.7, "std":2.2},
-                "rfi_impulse": {"chance":0.99, "strength":17.22},
-                "rfi_stations": {},
-                "gains": {"gain_spread":0.05},
-                "sigchain_reflections": {"amp":[0.5,0.5],
-                                         "dly":[14,7],
-                                         "phs":[0.7723,3.2243]},
-                "gen_whitenoise_xtalk": {"amplitude":1.2345} 
-                }
+    # activate season defaults for simplicity
+    defaults.set("h1c")
 
-        sim = create_sim()
-    
-        sim.run_sim(**sim_params)
+    # add something that should be the same across a redundant group
+    sim.add("diffuse_foreground", seed="redundant")
 
-        assert not np.all(np.isclose(sim.data.data_array, 0))
+    # deactivate defaults for good measure
+    defaults.deactivate()
 
-        # instantiate a mock simulation file
-        tmp_sim_file = tempfile.mkstemp()[1]
-        # write something to it
-        with open(tmp_sim_file, 'w') as sim_file:
-            sim_file.write("""
-                diffuse_foreground: 
-                    Tsky_mdl: !Tsky
-                        datafile: {}/HERA_Tsky_Reformatted.npz
-                        pol: yy
-                pntsrc_foreground: 
-                    nsrcs: 500
-                    Smin: 0.1
-                noiselike_eor: 
-                    eor_amp: 0.03
-                gains: 
-                    gain_spread: 0.05
-                gen_cross_coupling_xtalk: 
-                    amp: 0.225
-                    dly: 13.2
-                    phs: 2.1123
-                thermal_noise: 
-                    Tsky_mdl: !Tsky 
-                        datafile: {}/HERA_Tsky_Reformatted.npz
-                        pol: xx
-                    inttime: 9.72
-                rfi_scatter: 
-                    chance: 0.99
-                    strength: 5.7
-                    std: 2.2
-                    """.format(DATA_PATH, DATA_PATH))
-        sim = create_sim(autos=True)
-        sim.run_sim(tmp_sim_file)
-        assert not np.all(np.isclose(sim.data.data_array, 0))
+    reds = sim._get_reds()[1]  # choose non-autos
+    # check that every pair in the redundant group agrees
+    for i, _bl1 in enumerate(reds):
+        for bl2 in reds[i + 1 :]:
+            # get the antenna pairs from the baseline integers
+            bl1 = sim.data.baseline_to_antnums(_bl1)
+            bl2 = sim.data.baseline_to_antnums(bl2)
+            vis1 = sim.data.get_data(bl1)
+            vis2 = sim.data.get_data(bl2)
+            assert np.all(np.isclose(vis1, vis2))
 
-    @raises(AssertionError)
-    def test_run_sim_both_args():
-        # make a temporary test file
-        tmp_sim_file = tempfile.mkstemp()[1]
-        with open(tmp_sim_file, 'w') as sim_file:
-            sim_file.write("""
-                pntsrc_foreground:
-                    nsrcs: 5000
-                    """)
-        sim_params = {"diffuse_foreground": {"Tsky_mdl":HERA_Tsky_mdl['xx']} }
-        sim = create_sim()
-        sim.run_sim(tmp_sim_file, **sim_params)
+    # Check that seeds vary between redundant groups
+    seeds = list(list(sim._seeds.values())[0].values())
+    assert all(
+        seed_pair[0] != seed_pair[1] for seed_pair in itertools.combinations(seeds, 2)
+    )
 
-    @raises(AssertionError)
-    def test_run_sim_bad_param_key():
-        bad_key = {"something": {"something else": "another different thing"} }
-        sim = create_sim()
-        sim.run_sim(**bad_key)
 
-    @raises(AssertionError)
-    def test_run_sim_bad_param_value():
-        bad_value = {"diffuse_foreground": 13}
-        sim = create_sim()
-        sim.run_sim(**bad_value)
+def test_run_sim():
+    # activate season defaults for simplicity
+    defaults.set("h1c", refresh=True)
 
-    @raises(SystemExit)
-    def test_bad_yaml_config():
-        # make a bad config file
-        tmp_sim_file = tempfile.mkstemp()[1]
-        with open(tmp_sim_file, 'w') as sim_file:
-            sim_file.write("""
-                this:
-                    is: a
-                     bad: file
-                     """)
-        sim = create_sim()
-        sim.run_sim(tmp_sim_file)
+    sim_params = {
+        "diffuse_foreground": {"Tsky_mdl": HERA_Tsky_mdl["xx"]},
+        "pntsrc_foreground": {"nsrcs": 500, "Smin": 0.1},
+        "noiselike_eor": {"eor_amp": 3e-2},
+        "thermal_noise": {"Tsky_mdl": HERA_Tsky_mdl["xx"], "integration_time": 8.59},
+        "rfi_scatter": {
+            "scatter_chance": 0.99,
+            "scatter_strength": 5.7,
+            "scatter_std": 2.2,
+        },
+        "rfi_impulse": {"impulse_chance": 0.99, "impulse_strength": 17.22},
+        "rfi_stations": {},
+        "gains": {"gain_spread": 0.05},
+        "sigchain_reflections": {
+            "amp": [0.5, 0.5],
+            "dly": [14, 7],
+            "phs": [0.7723, 3.2243],
+        },
+        "whitenoise_xtalk": {"amplitude": 1.2345},
+    }
 
+    sim = create_sim(autos=True)
+
+    sim.run_sim(**sim_params)
+
+    assert not np.all(np.isclose(sim.data.data_array, 0))
+
+    # instantiate a mock simulation file
+    tmp_sim_file = tempfile.mkstemp()[1]
+    # write something to it
+    with open(tmp_sim_file, "w") as sim_file:
+        sim_file.write(
+            """
+            diffuse_foreground:
+                Tsky_mdl: !Tsky
+                    datafile: {}/HERA_Tsky_Reformatted.npz
+                    pol: yy
+            pntsrc_foreground:
+                nsrcs: 500
+                Smin: 0.1
+            noiselike_eor:
+                eor_amp: 0.03
+            gains:
+                gain_spread: 0.05
+            cross_coupling_xtalk:
+                amp: 0.225
+                dly: 13.2
+                phs: 2.1123
+            thermal_noise:
+                Tsky_mdl: !Tsky
+                    datafile: {}/HERA_Tsky_Reformatted.npz
+                    pol: xx
+                integration_time: 9.72
+            rfi_scatter:
+                scatter_chance: 0.99
+                scatter_strength: 5.7
+                scatter_std: 2.2
+                """.format(
+                DATA_PATH, DATA_PATH
+            )
+        )
+    sim = create_sim(autos=True)
+    sim.run_sim(tmp_sim_file)
+    assert not np.all(np.isclose(sim.data.data_array, 0))
+
+    # deactivate season defaults for good measure
+    defaults.deactivate()
+
+
+def test_run_sim_both_args(base_sim, tmp_path):
+    # make a temporary test file
+    tmp_sim_file = tmp_path / "temp_config.yaml"
+    with open(tmp_sim_file, "w") as sim_file:
+        sim_file.write(
+            """
+            pntsrc_foreground:
+                nsrcs: 5000
+                """
+        )
+    sim_params = {"diffuse_foreground": {"Tsky_mdl": HERA_Tsky_mdl["xx"]}}
+    with pytest.raises(ValueError) as err:
+        base_sim.run_sim(tmp_sim_file, **sim_params)
+    assert "Please only pass one of the two." in err.value.args[0]
+
+
+def test_bad_yaml_config(base_sim, tmp_path):
+    # make a bad config file
+    tmp_sim_file = tmp_path / "bad_config.yaml"
+    with open(tmp_sim_file, "w") as sim_file:
+        sim_file.write(
+            """
+            this:
+                is: a
+                 bad: file
+                 """
+        )
+    with pytest.raises(IOError) as err:
+        base_sim.run_sim(tmp_sim_file)
+    assert err.value.args[0] == "The configuration file was not able to be loaded."
+
+
+def test_run_sim_bad_param_key(base_sim):
+    bad_key = {"something": {"something else": "another different thing"}}
+    with pytest.raises(UnboundLocalError) as err:
+        base_sim.run_sim(**bad_key)
+    assert "The component 'something' wasn't found." in err.value.args[0]
+
+
+def test_run_sim_bad_param_value(base_sim):
+    bad_value = {"diffuse_foreground": 13}
+    with pytest.raises(TypeError) as err:
+        base_sim.run_sim(**bad_value)
+    assert "The parameters for diffuse_foreground are not" in err.value.args[0]

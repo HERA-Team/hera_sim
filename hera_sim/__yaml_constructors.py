@@ -11,22 +11,28 @@ import astropy.units as u
 from . import interpolators
 from . import antpos
 
+
 def make_interp_constructor(tag, interpolator):
     """Wrapper for yaml.add_constructor to easily make new YAML tags."""
+
     def constructor(loader, node):
         params = loader.construct_mapping(node, deep=True)
-        datafile = params['datafile']
-        interp_kwargs = params.pop('interp_kwargs', {})
+        datafile = params["datafile"]
+        interp_kwargs = params.pop("interp_kwargs", {})
         return interpolator(datafile, **interp_kwargs)
+
     yaml.add_constructor(tag, constructor, yaml.FullLoader)
+
 
 def predicate(obj):
     """Checks if the passed object `obj` is an interpolator."""
-    return hasattr(obj, '_interpolator')
+    return hasattr(obj, "_interpolator")
+
 
 interps = dict(inspect.getmembers(interpolators, predicate))
 for tag, interp in interps.items():
-    make_interp_constructor("!%s"%tag, interp)
+    make_interp_constructor("!%s" % tag, interp)
+
 
 def astropy_unit_constructor(loader, node):
     params = loader.construct_mapping(node, deep=True)
@@ -35,18 +41,20 @@ def astropy_unit_constructor(loader, node):
     if value is None:
         return None
     elif units is None:
-        warnings.warn(
-                "You have not specified the units for this item. Returning None.")
+        warnings.warn("You have not specified the units for this item. Returning None.")
         return None
     else:
         try:
-            return value*getattr(u, units)
+            return value * getattr(u, units)
         except AttributeError:
             raise ValueError(
-                    "You have selected units that are not an astropy " \
-                    "Quantity. Please check your configuration file.")
+                "You have selected units that are not an astropy "
+                "Quantity. Please check your configuration file."
+            )
+
 
 yaml.add_constructor("!dimensionful", astropy_unit_constructor, yaml.FullLoader)
+
 
 def antpos_constructor(loader, node):
     params = loader.construct_mapping(node, deep=True)
@@ -54,5 +62,5 @@ def antpos_constructor(loader, node):
     antpos_func = getattr(antpos, array_type)
     return antpos_func(**params)
 
-yaml.add_constructor("!antpos", antpos_constructor, yaml.FullLoader)
 
+yaml.add_constructor("!antpos", antpos_constructor, yaml.FullLoader)
