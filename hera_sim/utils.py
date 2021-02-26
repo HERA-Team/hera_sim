@@ -57,7 +57,7 @@ def gen_delay_filter(
     freqs: np.ndarray,
     bl_len_ns: [float, np.ndarray, Sequence],
     standoff: float = 0.0,
-    delay_filter_type: str = "gauss",
+    delay_filter_type: Optional[str] = "gauss",
     min_delay: Optional[float] = None,
     max_delay: Optional[float] = None,
     normalize: Optional[float] = None,
@@ -187,7 +187,7 @@ def gen_fringe_filter(
     lsts: np.ndarray,
     freqs: np.ndarray,
     ew_bl_len_ns: float,
-    fringe_filter_type: str = "tophat",
+    fringe_filter_type: Optional[str] = "tophat",
     **filter_kwargs,
 ) -> np.ndarray:
     """

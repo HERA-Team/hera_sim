@@ -16,3 +16,4 @@ hera_sim/\.ipynb_checkpoints/
 
 *.coverage*
 pip-wheel-metadata/
+coverage.xml

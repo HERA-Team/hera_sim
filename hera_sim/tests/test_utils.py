@@ -35,7 +35,7 @@ def delays(freqs):
 @pytest.mark.parametrize("standoff", [0, 20])
 def test_gen_delay_filter_tophat(freqs, delays, bl_len_ns, standoff):
     delay_filter = utils.gen_delay_filter(
-        freqs, bl_len_ns, standoff=standoff, filter_type="tophat"
+        freqs, bl_len_ns, standoff=standoff, delay_filter_type="tophat"
     )
     expected_filter = np.ones_like(delays)
     expected_filter[np.abs(delays) > bl_len_ns + standoff] = 0
@@ -44,7 +44,7 @@ def test_gen_delay_filter_tophat(freqs, delays, bl_len_ns, standoff):
 
 @pytest.mark.parametrize("filter_type", [None, "none", "None"])
 def test_gen_delay_filter_none(freqs, delays, filter_type):
-    delay_filter = utils.gen_delay_filter(freqs, 120, filter_type=filter_type)
+    delay_filter = utils.gen_delay_filter(freqs, 120, delay_filter_type=filter_type)
     assert np.all(delay_filter == 1)
 
 
@@ -55,7 +55,11 @@ def test_gen_delay_filter_bounded_delays(
     freqs, delays, min_delay, max_delay, filter_type
 ):
     delay_filter = utils.gen_delay_filter(
-        freqs, 100, min_delay=min_delay, max_delay=max_delay, filter_type=filter_type,
+        freqs,
+        100,
+        min_delay=min_delay,
+        max_delay=max_delay,
+        delay_filter_type=filter_type,
     )
     min_delay = min_delay or 0
     max_delay = max_delay or np.inf
@@ -66,7 +70,7 @@ def test_gen_delay_filter_bounded_delays(
 @pytest.mark.parametrize("normalize", [np.pi, 293])
 def test_gen_delay_filter_normalize(freqs, normalize):
     delay_filter = utils.gen_delay_filter(
-        freqs, 100, filter_type=None, normalize=normalize
+        freqs, 100, delay_filter_type=None, normalize=normalize
     )
     assert np.allclose(delay_filter, normalize, atol=1e-7)
 
@@ -76,7 +80,7 @@ def test_gen_delay_filter_normalize(freqs, normalize):
 @pytest.mark.parametrize("filter_type", ["gauss", "trunc_gauss"])
 def test_gen_delay_filter_gauss(freqs, delays, bl_len_ns, standoff, filter_type):
     delay_filter = utils.gen_delay_filter(
-        freqs, bl_len_ns, standoff=standoff, filter_type=filter_type
+        freqs, bl_len_ns, standoff=standoff, delay_filter_type=filter_type
     )
     one_sigma = (bl_len_ns + standoff) / 4
     expected_filter = np.exp(-0.5 * (delays / one_sigma) ** 2)
@@ -88,7 +92,7 @@ def test_gen_delay_filter_gauss(freqs, delays, bl_len_ns, standoff, filter_type)
 @pytest.mark.parametrize("bl_len_ns", [[10, 0], [10, 0, 0]])
 def test_gen_delay_filter_vector_bl_len_ns(freqs, delays, bl_len_ns):
     delay_filter = utils.gen_delay_filter(
-        freqs, np.array(bl_len_ns), standoff=0, filter_type="tophat"
+        freqs, np.array(bl_len_ns), standoff=0, delay_filter_type="tophat"
     )
     expected_filter = np.ones_like(delays)
     expected_filter[np.abs(delays) > np.linalg.norm(bl_len_ns)] = 0
@@ -97,7 +101,7 @@ def test_gen_delay_filter_vector_bl_len_ns(freqs, delays, bl_len_ns):
 
 def test_gen_delay_filter_bad_filter_type(freqs):
     with pytest.raises(ValueError) as err:
-        utils.gen_delay_filter(freqs, 0, filter_type="bad filter")
+        utils.gen_delay_filter(freqs, 0, delay_filter_type="bad filter")
     assert err.value.args[0] == "Didn't recognize filter_type bad filter"
 
 
@@ -142,7 +146,7 @@ def test_delay_filter_norm(freqs):
 
     out = 0
     nreal = 5000
-    for i in range(nreal):
+    for _ in range(nreal):
         _noise = tsky * utils.gen_white_noise(freqs.size)
         outnoise = utils.rough_delay_filter(_noise, freqs, 30, normalize=1)
 
@@ -156,7 +160,7 @@ def test_delay_filter_norm(freqs):
 @pytest.mark.parametrize("bl_len_ns", [50, 150])
 def test_fringe_filter_tophat_symmetry(freqs, lsts, bl_len_ns):
     fringe_filter = utils.gen_fringe_filter(
-        lsts, freqs, bl_len_ns, filter_type="tophat"
+        lsts, freqs, bl_len_ns, fringe_filter_type="tophat"
     )
     assert all(
         np.allclose(fringe_filter[i], fringe_filter[-i])
@@ -167,7 +171,7 @@ def test_fringe_filter_tophat_symmetry(freqs, lsts, bl_len_ns):
 @pytest.mark.parametrize("bl_len_ns", [50, 150])
 def test_fringe_filter_tophat_output(freqs, lsts, fringe_rates, bl_len_ns):
     fringe_filter = utils.gen_fringe_filter(
-        lsts, freqs, bl_len_ns, filter_type="tophat"
+        lsts, freqs, bl_len_ns, fringe_filter_type="tophat"
     )
     max_fringe_rates = utils.calc_max_fringe_rate(freqs, bl_len_ns)
     # Check that we get a low-pass fringe-rate filter.
@@ -180,7 +184,9 @@ def test_fringe_filter_tophat_output(freqs, lsts, fringe_rates, bl_len_ns):
 
 @pytest.mark.parametrize("bl_len_ns", [50, 150])
 def test_fringe_filter_none(freqs, lsts, bl_len_ns):
-    fringe_filter = utils.gen_fringe_filter(lsts, freqs, bl_len_ns, filter_type="none")
+    fringe_filter = utils.gen_fringe_filter(
+        lsts, freqs, bl_len_ns, fringe_filter_type="none"
+    )
     assert np.all(fringe_filter == 1)
 
 
@@ -189,7 +195,7 @@ def test_fringe_filter_none(freqs, lsts, bl_len_ns):
 @pytest.mark.parametrize("bl_len_ns", [50, 75])
 def test_fringe_filter_gauss_center(freqs, lsts, fringe_rates, bl_len_ns):
     fringe_filter = utils.gen_fringe_filter(
-        lsts, freqs, bl_len_ns, filter_type="gauss", fr_width=1e-4
+        lsts, freqs, bl_len_ns, fringe_filter_type="gauss", fr_width=1e-4
     )
     max_fringe_rates = utils.calc_max_fringe_rate(freqs, bl_len_ns)
     # Check that the peak of the filter is at the maximum fringe rate.
@@ -205,7 +211,7 @@ def test_fringe_filter_gauss_center(freqs, lsts, fringe_rates, bl_len_ns):
 def test_fringe_filter_gauss_width(freqs, lsts, fringe_rates, fr_width):
     bl_len_ns = 50.0
     fringe_filter = utils.gen_fringe_filter(
-        lsts, freqs, bl_len_ns, filter_type="gauss", fr_width=fr_width
+        lsts, freqs, bl_len_ns, fringe_filter_type="gauss", fr_width=fr_width
     )
     half_max_fringe_rates = fringe_rates[np.argmin(np.abs(fringe_filter - 0.5), axis=0)]
     fringe_fwhm = 2 * fr_width * np.sqrt(2 * np.log(2))
@@ -237,7 +243,7 @@ def test_fringe_filter_custom(freqs, lsts, fringe_rates):
         lsts,
         freqs,
         bl_len_ns,
-        filter_type="custom",
+        fringe_filter_type="custom",
         FR_filter=model_filter,
         FR_frates=filter_frates,
         FR_freqs=filter_freqs,
@@ -280,7 +286,7 @@ def test_rough_fringe_filter_noisy_data(freqs, lsts, fringe_rates, bl_len_ns, fr
 
 def test_fringe_filter_bad_type(freqs, lsts):
     with pytest.raises(ValueError) as err:
-        utils.gen_fringe_filter(lsts, freqs, 35, filter_type="bad type")
+        utils.gen_fringe_filter(lsts, freqs, 35, fringe_filter_type="bad type")
     assert err.value.args[0] == "filter_type bad type not recognized"
 
 
@@ -339,7 +345,7 @@ def test_Jy2T(freqs, omega_p):
         beamfile = DATA_PATH / "HERA_H1C_BEAM_POLY.npy"
         omega_p = Beam(beamfile)
 
-    conversion_factors = utils.Jy2T(freqs, omega_p)
+    conversion_factors = utils.jansky_to_kelvin(freqs, omega_p)
     assert conversion_factors.shape == freqs.shape
 
 
