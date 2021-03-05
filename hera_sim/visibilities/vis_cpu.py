@@ -397,7 +397,7 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube=None, beam_list=None,
     assert ncrd == 3, "antpos must have shape (NANTS, 3)."
     ntimes, ncrd1, ncrd2 = eq2tops.shape
     assert ncrd1 == 3 and ncrd2 == 3, "eq2tops must have shape (NTIMES, 3, 3)."
-    ncrd, npix = crd_eq.shape
+    ncrd, npix = crd_eq.shape # npix = nptsrc
     assert ncrd == 3, "crd_eq must have shape (3, NPIX)."
     assert I_sky.ndim == 1 and I_sky.shape[0] == npix, \
         "I_sky must have shape (NPIX,)."
@@ -451,7 +451,9 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube=None, beam_list=None,
             # Primary beam pattern using direct interpolation of UVBeam object
             az, za = conversions.lm_to_az_za(tx, ty)       
             for i in range(nant):
-                interp_beam = beam_list[i].interp(az, za, np.atleast_1d(freq))[0]
+                interp_beam = beam_list[i].interp(az_array=az, 
+                                                  za_array=za, 
+                                                  freq_array=np.atleast_1d(freq))[0]
                 A_s[i] = interp_beam[0,0,1] # FIXME: assumes xx pol for now
         
         A_s = np.where(tz > 0, A_s, 0)
