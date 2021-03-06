@@ -367,7 +367,7 @@ class PerturbedPolyBeam(PolyBeam):
         p_freq = np.atleast_1d(self.freq_perturb_scale * p_freq)
             
         # Modulate primary beam by sidelobe perturbation function
-        interp_data *= (1. + (step * p_za)[np.newaxis,:] * p_freq[:,np.newaxis])
+        interp_data *= (1. + (step * p_za)[np.newaxis,:] * (1. + p_freq[:,np.newaxis]))
         
         # Add mainlobe stretch factor
         if self.mainlobe_scale != 1.:
