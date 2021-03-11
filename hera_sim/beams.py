@@ -122,6 +122,7 @@ class PerturbedPolyBeam(PolyBeam):
                  mainlobe_width=None, mainlobe_scale=1., transition_width=0.05,
                  xstretch=1., ystretch=1., rotation=0., 
                  freq_perturb_coeffs=[], freq_perturb_scale=0.,
+                 perturb_zeropoint=None,
                  **kwargs):
         """
         A PolyBeam in which the shape of the beam has been modified. Note that 
@@ -189,6 +190,11 @@ class PerturbedPolyBeam(PolyBeam):
             direction. Must be less than 1, otherwise the primary beam can go 
             negative. Default: 0.
         
+        perturb_zeropoint : float, optional
+            If specified, override the automatical zero-point calculation for 
+            the angle-dependent sidelobe perturbation. Default: None (use the 
+            automatically-calculated zero-point).
+        
         beam_coeffs: array_like
             Coefficients of the baseline Chebyshev polynomial (inherited from 
             PolyBeam).
@@ -239,7 +245,11 @@ class PerturbedPolyBeam(PolyBeam):
             self._scale_pza = 2. / (np.max(p_za) - np.min(p_za))
             self._zeropoint_pza = -0.5 - 2.*np.min(p_za) \
                                           / (np.max(p_za) - np.min(p_za))
-        
+            
+            # Override calculated zeropoint with user-specified value
+            if perturb_zeropoint is not None:
+                self._zeropoint_pza = perturb_zeropoint
+            
         # Rescale p_freq to the range [-0.5, +0.5]
         self._scale_pfreq, self._zeropoint_pfreq = 0., 0.
         if self.freq_perturb_coeffs.size > 0:
