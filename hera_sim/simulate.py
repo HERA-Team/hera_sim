@@ -539,6 +539,7 @@ class Simulator:
             yield ant1, ant2, pol, blt_inds, pol_ind
 
     # TODO: think about how to streamline this algorithm and make it more readable
+    # In particular, make the logic for adding/returning the effect easier to follow.
     def _iteratively_apply(
         self,
         model,
@@ -615,6 +616,9 @@ class Simulator:
 
             # check whether we're simulating a gain or a visibility
             if is_multiplicative:
+                # TODO: move this outside of the loop in a way that is
+                # friendly to generalization to polarized gains.
+                # (The RNG should only be seeded once, if at all.)
                 # get the gains for the entire array
                 # this is sloppy, but ensures seeding works correctly
                 gains = model(**use_args)
@@ -624,7 +628,7 @@ class Simulator:
 
                 # don't actually do anything if we're filtering this
                 if apply_filter:
-                    gain = np.ones(gain.shape)
+                    gain = np.ones_like(gain)
 
                 # apply the effect to the appropriate part of the data
                 data_copy[blt_inds, 0, :, pol_ind] *= gain
@@ -639,11 +643,13 @@ class Simulator:
                         conj_blts, 0, :, pol_ind
                     ].conj()
                 else:
+                    # TODO: see if it's not too complicated to use cached
+                    # delay/fringe filters here.
                     vis = model(**use_args)
 
                 # filter what's actually having data simulated
                 if apply_filter:
-                    vis = np.zeros(vis.shape, dtype=np.complex128)
+                    vis = np.zeros_like(vis)
 
                 # and add it in
                 data_copy[blt_inds, 0, :, pol_ind] += vis
