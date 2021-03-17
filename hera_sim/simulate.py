@@ -428,6 +428,21 @@ class Simulator:
         will have a simulated effect propagated through the ``_iteratively_apply``
         method. ``vis_filter`` acts as a logical equivalent of a passband filter.
 
+        Parameters
+        ----------
+        vis_filter
+            Either a polarization string, antenna number, baseline, antpairpol
+            (baseline + polarization), collection of antenna numbers and/or
+            polarization strings, or collection of such keys.
+        ant1, ant2, pol
+            Baseline + polarization to compare against the provided filter.
+
+        Returns
+        -------
+        apply_filter
+            False if the provided antpairpol satisfies any of the keys provided
+            in ``vis_filter``; True otherwise. See examples for details.
+
         Examples
         --------
         ``vis_filter`` = (0,)
