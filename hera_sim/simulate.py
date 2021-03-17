@@ -38,18 +38,43 @@ class Simulator:
 
     """
 
+    # TODO: figure out how typing works for this
     def __init__(self, data=None, defaults_config=None, **kwargs):
-        """Initialize a Simulator object.
+        """Simulate visibilities and instrumental effects for an entire array.
 
-        Idea: Make Simulator object have three major components:
-            sim.data -> UVData object for storing the "measured" data
-                Also keep track of most metadata here
-            sim.defaults -> Defaults object
+        Parameters
+        ----------
+        data
+            ``pyuvdata.UVData`` object to use for the simulation or path to a
+            UVData-supported file.
+        defaults_config
+            Path to defaults configuraiton, seasonal keyword, or configuration
+            dictionary for setting default simulation parameters. See tutorial
+            on setting defaults for further information.
+        kwargs
+            Parameters to use for initializing UVData object if none is provided.
+            If ``data`` is a file path, then these parameters are used when reading
+            the file. Otherwise, the parameters are used in creating a ``UVData``
+            object using ``io.empty_uvdata``.
 
+        Attributes
+        ----------
+        data: ``pyuvdata.UVData``
+            Object containing simulated visibilities and metadata.
+        extras: dict
+            Dictionary to use for storing extra parameters.
+        antpos: dict
+            Dictionary pairing antenna numbers to ENU positions in meters.
+        lsts: np.ndarray
+            Observed LSTs in radians.
+        freqs: np.ndarray
+            Observed frequencies in GHz.
+        times: np.ndarray
+            Observed times in JD.
         """
         # create some utility dictionaries
         self._components = {}
-        self.extras = {}
+        self.extras = {}  # FIXME: we can just use self.data.extras
         self._seeds = {}
         self._antpairpol_cache = {}
 
@@ -68,6 +93,8 @@ class Simulator:
         antpos, ants = self.data.get_ENU_antpos(pick_data_ants=True)
         return dict(zip(ants, antpos))
 
+    # FIXME: np.unique orders the LSTs; this is an issue for an LST-wrapped
+    # observing window.
     @property
     def lsts(self):
         # TODO: docstring
@@ -94,40 +121,23 @@ class Simulator:
         # TODO: docstring
         """
         """
-        # find out whether to add and/or return the component
-        add_vis = kwargs.pop("add_vis", True)
-        ret_vis = kwargs.pop("ret_vis", False)
-
-        # find out whether the data application should be filtered
-        vis_filter = kwargs.pop("vis_filter", None)
-
-        # take out the seed kwarg so as not to break initializor
-        seed = kwargs.pop("seed", -1)
-
-        # get the model for the desired component
+        # Obtain a callable reference to the simulation component model.
+        # TODO: swap is_class with is_callable or is_class_instance
+        # (make sure to update _get_component appropriately)
         model, is_class = self._get_component(component)
-
-        # make a new entry in the antpairpol cache
-        self._antpairpol_cache[model] = []
-
-        # get a reference to the cache
-        antpairpol_cache = self._antpairpol_cache[model]
-
-        # make sure to keep the key handy in case it's a class
         model_key = model
-
-        # instantiate the class if the component is a class
         if is_class:
             model = model(**kwargs)
+        self._sanity_check(model)  # Check for component ordering issues.
 
-        # check that there isn't an issue with component ordering
-        self._sanity_check(model)
+        # Remove auxiliary parameters from kwargs and prepare for simulation.
+        add_vis = kwargs.pop("add_vis", True)
+        ret_vis = kwargs.pop("ret_vis", False)
+        vis_filter = kwargs.pop("vis_filter", None)
+        self._antpairpol_cache[model_key] = []  # Initialize this model's cache.
+        antpairpol_cache = self._antpairpol_cache[model_key]  # For convenience.
 
-        # re-add the seed kwarg if it was specified
-        if seed != -1:
-            kwargs["seed"] = seed
-
-        # calculate the effect
+        # Simulate the effect by iterating over baselines and polarizations.
         data = self._iteratively_apply(
             model,
             add_vis=add_vis,
@@ -135,31 +145,21 @@ class Simulator:
             vis_filter=vis_filter,
             antpairpol_cache=antpairpol_cache,
             **kwargs,
-        )
+        )  # This is None if ret_vis is False
 
-        # log the component and its kwargs, if added to data
         if add_vis:
-            # note the filter used if any
-            if vis_filter is not None:
-                kwargs["vis_filter"] = vis_filter
-            # note the defaults used if any
+            # Record the component simulated and the parameters used.
+            kwargs["vis_filter"] = vis_filter
             if defaults._override_defaults:
-                kwargs["defaults"] = defaults()
-            # log the component and the settings used
+                kwargs["defaults"] = defaults()  # Do we really want to do this?
             self._components[component] = kwargs
-            # update the history
             self._update_history(model, **kwargs)
-            # track the seed(s) used, if any
-            if seed != -1:
+            if "seed" in kwargs:
                 self._update_seeds(self._get_model_name(model))
         else:
-            # if we're not adding it, then we don't want to keep
-            # the antpairpol cache
-            _ = self._antpairpol_cache.pop(model_key)
+            del self._antpairpol_cache[model_key]
 
-        # return the data if desired
-        if ret_vis:
-            return data
+        return data
 
     def get(self, component, ant1=None, ant2=None, pol=None):
         # TODO: docstring
@@ -792,6 +792,7 @@ class Simulator:
                     "``hera_sim`` class or an alias thereof."
                 )
 
+            # TODO: make this a private method _check_registry
             # keep track of all known aliases in case desired
             # component isn't found in the search
             all_aliases = []
@@ -900,6 +901,7 @@ class Simulator:
         """
         component = self._get_model_name(model)
         msg = f"hera_sim v{__version__}: Added {component} using kwargs:\n"
+        # Is this a sensible thing to do?
         if defaults._override_defaults:
             kwargs["defaults"] = defaults._config_name
         for param, value in defaults._unpack_dict(kwargs).items():
