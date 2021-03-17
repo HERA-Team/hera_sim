@@ -1,10 +1,8 @@
 """Reimagining of the foregrounds module, using an object-oriented approach."""
 
 import numpy as np
-import astropy.constants as const
-import astropy.units as u
-from abc import abstractmethod
-from cached_property import cached_property
+from astropy import constants
+from astropy import units
 
 from . import utils
 from .components import registry
@@ -15,11 +13,12 @@ class Foreground:
     pass
 
 
+# TODO: choose at which level we'll be documenting classes.
 class DiffuseForeground(Foreground):
-    # XXX do we want to document the classes at this level?
     """
 
     """
+
     _alias = ("diffuse_foreground",)
 
     def __init__(
@@ -81,10 +80,8 @@ class DiffuseForeground(Foreground):
 
         lsts : array-like of float
             Array of LST values in units of radians.
-
         freqs : array-like of float
             Array of frequency values in units of GHz.
-
         bl_vec : array-like of float
             Length-3 array specifying the baseline vector in units of ns.
 
@@ -149,7 +146,7 @@ class DiffuseForeground(Foreground):
 
         # resample the sky temperature model
         Tsky = Tsky_mdl(lsts=lsts, freqs=freqs)  # K
-        vis = np.asarray(Tsky / utils.Jy2T(freqs, omega_p), np.complex)
+        vis = np.asarray(Tsky / utils.jansky_to_kelvin(freqs, omega_p), np.complex128)
 
         if np.isclose(np.linalg.norm(bl_vec), 0):
             return vis
@@ -276,7 +273,7 @@ class PointSourceForeground(Foreground):
         ) = self._extract_kwarg_values(**kwargs)
 
         # get baseline length in nanoseconds
-        bl_len_ns = np.linalg.norm(bl_vec) / const.c.value * u.s.to("ns")
+        bl_len_ns = np.linalg.norm(bl_vec) / constants.c.value * units.s.to("ns")
 
         # randomly generate source RAs
         ras = np.random.uniform(0, 2 * np.pi, nsrcs)
@@ -287,7 +284,7 @@ class PointSourceForeground(Foreground):
         )
 
         # calculate beam width, hardcoded for HERA
-        beam_width = (40 * 60) * (f0 / freqs) / sidereal_day * 2 * np.pi
+        beam_width = (40 * 60) * (f0 / freqs) / units.sday.to("s") * 2 * np.pi
 
         # draw flux densities from a power law
         alpha = beta + 1
@@ -296,7 +293,7 @@ class PointSourceForeground(Foreground):
         ) ** (1 / alpha)
 
         # initialize the visibility array
-        vis = np.zeros((lsts.size, freqs.size), dtype=np.complex)
+        vis = np.zeros((lsts.size, freqs.size), dtype=np.complex128)
 
         # iterate over ra, flux, spectral indices
         for ra, flux, index in zip(ras, flux_densities, spec_indices):

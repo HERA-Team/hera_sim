@@ -1,6 +1,6 @@
 from os.path import join
 import numpy as np
-from nose.tools import raises
+import pytest
 from warnings import catch_warnings
 from hera_sim.defaults import defaults
 from hera_sim.config import CONFIG_PATH
@@ -88,19 +88,23 @@ def test_refresh():
     defaults.deactivate()
 
 
-@raises(KeyError)
 def test_call_with_bad_component():
     defaults.set("h1c")
-    defaults("not_a_valid_key")
+    with pytest.raises(KeyError) as err:
+        defaults("not_a_valid_key")
+    assert "not_a_valid_key not found in configuration." == err.value.args[0]
     defaults.deactivate()
 
 
-@raises(ValueError, FileNotFoundError)
-def test_bad_config():
-    # pass bad type
+def test_bad_config_type():
     not_a_string = 1
-    defaults.set(not_a_string)
+    with pytest.raises(ValueError) as err:
+        defaults.set(not_a_string)
+    assert "The configuration must be a" in err.value.args[0]
+    defaults.deactivate()
 
-    # pass nonexistent file
-    defaults.set("not_a_file")
+
+def test_bad_config_file():
+    with pytest.raises(FileNotFoundError):
+        defaults.set("not_a_file")
     defaults.deactivate()

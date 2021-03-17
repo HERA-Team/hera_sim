@@ -1,50 +1,76 @@
-import unittest
+import pytest
 from hera_sim import eor
 import numpy as np
-import aipy
-import nose.tools as nt
-
-np.random.seed(0)
 
 
-class TestEoR(unittest.TestCase):
-    def test_noiselike_eor(self):
-        # setup simulation parameters
-        fqs = np.linspace(0.1, 0.2, 201, endpoint=False)
-        lsts = np.linspace(0, 1, 500)
-        bl_vec = np.array([50.0, 0, 0])
-
-        # Simulate vanilla eor
-        vis = eor.noiselike_eor(
-            lsts, fqs, bl_vec, eor_amp=1e-5, fringe_filter_type="tophat"
-        )
-
-        # assert covariance across freq is close to diagonal (i.e. frequency covariance
-        # is essentially noise-like)
-        cov = np.cov(vis.T)
-        mean_diag = np.mean(cov.diagonal())
-        mean_offdiag = np.mean(cov - np.eye(len(cov)) * cov.diagonal())
-        nt.assert_true(np.abs(mean_diag / mean_offdiag) > 1e3)
-        # Look at it manually to check: plt.matshow(np.abs(cov))
-
-        # assert covariance across time has some non-neglible off diagonal (i.e. sky locked)
-        cov = np.cov(vis)
-        mean_diag = np.mean(cov.diagonal())
-        mean_offdiag = np.mean(cov - np.eye(len(cov)) * cov.diagonal())
-        nt.assert_true(np.abs(mean_diag / mean_offdiag) < 20)
-        # Look at it manually to check: plt.matshow(np.abs(cov))
-
-        # test amplitude scaling is correct
-        vis1 = eor.noiselike_eor(
-            lsts, fqs, bl_vec, eor_amp=1e-5, fringe_filter_type="tophat"
-        )
-        vis2 = eor.noiselike_eor(
-            lsts, fqs, bl_vec, eor_amp=1e-3, fringe_filter_type="tophat"
-        )
-        nt.assert_almost_equal(
-            np.mean(np.abs(vis1 / vis2)) / np.sqrt(2), 1e-2, places=2
-        )
+@pytest.fixture(scope="function")
+def freqs():
+    return np.linspace(0.1, 0.2, 500)
 
 
-if __name__ == "__main__":
-    unittest.main()
+@pytest.fixture(scope="function")
+def lsts():
+    return np.linspace(0, 1, 500)
+
+
+@pytest.fixture(scope="function")
+def bl_vec():
+    return np.array([50.0, 0, 0])
+
+
+@pytest.fixture(scope="function")
+def base_eor(freqs, lsts, bl_vec, request):
+    np.random.seed(0)
+    if request.param == "auto":
+        bl_vec = np.array([0, 0, 0])
+    return eor.noiselike_eor(
+        lsts=lsts, freqs=freqs, bl_vec=bl_vec, eor_amp=1e-5, fringe_filter_type="tophat"
+    )
+
+
+@pytest.fixture(scope="function")
+def scaled_eor(freqs, lsts, bl_vec, request):
+    np.random.seed(0)
+    if request.param == "auto":
+        bl_vec = np.array([0, 0, 0])
+    return eor.noiselike_eor(
+        lsts=lsts, freqs=freqs, bl_vec=bl_vec, eor_amp=1e-3, fringe_filter_type="tophat"
+    )
+
+
+@pytest.mark.parametrize("base_eor", ["auto"], indirect=True)
+def test_noiselike_eor_autocorr_is_real(base_eor):
+    assert np.all(base_eor.imag == 0)
+
+
+@pytest.mark.parametrize("base_eor", ["cross"], indirect=True)
+def test_noiselike_eor_is_noiselike_in_freq(base_eor):
+    covariance = np.cov(base_eor.T)  # Compute covariance across freq axis.
+    mean_diagonal = np.mean(covariance.diagonal())
+    mean_offdiagonal = np.mean(
+        covariance - np.eye(len(covariance)) * covariance.diagonal()
+    )
+    assert np.abs(mean_diagonal / mean_offdiagonal) > 1000
+    # To manually check: plt.matshow(np.abs(covariance))
+
+
+@pytest.mark.parametrize("base_eor", ["cross"], indirect=True)
+def test_noiselike_eor_is_sky_locked(base_eor):
+    covariance = np.cov(base_eor)  # Compute covariance across time axis.
+    mean_diagonal = np.mean(covariance.diagonal())
+    mean_offdiagonal = np.mean(
+        covariance - np.eye(len(covariance)) * covariance.diagonal()
+    )
+    assert np.abs(mean_diagonal / mean_offdiagonal) < 20
+
+
+@pytest.mark.parametrize("base_eor, scaled_eor", [("cross",) * 2], indirect=True)
+def test_noiselike_eor_crosscorr_scales_appropriately(base_eor, scaled_eor):
+    assert np.isclose(
+        np.mean(np.abs(base_eor / scaled_eor)) / np.sqrt(2), 1e-2, atol=0.01
+    )
+
+
+@pytest.mark.parametrize("base_eor, scaled_eor", [("auto",) * 2], indirect=True)
+def test_noiselike_eor_autocorr_scales_appropriately(base_eor, scaled_eor):
+    assert np.isclose(np.mean(np.abs(base_eor / scaled_eor)) / 2, 1e-2, atol=0.01)

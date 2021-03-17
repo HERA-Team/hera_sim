@@ -53,7 +53,7 @@ def validate_config(config):
     times_ok = _validate_time_params(time_params)
     array_ok = _validate_array_params(array_params)
     if not all([freqs_ok, times_ok, array_ok]):
-        raise ValueError("Insufficient information to initialize simulation.")
+        raise ValueError("Insufficient information for initializing simulation.")
 
 
 def write_calfits(gains, filename, sim=None, freqs=None, times=None, clobber=False):

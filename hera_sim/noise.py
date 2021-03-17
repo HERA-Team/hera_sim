@@ -73,7 +73,7 @@ class ThermalNoise(Noise):
             integration_time *= u.sday.to("s")
 
         # default to H1C beam if not specified
-        # XXX these three lines currently not tested
+        # FIXME: these three lines currently not tested
         if omega_p is None:
             omega_p = np.load(DATA_PATH / "HERA_H1C_BEAM_POLY.npy")
             omega_p = np.polyval(omega_p, freqs)
@@ -84,7 +84,7 @@ class ThermalNoise(Noise):
 
         # get the sky temperature; use an autocorrelation if provided
         if autovis is not None and not np.all(np.isclose(autovis, 0)):
-            Tsky = autovis * utils.Jy2T(freqs, omega_p).reshape(1, -1)
+            Tsky = autovis * utils.jansky_to_kelvin(freqs, omega_p).reshape(1, -1)
         else:
             Tsky = self.resample_Tsky(lsts, freqs, Tsky_mdl=Tsky_mdl)
 
@@ -95,9 +95,8 @@ class ThermalNoise(Noise):
         # is in units of K
         vis = Tsky / np.sqrt(integration_time * channel_width)
 
-        # convert vis to Jy
-        # XXX why the reshape?
-        vis /= utils.Jy2T(freqs, omega_p).reshape(1, -1)
+        # convert vis to Jy; reshape to allow for multiplication.
+        vis /= utils.jansky_to_kelvin(freqs, omega_p).reshape(1, -1)
 
         # make it noisy
         return utils.gen_white_noise(size=vis.shape) * vis

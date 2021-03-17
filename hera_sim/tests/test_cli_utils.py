@@ -12,7 +12,67 @@ from hera_sim.sigchain import gen_gains
 from pyuvdata import UVCal
 
 
-def test_filing_params_parser():
+@pytest.fixture
+def freqs():
+    return [1, 2, 3, 4]
+
+
+@pytest.fixture
+def times():
+    return [1, 2, 3, 4]
+
+
+@pytest.fixture
+def array():
+    return {0: [1, 2, 3]}
+
+
+@pytest.fixture(params=[0, 1, 2, 3], ids=["Nf0df", "Nf0B", "f0dfB", "fi"])
+def freq_params(request, freqs):
+    return (
+        dict(Nfreqs=100, start_freq=1e6, channel_width=1e4),
+        dict(Nfreqs=100, start_freq=1e6, bandwidth=1e6),
+        dict(start_freq=1e6, channel_width=1e4, bandwidth=1e6),
+        dict(freq_array=freqs),
+    )[request.param]
+
+
+@pytest.fixture(params=[0, 1], ids=["Nt0dt", "ti"])
+def time_params(request, times):
+    return (
+        dict(Ntimes=50, start_time=2458711.235, integration_time=10.7),
+        dict(time_array=times),
+    )[request.param]
+
+
+@pytest.fixture(params=[0, 1], ids=["file", "dict"])
+def array_params(tmp_path, request, array):
+    if request.param == 0:
+        tmp_csv = tmp_path / "test_layout.csv"
+        tmp_csv.touch()
+        return {"array_layout": f"{str(tmp_csv)}"}
+    else:
+        return {"array_layout": array}
+
+
+def test_freq_param_validation(freq_params):
+    assert cli_utils._validate_freq_params(freq_params)
+
+
+def test_time_param_validation(time_params):
+    assert cli_utils._validate_time_params(time_params)
+
+
+def test_array_param_validation(array_params):
+    assert cli_utils._validate_array_params(array_params["array_layout"])
+
+
+def test_config_validation(freq_params, time_params, array_params):
+    config = {"freq": freq_params, "time": time_params, "telescope": array_params}
+    cli_utils.validate_config(config)
+
+
+def test_filing_params_parser_custom_config():
     base_params = {
         "filing": dict(
             outdir="tmp", outfile_name="test.uvh5", output_format="uvh5", clobber=True
@@ -23,155 +83,130 @@ def test_filing_params_parser():
     parsed_params = cli_utils.get_filing_params(base_params)
     assert base_params["filing"] == parsed_params
 
+
+def test_filing_params_parser_default_config():
     # Check that the default settings are correct.
     default_params = cli_utils.get_filing_params({})
-    assert default_params["outdir"] == os.getcwd()
-    assert default_params["outfile_name"] == "hera_sim_simulation.uvh5"
-    assert default_params["output_format"] == "uvh5"
-    assert default_params["clobber"] is False
+    expected_params = {
+        "outdir": os.getcwd(),
+        "outfile_name": "hera_sim_simulation.uvh5",
+        "output_format": "uvh5",
+        "clobber": False,
+    }
+    assert default_params == expected_params
 
+
+def test_filing_params_parser_bad_config():
     # Check that it handles bad formats correctly
-    bad_params = base_params.copy()
-    bad_params["filing"]["output_format"] = "not_supported"
-    with pytest.raises(ValueError):
-        cli_utils.get_filing_params(bad_params)
+    params = {"filing": {"output_format": "not_supported"}}
+    with pytest.raises(ValueError) as err:
+        cli_utils.get_filing_params(params)
+    assert "Output format not supported." in err.value.args[0]
 
 
-def test_config_validation(tmp_path):
-    # Construct various possible configurations.
-    freq_params = {
-        "A": dict(Nfreqs=100, start_freq=1e6, channel_width=1e4),
-        "B": dict(Nfreqs=100, start_freq=1e6, bandwidth=1e6),
-        "C": dict(start_freq=1e6, channel_width=1e4, bandwidth=1e6),
-        "D": dict(freq_array=[1, 2, 3, 4]),
-    }
-    time_params = {
-        "A": dict(Ntimes=50, start_time=2458711.235, integration_time=10.7),
-        "B": dict(time_array=[1, 2, 3, 4]),
-    }
-    # Make sure a mock array layout file exists.
-    tmp_csv = tmp_path / "test_layout.csv"
-    tmp_csv.touch()
-    array_params = {
-        "A": {"array_layout": f"{str(tmp_csv)}"},
-        "B": {"array_layout": {0: [1, 2, 3]}},
-    }
-
-    # Check that every possible choice of configuration works.
-    for freq in freq_params.values():
-        for time in time_params.values():
-            for array in array_params.values():
-                assert cli_utils._validate_freq_params(freq)
-                assert cli_utils._validate_time_params(time)
-                assert cli_utils._validate_array_params(array["array_layout"])
-                config = {"freq": freq, "time": time, "telescope": array}
-                cli_utils.validate_config(config)
-
-    # Check that passing a season default key doesn't raise an error.
+def test_config_validation_default_config():
     cli_utils.validate_config({"defaults": "h2c"})
 
-    # Now check that exceptions are raised as expected.
-    with pytest.raises(ValueError) as err:
-        cli_utils.validate_config({})
-    assert "Insufficient information" in err.value.args[0]
 
+def test_config_validation_bad_defaults_type():
     with pytest.raises(ValueError) as err:
-        cli_utils.validate_config({"defaults": {"not": "valid"}})
-    assert "may only be specified using a string." in err.value.args[0]
+        cli_utils.validate_config({"defaults": 123})
+    assert "Defaults in the CLI may only be" in err.value.args[0]
 
+
+def test_config_validation_bad_defaults_string():
     with pytest.raises(ValueError) as err:
-        cli_utils.validate_config({"defaults": "invalid"})
+        cli_utils.validate_config({"defaults": "bad_setting"})
     assert err.value.args[0] == "Default configuration string not recognized."
 
-    with pytest.raises(ValueError) as err:
-        cli_utils.validate_config(
-            {"freq": freq_params["A"], "time": time_params["A"],}
-        )
-    assert "Insufficient information" in err.value.args[0]
 
+@pytest.mark.parametrize("remove", ["freq", "time", "telescope"])
+def test_validate_config_missing_params(remove, freqs, times, array):
+    config = {
+        "freq": {"freq_array": freqs},
+        "time": {"time_array": times},
+        "telescope": {"array_layout": array},
+    }
+    del config[remove]
     with pytest.raises(ValueError) as err:
-        cli_utils.validate_config(
-            {"freq": freq_params["A"], "telescope": array_params["A"],}
-        )
-    assert "Insufficient information" in err.value.args[0]
-
-    with pytest.raises(ValueError) as err:
-        cli_utils.validate_config(
-            {"time": time_params["A"], "telescope": array_params["A"],}
-        )
-    assert "Insufficient information" in err.value.args[0]
-
-    with pytest.raises(ValueError) as err:
-        cli_utils.validate_config(
-            {
-                "freq": freq_params["A"],
-                "time": time_params["A"],
-                "telescope": {"array_layout": "nonexistent.csv"},
-            }
-        )
-    assert "Insufficient information" in err.value.args[0]
-
-    with pytest.raises(ValueError) as err:
-        config = {
-            "freq": freq_params["A"],
-            "time": time_params["A"],
-            "telescope": array_params["A"],
-        }
-        config["time"]["start_time"] = None
         cli_utils.validate_config(config)
-    assert "Insufficient information" in err.value.args[0]
+    assert err.value.args[0] == "Insufficient information for initializing simulation."
 
+
+@pytest.mark.parametrize("corrupt", ["freq", "time"])
+def test_validate_config_bad_params(corrupt, freqs, times, array):
+    config = {
+        "freq": {"freq_array": freqs},
+        "time": {"time_array": times},
+        "telescope": {"array_layout": array},
+    }
+    config[corrupt][f"{corrupt}_array"] = None
     with pytest.raises(ValueError) as err:
-        config = {
-            "freq": freq_params["A"],
-            "time": time_params["A"],
-            "telescope": array_params["A"],
-        }
-        config["freq"]["start_freq"] = None
         cli_utils.validate_config(config)
-    assert "Insufficient information" in err.value.args[0]
+    assert err.value.args[0] == "Insufficient information for initializing simulation."
 
+
+def test_validate_array_params_bad_type():
     with pytest.raises(TypeError) as err:
-        cli_utils.validate_config(
-            {
-                "freq": freq_params["A"],
-                "time": time_params["A"],
-                "telescope": {"array_layout": None},
-            }
-        )
-    assert "Array layout" in err.value.args[0]
+        cli_utils._validate_array_params(5555)
+    assert "Array layout must be" in err.value.args[0]
 
 
-def test_write_calfits(tmp_path):
-    # Mock up antenna gains
-    freqs = np.linspace(100e6, 200e6, 100)
-    freqs_GHz = freqs / 1e9
-    times = 2458799 + np.arange(0, 60, 10.7) * units.s.to("day")
-    ants = {0: np.array([0, 0, 0])}
-    sim = Simulator(freq_array=freqs, time_array=times, array_layout=ants)
-    gains = gen_gains(freqs=freqs_GHz, ants=ants)
+@pytest.fixture
+def sim_freqs():
+    return np.linspace(100e6, 200e6, 100)
 
-    # Write the gains to disk three ways
-    cal_file_1 = str(tmp_path / "test1.calfits")
-    cal_file_2 = str(tmp_path / "test2.calfits")
-    cal_file_3 = str(tmp_path / "test3.calfits")
-    cli_utils.write_calfits(gains, cal_file_1, freqs=freqs, times=times)
-    cli_utils.write_calfits(gains, cal_file_2, sim=sim)
-    cli_utils.write_calfits(gains, cal_file_3, sim=sim.data)
 
-    # Check that everything checks out
-    for cal_file in (cal_file_1, cal_file_2, cal_file_3):
-        uvc = UVCal()
-        uvc.read_calfits(cal_file)
-        assert np.allclose(uvc.freq_array.flatten(), freqs)
-        assert np.allclose(uvc.time_array, times)
-        assert np.allclose(uvc.get_gains(0, "Jee").mean(axis=1), gains[0])
+@pytest.fixture
+def sim_times():
+    return 2458799 + np.arange(0, 60, 10.7) * units.s.to("day")
 
-    # Now check that the appropriate errors are raised.
+
+@pytest.fixture
+def gains(sim_freqs):
+    return gen_gains(freqs=sim_freqs / 1e9, ants=[0])
+
+
+@pytest.fixture
+def sim(sim_freqs, sim_times):
+    return Simulator(
+        freq_array=sim_freqs, time_array=sim_times, array_layout={0: [0, 0, 0]}
+    )
+
+
+@pytest.mark.parametrize("save_method", ["arrays", "sim", "data"])
+def test_write_calfits(sim_freqs, sim_times, gains, sim, tmp_path, save_method):
+    # Write the file.
+    cal_file = str(tmp_path / f"from_{save_method}.calfits")
+    if save_method == "arrays":
+        kwargs = {"freqs": sim_freqs, "times": sim_times}
+    else:
+        if save_method == "data":
+            sim = sim.data
+        kwargs = {"sim": sim}
+    cli_utils.write_calfits(gains, cal_file, **kwargs)
+
+    # Check the parameters.
+    uvc = UVCal()
+    uvc.read_calfits(cal_file)
+    assert all(
+        [
+            np.allclose(uvc.freq_array.flatten(), sim_freqs),
+            np.allclose(uvc.time_array, sim_times),
+            np.allclose(uvc.get_gains(0, "Jee").mean(axis=1), gains[0]),
+        ]
+    )
+
+
+def test_write_calfits_bad_kwarg(sim_freqs, gains, tmp_path):
+    cal_file = str(tmp_path / "bad_kwarg.calfits")
     with pytest.raises(TypeError) as err:
-        cli_utils.write_calfits(gains, cal_file_1, sim=freqs)
+        cli_utils.write_calfits(gains, cal_file, sim=sim_freqs)
     assert err.value.args[0] == "sim must be a Simulator or UVData object."
 
+
+def test_write_calfits_no_kwargs(gains, tmp_path):
+    cal_file = str(tmp_path / "no_kwargs.calfits")
     with pytest.raises(ValueError) as err:
-        cli_utils.write_calfits(gains, cal_file_1)
+        cli_utils.write_calfits(gains, cal_file)
     assert "frequencies and times must be specified" in err.value.args[0]

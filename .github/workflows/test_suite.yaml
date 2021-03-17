@@ -15,7 +15,6 @@ jobs:
       PYTHON: ${{ matrix.python-version }}
       OS: ${{ matrix.os }}
     name: Testing
-    #    needs: [linter]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -25,35 +24,47 @@ jobs:
     steps:
       - uses: actions/checkout@master
         with:
-          fetch-depth: 1
+          fetch-depth: 0
 
-      - name: Get Miniconda MacOSX
-        if: matrix.os == 'macos-latest'
-        run: |
-          wget https://repo.continuum.io/miniconda/Miniconda3-latest-MacOSX-x86_64.sh -O $HOME/miniconda.sh;
-          bash $HOME/miniconda.sh -b -p $HOME/miniconda
-      - name: Get Miniconda Linux
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O $HOME/miniconda.sh;
-          bash $HOME/miniconda.sh -b -p $HOME/miniconda
+      - uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: set PY
+        run: echo "PY=$(python -c 'import hashlib, sys;print(hashlib.sha256(sys.version.encode()+sys.executable.encode()).hexdigest())')" >> $GITHUB_ENV
+
+
+      # NOTE that numpy, astropy, pyuvdata and six can be removed once aipy and bda
+      # are updated to be able to install without pre-installed deps.
       - name: Setup Environment
         run: |
-          export PATH="$HOME/miniconda/bin:$PATH"
-          ./ci/install_conda.sh
-      - name: Install
-        run: |
-          export PATH="$HOME/miniconda/bin:$PATH"
-          source activate ${ENV_NAME}
-          conda env update -f ci/${ENV_NAME}.yaml
-          pip install .[dev]
+          which pip
+          pip install numpy
+          pip install astropy pyuvdata six
+          pip install .[tests]
+
+#      - name: Setup Miniconda
+#        uses: conda-incubator/setup-miniconda@v2.0.0
+#        with:
+#          auto-update-conda: true
+#          miniconda-version: "latest"
+#          python-version: ${{ matrix.python-version }}
+#          environment-file: ci/tests.yaml
+#          activate-environment: tests
+#
+#      - name: Conda Info
+#        run: |
+#          conda info -a
+#          conda list
+#          PYVER=`python -c "import sys; print('{:d}.{:d}'.format(sys.version_info.major, sys.version_info.minor))"`
+
       - name: Run Tests
         run: |
-          export PATH="$HOME/miniconda/bin:$PATH"
-          source activate $ENV_NAME
-          python -m pytest -vv --cov=hera_sim --cov-config=.coveragerc --cov-report xml:./coverage.xml --durations=25
-      - uses: codecov/codecov-action@master
+          python -m pytest
+
+      - name: Upload Coverage
+        uses: codecov/codecov-action@master
         if: matrix.os == 'ubuntu-latest' && success()
         with:
-          token: ${{secrets.CODECOV_TOKEN}} #required
+          token: ${{ secrets.CODECOV_TOKEN }} #required
           file: ./coverage.xml #optional

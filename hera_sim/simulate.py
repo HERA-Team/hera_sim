@@ -7,6 +7,7 @@ import sys
 import warnings
 import yaml
 import time
+from pathlib import Path
 
 import numpy as np
 from cached_property import cached_property
@@ -30,6 +31,8 @@ def _generator_to_list(func, *args, **kwargs):
     return new_func
 
 
+# FIXME: some of the code in here is pretty brittle and breaks (sometimes silently)
+# if not used carefully. This definitely needs a review and cleanup.
 class Simulator:
     """Class for managing a simulation.
 
@@ -160,10 +163,10 @@ class Simulator:
 
     def get(self, component, ant1=None, ant2=None, pol=None):
         # TODO: docstring
-        # XXX ideally, this could be handled by _iteratively_apply
+        # TODO: figure out if this could be handled by _iteratively_apply
         """
         """
-        # XXX do we want to leave this check in there?
+        # TODO: determine whether to leave this check here.
         if component not in self._components:
             raise AttributeError(
                 "You are trying to retrieve a component that has not "
@@ -184,7 +187,7 @@ class Simulator:
         model, is_class = self._get_component(component)
 
         # get the kwargs
-        kwargs = self._components[component]
+        kwargs = self._components[component].copy()
 
         # figure out whether or not to seed the rng
         seed = kwargs.pop("seed", None)
@@ -195,7 +198,7 @@ class Simulator:
         # figure out whether or not to apply defaults
         use_defaults = kwargs.pop("defaults", {})
         if use_defaults:
-            self.apply_defaults(**use_defaults)
+            self.apply_defaults(use_defaults)
 
         # instantiate the model if it's a class
         if is_class:
@@ -219,9 +222,8 @@ class Simulator:
             # return a subset if a polarization is specified
             if pol is None:
                 return data
-            else:
-                pol_ind = self.data.get_pols().index(pol)
-                return data[:, 0, :, pol_ind]
+            pol_ind = self.data.get_pols().index(pol)
+            return data[:, 0, :, pol_ind]
 
         # seed the RNG if desired, but be careful...
         if seed == "once":
@@ -229,14 +231,15 @@ class Simulator:
             # otherwise, the seeding will be wrong
             kwargs["seed"] = seed
             data = self._iteratively_apply(model, add_vis=False, ret_vis=True, **kwargs)
-            blt_inds = self.data.antpair2ind((ant1, ant2))
+            blt_inds = self.data.antpair2ind((ant1, ant2), ordered=False)
             if pol is None:
                 return data[blt_inds, 0, :, :]
-            else:
-                pol_ind = self.data.get_pols().index(pol)
-                return data[blt_inds, 0, :, pol_ind]
+            pol_ind = self.data.get_pols().index(pol)
+            return data[blt_inds, 0, :, pol_ind]
         elif seed == "redundant":
-            if any([(ant2, ant1) == item for item in antpairpol_cache]):
+            # TODO: this will need to be modified when polarization handling is fixed
+            # putting the comment here for lack of a "best" place to put it
+            if any((ant2, ant1) == item[:-1] for item in antpairpol_cache):
                 self._seed_rng(seed, model, ant2, ant1)
             else:
                 self._seed_rng(seed, model, ant1, ant2)
@@ -272,26 +275,25 @@ class Simulator:
         This zeros the data array, resets the history, and clears the
         instance's _components dictionary.
         """
-        self.data.data_array = np.zeros(self.data.data_array.shape, dtype=np.complex)
+        self.data.data_array = np.zeros(self.data.data_array.shape, dtype=np.complex128)
         self.data.history = ""
         self._components.clear()
-        self._antpairpol_cache = []
+        self._antpairpol_cache = {}
 
     def write(self, filename, save_format="uvh5", **kwargs):
         # TODO: docstring
         """
         """
         try:
-            getattr(self.data, "write_%s" % save_format)(filename, **kwargs)
+            getattr(self.data, f"write_{save_format}")(filename, **kwargs)
         except AttributeError:
             raise ValueError(
                 "The save_format must correspond to a write method in UVData."
             )
 
-    # XXX with the new version of the CLI, this should not need to be wrapped
-    # by the _generator_to_list wrapper. That said, it's worth thinking about
-    # whether we want to give the user the option to retrieve the simulation
-    # components as a return value from run_sim
+    # TODO: Determine if we want to provide the user the option to retrieve
+    # simulation components as a return value from run_sim. Remove the
+    # _generator_to_list wrapper if we do not make that a feature.
     @_generator_to_list
     def run_sim(self, sim_file=None, **sim_params):
         # TODO: docstring
@@ -311,9 +313,7 @@ class Simulator:
                 try:
                     sim_params = yaml.load(config.read(), Loader=yaml.FullLoader)
                 except Exception:
-                    print("The configuration file was not able to be loaded.")
-                    print("Please fix the file and try again.")
-                    sys.exit()
+                    raise IOError("The configuration file was not able to be loaded.")
 
         # loop over the entries in the configuration dictionary
         for component, params in sim_params.items():
@@ -331,7 +331,7 @@ class Simulator:
 
             # if the user wanted to return the data, then
             if value is not None:
-                yield (component, value)
+                yield component, value
 
     def chunk_sim_and_save(
         self,
@@ -377,6 +377,7 @@ class Simulator:
         Add foregrounds to the visibilities. See :meth:`add` for
         more details.
         """
+
         return self.add(model, **kwargs)
 
     def add_noise(self, model, **kwargs):
@@ -462,7 +463,7 @@ class Simulator:
         """
         if data is None:
             self.data = io.empty_uvdata(**kwargs)
-        elif isinstance(data, str):
+        elif isinstance(data, (str, Path)):
             self.data = self._read_datafile(data, **kwargs)
             self.extras["data_file"] = data
         elif isinstance(data, UVData):
@@ -601,7 +602,7 @@ class Simulator:
 
                 # filter what's actually having data simulated
                 if apply_filter:
-                    vis = np.zeros(vis.shape, dtype=np.complex)
+                    vis = np.zeros(vis.shape, dtype=np.complex128)
 
                 # and add it in
                 data_copy[blt_inds, 0, :, pol_ind] += vis
@@ -640,7 +641,7 @@ class Simulator:
         # TODO: docstring
         """
         """
-        if not type(seed) is str:
+        if not isinstance(seed, str):
             raise TypeError("The seeding mode must be specified as a string.")
         if seed == "redundant":
             if ant1 is None or ant2 is None:
@@ -777,42 +778,41 @@ class Simulator:
                 # if it's callable, then it's either a user-defined
                 # function or a class instance
                 return component, False
-            else:
-                if not isinstance(component, str):
-                    # TODO: update this error message to reflect the
-                    # change in allowed component types
-                    raise TypeError(
-                        "``component`` must be either a class which "
-                        "derives from ``SimulationComponent`` or an "
-                        "instance of a callable class, or a function, "
-                        "whose signature is:\n"
-                        "func(lsts, freqs, *args, **kwargs)\n"
-                        "If it is none of the above, then it must be "
-                        "a string which corresponds to the name of a "
-                        "``hera_sim`` class or an alias thereof."
-                    )
+            if not isinstance(component, str):
+                # TODO: update this error message to reflect the
+                # change in allowed component types
+                raise TypeError(
+                    "``component`` must be either a class which "
+                    "derives from ``SimulationComponent`` or an "
+                    "instance of a callable class, or a function, "
+                    "whose signature is:\n"
+                    "func(lsts, freqs, *args, **kwargs)\n"
+                    "If it is none of the above, then it must be "
+                    "a string which corresponds to the name of a "
+                    "``hera_sim`` class or an alias thereof."
+                )
 
-                # keep track of all known aliases in case desired
-                # component isn't found in the search
-                all_aliases = []
-                for registry in SimulationComponent.__subclasses__():
-                    for model in registry.__subclasses__():
-                        aliases = (model.__name__,)
-                        aliases += getattr(model, "_alias", ())
-                        aliases = [alias.lower() for alias in aliases]
-                        for alias in aliases:
-                            all_aliases.append(alias)
-                        if component.lower() in aliases:
-                            return model, True
+            # keep track of all known aliases in case desired
+            # component isn't found in the search
+            all_aliases = []
+            for registry in SimulationComponent.__subclasses__():
+                for model in registry.__subclasses__():
+                    aliases = (model.__name__,)
+                    aliases += getattr(model, "_alias", ())
+                    aliases = [alias.lower() for alias in aliases]
+                    for alias in aliases:
+                        all_aliases.append(alias)
+                    if component.lower() in aliases:
+                        return model, True
 
-                # if this part is executed, then the model wasn't found, so
-                msg = "The component '{component}' wasn't found. The "
-                msg += "following aliases are known: \n"
-                msg += ", ".join(set(all_aliases))
-                msg += "\nPlease ensure that the component you are trying "
-                msg += "to add is a subclass of a registry."
-                msg = msg.format(component=component)
-                raise UnboundLocalError(msg)
+            # if this part is executed, then the model wasn't found, so
+            string_of_aliases = ", ".join(set(all_aliases))
+            raise UnboundLocalError(
+                f"The component '{component}' wasn't found. The "
+                f"following aliases are known: \n{string_of_aliases}\n"
+                "Please ensure that the component you are trying "
+                "to add is a subclass of a registry."
+            )
 
     def _generate_seed(self, model, key):
         # TODO: docstring
@@ -842,6 +842,7 @@ class Simulator:
         model = self._get_model_name(model)
         if model not in self._seeds:
             self._generate_seed(model, key)
+        # TODO: handle conjugate baselines here instead of other places
         if key not in self._seeds[model]:
             self._generate_seed(model, key)
         return self._seeds[model][key]
@@ -859,18 +860,13 @@ class Simulator:
             # check if it's a user defined function
             if model.__class__.__name__ == "function":
                 # don't allow users to pass functions, only classes
-                # XXX find out if this check always happens before
+                # TODO: find out if this check always happens before
                 # _get_component is called
-                msg = "You are trying to simulate an effect using a "
-                msg += "custom function. Please convert your "
-                msg += "function into a callable class that inherits "
-                msg += "from a registry. To make a registry, simply "
-                msg += "define a class and decorate it with the "
-                msg += "hera_sim.registry decorator. The registry "
-                msg += "does not need to perform any tasks or be "
-                msg += "instantiated; it just needs to exist and be "
-                msg += "a base class for the custom callable class."
-                raise TypeError(msg)
+                raise TypeError(
+                    "You are trying to simulate an effect using a custom function. "
+                    "Please refer to the tutorial for instructions regarding how "
+                    "to define new simulation components compatible with the Simulator."
+                )
             else:
                 return model.__class__.__name__
 
@@ -881,11 +877,10 @@ class Simulator:
         has_data = not np.all(self.data.data_array == 0)
         is_multiplicative = getattr(model, "is_multiplicative", False)
         contains_multiplicative_effect = any(
-            [
-                self._get_component(component)[0].is_multiplicative
-                for component in self._components
-            ]
+            self._get_component(component)[0].is_multiplicative
+            for component in self._components
         )
+
         if is_multiplicative and not has_data:
             warnings.warn(
                 "You are trying to compute a multiplicative "

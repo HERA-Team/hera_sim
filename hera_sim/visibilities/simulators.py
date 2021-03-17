@@ -112,25 +112,46 @@ class VisibilitySimulator:
                 obsparams
             )
 
-            if point_source_pos is None:
-                try:
-                    # Try setting up point sources from the obsparams.
-                    # Will only work, of course, if the "catalog" key is in obsparams['sources'].
-                    # If it's not there, it will raise a KeyError.
-                    catalog = initialize_catalog_from_params(
-                        obsparams, return_recarray=False
-                    )[0]
-                    catalog.at_frequencies(np.unique(self.uvdata.freq_array) * units.Hz)
-                    point_source_pos = np.array([catalog.ra.rad, catalog.dec.rad]).T
+            if not (
+                sky_intensity is None
+                and point_source_pos is None
+                and point_source_flux is None
+            ):
+                raise ValueError(
+                    "If obsparams is given, sky_intensity, "
+                    "point_source_pos, and point_source_flux "
+                    "must be None."
+                )
 
-                    # This gets the 'I' component of the flux density
+            # Try setting up SkyModel.catalog from the obsparams. Will only work,
+            # of course, if the "catalog" key is in obsparams['sources'].
+            # If it's not there, it will raise a KeyError.
+            try:
+                catalog = initialize_catalog_from_params(
+                    obsparams, return_recarray=False
+                )[0]
+                catalog.at_frequencies(np.unique(self.uvdata.freq_array) * units.Hz)
+
+                if catalog.component_type == "point":
+                    # If the catalog is point source, gets the 'I' component
+                    # of the flux density and the source positions.
                     point_source_flux = np.atleast_2d(
                         catalog.stokes[0].to("Jy").value
                     ).T
-                except KeyError:
-                    # If 'catalog' was not defined in obsparams, that's fine. We assume
-                    # the user has passed some sky model directly (we'll catch it later).
-                    pass
+                    point_source_pos = np.array([catalog.ra.rad, catalog.dec.rad]).T
+                elif catalog.component_type == "healpix":
+                    # If the catalog is healpix, get the 'I' component as sky intensity.
+                    sky_intensity = np.atleast_2d(catalog.stokes[0].to("K").value)
+                else:
+                    # At the moment, only 'point' and 'healpix' are available as component types
+                    raise AttributeError(
+                        "catalog.component_type is neither 'point' nor 'healpix'. "
+                        "Something is wrong here."
+                    )
+            except KeyError:
+                # If 'catalog' was not defined in obsparams, that's fine. We assume
+                # the user has passed some sky model directly (we'll catch it later).
+                pass
 
             # convert the beam_ids dict to an array of ints
             nms = list(self.uvdata.antenna_names)
@@ -148,7 +169,7 @@ class VisibilitySimulator:
 
             self.beams = [ab.AnalyticBeam("uniform")] if beams is None else beams
             if beam_ids is None:
-                self.beam_ids = np.zeros(self.n_ant, dtype=np.int)
+                self.beam_ids = np.zeros(self.n_ant, dtype=int)
             else:
                 self.beam_ids = beam_ids
 

@@ -353,4 +353,4 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube, precision=1):
         for i in range(len(antpos)):
             np.dot(v[i : i + 1].conj(), v[i:].T, out=vis[t, i : i + 1, i:])
 
-    return vis
+    return vis.conj()

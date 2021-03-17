@@ -5,7 +5,6 @@ import pytest
 
 import numpy as np
 
-import hera_sim
 from pyuvdata import UVCal, UVData
 
 
@@ -20,7 +19,7 @@ def config_file(tmp_path_factory):
             pre_fs_int_time: !dimensionful
                 value: 0.1
                 units: s
-            corr_FoV_angle: !dimensionful
+            corr_fov_angle: !dimensionful
                 value: 20
                 units: deg
             max_time: !dimensionful
