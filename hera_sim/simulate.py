@@ -121,6 +121,8 @@ class Simulator:
         # TODO: docstring
         """
         """
+        # TODO: handle this using a method (so it can be extended for use
+        # in self.get as well). Name it something like _prune_kwargs.
         # Remove auxiliary parameters from kwargs in preparation for simulation.
         add_vis = kwargs.pop("add_vis", True)
         ret_vis = kwargs.pop("ret_vis", False)
@@ -193,6 +195,8 @@ class Simulator:
         model, is_class = self._get_component(component)
 
         # get the kwargs
+        # FIXME: this currently isn't working correctly, likely to do
+        # with how the kwargs are being recorded.
         kwargs = self._components[component].copy()
 
         # figure out whether or not to seed the rng
