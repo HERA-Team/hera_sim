@@ -121,6 +121,12 @@ class Simulator:
         # TODO: docstring
         """
         """
+        # Remove auxiliary parameters from kwargs in preparation for simulation.
+        add_vis = kwargs.pop("add_vis", True)
+        ret_vis = kwargs.pop("ret_vis", False)
+        seed = kwargs.pop("seed", None)
+        vis_filter = kwargs.pop("vis_filter", None)
+
         # Obtain a callable reference to the simulation component model.
         # TODO: swap is_class with is_callable or is_class_instance
         # (make sure to update _get_component appropriately)
@@ -129,13 +135,7 @@ class Simulator:
         if is_class:
             model = model(**kwargs)
         self._sanity_check(model)  # Check for component ordering issues.
-
-        # Remove auxiliary parameters from kwargs and prepare for simulation.
-        add_vis = kwargs.pop("add_vis", True)
-        ret_vis = kwargs.pop("ret_vis", False)
-        vis_filter = kwargs.pop("vis_filter", None)
         self._antpairpol_cache[model_key] = []  # Initialize this model's cache.
-        antpairpol_cache = self._antpairpol_cache[model_key]  # For convenience.
 
         # Simulate the effect by iterating over baselines and polarizations.
         data = self._iteratively_apply(
@@ -143,7 +143,8 @@ class Simulator:
             add_vis=add_vis,
             ret_vis=ret_vis,
             vis_filter=vis_filter,
-            antpairpol_cache=antpairpol_cache,
+            antpairpol_cache=self._antpairpol_cache[model_key],
+            seed=seed,
             **kwargs,
         )  # This is None if ret_vis is False
 
@@ -151,10 +152,15 @@ class Simulator:
             # Record the component simulated and the parameters used.
             kwargs["vis_filter"] = vis_filter
             if defaults._override_defaults:
+                # TODO: re-evaluate whether this is the right thing to do.
+                # Calling defaults like this returns the *entire* configuration.
+                # We should really only take the relevant parameters if we're
+                # actually going to update this history with an exhaustive list
+                # of all the parameters used.
                 kwargs["defaults"] = defaults()  # Do we really want to do this?
             self._components[component] = kwargs
             self._update_history(model, **kwargs)
-            if "seed" in kwargs:
+            if seed is not None:
                 self._update_seeds(self._get_model_name(model))
         else:
             del self._antpairpol_cache[model_key]
@@ -498,6 +504,7 @@ class Simulator:
             pol_ind = self.data.get_pols().index(pol)
             yield ant1, ant2, pol, blt_inds, pol_ind
 
+    # TODO: think about how to streamline this algorithm and make it more readable
     def _iteratively_apply(
         self,
         model,
