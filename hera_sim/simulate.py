@@ -422,8 +422,26 @@ class Simulator:
 
     @staticmethod
     def _apply_filter(vis_filter, ant1, ant2, pol):
-        # TODO: docstring
-        """
+        """Determine whether to filter the visibility for (ant1, ant2, pol).
+
+        Functionally, ``vis_filter`` specifies which (ant1, ant2, pol) tuples
+        will have a simulated effect propagated through the ``_iteratively_apply``
+        method. ``vis_filter`` acts as a logical equivalent of a passband filter.
+
+        Examples
+        --------
+        ``vis_filter`` = (0,)
+        returns: False for any baseline including antenna 0
+            -> only baselines including antenna 0 have a simulated effect applied.
+
+        ``vis_filter`` = ('xx',)
+        returns: False if ``pol == "xx"`` else True
+            -> only polarization "xx" has a simulated effect applied.
+
+        ``vis_filter`` = (0, 1, 'yy')
+        returns: False if ``(ant1, ant2, pol) in [(0, 1, 'yy'), (1, 0, 'yy)]``
+            -> only baseline (0,1), or its conjugate, with polarization 'yy' will
+            have a simulated effect applied.
         """
         # find out whether or not multiple keys are passed
         multikey = any(isinstance(key, (list, tuple)) for key in vis_filter)
@@ -440,6 +458,7 @@ class Simulator:
         elif len(vis_filter) == 1:
             # check if the polarization matches, since the only
             # string identifiers should be polarization strings
+            # TODO: add support for antenna strings (e.g. 'auto')
             if isinstance(vis_filter, str):
                 return not pol == vis_filter[0]
             # otherwise assume that this is specifying an antenna
