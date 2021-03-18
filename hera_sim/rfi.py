@@ -2,12 +2,12 @@
 import warnings
 import numpy as np
 import astropy.units as u
-from .components import registry
+from .components import component
 from .utils import _listify
 from pathlib import Path
 
 
-@registry
+@component
 class RFI:
     pass
 

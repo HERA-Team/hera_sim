@@ -7,10 +7,10 @@ from abc import abstractmethod
 from cached_property import cached_property
 
 from . import utils
-from .components import registry
+from .components import component
 
 
-@registry
+@component
 class Foreground:
     pass
 

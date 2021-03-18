@@ -18,7 +18,8 @@ from . import io
 from . import utils
 from .defaults import defaults
 from . import __version__
-from .components import SimulationComponent
+from .components import SimulationComponent, get_model, get_all_components
+from typing import Type, Union
 
 
 # wrapper for the run_sim method, necessary for part of the CLI
@@ -90,9 +91,15 @@ class Simulator:
         # actually apply the default settings
         defaults.set(config, refresh=refresh)
 
-    def add(self, component, **kwargs):
-        # TODO: docstring
+    def add(
+        self, component: [str, Type[SimulationComponent], SimulationComponent], **kwargs
+    ):
         """
+        Add a simulation component to the data array.
+
+        Self-consistently adds simulated data from a given component model to the data
+        array. Note that all available models can be accessed by calling
+        :func:`hera_sim.get_all_components`.
         """
         # find out whether to add and/or return the component
         add_vis = kwargs.pop("add_vis", True)
@@ -222,9 +229,8 @@ class Simulator:
             # return a subset if a polarization is specified
             if pol is None:
                 return data
-            else:
-                pol_ind = self.data.get_pols().index(pol)
-                return data[:, 0, :, pol_ind]
+            pol_ind = self.data.get_pols().index(pol)
+            return data[:, 0, :, pol_ind]
 
         # seed the RNG if desired, but be careful...
         if seed == "once":
@@ -235,13 +241,12 @@ class Simulator:
             blt_inds = self.data.antpair2ind((ant1, ant2), ordered=False)
             if pol is None:
                 return data[blt_inds, 0, :, :]
-            else:
-                pol_ind = self.data.get_pols().index(pol)
-                return data[blt_inds, 0, :, pol_ind]
+            pol_ind = self.data.get_pols().index(pol)
+            return data[blt_inds, 0, :, pol_ind]
         elif seed == "redundant":
             # TODO: this will need to be modified when polarization handling is fixed
             # putting the comment here for lack of a "best" place to put it
-            if any([(ant2, ant1) == item[:-1] for item in antpairpol_cache]):
+            if any((ant2, ant1) == item[:-1] for item in antpairpol_cache):
                 self._seed_rng(seed, model, ant2, ant1)
             else:
                 self._seed_rng(seed, model, ant1, ant2)
@@ -755,66 +760,30 @@ class Simulator:
         return model_params
 
     @staticmethod
-    def _get_component(component):
-        # TODO: docstring
+    def _get_component(
+        component: [str, Type[SimulationComponent], SimulationComponent]
+    ) -> Union[SimulationComponent, Type[SimulationComponent]]:
+        """Given an input component, normalize the output to be either a class or instance.
+
         """
-        """
-        try:
-            if issubclass(component, SimulationComponent):
-                # support passing user-defined classes that inherit from
-                # the SimulationComponent base class to add method
-                return component, True
-            else:
-                # issubclass will not raise a TypeError in python <= 3.6
-                raise TypeError
-        except TypeError:
-            # this is raised if ``component`` is not a class
-            if component.__class__.__name__ == "function":
-                raise TypeError(
-                    "You are attempting to add a component that is "
-                    "modeled using a function. Please convert the "
-                    "function to a callable class and try again."
+        if np.issubclass_(component, SimulationComponent):
+            return component, True
+        elif isinstance(component, str):
+            try:
+                return get_model(component), True
+            except KeyError:
+                raise ValueError(
+                    f"The model '{component}' does not exist. The following models are"
+                    f"available: {get_all_components(with_aliases=True)}."
                 )
-            if callable(component):
-                # if it's callable, then it's either a user-defined
-                # function or a class instance
-                return component, False
-            else:
-                if not isinstance(component, str):
-                    # TODO: update this error message to reflect the
-                    # change in allowed component types
-                    raise TypeError(
-                        "``component`` must be either a class which "
-                        "derives from ``SimulationComponent`` or an "
-                        "instance of a callable class, or a function, "
-                        "whose signature is:\n"
-                        "func(lsts, freqs, *args, **kwargs)\n"
-                        "If it is none of the above, then it must be "
-                        "a string which corresponds to the name of a "
-                        "``hera_sim`` class or an alias thereof."
-                    )
-
-                # keep track of all known aliases in case desired
-                # component isn't found in the search
-                all_aliases = []
-                for registry in SimulationComponent.__subclasses__():
-                    for model in registry.__subclasses__():
-                        aliases = (model.__name__,)
-                        aliases += getattr(model, "_alias", ())
-                        aliases = [alias.lower() for alias in aliases]
-                        for alias in aliases:
-                            all_aliases.append(alias)
-                        if component.lower() in aliases:
-                            return model, True
-
-                # if this part is executed, then the model wasn't found, so
-                msg = "The component '{component}' wasn't found. The "
-                msg += "following aliases are known: \n"
-                msg += ", ".join(set(all_aliases))
-                msg += "\nPlease ensure that the component you are trying "
-                msg += "to add is a subclass of a registry."
-                msg = msg.format(component=component)
-                raise UnboundLocalError(msg)
+        elif isinstance(component, SimulationComponent):
+            return component, False
+        else:
+            raise ValueError(
+                "The input type for the component was not understood. "
+                "Must be str, Type[SimulationComponent]"
+                "or an instance of a SimulationComponent"
+            )
 
     def _generate_seed(self, model, key):
         # TODO: docstring
@@ -856,21 +825,16 @@ class Simulator:
         """
         if isinstance(model, str):
             return model
-        try:
+        elif np.issubclass_(model, SimulationComponent):
             return model.__name__
-        except AttributeError:
-            # check if it's a user defined function
-            if model.__class__.__name__ == "function":
-                # don't allow users to pass functions, only classes
-                # TODO: find out if this check always happens before
-                # _get_component is called
-                raise TypeError(
-                    "You are trying to simulate an effect using a custom function. "
-                    "Please refer to the tutorial for instructions regarding how "
-                    "to define new simulation components compatible with the Simulator."
-                )
-            else:
-                return model.__class__.__name__
+        elif isinstance(model, SimulationComponent):
+            return model.__class__.__name__
+        else:
+            raise TypeError(
+                "You are trying to simulate an effect using a custom function. "
+                "Please refer to the tutorial for instructions regarding how "
+                "to define new simulation components compatible with the Simulator."
+            )
 
     def _sanity_check(self, model):
         # TODO: docstring
@@ -879,11 +843,10 @@ class Simulator:
         has_data = not np.all(self.data.data_array == 0)
         is_multiplicative = getattr(model, "is_multiplicative", False)
         contains_multiplicative_effect = any(
-            [
-                self._get_component(component)[0].is_multiplicative
-                for component in self._components
-            ]
+            self._get_component(component)[0].is_multiplicative
+            for component in self._components
         )
+
         if is_multiplicative and not has_data:
             warnings.warn(
                 "You are trying to compute a multiplicative "
