@@ -338,7 +338,7 @@ class Simulator:
 
             # if the user wanted to return the data, then
             if value is not None:
-                yield (component, value)
+                yield component, value
 
     def chunk_sim_and_save(
         self,
@@ -384,6 +384,7 @@ class Simulator:
         Add foregrounds to the visibilities. See :meth:`add` for
         more details.
         """
+
         return self.add(model, **kwargs)
 
     def add_noise(self, model, **kwargs):
@@ -647,7 +648,7 @@ class Simulator:
         # TODO: docstring
         """
         """
-        if not type(seed) is str:
+        if not isinstance(seed, str):
             raise TypeError("The seeding mode must be specified as a string.")
         if seed == "redundant":
             if ant1 is None or ant2 is None:

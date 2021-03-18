@@ -83,7 +83,7 @@ class ThermalNoise(Noise):
 
         # get the sky temperature; use an autocorrelation if provided
         if autovis is not None and not np.all(np.isclose(autovis, 0)):
-            Tsky = autovis * utils.Jy2T(freqs, omega_p).reshape(1, -1)
+            Tsky = autovis * utils.jansky_to_kelvin(freqs, omega_p).reshape(1, -1)
         else:
             Tsky = self.resample_Tsky(lsts, freqs, Tsky_mdl=Tsky_mdl)
 
@@ -95,7 +95,7 @@ class ThermalNoise(Noise):
         vis = Tsky / np.sqrt(integration_time * channel_width)
 
         # convert vis to Jy; reshape to allow for multiplication.
-        vis /= utils.Jy2T(freqs, omega_p).reshape(1, -1)
+        vis /= utils.jansky_to_kelvin(freqs, omega_p).reshape(1, -1)
 
         # make it noisy
         return utils.gen_white_noise(size=vis.shape) * vis

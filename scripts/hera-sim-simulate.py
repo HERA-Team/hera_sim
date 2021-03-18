@@ -75,8 +75,8 @@ if __name__ == "__main__":
     cli_utils.validate_config(config)
     bda_params = config.get("bda", {})
     if bda_params:
-        bda_params["corr_FoV_angle"] = Angle(
-            bda_params.get("corr_FoV_angle", 20 * units.deg)
+        bda_params["corr_fov_angle"] = Angle(
+            bda_params.get("corr_fov_angle", 20 * units.deg)
         )
 
     if bda_params and bda is None:
