@@ -72,6 +72,8 @@ class Simulator:
         times: np.ndarray
             Observed times in JD.
         """
+        # TODO: add ability for user to specify parameter names to look for on
+        # parsing call signature
         # create some utility dictionaries
         self._components = {}
         self.extras = {}  # FIXME: we can just use self.data.extras
@@ -734,6 +736,7 @@ class Simulator:
         # TODO: docstring
         """
         """
+        # TODO: add helpful warning if unexpected arguments in signature
         # helper for getting the correct parameter name
         def key(requires):
             return list(args)[requires.index(True)]
