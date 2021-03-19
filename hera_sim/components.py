@@ -2,17 +2,18 @@
 """
 from __future__ import annotations
 import re
-from abc import abstractmethod
+from abc import abstractmethod, ABCMeta
 from copy import deepcopy
 from .defaults import defaults
 from typing import Dict, Optional, Tuple
 from types import new_class
 import inflection
+from collections import defaultdict
 
 _available_components = {}
 
 
-class SimulationComponent:
+class SimulationComponent(metaclass=ABCMeta):
     """Base class for defining simulation component models.
 
     This class serves two main purposes:
@@ -164,7 +165,7 @@ class SimulationComponent:
         if with_aliases:
             return deepcopy(cls._models)
         else:
-            return {c.__name__: c for c in set(cls._models.values())}
+            return {model.__name__: model for model in set(cls._models.values())}
 
     @classmethod
     def get_model(cls, mdl: str) -> SimulationComponent:
@@ -175,11 +176,17 @@ class SimulationComponent:
 def component(cls):
     """Decorator to create a new specific Component that tracks its models."""
     cls._models = {}
+    # This function creates a new class dynamically.
+    # The idea is to create a new class that is essentially the input cls, but has a
+    # new superclass -- the SimulationComponent. We pass the "is_abstract" keyword into
+    # the __init_subclass__ so that any class directly decorated with "@component" is seen to
+    # be an abstract class, not an actual model. Finally, the exec_body just adds all
+    # the stuff from cls into the new class.
     cls = new_class(
-        cls.__name__,
-        (SimulationComponent,),
-        {"is_abstract": True},
-        lambda ns: ns.update(dict(cls.__dict__)),
+        name=cls.__name__,
+        bases=(SimulationComponent,),
+        kwds={"is_abstract": True},
+        exec_body=lambda namespace: namespace.update(dict(cls.__dict__)),
     )
     _available_components[cls.__name__] = cls
     return cls
@@ -209,3 +216,19 @@ def get_model(mdl: str, cmp: Optional[str] = None) -> SimulationComponent:
         return get_models(cmp, with_aliases=True)[mdl]
     else:
         return get_all_models(with_aliases=True)[mdl]
+
+
+def print_all_components(with_aliases: bool = True):
+    cmps = get_all_components(with_aliases)
+
+    out = ""
+    for cmp, models in cmps.items():
+        out += f"{cmp}:\n"
+
+        model_to_name = defaultdict(lambda: [])
+        for name, model in models.items():
+            model_to_name[model].append(name)
+
+        for model, names in model_to_name.items():
+            out += "  " + " | ".join(names) + "\n"
+    return out

@@ -18,8 +18,8 @@ from . import io
 from . import utils
 from .defaults import defaults
 from . import __version__
-from .components import SimulationComponent, get_model, get_all_components
-from typing import Type, Union
+from .components import SimulationComponent, get_model, print_all_components
+from typing import Type, Union, Tuple
 
 
 # wrapper for the run_sim method, necessary for part of the CLI
@@ -763,7 +763,7 @@ class Simulator:
     @staticmethod
     def _get_component(
         component: [str, Type[SimulationComponent], SimulationComponent]
-    ) -> Union[SimulationComponent, Type[SimulationComponent]]:
+    ) -> Tuple[Union[SimulationComponent, Type[SimulationComponent]], bool]:
         """Given an input component, normalize the output to be either a class or instance.
 
         """
@@ -774,16 +774,16 @@ class Simulator:
                 return get_model(component), True
             except KeyError:
                 raise ValueError(
-                    f"The model '{component}' does not exist. The following models are"
-                    f"available: {get_all_components(with_aliases=True)}."
+                    f"The model '{component}' does not exist. The following models are "
+                    f"available: \n{print_all_components()}."
                 )
         elif isinstance(component, SimulationComponent):
             return component, False
         else:
             raise ValueError(
                 "The input type for the component was not understood. "
-                "Must be str, Type[SimulationComponent]"
-                "or an instance of a SimulationComponent"
+                "Must be a string, or a class/instance of type 'SimulationComponent'. "
+                f"Available component models are:\n{print_all_components()}"
             )
 
     def _generate_seed(self, model, key):
