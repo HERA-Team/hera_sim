@@ -231,4 +231,4 @@ def print_all_components(with_aliases: bool = True):
 
         for model, names in model_to_name.items():
             out += "  " + " | ".join(names) + "\n"
-    return out
+    print(out)
