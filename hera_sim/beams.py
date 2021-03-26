@@ -119,7 +119,7 @@ class PolyBeam(AnalyticBeam):
 class PerturbedPolyBeam(PolyBeam):
     
     def __init__(self, perturb_coeffs=None, perturb_scale=0.1, 
-                 mainlobe_width=None, mainlobe_scale=1., transition_width=0.05,
+                 mainlobe_width=0.3, mainlobe_scale=1., transition_width=0.05,
                  xstretch=1., ystretch=1., rotation=0.,
                  **kwargs):
         """
@@ -153,6 +153,7 @@ class PerturbedPolyBeam(PolyBeam):
             Width of the mainlobe, in radians. This determines the width of the 
             Gaussian mainlobe model that is subtracted, as well as the location 
             of the transition between the mainlobe and sidelobe regimes.
+            Default: 0.3.
         
         mainlobe_scale : float, optional
             Factor to apply to the FHWM of the Gaussian that is used to rescale 
@@ -182,19 +183,19 @@ class PerturbedPolyBeam(PolyBeam):
         ref_freq : float, optional
             Reference frequency for the beam width scaling power law, in Hz. 
             Default: None.
+
+        Other Parameters:
+            Any other parameters are used to initialize superclass PolyBeam.
         """
         # Initialize base class
         super().__init__(**kwargs)
         
-        # Check for valid input parameters
-        if mainlobe_width is None:
-            raise ValueError("Must specify a value for 'mainlobe_width' kwarg")
-        
         # Set parameters
-        self.perturb_coeffs = perturb_coeffs
-        if self.perturb_coeffs is not None:
+        if perturb_coeffs is not None:
+            self.perturb_coeffs = np.array(perturb_coeffs)
             self.nmodes = self.perturb_coeffs.size
         else:
+            self.perturb_coeffs = perturb_coeffs
             self.nmodes = 0
         self.perturb_scale = perturb_scale
         self.mainlobe_width = mainlobe_width
@@ -249,7 +250,7 @@ class PerturbedPolyBeam(PolyBeam):
         # Add sidelobe perturbations
         if self.nmodes > 0:
             # Build Fourier series
-            p = 0
+            p = np.zeros(za_array.size)
             f_fac = 2.*np.pi / (np.pi/2.) #  Fourier series with period pi/2
             for n in range(self.nmodes):
                 p += self.perturb_coeffs[n] * np.sin(f_fac * n * za_array)          

@@ -1,4 +1,4 @@
-import unittest
+import pytest
 import numpy as np
 from hera_sim.visibilities import VisCPU
 from hera_sim import io
@@ -105,7 +105,7 @@ def run_sim(beam_rotation, use_pixel_beams=True, use_gpu=False, use_mpi=False):
 
     return auto
 
-class TestPerturbedPolyBeam(unittest.TestCase):
+class TestPerturbedPolyBeam:
 
     def test_perturbed_polybeam(self):
 
@@ -128,27 +128,22 @@ class TestPerturbedPolyBeam(unittest.TestCase):
         # Check that the maximum difference between pixel beams/direct calculation
         # cases is no more than 5%. This shows the direct calculation of the beam
         # tracks the pixel beam interpolation. They won't be exactly the same.
-        self.assertLess(max_percent_diff, 5)
+        assert max_percent_diff < 5
 
         # Check that rotations 0 and 180 produce the same values.
-        self.assertAlmostEqual(pix_results[0], pix_results[180], places=10)
-        self.assertAlmostEqual(calc_results[0], calc_results[180], places=10)
+        assert pix_results[0] == pytest.approx(pix_results[180], abs=1e-15)
+        assert calc_results[0] == pytest.approx(calc_results[180], abs=1e-15)
 
-        # Check that the values are not all the same. Shouldn't be due to
+        # Check that the values are not all the same. Shouldn't be, due to
         # elliptic beam.
-        self.assertNotAlmostEqual(np.min(pix_results), np.max(pix_results), places=1)
-        self.assertNotAlmostEqual(np.min(calc_results), np.max(calc_results), places=1)
+        assert np.min(pix_results) != pytest.approx(np.max(pix_results), abs=0.8)
+        assert np.min(calc_results) != pytest.approx(np.max(calc_results), abs=0.8)
 
         # Check that attempting to use GPU with Polybeam raises an error.
-        with self.assertRaises(RuntimeError):
+        with pytest.raises(RuntimeError):
             run_sim(r, use_pixel_beams=False, use_gpu=True) 
 
         # Check that attempting to use GPU with MPI raises an error.
-        with self.assertRaises(RuntimeError):
+        with pytest.raises(RuntimeError):
             run_sim(r, use_gpu=True, use_mpi=True)
 
-
-           
-
-if __name__ == "__main__":
-    unittest.main()
