@@ -77,12 +77,8 @@ class SimulationComponent(metaclass=ABCMeta):
                 cls._models[name] = cls
 
     @classmethod
-    def get_aliases(cls):
-        return (
-            cls.__name__,
-            cls.__name__.lower(),
-            inflection.underscore(cls.__name__),
-        ) + cls._alias
+    def get_aliases(cls) -> Tuple[str]:
+        return (cls.__name__.lower(),) + cls._alias
 
     def _extract_kwarg_values(self, **kwargs):
         """Return the (optionally updated) model's optional parameters.
@@ -194,13 +190,13 @@ def component(cls):
 
 def get_all_components(with_aliases=False) -> Dict[str, Dict[str, SimulationComponent]]:
     return {
-        cmp_name: cmp.get_models(with_aliases)
+        cmp_name.lower(): cmp.get_models(with_aliases)
         for cmp_name, cmp in _available_components.items()
     }
 
 
 def get_models(cmp: str, with_aliases: bool = False) -> Dict[str, SimulationComponent]:
-    return get_all_components(with_aliases)[cmp.__name__]
+    return get_all_components(with_aliases)[cmp.lower()]
 
 
 def get_all_models(with_aliases: bool = False) -> Dict[str, SimulationComponent]:
@@ -213,9 +209,9 @@ def get_all_models(with_aliases: bool = False) -> Dict[str, SimulationComponent]
 
 def get_model(mdl: str, cmp: Optional[str] = None) -> SimulationComponent:
     if cmp:
-        return get_models(cmp, with_aliases=True)[mdl]
+        return get_models(cmp, with_aliases=True)[mdl.lower()]
     else:
-        return get_all_models(with_aliases=True)[mdl]
+        return get_all_models(with_aliases=True)[mdl.lower()]
 
 
 def print_all_components(with_aliases: bool = True):
