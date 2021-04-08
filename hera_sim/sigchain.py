@@ -8,20 +8,20 @@ from scipy import stats
 
 from . import interpolators
 from . import utils
-from .components import registry
+from .components import component
 from . import DATA_PATH
 from .defaults import _defaults
 
 import aipy
 
 
-@registry
+@component
 class Gain:
     # TODO: docstring
-    pass
+    is_multiplicative = True
 
 
-class Bandpass(Gain, is_multiplicative=True):
+class Bandpass(Gain):
     _alias = ("gains", "bandpass_gain")
 
     def __init__(self, gain_spread=0.1, dly_rng=(-20, 20), bp_poly=None):
@@ -80,7 +80,7 @@ class Bandpass(Gain, is_multiplicative=True):
         return phases
 
 
-class Reflections(Gain, is_multiplicative=True):
+class Reflections(Gain):
     _alias = ("reflection_gains", "sigchain_reflections")
 
     def __init__(
@@ -229,7 +229,7 @@ class Reflections(Gain, is_multiplicative=True):
         return amps, dlys, phases
 
 
-@registry
+@component
 class Crosstalk:
     pass
 

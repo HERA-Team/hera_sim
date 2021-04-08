@@ -7,11 +7,11 @@ a visibility appropriate for the given baseline.
 """
 
 import numpy as np
-from .components import registry
+from .components import component
 from . import utils
 
 
-@registry
+@component
 class EoR:
     pass
 

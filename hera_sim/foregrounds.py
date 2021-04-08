@@ -5,10 +5,10 @@ from astropy import constants
 from astropy import units
 
 from . import utils
-from .components import registry
+from .components import component
 
 
-@registry
+@component
 class Foreground:
     pass
 

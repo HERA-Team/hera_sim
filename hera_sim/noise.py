@@ -5,7 +5,7 @@ import warnings
 import astropy.units as u
 import numpy as np
 
-from .components import registry
+from .components import component
 from . import DATA_PATH
 from .interpolators import Tsky
 from . import utils
@@ -16,10 +16,9 @@ HERA_Tsky_mdl = {
 }
 
 
-@registry
+@component
 class Noise:
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+    pass
 
 
 class ThermalNoise(Noise):
