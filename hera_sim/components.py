@@ -167,7 +167,7 @@ class SimulationComponent(metaclass=ABCMeta):
 
     @classmethod
     def get_model(cls, mdl: str) -> SimulationComponent:
-        return cls._models[mdl]
+        return cls._models[mdl.lower()]
 
 
 # class decorator for tracking subclasses
