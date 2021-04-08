@@ -115,7 +115,7 @@ class SimulationComponent(metaclass=ABCMeta):
         self.kwargs = kwargs
 
     @abstractmethod
-    def __call__(self, **kwargs):
+    def __call__(self, **kwargs):  # pragma: nocover
         pass
 
     def _check_kwargs(self, **kwargs):
@@ -161,7 +161,9 @@ class SimulationComponent(metaclass=ABCMeta):
         if with_aliases:
             return deepcopy(cls._models)
         else:
-            return {model.__name__: model for model in set(cls._models.values())}
+            return {
+                model.__name__.lower(): model for model in set(cls._models.values())
+            }
 
     @classmethod
     def get_model(cls, mdl: str) -> SimulationComponent:
