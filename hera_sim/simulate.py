@@ -95,12 +95,16 @@ class Simulator:
         antpos, ants = self.data.get_ENU_antpos(pick_data_ants=True)
         return dict(zip(ants, antpos))
 
-    # FIXME: np.unique orders the LSTs; this is an issue for an LST-wrapped
-    # observing window.
     @property
     def lsts(self):
-        # TODO: docstring
-        return np.unique(self.data.lst_array)
+        """
+        Observed Local Sidereal Times in radians.
+        """
+        # This process retrieves the unique LSTs while respecting phase wraps.
+        unique_lsts, inverse_inds, counts = np.unique(
+            self.data.lst_array, return_inverse=True, return_counts=True
+        )
+        return unique_lsts[inverse_inds[::counts[0]]]
 
     @property
     def freqs(self):

@@ -31,19 +31,23 @@ Tsky_mdl = HERA_Tsky_mdl["xx"]
 Nfreqs = 10
 Ntimes = 20
 
+base_config = dict(
+    Nfreqs=Nfreqs,
+    start_freq=1e8,
+    channel_width=1e8 / 1024,
+    Ntimes=Ntimes,
+    start_time=2458115.9,
+    integration_time=10.7,
+    array_layout={0: (20.0, 20.0, 0), 1: (50.0, 50.0, 0)},
+    no_autos=True,
+)
+
 
 def create_sim(autos=False, **kwargs):
-    return Simulator(
-        Nfreqs=Nfreqs,
-        start_freq=1e8,
-        channel_width=1e8 / 1024,
-        Ntimes=Ntimes,
-        start_time=2458115.9,
-        integration_time=10.7,
-        array_layout={0: (20.0, 20.0, 0), 1: (50.0, 50.0, 0)},
-        no_autos=not autos,
-        **kwargs
-    )
+    config = base_config.copy()
+    config["no_autos"] = not autos
+    config.update(kwargs)
+    return Simulator(**config)
 
 
 @pytest.fixture(scope="function")
@@ -90,6 +94,13 @@ def test_initialize_from_defaults():
     )
 
 
+def test_phase_wrapped_lsts():
+    sim = create_sim(start_time=2458120.15, Ntimes=100, integration_time=10.7)
+    print(sim.lsts)
+    print(sim.data.lst_array)
+    assert sim.lsts[0] > sim.lsts[-1]
+
+    
 def test_add_with_str(base_sim):
     base_sim.add("noiselike_eor")
     assert not np.all(base_sim.data.data_array == 0)
