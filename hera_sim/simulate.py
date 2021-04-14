@@ -181,7 +181,7 @@ class Simulator:
         if add_vis:
             # Record the component simulated and the parameters used.
             if defaults._override_defaults:
-                for param, value in model.kwargs:
+                for param, value in model.kwargs.items():
                     if param not in kwargs:
                         kwargs[param] = value
             self._components[model_key] = kwargs
