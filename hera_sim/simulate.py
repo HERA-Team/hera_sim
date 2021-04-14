@@ -573,7 +573,9 @@ class Simulator:
         """
         """
         model_params = self._get_model_parameters(model)
-        _ = model_params.pop("kwargs", None)
+        model_params = {
+            k: v for k, v in model_params.items() if v is inspect._empty
+        }
 
         # pull the lst and frequency arrays as required
         args = {
@@ -650,7 +652,7 @@ class Simulator:
         # Pre-simulate gains.
         if is_multiplicative:
             gains = {}
-            args = base_args.copy()
+            args = self._update_args(base_args)
             args.update(kwargs)
             for pol in self.pols:
                 if seed:
@@ -850,14 +852,15 @@ class Simulator:
 
     @staticmethod
     def _get_model_parameters(model):
-        """Retrieve the full model signature (init + call) parameters.
-        """
+        """Retrieve the full model signature (init + call) parameters."""
         init_params = inspect.signature(model.__class__).parameters
         call_params = inspect.signature(model).parameters
         # this doesn't work correctly if done on one line
         model_params = {}
-        model_params.update(**call_params, **init_params)
-        _ = model_params.pop("kwargs", None)
+        for params in (call_params, init_params):
+            for parameter, value in params.items():
+                model_params[parameter] = value.default
+        model_params.pop("kwargs", None)
         return model_params
 
     @staticmethod
