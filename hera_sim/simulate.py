@@ -160,12 +160,12 @@ class Simulator:
             Optional keyword arguments for the provided ``component``.
         """
         # Obtain a callable reference to the simulation component model.
-        # TODO: swap is_class with is_callable or is_class_instance
-        # (make sure to update _get_component appropriately)
-        model, is_class = self._get_component(component)
-        model_key = model
-        if is_class:
+        model = self._get_component(component)
+        if not isinstance(model, SimulationComponent):
+            model_key = model.__name__.lower()
             model = model(**kwargs)
+        else:
+            model_key = model.__class__.__name__.lower()
         self._sanity_check(model)  # Check for component ordering issues.
         self._antpairpol_cache[model_key] = []  # Initialize this model's cache.
 
@@ -182,14 +182,10 @@ class Simulator:
 
         if add_vis:
             # Record the component simulated and the parameters used.
-            kwargs["vis_filter"] = vis_filter
             if defaults._override_defaults:
-                # TODO: re-evaluate whether this is the right thing to do.
-                # Calling defaults like this returns the *entire* configuration.
-                # We should really only take the relevant parameters if we're
-                # actually going to update this history with an exhaustive list
-                # of all the parameters used.
-                kwargs["defaults"] = defaults()  # Do we really want to do this?
+                for param, value in model.kwargs:
+                    if param not in kwargs:
+                        kwargs[param] = value
             self._components[component] = kwargs
             self._update_history(model, **kwargs)
             if seed is not None:
@@ -200,11 +196,35 @@ class Simulator:
         return data
 
     def get(self, component, ant1=None, ant2=None, pol=None):
-        # TODO: docstring
         # TODO: figure out if this could be handled by _iteratively_apply
         """
+        Retrieve an effect that was previously simulated.
+
+        Parameters
+        ----------
+        component: str or SimulationComponent
+            Effect that is to be retrieved. See ``meth:add`` for more details.
+        key: int or str or tuple, optional
+            Key for retrieving simulated effect. Possible choices are as follows:
+                An integer may specify either a single antenna (for per-antenna
+                effects) or be a ``pyuvdata``-style baseline integer.
+                A string specifying a polarization can be used to retrieve the
+                effect for every baseline for the specified polarization.
+                A length-2 tuple of integers can be used to retrieve the effect
+                for that baseline for all polarizations.
+                A length-3 tuple specifies a particular baseline and polarization
+                for which to retrieve the effect.
+            Not specifying a key results in the effect being returned for all
+            baselines (or antennas, if the effect is per-antenna) and polarizations.
+
+        Returns
+        -------
+        effect
+            The simulated effect appropriate for the provided key. Return type
+            depends on the effect being simulated and the provided key. See the
+            tutorial Jupyter notebook for the ``Simulator`` for example usage.
         """
-        # TODO: determine whether to leave this check here.
+        # TODO: update and streamline this
         if component not in self._components:
             raise AttributeError(
                 "You are trying to retrieve a component that has not "
@@ -623,32 +643,38 @@ class Simulator:
             )
             is_multiplicative = False
 
+
+        # Pre-simulate gains.
+        if is_multiplicative:
+            if seed:
+                seed = self._seed_rng(seed, model)
+            gains = model(**args, **kwargs)
+
         for ant1, ant2, pol, blt_inds, pol_ind in self._iterate_antpair_pols():
-            # find out whether or not to filter the result
+            # Determine whether or not to filter the result.
             apply_filter = self._apply_filter(
                 utils._listify(vis_filter), ant1, ant2, pol
             )
 
-            # check if the antpolpair or its conjugate have data
+            # Check if this antpairpol or its conjugate have been simulated.
             bl_in_cache = (ant1, ant2, pol) in antpairpol_cache
             conj_in_cache = (ant2, ant1, pol) in antpairpol_cache
 
             if seed == "redundant" and conj_in_cache:
+                # Ensure that V_ij = conj(V_ji).
                 seed = self._seed_rng(seed, model, ant2, ant1)
             elif seed is not None:
                 seed = self._seed_rng(seed, model, ant1, ant2)
 
-            # parse the model signature to get the required arguments
+            # Prepare the actual arguments to be used.
             use_args = self._update_args(args, ant1, ant2, pol)
-
-            # update with the passed kwargs
             use_args.update(kwargs)
 
-            # if neither are in the cache, then add it to the cache
-            if not (bl_in_cache or conj_in_cache):
+            # Cache simulated antpairpols if not filtered out.
+            if not (bl_in_cache or conj_in_cache or apply_filter):
                 antpairpol_cache.append((ant1, ant2, pol))
 
-            # check whether we're simulating a gain or a visibility
+            # Check whether we're simulating a gain or a visibility.
             if is_multiplicative:
                 # TODO: move this outside of the loop in a way that is
                 # friendly to generalization to polarized gains.
@@ -718,7 +744,7 @@ class Simulator:
         uvd.read(datafile, read_data=True, **kwargs)
         return uvd
 
-    def _seed_rng(self, seed, model, ant1=None, ant2=None):
+    def _seed_rng(self, seed, model, ant1=None, ant2=None, pol=None):
         # TODO: docstring
         """
         """
@@ -739,6 +765,8 @@ class Simulator:
             bl_int = self.data.antnums_to_baseline(ant1, ant2)
             red_grps = self._get_reds()
             key = next(reds for reds in red_grps if bl_int in reds)[0]
+            if pol:
+                key += (pol,)
             # seed the RNG accordingly
             np.random.seed(self._get_seed(model, key))
             return "redundant"
@@ -749,13 +777,15 @@ class Simulator:
             # entire gain dictionary is simulated each time), or for
             # something like PointSourceForeground, where objects on
             # the sky are being placed randomly
-            np.random.seed(self._get_seed(model, 0))
+            key = (pol,) if pol else 0
+            np.random.seed(self._get_seed(model, key))
             return "once"
         elif seed == "initial":
             # this seeds the RNG once at the very beginning of
             # _iteratively_apply. this would be useful for something
             # like ThermalNoise
-            np.random.seed(self._get_seed(model, -1))
+            key = (pol,) if pol else -1
+            np.random.seed(self._get_seed(model, key))
             return None
         else:
             raise ValueError("Seeding mode not supported.")
@@ -837,14 +867,12 @@ class Simulator:
 
     @staticmethod
     def _get_component(component):
-        # TODO: docstring
-        """
-        """
+        """Cast input ``component`` to a SimulationComponent or instance thereof."""
         try:
             if issubclass(component, SimulationComponent):
                 # support passing user-defined classes that inherit from
                 # the SimulationComponent base class to add method
-                return component, True
+                return component
             else:
                 # issubclass will not raise a TypeError in python <= 3.6
                 raise TypeError
@@ -857,9 +885,7 @@ class Simulator:
                     "function to a callable class and try again."
                 )
             if callable(component):
-                # if it's callable, then it's either a user-defined
-                # function or a class instance
-                return component, False
+                return component
             if not isinstance(component, str):
                 # TODO: update this error message to reflect the
                 # change in allowed component types
@@ -886,7 +912,7 @@ class Simulator:
                     for alias in aliases:
                         all_aliases.append(alias)
                     if component.lower() in aliases:
-                        return model, True
+                        return model
 
             # if this part is executed, then the model wasn't found, so
             string_of_aliases = ", ".join(set(all_aliases))
