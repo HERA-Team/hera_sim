@@ -161,11 +161,9 @@ class Simulator:
         """
         # Obtain a callable reference to the simulation component model.
         model = self._get_component(component)
+        model_key = self._get_model_name(component)
         if not isinstance(model, SimulationComponent):
-            model_key = model.__name__.lower()
             model = model(**kwargs)
-        else:
-            model_key = model.__class__.__name__.lower()
         self._sanity_check(model)  # Check for component ordering issues.
         self._antpairpol_cache[model_key] = []  # Initialize this model's cache.
 
@@ -186,17 +184,16 @@ class Simulator:
                 for param, value in model.kwargs:
                     if param not in kwargs:
                         kwargs[param] = value
-            self._components[component] = kwargs
+            self._components[model_key] = kwargs
             self._update_history(model, **kwargs)
             if seed is not None:
-                self._update_seeds(self._get_model_name(model))
+                self._update_seeds(model_key)
         else:
             del self._antpairpol_cache[model_key]
 
         return data
 
     def get(self, component, ant1=None, ant2=None, pol=None):
-        # TODO: figure out if this could be handled by _iteratively_apply
         """
         Retrieve an effect that was previously simulated.
 
@@ -962,9 +959,9 @@ class Simulator:
         """
         """
         if isinstance(model, str):
-            return model
+            return model.lower()
         try:
-            return model.__name__
+            return model.__name__.lower()
         except AttributeError:
             # check if it's a user defined function
             if model.__class__.__name__ == "function":
@@ -977,7 +974,7 @@ class Simulator:
                     "to define new simulation components compatible with the Simulator."
                 )
             else:
-                return model.__class__.__name__
+                return model.__class__.__name__.lower()
 
     def _sanity_check(self, model):
         # TODO: docstring
