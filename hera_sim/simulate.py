@@ -65,12 +65,14 @@ class Simulator:
             Dictionary to use for storing extra parameters.
         antpos: dict
             Dictionary pairing antenna numbers to ENU positions in meters.
-        lsts: np.ndarray
+        lsts: np.ndarray of float
             Observed LSTs in radians.
-        freqs: np.ndarray
+        freqs: np.ndarray of float
             Observed frequencies in GHz.
-        times: np.ndarray
+        times: np.ndarray of float
             Observed times in JD.
+        pols: list of str
+            Polarization strings.
         """
         # TODO: add ability for user to specify parameter names to look for on
         # parsing call signature
@@ -115,6 +117,10 @@ class Simulator:
     def times(self):
         """Return unique simulation times."""
         return np.unique(self.data.time_array)
+
+    @property
+    def pols(self):
+        return self.data.get_pols()
 
     def apply_defaults(self, config, refresh=True):
         # TODO: docstring
@@ -619,7 +625,7 @@ class Simulator:
 
         # pull lsts/freqs if required and find out which extra
         # parameters are required
-        args = self._initialize_args_from_model(model)
+        base_args = self._initialize_args_from_model(model)
 
         # figure out whether or not to seed the RNG
         seed = kwargs.pop("seed", None)
@@ -643,9 +649,13 @@ class Simulator:
 
         # Pre-simulate gains.
         if is_multiplicative:
-            if seed:
-                seed = self._seed_rng(seed, model)
-            gains = model(**args, **kwargs)
+            gains = {}
+            args = base_args.copy()
+            args.update(kwargs)
+            for pol in self.pols:
+                if seed:
+                    seed = self._seed_rng(seed, model, pol=pol)
+                gains[pol] = model(**args)
 
         for ant1, ant2, pol, blt_inds, pol_ind in self._iterate_antpair_pols():
             # Determine whether or not to filter the result.
@@ -664,7 +674,7 @@ class Simulator:
                 seed = self._seed_rng(seed, model, ant1, ant2)
 
             # Prepare the actual arguments to be used.
-            use_args = self._update_args(args, ant1, ant2, pol)
+            use_args = self._update_args(base_args, ant1, ant2, pol)
             use_args.update(kwargs)
 
             # Cache simulated antpairpols if not filtered out.
@@ -673,22 +683,10 @@ class Simulator:
 
             # Check whether we're simulating a gain or a visibility.
             if is_multiplicative:
-                # TODO: move this outside of the loop in a way that is
-                # friendly to generalization to polarized gains.
-                # (The RNG should only be seeded once, if at all.)
-                # get the gains for the entire array
-                # this is sloppy, but ensures seeding works correctly
-                gains = model(**use_args)
-
-                # now get the product g_1g_2*
-                gain = gains[ant1] * np.conj(gains[ant2])
-
-                # don't actually do anything if we're filtering this
-                if apply_filter:
-                    gain = np.ones_like(gain)
-
-                # apply the effect to the appropriate part of the data
-                data_copy[blt_inds, 0, :, pol_ind] *= gain
+                # Calculate the complex gain, but only apply it if requested.
+                gain = gains[pol][ant1] * np.conj(gains[pol][ant2])
+                if not apply_filter:
+                    data_copy[blt_inds, 0, :, pol_ind] *= gain
             else:
                 # if the conjugate baseline has been simulated and
                 # the RNG was only seeded initially, then we should
