@@ -245,18 +245,19 @@ class Simulator:
             )
 
         # retrieve the model
-        model, is_class = self._get_component(component)
+        model = self._get_component(component)
+        model_key = self._get_model_name(component)
 
         # get the kwargs
         # FIXME: this currently isn't working correctly, likely to do
         # with how the kwargs are being recorded.
-        kwargs = self._components[component].copy()
+        kwargs = self._components[model_key].copy()
 
         # figure out whether or not to seed the rng
         seed = kwargs.pop("seed", None)
 
         # get the antpairpol cache
-        antpairpol_cache = self._antpairpol_cache[model]
+        antpairpol_cache = self._antpairpol_cache[model_key]
 
         # figure out whether or not to apply defaults
         use_defaults = kwargs.pop("defaults", {})
@@ -264,7 +265,7 @@ class Simulator:
             self.apply_defaults(use_defaults)
 
         # instantiate the model if it's a class
-        if is_class:
+        if not isinstance(model, SimulationComponent):
             model = model(**kwargs)
 
         # if ant1, ant2 not specified, then do the whole array
