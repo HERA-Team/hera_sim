@@ -1095,9 +1095,6 @@ class Simulator:
             else:
                 raise ValueError(f"Polarization {pol} not found.")
 
-        if ant1 not in self.antpos or ant2 not in self.antpos:
-            raise ValueError("At least one antenna is not in the array layout.")
-
         if pol is not None and pol not in self.pols:
             raise ValueError(f"Polarization {pol} not found.")
 
@@ -1113,3 +1110,5 @@ class Simulator:
                     "Either no antennas or a pair of antennas must be provided "
                     "when retrieving a non-multiplicative effect."
                 )
+            if ant1 not in self.antpos or ant2 not in self.antpos:
+                raise ValueError("At least one antenna is not in the array layout.")
