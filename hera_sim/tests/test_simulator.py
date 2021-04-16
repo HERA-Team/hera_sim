@@ -100,7 +100,7 @@ def test_phase_wrapped_lsts():
     print(sim.data.lst_array)
     assert sim.lsts[0] > sim.lsts[-1]
 
-    
+
 def test_add_with_str(base_sim):
     base_sim.add("noiselike_eor")
     assert not np.all(base_sim.data.data_array == 0)
@@ -152,7 +152,7 @@ def test_io_bad_format(base_sim, tmp_path):
 
 @pytest.mark.parametrize("pol", [None, "xx"])
 def test_get_full_data(ref_sim, pol):
-    data = ref_sim.get("noiselike_eor", pol=pol)
+    data = ref_sim.get("noiselike_eor", pol)
     if pol is None:
         assert np.allclose(data, ref_sim.data.data_array, rtol=0, atol=1e-7)
     else:
@@ -164,25 +164,23 @@ def test_get_with_one_seed(base_sim, pol):
     # Set the seed mode to "once" even if that's not realistic.
     base_sim.add("noiselike_eor", seed="once")
     ant1, ant2 = (1, 0)  # Use convention ant1 > ant2 for conjugation considerations.
-    data = base_sim.get("noiselike_eor", ant1=ant1, ant2=ant2, pol=pol)
+    key = (ant1, ant2, pol)
+    data = base_sim.get("noiselike_eor", key)
     antpairpol = (ant1, ant2) if pol is None else (ant1, ant2, pol)
     true_data = base_sim.data.get_data(antpairpol)
-    if pol is None:
-        assert np.allclose(data[..., 0], true_data, rtol=0, atol=1e-7)
-    else:
-        assert np.allclose(data, true_data, rtol=0, atol=1e-7)
+    assert np.allclose(data, true_data, rtol=0, atol=1e-7)
 
 
 def test_get_nonexistent_component(ref_sim):
-    with pytest.raises(AttributeError) as err:
+    with pytest.raises(ValueError) as err:
         ref_sim.get("diffuse_foreground")
-    assert "has not been simulated" in err.value.args[0]
+    assert "has not yet been simulated" in err.value.args[0]
 
 
-def test_get_without_specifying_antenna(ref_sim):
-    with pytest.raises(TypeError) as err:
-        ref_sim.get("noiselike_eor", ant1=1, ant2=None)
-    assert "specify an antenna pair" in err.value.args[0]
+def test_get_vis_only_one_antenna(ref_sim):
+    with pytest.raises(ValueError) as err:
+        ref_sim.get("noiselike_eor", 1)
+    assert "a pair of antennas must be provided" in err.value.args[0]
 
 
 def test_not_add_vis(base_sim):
@@ -250,7 +248,7 @@ def test_consistent_across_reds():
     # deactivate defaults for good measure
     defaults.deactivate()
 
-    reds = sim._get_reds()[1]  # choose non-autos
+    reds = sim.reds[1]  # choose non-autos
     # check that every pair in the redundant group agrees
     for i, _bl1 in enumerate(reds):
         for bl2 in reds[i + 1 :]:
