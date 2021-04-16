@@ -374,7 +374,9 @@ class Simulator:
         self.data.data_array = np.zeros(self.data.data_array.shape, dtype=np.complex128)
         self.data.history = ""
         self._components.clear()
-        self._antpairpol_cache = {}
+        self._antpairpol_cache.clear()
+        self._seeds.clear()
+        self.extras.clear()
 
     def write(self, filename, save_format="uvh5", **kwargs):
         # TODO: docstring
