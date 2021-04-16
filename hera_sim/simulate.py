@@ -340,13 +340,27 @@ class Simulator:
             self._seed_rng(seed, model, ant1, ant2, pol)
 
         # Prepare the model parameters, then simulate and return the effect.
-        args = self._initialize_args_from_model(model)
-        args = self._update_args(args, ant1, ant2, pol)
-        args.update(kwargs)
-        data = model(**args)
+        if pol is None:
+            data_shape = (self.lsts.size, self.freqs.size, len(self.pols))
+            pols = self.pols
+            return_slice = (slice(None),) * 3
+        else:
+            data_shape = (self.lsts.size, self.freqs.size, 1)
+            pols = (pol,)
+            return_slice = (slice(None), slice(None), 0)
+        data = np.zeros(data_shape, dtype=np.complex)
+        for i, _pol in enumerate(pols):
+            args = self._initialize_args_from_model(model)
+            args = self._update_args(args, ant1, ant2, pol)
+            args.update(kwargs)
+            if conj_data:
+                self._seed_rng(seed, model, ant2, ant1, _pol)
+            else:
+                self._seed_rng(seed, model, ant1, ant2, _pol)
+            data[..., i] = model(**args)
         if conj_data:
             data = np.conj(data)
-        return data
+        return data[return_slice]
 
     def plot_array(self):
         """Generate a plot of the array layout in ENU coordinates.

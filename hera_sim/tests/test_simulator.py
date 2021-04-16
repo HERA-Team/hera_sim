@@ -168,7 +168,10 @@ def test_get_with_one_seed(base_sim, pol):
     data = base_sim.get("noiselike_eor", key)
     antpairpol = (ant1, ant2) if pol is None else (ant1, ant2, pol)
     true_data = base_sim.data.get_data(antpairpol)
-    assert np.allclose(data, true_data, rtol=0, atol=1e-7)
+    if pol:
+        assert np.allclose(data, true_data, rtol=0, atol=1e-7)
+    else:
+        assert np.allclose(data[..., 0], true_data, rtol=0, atol=1e-7)
 
 
 def test_get_nonexistent_component(ref_sim):
