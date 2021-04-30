@@ -73,7 +73,7 @@ class VisCPU(VisibilitySimulator):
         self.use_pixel_beams = use_pixel_beams
         self.mpi_comm = mpi_comm
         
-        super(VisCPU, self).__init__(**kwargs)
+        super(VisCPU, self).__init__(validate=False, **kwargs)
           
         # If beam ids and beam lists are mis-matched, expand the beam list 
         # or raise an error
@@ -104,6 +104,9 @@ class VisCPU(VisibilitySimulator):
             idx = np.where(ant == self.uvdata.antenna_numbers)
             self.antpos.append(_antpos[idx].flatten())
         self.antpos = np.array(self.antpos)
+        
+        # Validate
+        self.validate()
         
 
     @property

@@ -36,7 +36,8 @@ class VisibilitySimulator(object):
 
     def __init__(self, obsparams=None, uvdata=None, sky_freqs=None,
                  beams=None, beam_ids=None, sky_intensity=None,
-                 point_source_pos=None, point_source_flux=None, nside=2**5):
+                 point_source_pos=None, point_source_flux=None, nside=2**5, 
+                 validate=True):
         """
         Parameters
         ----------
@@ -81,6 +82,8 @@ class VisibilitySimulator(object):
             is incapable of directly dealing with point sources. In this
             case, it sets the resolution of the healpix map to which the
             sources will be allocated.
+        validate : bool, optional
+            Whether to run the validation method on construction. Default: True.
             
         Notes
         -----
@@ -154,8 +157,9 @@ class VisibilitySimulator(object):
 
         self.point_source_pos = point_source_pos
         self.point_source_flux = point_source_flux
-
-        self.validate()
+        
+        if validate:
+            self.validate()
 
     def validate(self):
         """Checks for correct input format."""
