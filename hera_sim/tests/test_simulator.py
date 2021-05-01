@@ -13,7 +13,7 @@ import numpy as np
 from nose.tools import raises, assert_raises
 
 from hera_sim.foregrounds import diffuse_foreground
-from hera_sim.noise import thermal_noise, HERA_Tsky_mdl
+from hera_sim.noise import thermal_noise, HERA_Tsky_mdl, resample_Tsky, jy2T, bm_poly_to_omega_p
 from hera_sim.simulate import Simulator
 from hera_sim.antpos import hex_array
 from hera_sim.data import DATA_PATH
@@ -311,3 +311,28 @@ else:
         sim = create_sim()
         sim.run_sim(tmp_sim_file)
 
+
+def test_noise_from_autos():
+    sim = Simulator(n_freq=100, n_times=10, antennas={0: (0, 0, 0), 1: (14, 0, 0)})
+
+    freqs = sim.data.freq_array[0] / 1e9
+
+    # Add foregrounds in a weird way
+    sky_model = resample_Tsky(freqs, np.unique(sim.data.lst_array))
+
+    # Convert to Jy.
+    sky_model = sky_model / (jy2T(freqs, bm_poly_to_omega_p(freqs))/1000)
+
+    # Add to autos.
+    sim.data.data_array[sim.data.antpair2ind(0, 0), 0, :, 0] += sky_model
+    sim.data.data_array[sim.data.antpair2ind(1, 1), 0, :, 0] += sky_model
+
+    # Produce noise based on autos
+    np.random.seed(1010)
+    auto_vis = sim.add_noise('thermal_noise', use_autos=True, ret_vis=True, add_vis=False)
+
+    # Produce noise based on default sky model.
+    np.random.seed(1010)
+    default_vis = sim.add_noise('thermal_noise', ret_vis=True, add_vis=False)
+
+    assert np.allclose(auto_vis, default_vis)
