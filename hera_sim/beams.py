@@ -4,17 +4,51 @@ from numpy.polynomial.chebyshev import chebval, chebfit
 from scipy.optimize import curve_fit
 
 
+def modulate_with_dipole(az, beam_vals):
+    """
+    Take a beam pattern and modulate it with a polarised dipole pattern to 
+    turn it into an approximate E-field beam.
+    
+    This is achieved by taking the beam pattern (assumed to be the sqrt of a 
+    power beam) and then multiplying by an azimuth-dependent complex dipole 
+    matrix, with elements:
+    
+        `dipole = (1 - i) [[-sin(az), cos(az)], [cos(az), sin(az)]]`
+    
+    Parameters
+    ----------
+    az : array_like
+        Array of azimuth values, in radians.
+        
+    beam_vals : array_like, complex
+        Array of beam values, with same shape as `az`. This will normally be 
+        the square-root of a power beam.
+    
+    Returns
+    -------
+    pol_efield_beam : array_like, complex
+        Array of polarized beam values, with shape (2, N_feed, N_az), 
+        where 2 = (theta, phi) directions, and N_feed = 2 is the number of 
+        linearly-polarised feeds, assumed to be the 'n' and 'e' directions.
+    """
+    dipole_mod = (1. - 1.j) * np.array([[-np.sin(az), np.cos(az)], 
+                                        [ np.cos(az), np.sin(az)]])
+    pol_beam = dipole_mod[:,np.newaxis,:,:] \
+             * beam_vals[np.newaxis,np.newaxis,np.newaxis,:]
+    return pol_beam
+
+
+
 class PolyBeam(AnalyticBeam):
     
-    def __init__(self, beam_coeffs=[], spectral_index=0.0, ref_freq=1e8, **kwargs):
+    def __init__(self, beam_coeffs=[], spectral_index=0.0, ref_freq=1e8, 
+                 polarized=True, **kwargs):
         """
-        Analytic, azimuthally-symmetric beam model based on Chebyshev polynomials.
+        Analytic, azimuthally-symmetric beam model based on Chebyshev 
+        polynomials.
 
-        The frequency-dependence of the beam is implemented by scaling source zenith 
-        angles when the beam is interpolated, using a power law.
-
-        See HERA memo 
-        http://reionization.org/wp-content/uploads/2013/03/Power_Spectrum_Normalizations_for_HERA.pdf.
+        The frequency-dependence of the beam is implemented by scaling source 
+        zenith angles when the beam is interpolated, using a power law.
 
         Parameters
         ----------
@@ -28,12 +62,29 @@ class PolyBeam(AnalyticBeam):
         ref_freq : float, optional
             Reference frequency for the beam width scaling power law, in Hz. 
             Default: 1e8.
+        
+        polarized : bool, optional
+            Whether to multiply the axisymmetric beam model by a dipole 
+            modulation factor to emulate a polarized beam response. If False, 
+            the axisymmetric representation will be put in the (phi, n) 
+            and (theta, e) elements of the Jones matrix returned by the 
+            `interp()` method. Default: True.
         """
         self.ref_freq = ref_freq
         self.spectral_index = spectral_index
+        self.polarized = polarized
         self.data_normalization = 'peak'
         self.freq_interp_kind = None
+        self.Nspws = 1
+        
+        # Polarization conventions
         self.beam_type = 'efield'
+        self.Nfeeds = 2 # n and e feeds
+        self.pixel_coordinate_system = 'az_za' # az runs from East to North
+        self.feed_array = ['N', 'E']
+        self.x_orientation = 'east'
+        
+        # Beam data
         self.beam_coeffs = beam_coeffs
     
     
@@ -73,7 +124,6 @@ class PolyBeam(AnalyticBeam):
             if az/za_arrays are not passed), shape: (Naxes_vec, Ncomponents_vec,
             Npixels/(Naxis1, Naxis2) or az_array.size if az/za_arrays are passed)
         """
-
         # Empty data array
         interp_data = np.zeros((2, 1, 2, freq_array.size, az_array.size),
                                dtype=np.float)
@@ -85,13 +135,18 @@ class PolyBeam(AnalyticBeam):
         x = 2.*np.sin(za_array[np.newaxis, ...] / fscale[:, np.newaxis]) - 1.
         
         # Primary beam values from Chebyshev polynomial
-        values = chebval(x, self.beam_coeffs)
+        beam_values = chebval(x, self.beam_coeffs)
         central_val = chebval(-1., self.beam_coeffs)
-        values /= central_val # ensure normalized to 1 at za=0
+        beam_values /= central_val # ensure normalized to 1 at za=0
         
-        # Set values
-        interp_data[1, 0, 0, :, :] = values
-        interp_data[0, 0, 1, :, :] = values
+        # Set beam Jones matrix values (see Eq. 5 of Kohn+ arXiv:1802.04151)
+        # Axes: [phi, theta] (az and za) / Feeds: [n, e]
+        # interp_data shape: (Naxes_vec, Nspws, Nfeeds or Npols, Nfreqs, Naz)
+        if self.polarized:
+            interp_data[:,:,:,:] = modulate_with_dipole(az_array, beam_values)
+        else:
+            interp_data[1, 0, 0, :, :] = beam_values # (phi, n)
+            interp_data[0, 0, 1, :, :] = beam_values # (theta, e)
         interp_basis_vector = None
     
         if self.beam_type == 'power':
@@ -106,7 +161,7 @@ class PolyBeam(AnalyticBeam):
             interp_data = power_data
 
         return interp_data, interp_basis_vector
-
+    
     def __eq__(self, other):
         if not isinstance(other, self.__class__):
             return False
@@ -214,8 +269,6 @@ class PerturbedPolyBeam(PolyBeam):
         """
         Evaluate the primary beam, after applying, shearing, stretching, or rotation.
         """
-
-        
         # Apply shearing, stretching, or rotation
         if self.xstretch != 1. or self.ystretch != 1.:
             # Convert sheared Cartesian coords to circular polar coords
