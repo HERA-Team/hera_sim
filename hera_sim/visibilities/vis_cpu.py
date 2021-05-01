@@ -18,21 +18,31 @@ class VisCPU(VisibilitySimulator):
     replaced by vis_gpu. It extends :class:`VisibilitySimulator`.
     """
 
-    def __init__(self, bm_pix=100, precision=1, use_gpu=False, **kwargs):
+    def __init__(self, bm_pix=100, use_pixel_beams=True, precision=1,
+                 use_gpu=False, mpi_comm=None, **kwargs):
         """
         Parameters
         ----------
         bm_pix : int, optional
             The number of pixels along a side in the beam map when
             converted to (l, m) coordinates. Defaults to 100.
-        real_dtype : {np.float32, np.float64}
-            Data type for real-valued arrays.
-        complex_dtype : {np.complex64, np.complex128}
-            Data type for complex-valued arrays.
+        use_pixel_beams : bool, optional
+            Whether to use primary beams that have been pixelated onto a 2D 
+            grid, or directly evaluate the primary beams using the available 
+            UVBeam objects. Default: True.
+        precision : int, optional
+            Which precision level to use for floats and complex numbers. 
+            Allowed values:
+                - 1: float32, complex64
+                - 2: float64, complex128
+            Default: 1.
+        use_gpu : bool, optional
+            Whether to use the GPU version of vis_cpu or not. Default: False.
+        mpi_comm : MPI communicator
+            MPI communicator, for parallelization.
         **kwargs
             Arguments of :class:`VisibilitySimulator`.
         """
-
         assert precision in (1,2)
         self._precision = precision
         if precision == 1:
@@ -42,7 +52,12 @@ class VisCPU(VisibilitySimulator):
             self._real_dtype = np.float64
             self._complex_dtype = np.complex128
 
+        if use_gpu and mpi_comm is not None and mpi_comm.Get_size() > 1:
+              raise RuntimeError("Can't use multiple MPI processes with GPU (yet)")
+
         if use_gpu:
+            if not use_pixel_beams:
+                raise RuntimeError("GPU can only be used with pixel beams (use_pixel_beams=True)") 
             try:
                 from hera_gpu.vis import vis_gpu
                 self._vis_cpu = vis_gpu
@@ -52,13 +67,47 @@ class VisCPU(VisibilitySimulator):
                 )
         else:
             self._vis_cpu = vis_cpu
+
+        self.use_gpu = use_gpu 
         self.bm_pix = bm_pix
+        self.use_pixel_beams = use_pixel_beams
+        self.mpi_comm = mpi_comm
+        
+        super(VisCPU, self).__init__(validate=False, **kwargs)
+          
+        # If beam ids and beam lists are mis-matched, expand the beam list 
+        # or raise an error
+        if len(self.beams) != len(self.beam_ids):
+            
+            # If N_beams > 1 and N_beams != N_ants, raise an error
+            if len(self.beams) > 1:
+                raise ValueError("Specified %d beams for %d antennas" \
+                                  % (len(self.beams), len(self.beam_ids)))
+            
+            # # If there is only one beam, assume it's the same for all ants
+            if len(self.beams) == 1:
+                beam = self.beams[0]
+                self.beams = [beam for b in self.beam_ids]
 
-        super(VisCPU, self).__init__(**kwargs)
-
-        # Convert some arguments to forms more simple for vis_cpu.
-        self.antpos = self.uvdata.get_ENU_antpos()[0].astype(self._real_dtype)
+        # Convert some arguments to simpler forms for vis_cpu.
         self.freqs = self.uvdata.freq_array[0]
+        
+        # Get antpos for active antennas only
+        #self.antpos = self.uvdata.get_ENU_antpos()[0].astype(self._real_dtype)
+        self.ant_list = self.uvdata.get_ants() # ordered list of active ants
+        self.antpos = []
+        _antpos = self.uvdata.get_ENU_antpos()[0].astype(self._real_dtype)
+        for ant in self.ant_list:
+            # uvdata.get_ENU_antpos() and uvdata.antenna_numbers have entries 
+            # for all telescope antennas, even ones that aren't included in the 
+            # data_array. This extracts only the data antennas.
+            idx = np.where(ant == self.uvdata.antenna_numbers)
+            self.antpos.append(_antpos[idx].flatten())
+        self.antpos = np.array(self.antpos)
+        
+        # Validate
+        self.validate()
+        
 
     @property
     def lsts(self):
@@ -82,7 +131,8 @@ class VisCPU(VisibilitySimulator):
         super(VisCPU, self).validate()
 
         # This one in particular requires that every baseline is used!
-        N = len(self.uvdata.antenna_numbers)
+        N = len(self.uvdata.get_ants())
+        
         # N(N-1)/2 unique cross-correlations + N autocorrelations.
         if len(self.uvdata.get_antpairs()) != N * (N + 1) / 2:
             raise ValueError("VisCPU requires using every pair of antennas, "
@@ -92,7 +142,13 @@ class VisCPU(VisibilitySimulator):
                 * len(self.lsts)):
             raise ValueError("VisCPU requires that every baseline uses the "
                              "same LSTS.")
-
+        
+        # Check to make sure enough beams are specified
+        if not self.use_pixel_beams:
+            for ant in self.ant_list:
+                assert len(np.where(self.beam_ids == ant)[0]), \
+                       "No beam found for antenna %d" % ant
+        
     def get_beam_lm(self):
         """
         Obtain the beam pattern in (l,m) co-ordinates for each antenna.
@@ -113,8 +169,8 @@ class VisCPU(VisibilitySimulator):
         """
         return np.asarray([
             conversions.uvbeam_to_lm(
-                self.beams[self.beam_ids[i]], self.freqs, self.bm_pix
-            ) for i in range(self.n_ant)
+                self.beams[np.where(self.beam_ids == ant)[0][0]], self.freqs, self.bm_pix
+            ) for ant in self.ant_list
         ])
 
     def get_diffuse_crd_eq(self):
@@ -174,28 +230,68 @@ class VisCPU(VisibilitySimulator):
         array_like of self._complex_dtype
             Visibilities. Shape=self.uvdata.data_array.shape.
         """
+        # Setup MPI info if enabled
+        if self.mpi_comm is not None:
+            myid = self.mpi_comm.Get_rank()
+            nproc = self.mpi_comm.Get_size()
+        
+        # Convert equatorial to topocentric coords
         eq2tops = self.get_eq2tops()
-        beam_lm = self.get_beam_lm()
-
+        
+        # Get pixelized beams if required
+        if self.use_pixel_beams:
+            beam_lm = self.get_beam_lm()
+        else:
+            beam_list = [self.beams[np.where(self.beam_ids == ant)[0][0]] 
+                         for ant in self.ant_list]
+            
         visfull = np.zeros_like(self.uvdata.data_array,
                                 dtype=self._complex_dtype)
-
+        
         for i, freq in enumerate(self.freqs):
-            vis = self._vis_cpu(
-                antpos=self.antpos,
-                freq=freq,
-                eq2tops=eq2tops,
-                crd_eq=crd_eq,
-                I_sky=I[i],
-                bm_cube=beam_lm[:, i],
-                precision=self._precision
-            )
+            
+            # Divide tasks between MPI workers if needed
+            if self.mpi_comm is not None:
+                if i % nproc != myid: continue
+            
+            if self.use_pixel_beams:
+                # Use pixelized primary beams
+                vis = self._vis_cpu(
+                    antpos=self.antpos,
+                    freq=freq,
+                    eq2tops=eq2tops,
+                    crd_eq=crd_eq,
+                    I_sky=I[i],
+                    bm_cube=beam_lm[:, i],
+                    precision=self._precision
+                )
+            else:
+                # Use UVBeam objects directly
+                vis = self._vis_cpu(
+                    antpos=self.antpos,
+                    freq=freq,
+                    eq2tops=eq2tops,
+                    crd_eq=crd_eq,
+                    I_sky=I[i],
+                    beam_list=beam_list,
+                    precision=self._precision
+                )
 
             indices = np.triu_indices(vis.shape[1])
             vis_upper_tri = vis[:, indices[0], indices[1]]
 
             visfull[:, 0, i, 0] = vis_upper_tri.flatten()
-
+        
+        # Reduce visfull array if in MPI mode
+        if self.mpi_comm is not None:
+            from mpi4py.MPI import SUM
+            _visfull = np.zeros(visfull.shape, dtype=visfull.dtype)
+            self.mpi_comm.Reduce(visfull, _visfull, op=SUM, root=0)
+            if myid == 0:
+                return _visfull
+            else:
+                return 0 # workers return 0
+            
         return visfull
 
     def _simulate_diffuse(self):
@@ -246,7 +342,7 @@ class VisCPU(VisibilitySimulator):
         return vis
 
 
-def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube,
+def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube=None, beam_list=None,
             precision=1):
     """
     Calculate visibility from an input intensity map and beam model.
@@ -270,19 +366,24 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube,
     I_sky : array_like
         Intensity distribution on the sky,
         stored as array of Healpix pixels. Shape=(NPIX,).
-    bm_cube : array_like
-        Beam maps for each antenna. Shape=(NANT, BM_PIX, BM_PIX).
-    real_dtype {np.float32, np.float64}
-        Data type to use for real-valued arrays.
-    complex_dtype {np.complex64, np.complex128}
-        Data type to use for complex-valued arrays.
+    bm_cube : array_like, optional
+        Pixelized beam maps for each antenna. Shape=(NANT, BM_PIX, BM_PIX).
+    beam_list : list of UVBeam, optional
+        If specified, evaluate primary beam values directly using UVBeam 
+        objects instead of using pixelized beam maps (`bm_cube` will be ignored 
+        if `beam_list` is not None).
+    precision : int, optional
+        Which precision level to use for floats and complex numbers. 
+        Allowed values:
+            - 1: float32, complex64
+            - 2: float64, complex128
+        Default: 1.
 
     Returns
     -------
     array_like
         Visibilities. Shape=(NTIMES, NANTS, NANTS).
     """
-
     assert precision in (1,2)
     if precision == 1:
         real_dtype=np.float32
@@ -290,6 +391,12 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube,
     else:
         real_dtype=np.float64
         complex_dtype=np.complex128
+    
+    if bm_cube is None and beam_list is None:
+        raise RuntimeError("One of bm_cube/beam_list must be specified")
+    if bm_cube is not None and beam_list is not None:
+        raise RuntimeError("Cannot specify both bm_cube and beam_list")
+
     nant, ncrd = antpos.shape
     assert ncrd == 3, "antpos must have shape (NANTS, 3)."
     ntimes, ncrd1, ncrd2 = eq2tops.shape
@@ -298,12 +405,16 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube,
     assert ncrd == 3, "crd_eq must have shape (3, NPIX)."
     assert I_sky.ndim == 1 and I_sky.shape[0] == npix, \
         "I_sky must have shape (NPIX,)."
-    bm_pix = bm_cube.shape[-1]
-    assert bm_cube.shape == (
-        nant,
-        bm_pix,
-        bm_pix,
-    ), "bm_cube must have shape (NANTS, BM_PIX, BM_PIX)."
+    
+    if beam_list is None:
+        bm_pix = bm_cube.shape[-1]
+        assert bm_cube.shape == (
+            nant,
+            bm_pix,
+            bm_pix,
+        ), "bm_cube must have shape (NANTS, BM_PIX, BM_PIX)."
+    else:
+        assert len(beam_list) == nant, "beam_list must have length nant"
 
     # Intensity distribution (sqrt) and antenna positions. Does not support
     # negative sky.
@@ -318,33 +429,51 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube,
     tau = np.empty((nant, npix), dtype=real_dtype)
     v = np.empty((nant, npix), dtype=complex_dtype)
     crd_eq = crd_eq.astype(real_dtype)
-
-    bm_pix_x = np.linspace(-1, 1, bm_pix)
-    bm_pix_y = np.linspace(-1, 1, bm_pix)
-
-    # Loop over time samples.
-    for t, eq2top in enumerate(eq2tops.astype(real_dtype)):
-        tx, ty, tz = crd_top = np.dot(eq2top, crd_eq)
-
+    
+    # Precompute splines is using pixelized beams
+    if beam_list is None:
+        bm_pix_x = np.linspace(-1, 1, bm_pix)
+        bm_pix_y = np.linspace(-1, 1, bm_pix)
+    
+        splines = []
         for i in range(nant):
             # Linear interpolation of primary beam pattern.
-            spline = RectBivariateSpline(bm_pix_y, bm_pix_x, bm_cube[i], kx=1,
-                                         ky=1)
-            A_s[i] = spline(ty, tx, grid=False)
-
+            spl = RectBivariateSpline(bm_pix_y, bm_pix_x, bm_cube[i], kx=1, ky=1)
+            splines.append(spl)
+            
+    # Loop over time samples
+    for t, eq2top in enumerate(eq2tops.astype(real_dtype)):
+        tx, ty, tz = crd_top = np.dot(eq2top, crd_eq)
+        
+        # Primary beam response
+        if beam_list is None:
+            # Primary beam pattern using pixelized primary beam
+            for i in range(nant):
+                A_s[i] = splines[i](ty, tx, grid=False)
+                # TODO: Try using a log-space beam for accuracy!
+        else:
+            # Primary beam pattern using direct interpolation of UVBeam object
+            az, za = conversions.lm_to_az_za(tx, ty)       
+            for i in range(nant):
+                interp_beam = beam_list[i].interp(az, za, np.atleast_1d(freq))[0]
+                A_s[i] = interp_beam[0,0,1] # FIXME: assumes xx pol for now
+        
         A_s = np.where(tz > 0, A_s, 0)
 
-        # Calculate delays, where TAU = (b * s) / c.
+        # Calculate delays, where tau = (b * s) / c
         np.dot(antpos, crd_top, out=tau)
         tau /= c.value
-
-        np.exp(1.0j * (ang_freq * tau), out=v)
+        
+        # Component of complex phase factor for one antenna 
+        # (actually, b = (antpos1 - antpos2) * crd_top / c; need dot product 
+        # below to build full phase factor for a given baseline)
+        np.exp(1.j * (ang_freq * tau), out=v)
 
         # Complex voltages.
         v *= A_s * Isqrt
 
-        # Compute visibilities (upper triangle only).
+        # Compute visibilities using product of complex voltages (upper triangle).
         for i in range(len(antpos)):
-            np.dot(v[i: i + 1].conj(), v[i:].T, out=vis[t, i: i + 1, i:])
+            np.dot(v[i:i+1].conj(), v[i:].T, out=vis[t, i:i+1, i:])
 
     return vis
