@@ -145,8 +145,8 @@ class PolyBeam(AnalyticBeam):
         if self.polarized:
             interp_data[:,:,:,:] = modulate_with_dipole(az_array, beam_values)
         else:
-            interp_data[1, 0, 0, :, :] = beam_values # (phi, n)
-            interp_data[0, 0, 1, :, :] = beam_values # (theta, e)
+            interp_data[1, 0, 0, :, :] = beam_values # (theta, n)
+            interp_data[0, 0, 1, :, :] = beam_values # (phi, e)
         interp_basis_vector = None
     
         if self.beam_type == 'power':
