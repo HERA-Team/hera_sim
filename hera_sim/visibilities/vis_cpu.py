@@ -572,7 +572,7 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube=None, beam_list=None,
                                         A_s[:,:,i:i+1].conj() \
                                         * v[np.newaxis,np.newaxis,i:i+1].conj(), 
                                         A_s[:,:,i:] \
-                                        * v[np.newaxis,np.newaxis,i:]
+                                        * v[np.newaxis,np.newaxis,i:],
                                         optimize=True )
     
     # Return visibilities with or without multiple polarization channels
