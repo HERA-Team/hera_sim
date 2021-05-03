@@ -21,7 +21,7 @@ def modulate_with_dipole(az, beam_vals):
         Array of azimuth values, in radians.
         
     beam_vals : array_like, complex
-        Array of beam values, with same shape as `az`. This will normally be 
+        Array of beam values, with shape (Nfreq, Naz). This will normally be 
         the square-root of a power beam.
     
     Returns
@@ -31,10 +31,13 @@ def modulate_with_dipole(az, beam_vals):
         where 2 = (theta, phi) directions, and N_feed = 2 is the number of 
         linearly-polarised feeds, assumed to be the 'n' and 'e' directions.
     """
+    # dipole_mod: (Naxes, Npol, Naz)
+    # beam_vals: (Nfreq, Naz)
     dipole_mod = (1. - 1.j) * np.array([[-np.sin(az), np.cos(az)], 
                                         [ np.cos(az), np.sin(az)]])
-    pol_beam = dipole_mod[:,np.newaxis,:,:] \
-             * beam_vals[np.newaxis,np.newaxis,np.newaxis,:]
+    pol_beam = dipole_mod[:,np.newaxis,:,np.newaxis,:] \
+             * beam_vals[np.newaxis,np.newaxis,np.newaxis,:,:]
+
     return pol_beam
 
 
@@ -42,7 +45,7 @@ def modulate_with_dipole(az, beam_vals):
 class PolyBeam(AnalyticBeam):
     
     def __init__(self, beam_coeffs=[], spectral_index=0.0, ref_freq=1e8, 
-                 polarized=True, **kwargs):
+                 polarized=False, **kwargs):
         """
         Analytic, azimuthally-symmetric beam model based on Chebyshev 
         polynomials.
@@ -68,7 +71,7 @@ class PolyBeam(AnalyticBeam):
             modulation factor to emulate a polarized beam response. If False, 
             the axisymmetric representation will be put in the (phi, n) 
             and (theta, e) elements of the Jones matrix returned by the 
-            `interp()` method. Default: True.
+            `interp()` method. Default: False.
         """
         self.ref_freq = ref_freq
         self.spectral_index = spectral_index

@@ -342,9 +342,9 @@ class VisCPU(VisibilitySimulator):
                     visfull[:,0,i,p] = vis_upper_tri.flatten()
                     # Shape: (Nblts, Nspws, Nfreqs, Npols)
             else:
-                # Only one polarization
+                # Only one polarization (vis is returned without first 2 dims)
                 indices = np.triu_indices(vis.shape[1])
-                vis_upper_tri = vis[p1,p2, :, indices[0], indices[1]]
+                vis_upper_tri = vis[:, indices[0], indices[1]]
                 visfull[:,0,i,0] = vis_upper_tri.flatten()
         
         # Reduce visfull array if in MPI mode
@@ -456,7 +456,7 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube=None, beam_list=None,
         ee visibilities.
         
         If False, a single Jones matrix element will be used, corresponding to 
-        the (theta, n) element, i.e. the [1,0,0] component of the beam returned 
+        the (phi, e) element, i.e. the [0,0,1] component of the beam returned 
         by its `interp()` method.
         
         See Eq. 6 of Kohn+ (arXiv:1802.04151) for notation.
@@ -544,8 +544,8 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube=None, beam_list=None,
             az, za = conversions.lm_to_az_za(tx, ty)       
             for i in range(nant):
                 interp_beam = beam_list[i].interp(az, za, np.atleast_1d(freq))[0]
-                if pol is None:
-                    A_s[:,:,i] = interp_beam[1,0,0] # (theta, n) component
+                if not polarized:
+                    A_s[:,:,i] = interp_beam[0,0,1] # (phi, e) component
                 else:
                     A_s[:,:,i] = interp_beam[:,0,:]
         
