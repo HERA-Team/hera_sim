@@ -283,6 +283,7 @@ class VisCPU(VisibilitySimulator):
             # Get x_orientation
             x_orient = self.uvdata.x_orientation
             if x_orient is None:
+                self.uvdata.x_orientation = 'e' # set in UVData object
                 x_orient = 'e' # default to east
             
             # Get polarization strings in terms of n/e feeds
@@ -545,9 +546,9 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube=None, beam_list=None,
             for i in range(nant):
                 interp_beam = beam_list[i].interp(az, za, np.atleast_1d(freq))[0]
                 if not polarized:
-                    A_s[:,:,i] = interp_beam[0,0,1] # (phi, e) component
+                    A_s[:,:,i] = interp_beam[0,0,1,:,:] # (phi, e) component
                 else:
-                    A_s[:,:,i] = interp_beam[:,0,:]
+                    A_s[:,:,i] = interp_beam[:,0,:,0,:] # spw=0 and freq=0 
         
         # Horizon cut
         A_s = np.where(tz > 0, A_s, 0)

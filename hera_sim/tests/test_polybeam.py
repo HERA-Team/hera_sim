@@ -26,28 +26,30 @@ def sources():
 
     return ra_dec, flux, spectral_index
 
-def beams(rotation, nants):
+def beams(rotation, nants, polarized=False):
     """
     Elliptical PerturbedPolyBeam.
 
     This will also test PolyBeam, from which PerturbedPolybeam is derived.
     """
-    cfg_beam = dict(ref_freq=1.e8,
-        spectral_index =        -0.6975,
-        perturb =               True,
-        mainlobe_width =        0.3 ,
-        nmodes=                8,
-        beam_coeffs=[ 0.29778665, -0.44821433, 0.27338272,
-                    -0.10030698, -0.01195859, 0.06063853,
-                    -0.04593295,  0.0107879,  0.01390283,
-                    -0.01881641, -0.00177106, 0.01265177,
-                    -0.00568299, -0.00333975, 0.00452368,
-                     0.00151808, -0.00593812, 0.00351559
-                    ] )
-    beams = [PerturbedPolyBeam(perturb_coeff=np.array([-0.20437532, -0.4864951,
-                    -0.18577532, -0.38053642,  0.08897764,  0.06367166,
-                    0.29634711,  1.40277112]),
-                mainlobe_scale=1.0, xstretch=1.1, ystretch=0.8, rotation=rotation, **cfg_beam)
+    cfg_beam = dict( ref_freq=1.e8,
+                     spectral_index=-0.6975,
+                     perturb=True,
+                     mainlobe_width=0.3,
+                     nmodes=8,
+                     beam_coeffs=[ 0.29778665, -0.44821433, 0.27338272,
+                                  -0.10030698, -0.01195859, 0.06063853,
+                                  -0.04593295,  0.0107879,  0.01390283,
+                                  -0.01881641, -0.00177106, 0.01265177,
+                                  -0.00568299, -0.00333975, 0.00452368,
+                                   0.00151808, -0.00593812, 0.00351559
+                                  ] )
+    beams = [PerturbedPolyBeam(
+                perturb_coeff=np.array([-0.20437532, -0.4864951, -0.18577532, 
+                                        -0.38053642,  0.08897764,  0.06367166,
+                                         0.29634711,  1.40277112]),
+                mainlobe_scale=1.0, xstretch=1.1, ystretch=0.8, 
+                rotation=rotation, polarized=polarized, **cfg_beam)
                 for i in range(nants)]
 
     return beams
@@ -61,11 +63,14 @@ class DummyMPIComm:
         return 2        # Pretend there are 2 processes
 
 
-def run_sim(beam_rotation, use_pixel_beams=True, use_gpu=False, use_mpi=False):
+def run_sim(beam_rotation, use_pixel_beams=True, use_gpu=False, use_pol=False, 
+            use_mpi=False, pol='xx'):
     """
     Run a simple sim using a rotated elliptic polybeam.
     """
-
+    pol_array = ['xx']
+    if use_pol:
+        pol_array = np.array(['yx', 'xy', 'yy', 'xx']) # yx, xy, yy, xx = ne, en, nn, ee
     ants = antennas()
 
     # Observing parameters in a UVData object.
@@ -76,7 +81,8 @@ def run_sim(beam_rotation, use_pixel_beams=True, use_gpu=False, use_mpi=False):
         start_time = 2458902.4,
         integration_time = 40,
         ntimes = 1,
-        ants = ants
+        ants = ants,
+        polarization_array=pol_array
     )
 
     freqs = np.unique(uvdata.freq_array)
@@ -88,20 +94,20 @@ def run_sim(beam_rotation, use_pixel_beams=True, use_gpu=False, use_mpi=False):
 
     simulator = VisCPU(
         uvdata = uvdata,
-        beams = beams(beam_rotation, len(ants.keys())),
+        beams = beams(beam_rotation, len(ants.keys()), polarized=use_pol),
         beam_ids = list(ants.keys()),
         sky_freqs = freqs,
         point_source_pos = ra_dec,
         point_source_flux = flux,
         use_pixel_beams = use_pixel_beams,
         use_gpu = use_gpu,
+        polarized=use_pol,
         mpi_comm = DummyMPIComm() if use_mpi else None,
         bm_pix = 200,
         precision = 2
     )
     simulator.simulate()
-
-    auto = np.abs(simulator.uvdata.get_data(0, 0, "XX")[0][0])
+    auto = np.abs(simulator.uvdata.get_data(0, 0, pol)[0][0])
 
     return auto
 
@@ -117,7 +123,8 @@ class TestPerturbedPolyBeam:
         calc_results = np.zeros(180+1)
         for r in range(0, 180+1):
             pix_result = run_sim(r, use_pixel_beams=True)
-            calc_result = run_sim(r, use_pixel_beams=False)     # Direct beam calculation - no pixel beams
+            # Direct beam calculation - no pixel beams
+            calc_result = run_sim(r, use_pixel_beams=False)
             #print(r, pix_result, calc_result)
             rotations[r] = r
             pix_results[r] = pix_result
@@ -146,4 +153,31 @@ class TestPerturbedPolyBeam:
         # Check that attempting to use GPU with MPI raises an error.
         with pytest.raises(RuntimeError):
             run_sim(r, use_gpu=True, use_mpi=True)
+    
+    
+    def test_perturbed_polybeam_polarized(self):
+        
+        # Rotate the beam from 0 to 180 degrees, and check that autocorrelation
+        # of antenna 0 has approximately the same value when pixel beams are
+        # used, and when pixel beams not used (direct beam calculation).
+        rotations = np.zeros(180+1)
+        calc_results_ee = np.zeros(180+1)
+        calc_results_nn = np.zeros(180+1)
+        calc_results_en = np.zeros(180+1)
+        calc_results_ne = np.zeros(180+1)
+        for r in range(0, 180+1):
+            calc_result_ee = run_sim(r, use_pixel_beams=False, use_pol=True, pol='ee')
+            calc_result_nn = run_sim(r, use_pixel_beams=False, use_pol=True, pol='nn') 
+            calc_result_en = run_sim(r, use_pixel_beams=False, use_pol=True, pol='en') 
+            calc_result_ne = run_sim(r, use_pixel_beams=False, use_pol=True, pol='ne') 
+            rotations[r] = r
+            calc_results_ee[r] = calc_result_ee
+            calc_results_nn[r] = calc_result_nn
+            calc_results_en[r] = calc_result_en
+            calc_results_ne[r] = calc_result_ne
+
+        # Check that attempting to use GPU with Polybeam raises an error.
+        with pytest.raises(NotImplementedError):
+            run_sim(r, use_pixel_beams=True, use_gpu=False, use_pol=True) 
+
 
