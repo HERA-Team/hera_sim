@@ -3,6 +3,7 @@ from builtins import range
 import numpy as np
 from scipy.interpolate import RectBivariateSpline
 import healpy
+import pyuvdata
 
 from . import conversions
 from .simulators import VisibilitySimulator
@@ -18,28 +19,36 @@ class VisCPU(VisibilitySimulator):
     replaced by vis_gpu. It extends :class:`VisibilitySimulator`.
     """
 
-    def __init__(self, bm_pix=100, use_pixel_beams=True, precision=1,
-                 use_gpu=False, mpi_comm=None, **kwargs):
+    def __init__(self, bm_pix=100, use_pixel_beams=True, polarized=False, 
+                 precision=1, use_gpu=False, mpi_comm=None, **kwargs):
         """
         Parameters
         ----------
         bm_pix : int, optional
             The number of pixels along a side in the beam map when
             converted to (l, m) coordinates. Defaults to 100.
+        
         use_pixel_beams : bool, optional
             Whether to use primary beams that have been pixelated onto a 2D 
             grid, or directly evaluate the primary beams using the available 
             UVBeam objects. Default: True.
+        
+        polarized: bool, optional
+            Whether to simulate a full polarized response. Default: False.
+        
         precision : int, optional
             Which precision level to use for floats and complex numbers. 
             Allowed values:
                 - 1: float32, complex64
                 - 2: float64, complex128
             Default: 1.
+        
         use_gpu : bool, optional
             Whether to use the GPU version of vis_cpu or not. Default: False.
+        
         mpi_comm : MPI communicator
             MPI communicator, for parallelization.
+        
         **kwargs
             Arguments of :class:`VisibilitySimulator`.
         """
@@ -67,7 +76,8 @@ class VisCPU(VisibilitySimulator):
                 )
         else:
             self._vis_cpu = vis_cpu
-
+        
+        self.polarized = polarized
         self.use_gpu = use_gpu 
         self.bm_pix = bm_pix
         self.use_pixel_beams = use_pixel_beams
@@ -84,7 +94,7 @@ class VisCPU(VisibilitySimulator):
                 raise ValueError("Specified %d beams for %d antennas" \
                                   % (len(self.beams), len(self.beam_ids)))
             
-            # # If there is only one beam, assume it's the same for all ants
+            # If there is only one beam, assume it's the same for all ants
             if len(self.beams) == 1:
                 beam = self.beams[0]
                 self.beams = [beam for b in self.beam_ids]
@@ -127,7 +137,9 @@ class VisCPU(VisibilitySimulator):
             return self.__lsts
 
     def validate(self):
-        """Checks for correct input format."""
+        """
+        Checks for correct input format.
+        """
         super(VisCPU, self).validate()
 
         # This one in particular requires that every baseline is used!
@@ -148,6 +160,7 @@ class VisCPU(VisibilitySimulator):
             for ant in self.ant_list:
                 assert len(np.where(self.beam_ids == ant)[0]), \
                        "No beam found for antenna %d" % ant
+                       
         
     def get_beam_lm(self):
         """
@@ -156,8 +169,9 @@ class VisCPU(VisibilitySimulator):
         Returns
         -------
         array_like
-            The beam pattern in (l,m) for each antenna.
-            Shape=(NANT, BM_PIX, BM_PIX).
+            The beam pattern in (l,m) for each antenna. If `self.polarized=True`, 
+            its shape is (NAXES, NFEEDS, NANT, BM_PIX, BM_PIX), otherwise 
+            (NANT, BM_PIX, BM_PIX).
 
         Notes
         -----
@@ -169,7 +183,10 @@ class VisCPU(VisibilitySimulator):
         """
         return np.asarray([
             conversions.uvbeam_to_lm(
-                self.beams[np.where(self.beam_ids == ant)[0][0]], self.freqs, self.bm_pix
+                                self.beams[np.where(self.beam_ids == ant)[0][0]],
+                                self.freqs,
+                                self.bm_pix,
+                                polarized=self.polarized
             ) for ant in self.ant_list
         ])
 
@@ -224,12 +241,25 @@ class VisCPU(VisibilitySimulator):
     def _base_simulate(self, crd_eq, I):
         """
         Calls :func:vis_cpu to perform the visibility calculation.
-
+        
+        Parameters
+        ----------
+        crd_eq : array_like
+            Rotation matrix to convert between source coords and equatorial 
+            coords.
+        
+        I : array_like
+            Flux for each source in each frequency channel.
+        
         Returns
         -------
         array_like of self._complex_dtype
             Visibilities. Shape=self.uvdata.data_array.shape.
         """
+        if self.use_gpu and self.polarized:
+            raise NotImplementedError("use_gpu not currently supported if "
+                                      "polarized=True")
+            
         # Setup MPI info if enabled
         if self.mpi_comm is not None:
             myid = self.mpi_comm.Get_rank()
@@ -241,10 +271,42 @@ class VisCPU(VisibilitySimulator):
         # Get pixelized beams if required
         if self.use_pixel_beams:
             beam_lm = self.get_beam_lm()
+            if not self.polarized:
+                beam_lm = beam_lm[np.newaxis,np.newaxis,:,:,:]
         else:
             beam_list = [self.beams[np.where(self.beam_ids == ant)[0][0]] 
                          for ant in self.ant_list]
+        
+        # Get required pols and map them to the right output index
+        if self.polarized:
+            avail_pols = {'nn': (0,0), 'ne': (0,1), 'en': (1,0), 'ee': (1,1)}
+        else:
+            avail_pols = {'ee': (1,1),} # only xx = ee
+        
+        req_pols = []
+        for pol in self.uvdata.polarization_array:
             
+            # Get x_orientation
+            x_orient = self.uvdata.x_orientation
+            if x_orient is None:
+                self.uvdata.x_orientation = 'e' # set in UVData object
+                x_orient = 'e' # default to east
+            
+            # Get polarization strings in terms of n/e feeds
+            polstr = pyuvdata.utils.polnum2str(pol, 
+                                               x_orientation=x_orient).lower()
+            
+            # Check if polarization can be formed
+            if polstr not in avail_pols.keys():
+                raise KeyError("Simulation UVData object expecting polarization"
+                               " '%s', but only polarizations %s can be formed." 
+                               % (polstr, list(avail_pols.keys())))
+            
+            # If polarization can be formed, specify which is which in the 
+            # output polarization_array (ordered list)
+            req_pols.append(avail_pols[polstr])
+        
+        # Empty visibility array
         visfull = np.zeros_like(self.uvdata.data_array,
                                 dtype=self._complex_dtype)
         
@@ -262,8 +324,9 @@ class VisCPU(VisibilitySimulator):
                     eq2tops=eq2tops,
                     crd_eq=crd_eq,
                     I_sky=I[i],
-                    bm_cube=beam_lm[:, i],
-                    precision=self._precision
+                    bm_cube=beam_lm[:,:,:,i],
+                    precision=self._precision,
+                    polarized=self.polarized
                 )
             else:
                 # Use UVBeam objects directly
@@ -274,13 +337,23 @@ class VisCPU(VisibilitySimulator):
                     crd_eq=crd_eq,
                     I_sky=I[i],
                     beam_list=beam_list,
-                    precision=self._precision
+                    precision=self._precision,
+                    polarized=self.polarized
                 )
-
-            indices = np.triu_indices(vis.shape[1])
-            vis_upper_tri = vis[:, indices[0], indices[1]]
-
-            visfull[:, 0, i, 0] = vis_upper_tri.flatten()
+            
+            # Assign simulated visibilities to UVData data_array
+            if self.polarized:
+                indices = np.triu_indices(vis.shape[3])
+                for p, pidxs in enumerate(req_pols):
+                    p1, p2 = pidxs
+                    vis_upper_tri = vis[p1,p2,:,indices[0],indices[1]]
+                    visfull[:,0,i,p] = vis_upper_tri.flatten()
+                    # Shape: (Nblts, Nspws, Nfreqs, Npols)
+            else:
+                # Only one polarization (vis is returned without first 2 dims)
+                indices = np.triu_indices(vis.shape[1])
+                vis_upper_tri = vis[:, indices[0], indices[1]]
+                visfull[:,0,i,0] = vis_upper_tri.flatten()
         
         # Reduce visfull array if in MPI mode
         if self.mpi_comm is not None:
@@ -343,7 +416,7 @@ class VisCPU(VisibilitySimulator):
 
 
 def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube=None, beam_list=None,
-            precision=1):
+            precision=1, polarized=False):
     """
     Calculate visibility from an input intensity map and beam model.
 
@@ -353,36 +426,56 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube=None, beam_list=None,
     ----------
     antpos : array_like
         Antenna position array. Shape=(NANT, 3).
+    
     freq : float
         Frequency to evaluate the visibilities at [GHz].
+    
     eq2tops : array_like
         Set of 3x3 transformation matrices converting equatorial
         coordinates to topocentric at each
         hour angle (and declination) in the dataset.
         Shape=(NTIMES, 3, 3).
+    
     crd_eq : array_like
         Equatorial coordinates of Healpix pixels, in Cartesian system.
         Shape=(3, NPIX).
+    
     I_sky : array_like
         Intensity distribution on the sky,
         stored as array of Healpix pixels. Shape=(NPIX,).
+    
     bm_cube : array_like, optional
         Pixelized beam maps for each antenna. Shape=(NANT, BM_PIX, BM_PIX).
+    
     beam_list : list of UVBeam, optional
         If specified, evaluate primary beam values directly using UVBeam 
         objects instead of using pixelized beam maps (`bm_cube` will be ignored 
         if `beam_list` is not None).
+    
     precision : int, optional
         Which precision level to use for floats and complex numbers. 
         Allowed values:
             - 1: float32, complex64
             - 2: float64, complex128
         Default: 1.
-
+    
+    polarized : bool, optional
+        Whether to simulate a full polarized response in terms of nn, ne, en, 
+        ee visibilities.
+        
+        If False, a single Jones matrix element will be used, corresponding to 
+        the (phi, e) element, i.e. the [0,0,1] component of the beam returned 
+        by its `interp()` method.
+        
+        See Eq. 6 of Kohn+ (arXiv:1802.04151) for notation.
+        Default: False.
+    
     Returns
     -------
-    array_like
-        Visibilities. Shape=(NTIMES, NANTS, NANTS).
+    vis : array_like, complex
+        Simulated visibilities. If `polarized = True`, the output will have 
+        shape (NAXES, NFEED, NTIMES, NANTS, NANTS), otherwise it will have 
+        shape (NTIMES, NANTS, NANTS).
     """
     assert precision in (1,2)
     if precision == 1:
@@ -391,6 +484,12 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube=None, beam_list=None,
     else:
         real_dtype=np.float64
         complex_dtype=np.complex128
+    
+    # Specify number of polarizations (axes/feeds)
+    if polarized:
+        nax = nfeed = 2
+    else:
+        nax = nfeed = 1
     
     if bm_cube is None and beam_list is None:
         raise RuntimeError("One of bm_cube/beam_list must be specified")
@@ -408,11 +507,8 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube=None, beam_list=None,
     
     if beam_list is None:
         bm_pix = bm_cube.shape[-1]
-        assert bm_cube.shape == (
-            nant,
-            bm_pix,
-            bm_pix,
-        ), "bm_cube must have shape (NANTS, BM_PIX, BM_PIX)."
+        assert bm_cube.shape == (nax, nfeed, nant, bm_pix, bm_pix), \
+            "bm_cube must have shape (NAXES, NFEEDS, NANTS, BM_PIX, BM_PIX)."
     else:
         assert len(beam_list) == nant, "beam_list must have length nant"
 
@@ -422,10 +518,10 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube=None, beam_list=None,
     antpos = antpos.astype(real_dtype)
 
     ang_freq = 2 * np.pi * freq
-
+    
     # Empty arrays: beam pattern, visibilities, delays, complex voltages.
-    A_s = np.empty((nant, npix), dtype=real_dtype)
-    vis = np.empty((ntimes, nant, nant), dtype=complex_dtype)
+    A_s = np.empty((nax, nfeed, nant, npix), dtype=real_dtype)
+    vis = np.empty((nax, nfeed, ntimes, nant, nant), dtype=complex_dtype)
     tau = np.empty((nant, npix), dtype=real_dtype)
     v = np.empty((nant, npix), dtype=complex_dtype)
     crd_eq = crd_eq.astype(real_dtype)
@@ -434,12 +530,24 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube=None, beam_list=None,
     if beam_list is None:
         bm_pix_x = np.linspace(-1, 1, bm_pix)
         bm_pix_y = np.linspace(-1, 1, bm_pix)
-    
+        
+        # Construct splines for each polarization (pol. vector axis + feed) and 
+        # antenna. The `splines` list has shape (Naxes, Nfeeds, Nants).
         splines = []
-        for i in range(nant):
-            # Linear interpolation of primary beam pattern.
-            spl = RectBivariateSpline(bm_pix_y, bm_pix_x, bm_cube[i], kx=1, ky=1)
-            splines.append(spl)
+        for p1 in range(nax):
+            spl_axes = []
+            for p2 in range(nfeed):
+                spl_feeds = []
+                
+                # Loop over antennas
+                for i in range(nant):
+                    # Linear interpolation of primary beam pattern.
+                    spl = RectBivariateSpline(bm_pix_y, bm_pix_x, 
+                                              bm_cube[p1,p2,i], 
+                                              kx=1, ky=1)
+                    spl_feeds.append(spl)
+                spl_axes.append(spl_feeds)
+            splines.append(spl_axes)
             
     # Loop over time samples
     for t, eq2top in enumerate(eq2tops.astype(real_dtype)):
@@ -449,15 +557,22 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube=None, beam_list=None,
         if beam_list is None:
             # Primary beam pattern using pixelized primary beam
             for i in range(nant):
-                A_s[i] = splines[i](ty, tx, grid=False)
-                # TODO: Try using a log-space beam for accuracy!
+                # Extract requested polarizations
+                for p1 in range(nax):
+                    for p2 in range(nfeed):
+                        A_s[p1,p2,i] = splines[p1][p2][i](ty, tx, grid=False)
         else:
             # Primary beam pattern using direct interpolation of UVBeam object
             az, za = conversions.lm_to_az_za(tx, ty)       
             for i in range(nant):
                 interp_beam = beam_list[i].interp(az, za, np.atleast_1d(freq))[0]
-                A_s[i] = interp_beam[0,0,1] # FIXME: assumes xx pol for now
+                
+                if polarized:
+                    A_s[:,:,i] = interp_beam[:,0,:,0,:] # spw=0 and freq=0
+                else:
+                    A_s[:,:,i] = interp_beam[0,0,1,:,:] # (phi, e) == 'xx' component
         
+        # Horizon cut
         A_s = np.where(tz > 0, A_s, 0)
 
         # Calculate delays, where tau = (b * s) / c
@@ -468,12 +583,23 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube=None, beam_list=None,
         # (actually, b = (antpos1 - antpos2) * crd_top / c; need dot product 
         # below to build full phase factor for a given baseline)
         np.exp(1.j * (ang_freq * tau), out=v)
-
+        
         # Complex voltages.
-        v *= A_s * Isqrt
+        v *= Isqrt
 
         # Compute visibilities using product of complex voltages (upper triangle).
+        # Input arrays have shape (Nax, Nfeed, [Nants], Npix
         for i in range(len(antpos)):
-            np.dot(v[i:i+1].conj(), v[i:].T, out=vis[t, i:i+1, i:])
-
-    return vis
+            vis[:, :, t, i:i+1, i:] = np.einsum(
+                                        'ijln,jkmn->iklm',
+                                        A_s[:,:,i:i+1].conj() \
+                                        * v[np.newaxis,np.newaxis,i:i+1].conj(), 
+                                        A_s[:,:,i:] \
+                                        * v[np.newaxis,np.newaxis,i:],
+                                        optimize=True )
+    
+    # Return visibilities with or without multiple polarization channels
+    if polarized:
+        return vis
+    else:
+        return vis[0,0]
