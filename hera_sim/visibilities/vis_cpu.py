@@ -485,6 +485,12 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube=None, beam_list=None,
         real_dtype=np.float64
         complex_dtype=np.complex128
     
+    # Specify number of polarizations (axes/feeds)
+    if polarized:
+        nax = nfeed = 2
+    else:
+        nax = nfeed = 1
+    
     if bm_cube is None and beam_list is None:
         raise RuntimeError("One of bm_cube/beam_list must be specified")
     if bm_cube is not None and beam_list is not None:
@@ -501,11 +507,8 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube=None, beam_list=None,
     
     if beam_list is None:
         bm_pix = bm_cube.shape[-1]
-        assert bm_cube.shape == (
-            nant,
-            bm_pix,
-            bm_pix,
-        ), "bm_cube must have shape (NANTS, BM_PIX, BM_PIX)."
+        assert bm_cube.shape == (nax, nfeed, nant, bm_pix, bm_pix), \
+            "bm_cube must have shape (NAXES, NFEEDS, NANTS, BM_PIX, BM_PIX)."
     else:
         assert len(beam_list) == nant, "beam_list must have length nant"
 
@@ -515,12 +518,6 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube=None, beam_list=None,
     antpos = antpos.astype(real_dtype)
 
     ang_freq = 2 * np.pi * freq
-    
-    # Specify number of polarizations (axes/feeds)
-    if polarized:
-        nax = nfeed = 2
-    else:
-        nax = nfeed = 1
     
     # Empty arrays: beam pattern, visibilities, delays, complex voltages.
     A_s = np.empty((nax, nfeed, nant, npix), dtype=real_dtype)
@@ -563,7 +560,7 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube=None, beam_list=None,
                 # Extract requested polarizations
                 for p1 in range(nax):
                     for p2 in range(nfeed):
-                        A_s[p1,p2,i] = splines[p1,p2,i](ty, tx, grid=False)
+                        A_s[p1,p2,i] = splines[p1][p2][i](ty, tx, grid=False)
         else:
             # Primary beam pattern using direct interpolation of UVBeam object
             az, za = conversions.lm_to_az_za(tx, ty)       

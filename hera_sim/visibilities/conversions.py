@@ -54,8 +54,8 @@ def uvbeam_to_lm(uvbeam, freqs, n_pix_lm=63, polarized=False, **kwargs):
     
     # Peak normalization and reshape output
     if polarized:
-        Naxes = efield_beam.shape[0] # polarization vector axes
-        Nfeeds = efield_beam.shape[1] # polarized feeds
+        Naxes = bm.shape[0] # polarization vector axes
+        Nfeeds = bm.shape[1] # polarized feeds
         
         # Separately normalize each polarization channel
         for i in range(Naxes):

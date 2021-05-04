@@ -170,9 +170,5 @@ class TestPerturbedPolyBeam:
         # Check that ee + nn == unpol, since V_pI = 0.5 * (V_nn + V_ee)
         unpol = 0.5 * (calc_result_ee + calc_result_nn)
         np.testing.assert_almost_equal(unpol, calc_result_unpol, decimal=7)
-        
-        # Check that attempting to use GPU with Polybeam raises an error.
-        with pytest.raises(NotImplementedError):
-            run_sim(r, use_pixel_beams=True, use_gpu=False, use_pol=True) 
 
 
