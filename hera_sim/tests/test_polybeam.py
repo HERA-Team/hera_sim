@@ -157,25 +157,20 @@ class TestPerturbedPolyBeam:
     
     def test_perturbed_polybeam_polarized(self):
         
-        # Rotate the beam from 0 to 180 degrees, and check that autocorrelation
-        # of antenna 0 has approximately the same value when pixel beams are
-        # used, and when pixel beams not used (direct beam calculation).
-        rotations = np.zeros(180+1)
-        calc_results_ee = np.zeros(180+1)
-        calc_results_nn = np.zeros(180+1)
-        calc_results_en = np.zeros(180+1)
-        calc_results_ne = np.zeros(180+1)
-        for r in range(0, 180+1):
-            calc_result_ee = run_sim(r, use_pixel_beams=False, use_pol=True, pol='ee')
-            calc_result_nn = run_sim(r, use_pixel_beams=False, use_pol=True, pol='nn') 
-            calc_result_en = run_sim(r, use_pixel_beams=False, use_pol=True, pol='en') 
-            calc_result_ne = run_sim(r, use_pixel_beams=False, use_pol=True, pol='ne') 
-            rotations[r] = r
-            calc_results_ee[r] = calc_result_ee
-            calc_results_nn[r] = calc_result_nn
-            calc_results_en[r] = calc_result_en
-            calc_results_ne[r] = calc_result_ne
-
+        # Calculate all polarizations for a beam rotated by 12 degrees
+        r = 12. # degrees
+        calc_result_ee = run_sim(r, use_pixel_beams=False, use_pol=True, pol='ee')
+        calc_result_nn = run_sim(r, use_pixel_beams=False, use_pol=True, pol='nn') 
+        calc_result_en = run_sim(r, use_pixel_beams=False, use_pol=True, pol='en') 
+        calc_result_ne = run_sim(r, use_pixel_beams=False, use_pol=True, pol='ne') 
+        
+        # Calculate with unrotated, unpolarized beam
+        calc_result_unpol = run_sim(r, use_pixel_beams=False, use_pol=False, pol='ee')
+        
+        # Check that ee + nn == unpol, since V_pI = 0.5 * (V_nn + V_ee)
+        unpol = 0.5 * (calc_result_ee + calc_result_nn)
+        np.testing.assert_almost_equal(unpol, calc_result_unpol, decimal=7)
+        
         # Check that attempting to use GPU with Polybeam raises an error.
         with pytest.raises(NotImplementedError):
             run_sim(r, use_pixel_beams=True, use_gpu=False, use_pol=True) 
