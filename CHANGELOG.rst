@@ -3,6 +3,28 @@ Changelog
 =========
 
 
+v0.4.0 [2021.05.01]
+===================
+
+Added
+-----
+
+- New features added to ``vis_cpu``
+    - Analytic beam interpolation
+        - Instead of gridding the beam and interpolating the grid using splines,
+          the beam can be interpolated directly by calling its ``interp`` method.
+        - The user specifies this by passing ``use_pixel_beams=False`` to ``vis_cpu``.
+    - A simple MPI parallelization scheme
+        - Simulation scripts may be run using ``mpirun/mpiexec``
+        - The user imports ``mpi4py`` into their script and passes
+          ``mpi_comm=MPI.COMM_WORLD`` to vis_cpu
+    - New ``PolyBeam`` and ``PerturbedPolyBeam`` analytic beams (classes)
+        - Derived from ``pyuvsim.Analytic beam``
+        - Based on axisymmetric Chebyshev polynomial fits to the Fagnoni beam.
+        - PerturbedPolyBeam is capable of expressing a range of non-redundancy effects,
+          including per-beam stretch factors, perturbed sidelobes, and
+          ellipticity/rotation.
+
 v0.3.0 [2019.12.10]
 ===================
 

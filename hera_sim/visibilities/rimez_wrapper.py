@@ -1,6 +1,5 @@
 """
-Wrapper around the healvis package for producing visibilities from
-healpix maps.
+Wrapper around the RIMEz package.
 """
 
 import healpy
