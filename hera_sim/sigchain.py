@@ -17,7 +17,8 @@ import aipy
 
 @registry
 class Gain:
-    # TODO: docstring
+    """Base class for systematic gains."""
+
     pass
 
 
@@ -25,15 +26,37 @@ class Bandpass(Gain, is_multiplicative=True):
     _alias = ("gains", "bandpass_gain")
 
     def __init__(self, gain_spread=0.1, dly_rng=(-20, 20), bp_poly=None):
-        # TODO: docstring
-        """
+        """Generate bandpass gains.
+
+        Parameters
+        ----------
+        gain_spread : float, optional
+            Standard deviation of random gains.
+        dly_rng : tuple, optional
+            Lower and upper range of delays which are uniformly sampled.
+        bp_poly : callable or array_like, optional
+            If an array, polynomial coefficients to evaluate. Otherwise, a function
+            of frequency that can be evaluated to generate real numbers giving
+            the bandpass gain.
 
         """
         super().__init__(gain_spread=gain_spread, dly_rng=dly_rng, bp_poly=bp_poly)
 
     def __call__(self, freqs, ants, **kwargs):
-        # TODO: docstring
-        """
+        """Generate the bandpass
+
+        Parameters
+        ----------
+        freqs : array_like of float
+            Frequencies in GHz.
+        ants : array_like of int
+            Antenna numbers for which to produce gains.
+
+        Returns
+        -------
+        dict
+            Keys are antenna numbers and values are arrays of bandpass
+            gains as a function of frequency.
         """
         # validate kwargs
         self._check_kwargs(**kwargs)
@@ -86,16 +109,44 @@ class Reflections(Gain, is_multiplicative=True):
     def __init__(
         self, amp=None, dly=None, phs=None, conj=False, amp_jitter=0, dly_jitter=0
     ):
-        # TODO: docstring
-        """
+        """Produce multiplicative reflection gains.
+
+        Parameters
+        ----------
+        amp : float, optional
+            Mean Aamplitude of the reflection gains.
+        dly : float, optional
+            Mean delay of the reflection gains.
+        phs : float, optional
+            Phase of the reflection gains.
+        conj : bool, optional
+            Whether to conjugate the gain.
+        amp_jitter : float, optional
+            Final amplitudes are multiplied by a normal variable with mean one, and
+            with standard deviation of ``amp_jitter``.
+        dly_jitter : float, optional
+            Final delays are offset by a normal variable with mean
+            zero and standard deviation ``dly_jitter``.
         """
         super().__init__(
             amp=amp, dly=dly, phs=phs, conj=conj, amp_jitter=0, dly_jitter=0
         )
 
     def __call__(self, freqs, ants, **kwargs):
-        # TODO: docstring
-        """
+        """Generate the bandpass
+
+        Parameters
+        ----------
+        freqs : array_like of float
+            Frequencies in GHz.
+        ants : array_like of int
+            Antenna numbers for which to produce gains.
+
+        Returns
+        -------
+        dict
+            Keys are antenna numbers and values are arrays of bandpass
+            gains.
         """
         # check the kwargs
         self._check_kwargs(**kwargs)
@@ -123,8 +174,28 @@ class Reflections(Gain, is_multiplicative=True):
 
     @staticmethod
     def gen_reflection_coefficient(freqs, amp, dly, phs, conj=False):
-        # TODO: docstring
-        """
+        """Randomly generate reflection coefficients.
+
+        Parameters
+        ----------
+        freqs : array_like of float
+            Frequencies, units GHz.
+        amp : array_like of float
+            Either a scalar amplitude, or 1D with size Nfreqs, or 2D
+            with shape (Ntimes, Nfreqs).
+        dly : [type]
+            Either a scalar delay, or 1D with size Nfreqs, or 2D
+            with shape (Ntimes, Nfreqs).
+        phs : [type]
+            Either a scalar phase, or 1D with size Nfreqs, or 2D
+            with shape (Ntimes, Nfreqs).
+        conj : bool, optional
+            Whether to conjugate the gain.
+
+        Returns
+        -------
+        array_like
+            The reflection gains as a 2D array of (Ntimes, Nfreqs).
         """
         # this is copied directly from the old sigchain module
         # TODO: make this cleaner
@@ -231,6 +302,8 @@ class Reflections(Gain, is_multiplicative=True):
 
 @registry
 class Crosstalk:
+    """Base class for cross-talk models."""
+
     pass
 
 
@@ -240,8 +313,22 @@ class CrossCouplingCrosstalk(Crosstalk, Reflections):
     def __init__(
         self, amp=None, dly=None, phs=None, conj=False, amp_jitter=0, dly_jitter=0
     ):
-        # TODO: docstring
-        """
+        """Generate cross-coupling xtalk.
+
+        Parameters
+        ----------
+        amp : [type], optional
+            [description], by default None
+        dly : [type], optional
+            [description], by default None
+        phs : [type], optional
+            [description], by default None
+        conj : bool, optional
+            [description], by default False
+        amp_jitter : int, optional
+            [description], by default 0
+        dly_jitter : int, optional
+            [description], by default 0
         """
         super().__init__(
             amp=amp, dly=dly, phs=phs, conj=conj, amp_jitter=0, dly_jitter=0
@@ -407,6 +494,8 @@ def vary_gains_in_time(
     """
     Vary gain amplitudes, phases, or delays in time.
 
+    Notes
+    -----
     If the gains initially have the form
 
     :math:`g(\\nu) = g_0(\\nu)\\exp(i2\\pi\\nu\\tau + i\\phi),`
@@ -470,7 +559,7 @@ def vary_gains_in_time(
 
     times = np.array(times)
     gain_shapes = [np.array(gain).shape for gain in gains.values()]
-    if not all(gain_shape == gain_shapes[0] for gain_shape in gain_shapes):
+    if any(gain_shape != gain_shapes[0] for gain_shape in gain_shapes):
         raise ValueError("Gains must all have the same shape.")
     gain_shape = gain_shapes[0]
 

@@ -31,30 +31,30 @@ class Defaults:
     Examples
     --------
     To set the default parameters to those appropriate for the H2C
-    observing season (and activate the use of those defaults):
+    observing season (and activate the use of those defaults)::
 
-    hera_sim.defaults.set('h2c')
+        hera_sim.defaults.set('h2c')
 
     To set the defaults to a custom set of defaults, you must first
     create a configuration YAML. Assuming the path to the YAML is
     stored in the variable `config_path`, these defaults would be set
-    via the following line:
+    via the following line::
 
-    hera_sim.defaults.set(config_path)
+        hera_sim.defaults.set(config_path)
 
-    To revert back to using defaults defined in function signatures:
+    To revert back to using defaults defined in function signatures::
 
-    hera_sim.defaults.deactivate()
+        hera_sim.defaults.deactivate()
 
-    To view what the default value is for a particular parameter, do:
+    To view what the default value is for a particular parameter, do::
 
-    hera_sim.defaults(parameter),
+        hera_sim.defaults(parameter),
 
     where `parameter` is a string with the name of the parameter as
     listed in the configuration file. To view the entire set of default
-    parameters, use:
+    parameters, use::
 
-    hera_sim.defaults()
+        hera_sim.defaults()
     """
 
     def __init__(self, config=None):
@@ -83,58 +83,58 @@ class Defaults:
         Examples
         --------
 
-        Consider the following contents of a configuration file:
+        Consider the following contents of a configuration file::
 
-        foregrounds:
-            Tsky_mdl: !Tsky
-                datafile: HERA_Tsky_Reformatted.npz
-            seed_redundantly: True
-            nsrcs: 500
-        gains:
-            gain_spread: 0.1
-            dly_rng: [-10, 10]
-            bp_poly: HERA_H1C_BANDPASS.npy
-
-        This would result in the following set of defaults:
-
-        {Tsky_mdl: <hera_sim.interpolators.Tsky instance>,
-         seed_redundantly: True,
-         nsrcs: 500,
-         gain_spread: 0.1,
-         dly_rng: [-10,10]
-         bp_poly: HERA_H1C_BANDPASS.npy
-         }
-
-        Now consider a different configuration file:
-
-        sky:
-            eor:
-                eor_amp: 0.001
-        systematics:
-            rfi:
-                rfi_stations:
-                    stations: !!null
-                rfi_impulse:
-                    chance: 0.01
-                rfi_scatter:
-                    chance: 0.35
-            crosstalk:
-                amplitude: 1.25
+            foregrounds:
+                Tsky_mdl: !Tsky
+                    datafile: HERA_Tsky_Reformatted.npz
+                seed_redundantly: True
+                nsrcs: 500
             gains:
-                gain_spread: 0.2
-            noise:
-                Trx: 150
+                gain_spread: 0.1
+                dly_rng: [-10, 10]
+                bp_poly: HERA_H1C_BANDPASS.npy
+
+        This would result in the following set of defaults::
+
+            {Tsky_mdl: <hera_sim.interpolators.Tsky instance>,
+            seed_redundantly: True,
+            nsrcs: 500,
+            gain_spread: 0.1,
+            dly_rng: [-10,10]
+            bp_poly: HERA_H1C_BANDPASS.npy
+            }
+
+        Now consider a different configuration file::
+
+            sky:
+                eor:
+                    eor_amp: 0.001
+            systematics:
+                rfi:
+                    rfi_stations:
+                        stations: !!null
+                    rfi_impulse:
+                        chance: 0.01
+                    rfi_scatter:
+                        chance: 0.35
+                crosstalk:
+                    amplitude: 1.25
+                gains:
+                    gain_spread: 0.2
+                noise:
+                    Trx: 150
 
         Since the parser recursively unpacks the raw configuration
-        dictionary until no entry is nested, the resulting config is:
+        dictionary until no entry is nested, the resulting config is::
 
-        {eor_amp: 0.001,
-         stations: None,
-         chance: 0.35,
-         amplitude: 1.25,
-         gain_spread: 0.2,
-         Trx: 150
-         }
+            {eor_amp: 0.001,
+            stations: None,
+            chance: 0.35,
+            amplitude: 1.25,
+            gain_spread: 0.2,
+            Trx: 150
+            }
         """
         self._raw_config = {}
         self._config = {}
@@ -149,12 +149,14 @@ class Defaults:
             try:
                 return self._config[component]
             except KeyError:
-                raise KeyError("{} not found in configuration.".format(component))
+                raise KeyError(f"{component} not found in configuration.")
         else:
             return self._config
 
     def set(self, new_config, refresh=False):
         """Set the defaults to those specified in `new_config`.
+
+        Also activates those defaults.
 
         Parameters
         ----------
@@ -162,14 +164,9 @@ class Defaults:
             Absolute path to configuration file or dictionary of
             configuration parameters formatted in the same way a
             configuration would be loaded.
-
         refresh : bool, optional
             Choose whether to completely overwrite the old config or
             just add new values to it.
-
-        Notes
-        -----
-        Calling this method also activates the defaults.
         """
         if refresh:
             self._config = {}

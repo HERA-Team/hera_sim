@@ -9,15 +9,47 @@ from pathlib import Path
 
 @registry
 class RFI:
+    """Base class for RFI models."""
+
     pass
 
 
 class RfiStation:
-    # TODO: docstring
-    """
-    """
+    def __init__(
+        self,
+        f0: float,
+        duty_cycle: float = 1.0,
+        strength: float = 100.0,
+        std: float = 10.0,
+        timescale: float = 100.0,
+    ):
+        """Generate RFI based on a particular "station".
 
-    def __init__(self, f0, duty_cycle=1.0, strength=100.0, std=10.0, timescale=100.0):
+        Parameters
+        ----------
+        f0 : float
+            Frequency that the station transmits (any units are fine).
+        duty_cycle : float, optional
+            With ``timescale``, controls how long the station is seen as "on". In particular,
+            ``duty_cycle`` specifies which parts of the station's cycle are considered "on".
+            Can be considered roughly a percentage of on time.
+        strength : float, optional
+            Mean magnitude of the transmission.
+        std : float, optional
+            Standard deviation of the random RFI magnitude.
+        timescale : float, optional
+            Controls the length of a transmision "cycle". Low points in the sin-wave cycle
+            are considered "off" and high points are considered "on" (just how high is
+            controlled by ``duty_cycle``). This is the wavelength (in seconds) of that cycle.
+
+        Notes
+        -----
+        This creates RFI with random magnitude in each time bin based on a normal distribution, with
+        custom strength and variability. RFI is assumed to exist in one frequency channel, with some
+        spillage into an adjacent channel, proportional to the distance to that channel from the
+        station's frequency. It is not assumed to be always on, but turns on for some amount of time
+        at regular intervals.
+        """
         self.f0 = f0
         self.duty_cycle = duty_cycle
         self.strength = strength
@@ -25,8 +57,20 @@ class RfiStation:
         self.timescale = timescale
 
     def __call__(self, lsts, freqs):
-        # TODO: docstring
-        """
+        """Compute the RFI for this station.
+
+        Parameters
+        ----------
+        lsts : array-like
+            LSTs at which to generate the RFI.
+        freqs : array-like of float
+            Frequencies in units of ``f0``.
+
+
+        Returns
+        -------
+        array-like
+            2D array of RFI magnitudes as a function of LST and frequency.
         """
         # initialize an array for storing the rfi
         rfi = np.zeros((lsts.size, freqs.size), dtype=np.complex128)
@@ -52,7 +96,7 @@ class RfiStation:
 
         # find out when the station is broadcasting
         is_on = 0.999 * np.cos(lsts * u.sday.to("s") / self.timescale + phs1)
-        is_on = np.where(is_on > 1 - 2 * self.duty_cycle, True, False)
+        is_on = is_on > (1 - 2 * self.duty_cycle)
 
         # generate a signal and filter it according to when it's on
         signal = np.random.normal(self.strength, self.std, lsts.size)
@@ -71,20 +115,39 @@ class RfiStation:
 
 
 class Stations(RFI):
-    # TODO: docstring
-    """
-    """
     _alias = ("rfi_stations",)
 
     def __init__(self, stations=None):
-        # TODO: docstring
-        """
+        """A collection of RFI stations.
+
+        Generates RFI from all given stations.
+
+        Parameters
+        ----------
+        stations : list of :class:`RfiStation`
+            The list of stations that produce RFI.
         """
         super().__init__(stations=stations)
 
     def __call__(self, lsts, freqs, **kwargs):
-        # TODO: docstring
-        """
+        """Generate the RFI from all stations.
+
+        Parameters
+        ----------
+        lsts : array-like
+            LSTs at which to generate the RFI.
+        freqs : array-like of float
+            Frequencies in units of ``f0`` for each station.
+
+        Returns
+        -------
+        array-like of float
+            2D array of RFI magnitudes as a function of LST and frequency.
+
+        Raises
+        ------
+        TypeError
+            If input stations are not of the correct type.
         """
         # kind of silly to use **kwargs with just one optional parameter...
         self._check_kwargs(**kwargs)
@@ -105,7 +168,7 @@ class Stations(RFI):
         for station in stations:
             if not isinstance(station, RfiStation):
                 if len(station) != 5:
-                    raise ValueError(
+                    raise TypeError(
                         "Stations are specified by 5-tuples. Please "
                         "check the format of your stations."
                     )
@@ -120,22 +183,38 @@ class Stations(RFI):
 
 
 class Impulse(RFI):
-    # TODO: docstring
-    """
-    """
     _alias = ("rfi_impulse",)
 
     def __init__(self, impulse_chance=0.001, impulse_strength=20.0):
-        # TODO: docstring
-        """
+        """Generate RFI impulses (short time, broad frequency).
+
+        Parameters
+        ----------
+        impulse_chance : float, optional
+            The probability in any given LST that an impulse RFI will occur.
+        impulse_strength : float, optional
+            Strength of the impulse. This will not be randomized, though a phase
+            offset as a function of frequency will be applied, and will be random
+            for each impulse.
         """
         super().__init__(
             impulse_chance=impulse_chance, impulse_strength=impulse_strength
         )
 
     def __call__(self, lsts, freqs, **kwargs):
-        # TODO: docstring
-        """
+        """Generate the RFI.
+
+        Parameters
+        ----------
+        lsts : array-like
+            LSTs at which to generate the RFI.
+        freqs : array-like of float
+            Frequencies in arbitrary units.
+
+        Returns
+        -------
+        array-like of float
+            2D array of RFI magnitudes as a function of LST and frequency.
         """
         # check that the kwargs are okay
         self._check_kwargs(**kwargs)
@@ -165,14 +244,20 @@ class Impulse(RFI):
 
 
 class Scatter(RFI):
-    # TODO: docstring
-    """
-    """
     _alias = ("rfi_scatter",)
 
     def __init__(self, scatter_chance=0.0001, scatter_strength=10.0, scatter_std=10.0):
-        # TODO: docstring
-        """
+        """Generate random RFI scattered around the waterfall.
+
+        Parameters
+        ----------
+        scatter_chance : float, optional
+            Probability that any LST/freq bin will be occupied by RFI.
+        scatter_strength : float, optional
+            Mean strength of RFI in any bin (each bin will receive its own
+            random strength).
+        scatter_std : float, optional
+            Standard deviation of the RFI strength.
         """
         super().__init__(
             scatter_chance=scatter_chance,
@@ -181,8 +266,19 @@ class Scatter(RFI):
         )
 
     def __call__(self, lsts, freqs, **kwargs):
-        # TODO: docstring
-        """
+        """Generate the RFI.
+
+        Parameters
+        ----------
+        lsts : array-like
+            LSTs at which to generate the RFI.
+        freqs : array-like of float
+            Frequencies in arbitrary units.
+
+        Returns
+        -------
+        array-like of float
+            2D array of RFI magnitudes as a function of LST and frequency.
         """
         # validate the kwargs
         self._check_kwargs(**kwargs)
@@ -208,9 +304,6 @@ class Scatter(RFI):
 
 
 class DTV(RFI):
-    # TODO: docstring
-    """
-    """
     _alias = ("rfi_dtv",)
 
     def __init__(
@@ -221,8 +314,22 @@ class DTV(RFI):
         dtv_strength=10.0,
         dtv_std=10.0,
     ):
-        # TODO: docstring
-        """
+        """Generate RFI arising from digitial TV channels.
+
+        Digitial TV is assumed to be reasonably broad-band and scattered in time.
+
+        Parameters
+        ----------
+        dtv_band : tuple, optional
+            Lower edges of each of the DTV bands.
+        dtv_channel_width : float, optional
+            Channel width in GHz.
+        dtv_chance : float, optional
+            Chance that any particular time will have DTV.
+        dtv_strength : float, optional
+            Mean strength of RFI.
+        dtv_std : float, optional
+            Standard deviation of RFI strength.
         """
         super().__init__(
             dtv_band=dtv_band,
@@ -233,8 +340,19 @@ class DTV(RFI):
         )
 
     def __call__(self, lsts, freqs, **kwargs):
-        # TODO: docstring
-        """
+        """Generate the RFI.
+
+        Parameters
+        ----------
+        lsts : array-like
+            LSTs at which to generate the RFI.
+        freqs : array-like of float
+            Frequencies in GHz.
+
+        Returns
+        -------
+        array-like of float
+            2D array of RFI magnitudes as a function of LST and frequency.
         """
         # check the kwargs
         self._check_kwargs(**kwargs)

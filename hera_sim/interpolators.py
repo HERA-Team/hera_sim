@@ -47,7 +47,7 @@ def _read(datafile):
 
 
 class Interpolator:
-    """Base interpolator class"""
+    """Base interpolator class."""
 
     def __init__(self, datafile, **interp_kwargs):
         """Initialize an `Interpolator` object with necessary attributes.
@@ -60,7 +60,6 @@ class Interpolator:
             interpolation object is desired. If path is not absolute, then the
             file is assumed to exist in the `data` directory of `hera_sim` and
             is modified to reflect this assumption.
-
         interp_kwargs : unpacked dict, optional
             Passed to the interpolation method used to make the interpolator.
         """
@@ -84,15 +83,12 @@ class Tsky(Interpolator):
                 'tsky':
                     Array of sky temperature values in units of Kelvin; must
                     have shape=(NPOLS, NLSTS, NFREQS).
-
                 'freqs':
                     Array of frequencies at which the tsky model is evaluated,
                     in units of GHz; must have shape=(NFREQS,).
-
                 'lsts':
                     Array of LSTs at which the tsky model is evaulated, in
                     units of radians; must have shape=(NLSTS,).
-
                 'meta':
                     Dictionary of metadata describing the data stored in the npz
                     file. Currently it only needs to contain an entry 'pols',
@@ -100,7 +96,6 @@ class Tsky(Interpolator):
                     with the ordering of arrays along the tsky axis-0. The user
                     may choose to also save the units of the frequency, lst, and
                     tsky arrays as strings in this dictionary.
-
         interp_kwargs : unpacked dict, optional
             Extend interp_kwargs parameter for superclass to allow for the
             specification of which polarization to use via the key 'pol'. If
@@ -112,18 +107,14 @@ class Tsky(Interpolator):
         freqs : np.ndarray
             Frequency array used to construct the interpolator object. Has
             units of GHz and shape=(NFREQS,).
-
         lsts : np.ndarray
             LST array used to construct the interpolator object. Has units of
             radians and shape=(NLSTS,).
-
         tsky : np.ndarray
             Sky temperature array used to construct the interpolator object.
             Has units of Kelvin and shape=(NPOLS, NLSTS, NFREQS).
-
         meta : dict
             Dictionary containing some metadata relevant to the interpolator.
-
         pol : str, default 'xx'
             Polarization appropriate for the sky temperature model. Must be
             one of the polarizations stored in the 'meta' dictionary.
@@ -251,10 +242,10 @@ class Tsky(Interpolator):
 
 
 class FreqInterpolator(Interpolator):
-    """Frequency interpolator; subclass of `Interpolator`."""
+    """Frequency interpolator."""
 
     def __init__(self, datafile, **interp_kwargs):
-        """Extend the `Interpolator` constructor.
+        """Extend the `:class:`Interpolator` constructor.
 
         Parameters
         ----------
@@ -291,16 +282,16 @@ class FreqInterpolator(Interpolator):
         """Construct the interpolator object."""
         if self._interp_type == "poly1d":
             return np.poly1d(self._data)
-        else:
-            # if not using poly1d, then need to get some parameters for
-            # making the interp1d object
-            obj = self._data[self._obj]
-            freqs = self._data["freqs"]
 
-            # use a cubic spline by default, but override this if the user
-            # specifies a different kind of interpolator
-            kind = self._interp_kwargs.pop("kind", "cubic")
-            return interp1d(freqs, obj, kind=kind, **self._interp_kwargs)
+        # if not using poly1d, then need to get some parameters for
+        # making the interp1d object
+        obj = self._data[self._obj]
+        freqs = self._data["freqs"]
+
+        # use a cubic spline by default, but override this if the user
+        # specifies a different kind of interpolator
+        kind = self._interp_kwargs.pop("kind", "cubic")
+        return interp1d(freqs, obj, kind=kind, **self._interp_kwargs)
 
     def _check_format(self):
         """Check that class attributes are appropriately formatted."""
@@ -332,16 +323,15 @@ class FreqInterpolator(Interpolator):
 
 
 class Beam(FreqInterpolator):
-    """Beam interpolation object; subclass of `FreqInterpolator`."""
+    """Beam interpolation object."""
 
     def __init__(self, datafile, **interp_kwargs):
-        """Extend the `FreqInterpolator` constructor.
+        """Extend the :class:`FreqInterpolator` constructor.
 
         Parameters
         ----------
         datafile : str
             Passed to the superclass constructor.
-
         interp_kwargs : unpacked dict, optional
             Passed to the superclass constructor.
         """
@@ -351,16 +341,15 @@ class Beam(FreqInterpolator):
 
 
 class Bandpass(FreqInterpolator):
-    """Bandpass interpolation object; subclass of `FreqInterpolator`."""
+    """Bandpass interpolation object."""
 
     def __init__(self, datafile, **interp_kwargs):
-        """Extend the `FreqInterpolator` constructor.
+        """Extend the :class:`FreqInterpolator` constructor.
 
         Parameters
         ----------
         datafile : str
             Passed to the superclass constructor.
-
         interp_kwargs : unpacked dict, optional
             Passed to the superclass constructor.
         """

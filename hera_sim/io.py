@@ -33,7 +33,7 @@ def empty_uvdata(
     """
     """
     # issue a deprecation warning if any old parameters are used
-    if any([param is not None for param in (n_freq, n_times, antennas)]):
+    if any(param is not None for param in (n_freq, n_times, antennas)):
         warnings.warn(
             "The n_freq, n_times, and antennas parameters are being "
             "deprecated and will be removed in the future. Please "
@@ -94,7 +94,7 @@ def chunk_sim_and_save(
     Chunk the simulation data to match the reference file and write to disk.
 
     Chunked files have the following naming convention:
-    save_dir/[{prefix}.]{jd_major}.{jd_minor}[.{sky_cmp}][.{state}].{filetype}
+    ``save_dir/[{prefix}.]{jd_major}.{jd_minor}[.{sky_cmp}][.{state}].{filetype}``.
     The entires in brackets are optional and may be omitted.
 
     Parameters
@@ -176,4 +176,3 @@ def chunk_sim_and_save(
 
         # Delete the temporary UVData object to speed things up a bit.
         del this_uvd
-    return

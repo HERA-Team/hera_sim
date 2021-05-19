@@ -20,8 +20,7 @@ class Array:
 
 
 class LinearArray(Array):
-    """Build a linear (east-west) array configuration.
-    """
+    """Build a linear (east-west) array configuration."""
 
     def __init__(self, sep=14.6):
         """
@@ -70,12 +69,10 @@ class HexArray(Array):
         sep : int, optional
             The separation between adjacent grid points, in meters.
             Default separation is 14.6 meters.
-
         split_core : bool, optional
             Whether to fracture the core into tridents that subdivide a
             hexagonal grid. Loses :math:`N` antennas. Default behavior
             is to split the core.
-
         outriggers : int, optional
             The number of rings of outriggers to add to the array. The
             outriggers tile with the core to produce a fully-sampled
@@ -109,7 +106,7 @@ class HexArray(Array):
         positions = []
         for row in range(hex_num - 1, -hex_num + split_core, -1):
             # adding split_core deletes a row if it's true
-            for col in range(0, 2 * hex_num - abs(row) - 1):
+            for col in range(2 * hex_num - abs(row) - 1):
                 x_pos = sep * ((2 - (2 * hex_num - abs(row))) / 2 + col)
                 y_pos = row * sep * np.sqrt(3) / 2
                 positions.append([x_pos, y_pos, 0])

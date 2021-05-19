@@ -18,6 +18,8 @@ HERA_Tsky_mdl = {
 
 @registry
 class Noise:
+    """Base class for thermal noise models."""
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
@@ -34,8 +36,27 @@ class ThermalNoise(Noise):
         Trx=0,
         autovis=None,
     ):
-        # TODO: docstring
-        """
+        """Generate thermal noise based on a sky model.
+
+        Parameters
+        ----------
+        Tsky_mdl : callable, optional
+            A function of ``(lsts, freq)`` that returns the integrated
+            sky temperature at that time/frequency. If not provided, assumes
+            a power-law temperature with 180 K at 180 MHz and spectral index
+            of -2.5.
+        omega_p : array_like or callable, optional
+            If callable, a function of frequency giving the integrated beam
+            area. If an array, same length as given frequencies.
+        integration_time : float, optional
+            Integration time in seconds. By default, use the average difference
+            between given LSTs.
+        channel_width : float, optional
+            Channel width in Hz, by default the mean difference between frequencies.
+        Trx : float, optional
+            Receiver temperature in K
+        autovis : float, optional
+            Autocorrelation visibility amplitude. Used if provided instead of ``Tsky_mdl``.
         """
         super().__init__(
             Tsky_mdl=Tsky_mdl,
@@ -103,8 +124,28 @@ class ThermalNoise(Noise):
 
     @staticmethod
     def resample_Tsky(lsts, freqs, Tsky_mdl=None, Tsky=180.0, mfreq=0.18, index=-2.5):
-        # TODO: docstring
-        """
+        """Evaluate an array of sky temperatures.
+
+        Parameters
+        ----------
+        lsts : array-like of float
+            LSTs at which to sample the sky tmeperature.
+        freqs : array_like of float
+            The frequencies at which to sample the temperature, in GHz.
+        Tsky_mdl : callable, optional
+            Callable function of ``(lsts, freqs)``. If not given, use a power-law
+            defined by the next three parameters.
+        Tsky : float, optional
+            Sky temperature at ``mfreq``. Only used if ``Tsky_mdl`` not given.
+        mfreq : float, optional
+            Reference frequency for sky temperature. Only used if ``Tsky_mdl`` not given.
+        index : float, optional
+            Spectral index of sky temperature model. Only used if ``Tsky_mdl`` not given.
+
+        Returns
+        -------
+        ndarray
+            The sky temperature as a 2D array, first axis LSTs and second axis freqs.
         """
         # maybe add a DeprecationWarning?
 

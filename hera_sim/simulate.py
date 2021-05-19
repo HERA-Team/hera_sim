@@ -8,6 +8,8 @@ import warnings
 import yaml
 import time
 from pathlib import Path
+from typing import Optional, Union, Dict, Tuple, Type
+import matplotlib.pyplot as plt
 
 import numpy as np
 from cached_property import cached_property
@@ -34,18 +36,31 @@ def _generator_to_list(func, *args, **kwargs):
 # FIXME: some of the code in here is pretty brittle and breaks (sometimes silently)
 # if not used carefully. This definitely needs a review and cleanup.
 class Simulator:
-    """Class for managing a simulation.
+    def __init__(
+        self,
+        data: Optional[Union[str, Path, UVData]] = None,
+        defaults_config: Optional[Union[str, dict]] = None,
+        **kwargs,
+    ):
+        """Class for managing a simulation.
 
-    """
+        Parameters
+        ----------
+        data
+            Any input data. If a path, will load a set of
+            visibilities using the ``read()`` method of
+            :class:`UVData`. Can be a :class:`UVData` object
+            to initialize directly. If not set, initialize an
+            empty :class:`UVData` object.
+        defaults_config
+            If given, either a path pointing to a defaults configuration
+            file, or a dictionary of configuration parameters (see :class:`defaults.Defaults`).
 
-    def __init__(self, data=None, defaults_config=None, **kwargs):
-        """Initialize a Simulator object.
-
-        Idea: Make Simulator object have three major components:
-            sim.data -> UVData object for storing the "measured" data
-                Also keep track of most metadata here
-            sim.defaults -> Defaults object
-
+        Other Parameters
+        ----------------
+        Used to initialize the data object. If nothing is given for ``data``, the relevant
+        parameters are those in :func:`io.empty_uvdata`. If ``data`` is a path, parameters
+        are those passed to ``UVData.read``.
         """
         # create some utility dictionaries
         self._components = {}
@@ -61,39 +76,61 @@ class Simulator:
         self._initialize_data(data, **kwargs)
 
     @property
-    def antpos(self):
-        # TODO: docstring
-        """
-        """
+    def antpos(self) -> Dict[int, Tuple[float, float, float]]:
+        """Dictionary of antenna numbers mapped to ENU positions."""
         antpos, ants = self.data.get_ENU_antpos(pick_data_ants=True)
         return dict(zip(ants, antpos))
 
     @property
-    def lsts(self):
-        # TODO: docstring
+    def lsts(self) -> np.ndarray:
+        """Unique LSTs in the data array."""
         return np.unique(self.data.lst_array)
 
     @property
-    def freqs(self):
+    def freqs(self) -> np.ndarray:
         """Frequencies in GHz."""
         return np.unique(self.data.freq_array) / 1e9
 
     @property
-    def times(self):
-        """Return unique simulation times."""
+    def times(self) -> np.ndarray:
+        """Unique simulation JDs."""
         return np.unique(self.data.time_array)
 
     def apply_defaults(self, config, refresh=True):
-        # TODO: docstring
-        """
-        """
+        """Apply a given set of defaults."""
         # actually apply the default settings
+        # TODO: SGM: why is this a method?
         defaults.set(config, refresh=refresh)
 
-    def add(self, component, **kwargs):
-        # TODO: docstring
+    def add(
+        self, component: Union[Type[SimulationComponent], str], **kwargs
+    ) -> Optional[UVData]:
+        """Add a particular simulation component to the simulated data.
+
+        Parameters
+        ----------
+        component
+            Either a string name (or alias) of a component model to add,
+            or its actual class.
+
+        Other Parameters
+        ----------------
+        add_vis
+            Whether to add the simulated component visibilities to the
+            the ``data``. Sometimes you might just want to return the
+            particular component without adding it to the data. Default is True.
+        ret_vis
+            Whether to return the simulated component. Useful if ``add_vis=False``,
+            or you just want a reference to this particular component without being
+            mixed with the rest of the simulation.
+
+        Returns
+        -------
+        Optional[UVData]
+            If ``ret_vis=True``, the data simulated from this component.
         """
-        """
+
+        # TODO: why aren't these just in the signature itself?
         # find out whether to add and/or return the component
         add_vis = kwargs.pop("add_vis", True)
         ret_vis = kwargs.pop("ret_vis", False)
@@ -161,11 +198,41 @@ class Simulator:
         if ret_vis:
             return data
 
-    def get(self, component, ant1=None, ant2=None, pol=None):
-        # TODO: docstring
+    def get(
+        self,
+        component: str,
+        ant1: Optional[int] = None,
+        ant2: Optional[int] = None,
+        pol: Optional[str] = None,
+    ) -> np.ndarray:
+        """Obtain a particular simulation component that has already been simulated.
+
+        Parameters
+        ----------
+        component
+            The name of the component to re-simulate.
+        ant1
+            The antenna number to obtain. If None, both ``ant1`` and ``ant2``
+            must be None, and data for all antenna pairs will be returned.
+        ant2
+            The antenna number to obtain. If None, both ``ant1`` and ``ant2``
+            must be None, and data for all antenna pairs will be returned.
+        pol
+            Polarization to obtain. If None, all pols will be returned.
+
+        Returns
+        -------
+        ndarray
+            Visibilities of this component, shape ``(blt, freq, pol)``.
+
+        Raises
+        ------
+        AttributeError
+            If component has not been simulated before.
+        TypeError
+            If either ``ant1`` or ``ant2`` is specified but not both.
+        """
         # TODO: figure out if this could be handled by _iteratively_apply
-        """
-        """
         # TODO: determine whether to leave this check here.
         if component not in self._components:
             raise AttributeError(
@@ -252,12 +319,10 @@ class Simulator:
         # now calculate the effect and return it
         return model(**args)
 
-    def plot_array(self):
+    def plot_array(self) -> plt.Figure:
         """Generate a plot of the array layout in ENU coordinates.
 
         """
-        import matplotlib.pyplot as plt
-
         fig = plt.figure(figsize=(10, 8))
         ax = fig.add_subplot(1, 1, 1)
         ax.set_xlabel("East Position [m]", fontsize=12)
@@ -270,7 +335,7 @@ class Simulator:
         return fig
 
     def refresh(self):
-        """Refresh the Simulator object.
+        """Refresh the object.
 
         This zeros the data array, resets the history, and clears the
         instance's _components dictionary.
