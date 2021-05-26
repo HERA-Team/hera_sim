@@ -39,8 +39,6 @@ def _generator_to_list(func, *args, **kwargs):
     return new_func
 
 
-# FIXME: some of the code in here is pretty brittle and breaks (sometimes silently)
-# if not used carefully. This definitely needs a review and cleanup.
 class Simulator:
     """Class for managing a simulation.
 
@@ -107,9 +105,7 @@ class Simulator:
 
     @cached_property
     def lsts(self):
-        """
-        Observed Local Sidereal Times in radians.
-        """
+        """Observed Local Sidereal Times in radians."""
         # This process retrieves the unique LSTs while respecting phase wraps.
         unique_lsts, inverse_inds, counts = np.unique(
             self.data.lst_array, return_inverse=True, return_counts=True
@@ -123,22 +119,28 @@ class Simulator:
 
     @cached_property
     def times(self):
-        """Return unique simulation times."""
+        """Simulation times in JD."""
         return np.unique(self.data.time_array)
 
     @cached_property
     def pols(self):
+        """Array of polarization strings."""
         return self.data.get_pols()
 
     @cached_property
     def reds(self):
+        """
+        List of redundant groups; each entry is a list of baseline numbers.
+        """
         return self.data.get_redundancies()[0]
 
     def apply_defaults(self, config, refresh=True):
-        # TODO: docstring
         """
+        Apply the provided default configuration.
+
+        Equivalent to calling ``hera_sim.defaults`` with the same parameters.
+        See ``hera_sim.defaults.set`` documentation for further details.
         """
-        # actually apply the default settings
         defaults.set(config, refresh=refresh)
 
     def add(
@@ -169,11 +171,11 @@ class Simulator:
         seed: str or int, optional
             How to seed the random number generator. Can either directly provide
             a seed as an integer, or use one of the supported keywords. See
-            ``meth:print_seed_types`` for information on supported keywords.
+            .. meth:: print_seed_types for information on supported keywords.
             Default is to not seed the random number generator.
         vis_filter: iterable, optional
             Iterable specifying which antennas/polarizations for which the effect
-            should be simulated. See documentation of ``meth:_apply_filter`` for
+            should be simulated. See documentation of .. meth:: _apply_filter for
             details of supported formats and functionality.
         **kwargs
             Optional keyword arguments for the provided ``component``.
@@ -226,7 +228,7 @@ class Simulator:
         Parameters
         ----------
         component
-            Effect that is to be retrieved. See ``meth:add`` for more details.
+            Effect that is to be retrieved. See .. meth:: add for more details.
         key
             Key for retrieving simulated effect. Possible choices are as follows:
                 An integer may specify either a single antenna (for per-antenna
