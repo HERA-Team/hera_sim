@@ -309,10 +309,11 @@ class Simulator:
         # First, find out if it needs to be conjugated.
         try:
             blt_inds = self.data.antpair2ind(ant1, ant2)
+            # I don't think this will ever execute, but just in case...
             if blt_inds.size == 0:
-                raise ValueError
+                raise ValueError  # pragma: no cover
             conj_data = False
-        except ValueError:
+        except ValueError:  # pragma: no cover
             blt_inds = self.data.antpair2ind(ant2, ant1)
             conj_data = True
         # We've got three different seeding cases to work out.
@@ -327,7 +328,7 @@ class Simulator:
                 antpairpol_cache=antpairpol_cache,
                 **kwargs,
             )[blt_inds, 0, :, :]
-            if conj_data:
+            if conj_data:  # pragma: no cover
                 data = np.conj(data)
             if pol is None:
                 return data
