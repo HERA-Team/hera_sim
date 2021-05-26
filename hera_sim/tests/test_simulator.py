@@ -186,6 +186,28 @@ def test_get_vis_only_one_antenna(ref_sim):
     assert "a pair of antennas must be provided" in err.value.args[0]
 
 
+@pytest.mark.parametrize("pol", [None, "xx"])
+@pytest.mark.parametrize("ant1", [None, 1])
+def test_get_multiplicative_effect(base_sim, pol, ant1):
+    gains = base_sim.add("gains", seed="once", ret_vis=True)
+    _gains = base_sim.get("gains", key=(ant1, pol))
+    if pol is not None and ant1 is not None:
+        assert np.all(gains[pol][ant1] == _gains)
+    elif pol is None and ant1 is not None:
+        assert all(np.all(gains[_pol][ant1] == _gains[_pol]) for _pol in base_sim.pols)
+    elif pol is not None and ant1 is None:
+        assert all(
+            np.all(gains[pol][ant] == _gains[ant])
+            for ant in base_sim.antpos
+        )
+    else:
+        assert all(
+            np.all(gains[_pol][ant] == _gains[_pol][ant])
+            for ant in base_sim.antpos
+            for _pol in base_sim.pols
+        )
+
+
 def test_not_add_vis(base_sim):
     vis = base_sim.add("noiselike_eor", add_vis=False, ret_vis=True)
 
