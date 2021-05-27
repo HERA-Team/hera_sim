@@ -546,3 +546,26 @@ def test_custom_component_without_is_multiplicative_attr(base_sim):
     with pytest.warns(UserWarning) as warning:
         base_sim.add(Test)
     assert "``is_multiplicative``" in warning.list[0].message.args[0]
+
+
+def test_integer_seed(base_sim):
+    seed = 2 ** 18
+    d1 = base_sim.add("noiselike_eor", add_vis=False, ret_vis=True, seed=seed)
+    d2 = base_sim.add("noiselike_eor", add_vis=False, ret_vis=True, seed=seed)
+    assert np.allclose(d1, d2)
+
+
+def test_none_seed(base_sim):
+    d1 = base_sim.add("noiselike_eor", add_vis=False, ret_vis=True, seed=None)
+    d2 = base_sim.add("noiselike_eor", add_vis=False, ret_vis=True, seed=None)
+    assert not np.allclose(d1, d2)
+
+
+@pytest.mark.parametrize("seed", [3.14, "redundant"])
+def test_bad_seeds(base_sim, seed):
+    with pytest.raises(TypeError) as err:
+        base_sim._seed_rng(seed, None)
+    if seed == "redundant":
+        assert "baseline must be specified" in err.value.args[0]
+    else:
+        assert "seeding mode must be" in err.value.args[0]

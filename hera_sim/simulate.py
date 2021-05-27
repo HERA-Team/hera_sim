@@ -803,8 +803,16 @@ class Simulator:
         # TODO: docstring
         """
         """
+        if seed is None:
+            return
+        if type(seed) is int:
+            np.random.seed(seed)
+            return
         if not isinstance(seed, str):
-            raise TypeError("The seeding mode must be specified as a string.")
+            raise TypeError(
+                "The seeding mode must be specified as a string or integer. "
+                "If an integer is provided, then it will be used as the seed."
+            )
         if seed == "redundant":
             if ant1 is None or ant2 is None:
                 raise TypeError(
