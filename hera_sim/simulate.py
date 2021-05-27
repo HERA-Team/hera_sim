@@ -488,14 +488,14 @@ class Simulator:
     # TODO: write a deprecated wrapper function
     def add_eor(self, model, **kwargs):
         """
-        Add an EoR-like model to the visibilities. See :meth:`add` for
+        Add an EoR-like model to the visibilities. See .. meth:: `add` for
         more details.
         """
         return self.add(model, **kwargs)
 
     def add_foregrounds(self, model, **kwargs):
         """
-        Add foregrounds to the visibilities. See :meth:`add` for
+        Add foregrounds to the visibilities. See .. meth:: `add` for
         more details.
         """
 
@@ -503,32 +503,32 @@ class Simulator:
 
     def add_noise(self, model, **kwargs):
         """
-        Add thermal noise to the visibilities. See :meth:`add` for
+        Add thermal noise to the visibilities. See .. meth:: `add` for
         more details.
         """
         return self.add(model, **kwargs)
 
     def add_rfi(self, model, **kwargs):
-        """Add RFI to the visibilities. See :meth:`add` for more details."""
+        """Add RFI to the visibilities. See .. meth:: `add` for more details."""
         return self.add(model, **kwargs)
 
     def add_gains(self, **kwargs):
         """
-        Apply bandpass gains to the visibilities. See :meth:`add` for
+        Apply bandpass gains to the visibilities. See .. meth:: `add` for
         more details.
         """
         return self.add("gains", **kwargs)
 
     def add_sigchain_reflections(self, ants=None, **kwargs):
         """
-        Apply reflection gains to the visibilities. See :meth:`add` for
+        Apply reflection gains to the visibilities. See .. meth:: `add` for
         more details.
         """
         kwargs.update(ants=ants)
         return self.add("reflections", **kwargs)
 
     def add_xtalk(self, model="gen_whitenoise_xtalk", bls=None, **kwargs):
-        """Add crosstalk to the visibilities. See :meth:`add` for more details."""
+        """Add crosstalk to the visibilities. See .. meth:: `add` for more details."""
         kwargs.update(vis_filter=bls)
         return self.add(model, **kwargs)
 
