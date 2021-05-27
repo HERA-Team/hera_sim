@@ -66,10 +66,7 @@ class VisCPU(VisibilitySimulator):
         self._vis_cpu = vis_gpu if use_gpu else vis_cpu
         self.bm_pix = bm_pix
 
-        super(VisCPU, self).__init__(**kwargs)
-
         self.use_gpu = use_gpu 
-        self.bm_pix = bm_pix
         self.use_pixel_beams = use_pixel_beams
         self.mpi_comm = mpi_comm
         

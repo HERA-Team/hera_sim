@@ -3,6 +3,7 @@ import numpy as np
 from hera_sim.visibilities import VisCPU
 from hera_sim import io
 from hera_sim.beams import PerturbedPolyBeam
+from vis_cpu import HAVE_GPU
 
 np.seterr(invalid="ignore")
 
@@ -115,10 +116,9 @@ class TestPerturbedPolyBeam:
         rotations = np.zeros(180+1)
         pix_results = np.zeros(180+1)
         calc_results = np.zeros(180+1)
-        for r in range(0, 180+1):
+        for r in range(180+1):
             pix_result = run_sim(r, use_pixel_beams=True)
             calc_result = run_sim(r, use_pixel_beams=False)     # Direct beam calculation - no pixel beams
-            #print(r, pix_result, calc_result)
             rotations[r] = r
             pix_results[r] = pix_result
             calc_results[r] = calc_result
@@ -140,10 +140,10 @@ class TestPerturbedPolyBeam:
         assert np.min(calc_results) != pytest.approx(np.max(calc_results), abs=0.8)
 
         # Check that attempting to use GPU with Polybeam raises an error.
-        with pytest.raises(RuntimeError):
+        with pytest.raises(RuntimeError if HAVE_GPU else ImportError):
             run_sim(r, use_pixel_beams=False, use_gpu=True) 
 
         # Check that attempting to use GPU with MPI raises an error.
-        with pytest.raises(RuntimeError):
+        with pytest.raises(RuntimeError if HAVE_GPU else ImportError):
             run_sim(r, use_gpu=True, use_mpi=True)
 
