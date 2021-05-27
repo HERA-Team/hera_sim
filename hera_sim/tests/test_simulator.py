@@ -474,3 +474,58 @@ def test_chunker(base_sim, tmp_path):
     assert len(
         list(tmp_path.glob(f"{prefix}.*.{sky_cmp}.{state}.{filetype}"))
     ) == Nfiles
+
+
+@pytest.mark.parametrize(
+    "component", ["eor", "foregrounds", "noise", "rfi", "gains", "sigchain_reflections", "xtalk"]
+)
+def test_legacy_funcs(component):
+    args = []
+    sim = create_sim(autos=True)
+    if component in ["eor", "foregrounds", "noise", "rfi", "xtalk"]:
+        model = {
+            "eor": "noiselike_eor",
+            "foregrounds": "pntsrc_foreground",
+            "noise": "thermal_noise",
+            "rfi": "rfi_dtv",
+            "xtalk": "cross_coupling_xtalk",
+        }[component]
+        args.append(model)
+    if component == "sigchain_reflections":
+        args.append([1])
+    elif component == "xtalk":
+        args.append([(0,1)])
+    getattr(sim, f"add_{component}")(*args)
+
+
+def test_vis_filter_single_pol():
+    sim = create_sim(polarization_array=["xx", "yy"])
+    sim.add("noiselike_eor", vis_filter=["xx"])
+    assert np.all(sim.get_data('xx')) and not np.any(sim.get_data('yy'))
+
+
+def test_vis_filter_two_pol():
+    sim = create_sim(polarization_array=["xx", "xy", "yx", "yy"])
+    sim.add("noiselike_eor", vis_filter=["xx", "yy"])
+    assert all(
+        [
+            np.all(sim.get_data("xx")),
+            np.all(sim.get_data("yy")),
+            not np.any(sim.get_data("xy")),
+            not np.any(sim.get_data("yx")),
+        ]
+    )
+
+
+def test_vis_filter_arbitrary_key():
+    sim = create_sim(
+        array_layout=hex_array(2, split_core=False, outriggers=0),
+        polarization_array=["xx", "yy"]
+    )
+    sim.add("noiselike_eor", vis_filter=[1,3,5,"xx"])
+    bls = sim.data.get_antpairs()
+    assert not np.any(sim.get_data("yy"))
+    assert all(
+        np.all(sim.get_data((ai,aj,"xx")))
+        for ai, aj in bls if ai in (1,3,5) or aj in (1,3,5)
+    )

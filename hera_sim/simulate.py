@@ -524,12 +524,14 @@ class Simulator:
         Apply reflection gains to the visibilities. See .. meth:: `add` for
         more details.
         """
-        kwargs.update(ants=ants)
+        if ants is not None:
+            kwargs.update(vis_filter=ants)
         return self.add("reflections", **kwargs)
 
     def add_xtalk(self, model="gen_whitenoise_xtalk", bls=None, **kwargs):
         """Add crosstalk to the visibilities. See .. meth:: `add` for more details."""
-        kwargs.update(vis_filter=bls)
+        if bls is not None:
+            kwargs.update(vis_filter=bls)
         return self.add(model, **kwargs)
 
     @staticmethod
@@ -570,47 +572,52 @@ class Simulator:
             -> only baseline (0,1), or its conjugate, with polarization 'yy' will
             have a simulated effect applied.
         """
-        # find out whether or not multiple keys are passed
+        # If multiple complex keys are passed, do this recursively...
         multikey = any(isinstance(key, (list, tuple)) for key in vis_filter)
-        # iterate over the keys, find if any are okay
         if multikey:
             apply_filter = [
                 Simulator._apply_filter(key, ant1, ant2, pol) for key in vis_filter
             ]
-            # if a single filter says to let it pass, then do so
-            return all(apply_filter)
+            return all(apply_filter)  # and approve if just one key fits.
         elif all(item is None for item in vis_filter):
-            # support passing tuple of None
+            # Support passing a list of None.
             return False
         elif len(vis_filter) == 1:
-            # check if the polarization matches, since the only
-            # string identifiers should be polarization strings
-            # TODO: add support for antenna strings (e.g. 'auto')
-            if isinstance(vis_filter, str):
+            # For now, assume a string specifies a polarization.
+            if isinstance(vis_filter[0], str):
                 return not pol == vis_filter[0]
-            # otherwise assume that this is specifying an antenna
+            # Otherwise, assume that this specifies an antenna.
             else:
                 return not vis_filter[0] in (ant1, ant2)
         elif len(vis_filter) == 2:
-            # there are three cases: two polarizations are specified;
-            # an antpol is specified; a baseline is specified
-            # first, handle the case of two polarizations
+            # TODO: This will need to be updated when we support ant strings.
+            # Three cases: two pols; an ant+pol; a baseline.
+            # If it's two polarizations, then make sure this pol is one of them.
             if all(isinstance(key, str) for key in vis_filter):
                 return pol not in vis_filter
-            # otherwise it's simple
+            # Otherwise this is straightforward.
             else:
                 return not all(key in (ant1, ant2, pol) for key in vis_filter)
         elif len(vis_filter) == 3:
-            # assume it's a proper antpairpol
+            # Assume it's a proper antpairpol.
             return not (
                 vis_filter == [ant1, ant2, pol] or vis_filter == [ant2, ant1, pol]
             )
         else:
-            # assume it's some list of antennas/polarizations
-            return not any(key in (ant1, ant2, pol) for key in vis_filter)
+            # Assume it's some list of antennas/polarizations.
+            pols = []
+            ants = []
+            for key in vis_filter:
+                if isinstance(key, str):
+                    pols.append(key)
+                elif type(key) is int:
+                    ants.append(key)
+            # We want polarization and ant1 or ant2 in the filter.
+            # This would be used in simulating e.g. a few feeds that have an
+            # abnormally high system temperature.
+            return not (pol in pols and (ant1 in ants or ant2 in ants))
 
     def _initialize_data(self, data, **kwargs):
-        # TODO: docstring
         """
         """
         if data is None:
@@ -621,7 +628,11 @@ class Simulator:
         elif isinstance(data, UVData):
             self.data = data
         else:
-            raise TypeError("Unsupported type.")  # make msg better
+            raise TypeError(
+                "data type not understood. Only a UVData object or a path to "
+                "a UVData-compatible file may be passed as the data parameter. "
+                "Otherwise, keywords must be provided to build a UVData object."
+            )
 
     def _initialize_args_from_model(self, model):
         # TODO: docstring
