@@ -9,7 +9,6 @@ import yaml
 import time
 from pathlib import Path
 from typing import Optional, Union, Dict, Tuple, Type
-import matplotlib.pyplot as plt
 
 import numpy as np
 from cached_property import cached_property
@@ -54,7 +53,8 @@ class Simulator:
             empty :class:`UVData` object.
         defaults_config
             If given, either a path pointing to a defaults configuration
-            file, or a dictionary of configuration parameters (see :class:`defaults.Defaults`).
+            file, a string identifier of a particular config (e.g. 'h1c')
+            or a dictionary of configuration parameters (see :class:`defaults.Defaults`).
 
         Other Parameters
         ----------------
@@ -96,14 +96,24 @@ class Simulator:
         """Unique simulation JDs."""
         return np.unique(self.data.time_array)
 
-    def apply_defaults(self, config, refresh=True):
-        """Apply a given set of defaults."""
-        # actually apply the default settings
-        # TODO: SGM: why is this a method?
+    def apply_defaults(self, config: Optional[Union[str, dict]], refresh: bool = True):
+        """Apply a given set of defaults.
+
+        Parameters
+        ----------
+        config
+            If given, either a path pointing to a defaults configuration
+            file, a string identifier of a particular config (e.g. 'h1c')
+            or a dictionary of configuration parameters (see :class:`defaults.Defaults`).
+        refresh
+            Whether to refresh the defaults.
+        """
         defaults.set(config, refresh=refresh)
 
     def add(
-        self, component: Union[Type[SimulationComponent], str], **kwargs
+        self,
+        component: Union[SimulationComponent, Type[SimulationComponent], str],
+        **kwargs,
     ) -> Optional[UVData]:
         """Add a particular simulation component to the simulated data.
 
@@ -111,7 +121,7 @@ class Simulator:
         ----------
         component
             Either a string name (or alias) of a component model to add,
-            or its actual class.
+            or its actual class, or an instance of the class.
 
         Other Parameters
         ----------------
@@ -319,8 +329,10 @@ class Simulator:
         # now calculate the effect and return it
         return model(**args)
 
-    def plot_array(self) -> plt.Figure:
+    def plot_array(self):
         """Generate a plot of the array layout in ENU coordinates."""
+        import matplotlib.pyplot as plt
+
         fig = plt.figure(figsize=(10, 8))
         ax = fig.add_subplot(1, 1, 1)
         ax.set_xlabel("East Position [m]", fontsize=12)

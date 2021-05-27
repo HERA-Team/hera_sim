@@ -168,7 +168,7 @@ class Stations(RFI):
         for station in stations:
             if not isinstance(station, RfiStation):
                 if len(station) != 5:
-                    raise TypeError(
+                    raise ValueError(
                         "Stations are specified by 5-tuples. Please "
                         "check the format of your stations."
                     )

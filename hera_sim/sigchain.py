@@ -3,6 +3,7 @@
 import os
 import numpy as np
 import warnings
+from typing import Dict, Tuple
 
 from scipy import stats
 
@@ -114,7 +115,7 @@ class Reflections(Gain, is_multiplicative=True):
         Parameters
         ----------
         amp : float, optional
-            Mean Aamplitude of the reflection gains.
+            Mean Amplitude of the reflection gains.
         dly : float, optional
             Mean delay of the reflection gains.
         phs : float, optional
@@ -133,12 +134,12 @@ class Reflections(Gain, is_multiplicative=True):
         )
 
     def __call__(self, freqs, ants, **kwargs):
-        """Generate the bandpass
+        """Generate the bandpass.
 
         Parameters
         ----------
         freqs : array_like of float
-            Frequencies in GHz.
+            Frequencies in units inverse to :attr:`dly`.
         ants : array_like of int
             Antenna numbers for which to produce gains.
 
@@ -179,16 +180,16 @@ class Reflections(Gain, is_multiplicative=True):
         Parameters
         ----------
         freqs : array_like of float
-            Frequencies, units GHz.
+            Frequencies, units are arbitrary but must be the inverse of ``dly``.
         amp : array_like of float
             Either a scalar amplitude, or 1D with size Nfreqs, or 2D
             with shape (Ntimes, Nfreqs).
         dly : [type]
             Either a scalar delay, or 1D with size Nfreqs, or 2D
-            with shape (Ntimes, Nfreqs).
+            with shape (Ntimes, Nfreqs). Units are inverse of ``freqs``.
         phs : [type]
             Either a scalar phase, or 1D with size Nfreqs, or 2D
-            with shape (Ntimes, Nfreqs).
+            with shape (Ntimes, Nfreqs). Units radians.
         conj : bool, optional
             Whether to conjugate the gain.
 
@@ -317,26 +318,40 @@ class CrossCouplingCrosstalk(Crosstalk, Reflections):
 
         Parameters
         ----------
-        amp : [type], optional
-            [description], by default None
-        dly : [type], optional
-            [description], by default None
-        phs : [type], optional
-            [description], by default None
+        amp : float, optional
+            Mean Amplitude of the reflection gains.
+        dly : float, optional
+            Mean delay of the reflection gains.
+        phs : float, optional
+            Phase of the reflection gains.
         conj : bool, optional
-            [description], by default False
-        amp_jitter : int, optional
-            [description], by default 0
-        dly_jitter : int, optional
-            [description], by default 0
+            Whether to conjugate the gain.
+        amp_jitter : float, optional
+            Final amplitudes are multiplied by a normal variable with mean one, and
+            with standard deviation of ``amp_jitter``.
+        dly_jitter : float, optional
+            Final delays are offset by a normal variable with mean
+            zero and standard deviation ``dly_jitter``.
         """
         super().__init__(
             amp=amp, dly=dly, phs=phs, conj=conj, amp_jitter=0, dly_jitter=0
         )
 
     def __call__(self, freqs, autovis, **kwargs):
-        # TODO: docstring
-        """
+        """Copute the cross-correlations.
+
+        Parameters
+        ----------
+        freqs : array_like of float
+            Frequencies in units inverse to :attr:`dly`.
+        autovis : array_like of float
+            The autocorrelations as a function of frequency.
+
+        Return
+        ------
+        array
+            The cross-coupling contribution to the visibility,
+            same shape as ``freqs``.
         """
         # check the kwargs
         self._check_kwargs(**kwargs)
@@ -375,6 +390,35 @@ class CrossCouplingSpectrum(Crosstalk):
         dly_jitter=0,
         symmetrize=True,
     ):
+        """Generate a cross-coupling spectrum.
+
+        This generates multiple copies of :class:`CrossCouplingCrosstalk`
+        into the visibilities.
+
+        Parameters
+        ----------
+        Ncopies : int, optional
+            Number of random cross-talk models to add.
+        amp_range : tuple, optional
+            Two-tuple of floats specifying the range of amplitudes
+            to be sampled regularly in log-space.
+        dly_range : tuple, optional
+            Two-tuple of floats specifying the range of delays to be
+            sampled at regular intervals.
+        phs_range : tuple, optional
+            Range of uniformly random phases.
+        amp_jitter : int, optional
+            Standard deviation of random jitter to be applied to the
+            regular amplitudes.
+        dly_jitter : int, optional
+            Standard deviation of the random jitter to be applied to
+            the regular delays.
+        symmetrize : bool, optional
+            Whether to also produce statistically equivalent cross-talk at
+            negative delays. Note that while the statistics are equivalent,
+            both amplitudes and delays will be different random realizations.
+        """
+
         super().__init__(
             Ncopies=Ncopies,
             amp_range=amp_range,
@@ -386,8 +430,20 @@ class CrossCouplingSpectrum(Crosstalk):
         )
 
     def __call__(self, freqs, autovis, **kwargs):
-        # TODO: docstring
-        """
+        """Copute the cross-correlations.
+
+        Parameters
+        ----------
+        freqs : array_like of float
+            Frequencies in units inverse to :attr:`dly`.
+        autovis : array_like of float
+            The autocorrelations as a function of frequency.
+
+        Return
+        ------
+        array
+            The cross-coupling contribution to the visibility,
+            same shape as ``freqs``.
         """
         self._check_kwargs(**kwargs)
 
@@ -432,14 +488,28 @@ class WhiteNoiseCrosstalk(Crosstalk):
     )
 
     def __init__(self, amplitude=3.0):
-        # TODO: docstring
-        """
+        """Generate cross-talk that is simply white noise.
+
+        Parameters
+        ----------
+        amplitude : float, optional
+            The amplitude of the white noise spectrum (i.e. its standard deviation).
         """
         super().__init__(amplitude=amplitude)
 
     def __call__(self, freqs, **kwargs):
-        # TODO: docstring
-        """
+        """Compute the cross-correlations.
+
+        Parameters
+        ----------
+        freqs : array_like of float
+            Frequencies in units inverse to :attr:`dly`.
+
+        Return
+        ------
+        array
+            The cross-coupling contribution to the visibility,
+            same shape as ``freqs``.
         """
         # check the kwargs
         self._check_kwargs(**kwargs)
@@ -457,9 +527,26 @@ class WhiteNoiseCrosstalk(Crosstalk):
         return amplitude * xtalk
 
 
-def apply_gains(vis, gains, bl):
-    # TODO: docstring
-    """
+def apply_gains(
+    vis: [float, np.ndarray], gains: Dict[int, [float, np.ndarray]], bl: Tuple[int, int]
+) -> np.ndarray:
+    """Apply antenna-based gains to a visibility.
+
+    Parameters
+    ----------
+    vis
+        The visibilities of the given baseline as a function of frequency.
+    gains
+        Dictionary where keys are antenna numbers and values are arrays of
+        gains as a function of frequency.
+    bl
+        2-tuple of integers specifying the antenna numbers in the particular
+        baseline.
+
+    Returns
+    -------
+    vis
+        The visibilities with gains applied.
     """
     # get the gains for each antenna in the baseline
     # don't apply a gain if the antenna isn't found
