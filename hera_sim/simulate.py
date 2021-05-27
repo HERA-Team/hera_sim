@@ -97,6 +97,8 @@ class Simulator:
         for param in ("Ntimes", "Nfreqs", "Nblts", "Npols", "Nbls"):
             setattr(self, param, getattr(self.data, param))
         self.Nants = len(self.antpos)
+        self.get_data = self.data.get_data
+        self.get_flags = self.data.get_flags
 
     @cached_property
     def antpos(self):
