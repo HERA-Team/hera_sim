@@ -94,6 +94,9 @@ class Simulator:
 
         # actually initialize the UVData object stored in self.data
         self._initialize_data(data, **kwargs)
+        for param in ("Ntimes", "Nfreqs", "Nblts", "Npols", "Nbls"):
+            setattr(self, param, getattr(self.data, param))
+        self.Nants = len(self.antpos)
 
     @cached_property
     def antpos(self):
