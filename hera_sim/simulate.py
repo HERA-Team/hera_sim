@@ -156,7 +156,7 @@ class Simulator:
         ret_vis: bool = False,
         seed: Optional[str] = None,
         vis_filter: Optional[Sequence] = None,
-        component_name: Optional[str] = None,
+        name: Optional[str] = None,
         **kwargs,
     ):
         """
@@ -191,13 +191,14 @@ class Simulator:
         """
         # Obtain a callable reference to the simulation component model.
         model = self._get_component(component)
-        model_key = component_name if component_name else self._get_model_name(component)
+        model_key = name if name else self._get_model_name(component)
         if not isinstance(model, SimulationComponent):
             model = model(**kwargs)
         self._sanity_check(model)  # Check for component ordering issues.
         self._antpairpol_cache[model_key] = []  # Initialize this model's cache.
         if seed is None:
-            cur_seed = np.random.get_state()[1][0]
+            # Ensure we can recover the data later via ``get``
+            seed = int(np.random.get_state()[1][0])
 
         # Simulate the effect by iterating over baselines and polarizations.
         data = self._iteratively_apply(
@@ -219,11 +220,12 @@ class Simulator:
             self._update_history(model, **kwargs)
             # Record the random state in case no seed was specified.
             # This ensures that the component can be recovered later.
-            kwargs["seed"] = cur_seed if seed is None else seed
+            kwargs["seed"] = seed
             self._update_seeds(model_key)
             if vis_filter is not None:
                 kwargs["vis_filter"] = vis_filter
             self._components[model_key] = kwargs
+            self._components[model_key]["alias"] = component
         else:
             del self._antpairpol_cache[model_key]
 
@@ -262,10 +264,14 @@ class Simulator:
             tutorial Jupyter notebook for the ``Simulator`` for example usage.
         """
         # Retrieve the model and verify it has been simulated.
-        model = self._get_component(component)
-        model_key = self._get_model_name(component)
-        if model_key not in self._components:
-            raise ValueError("The provided component has not yet been simulated.")
+        if component in self._components:
+            model = self._get_component(self._components[component]["alias"])
+            model_key = component
+        else:
+            model = self._get_component(component)
+            model_key = self._get_model_name(component)
+            if model_key not in self._components:
+                raise ValueError("The provided component has not yet been simulated.")
 
         # Parse the key and verify that it's properly formatted.
         ant1, ant2, pol = self._parse_key(key)
@@ -273,6 +279,7 @@ class Simulator:
 
         # Prepare to re-simulate the effect.
         kwargs = self._components[model_key].copy()
+        kwargs.pop("alias")  # To handle multiple instances of simulating an effect.
         seed = kwargs.pop("seed", None)
         vis_filter = kwargs.pop("vis_filter", None)
         antpairpol_cache = self._antpairpol_cache[model_key]

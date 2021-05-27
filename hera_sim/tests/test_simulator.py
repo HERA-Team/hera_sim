@@ -561,6 +561,12 @@ def test_none_seed(base_sim):
     assert not np.allclose(d1, d2)
 
 
+def test_none_seed_state_recovery(base_sim):
+    base_sim.add("noiselike_eor", seed=None)
+    vis = base_sim.get("noiselike_eor")
+    assert np.allclose(base_sim.data.data_array, vis)
+
+
 @pytest.mark.parametrize("seed", [3.14, "redundant"])
 def test_bad_seeds(base_sim, seed):
     with pytest.raises(TypeError) as err:
