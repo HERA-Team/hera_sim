@@ -191,6 +191,7 @@ def component(cls):
 
 
 def get_all_components(with_aliases=False) -> Dict[str, Dict[str, SimulationComponent]]:
+    """Get a dictionary of component names mapping to a dictionary of models."""
     return {
         cmp_name.lower(): cmp.get_models(with_aliases)
         for cmp_name, cmp in _available_components.items()
@@ -198,14 +199,23 @@ def get_all_components(with_aliases=False) -> Dict[str, Dict[str, SimulationComp
 
 
 def get_models(cmp: str, with_aliases: bool = False) -> Dict[str, SimulationComponent]:
+    """Get a dictionary of model names mapping to model classes for a particular component."""
     return get_all_components(with_aliases)[cmp.lower()]
 
 
 def get_all_models(with_aliases: bool = False) -> Dict[str, SimulationComponent]:
+    """Get a dictionary of model names mapping to their classes for all possible models.
+
+    See Also
+    --------
+    :func:`get_models`
+        Return a similar dictionary but filtered to a single kind of component.
+    """
     all = get_all_components(with_aliases)
     out = {}
-    for k, v in all.items():
-        out.update(v)
+    for models in all.values():
+        # models here is a dictionary of all models of a particular component.
+        out.update(models)
     return out
 
 
@@ -216,7 +226,7 @@ def get_model(mdl: str, cmp: Optional[str] = None) -> SimulationComponent:
         return get_all_models(with_aliases=True)[mdl.lower()]
 
 
-def print_all_components(with_aliases: bool = True):
+def list_all_components(with_aliases: bool = True) -> str:
     cmps = get_all_components(with_aliases)
 
     out = ""
@@ -229,4 +239,4 @@ def print_all_components(with_aliases: bool = True):
 
         for model, names in model_to_name.items():
             out += "  " + " | ".join(names) + "\n"
-    print(out)
+    return out

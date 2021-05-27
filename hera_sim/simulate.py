@@ -18,7 +18,7 @@ from . import io
 from . import utils
 from .defaults import defaults
 from . import __version__
-from .components import SimulationComponent, get_model, print_all_components
+from .components import SimulationComponent, get_model, list_all_components
 from typing import Type, Union, Tuple
 
 
@@ -775,7 +775,7 @@ class Simulator:
             except KeyError:
                 raise ValueError(
                     f"The model '{component}' does not exist. The following models are "
-                    f"available: \n{print_all_components()}."
+                    f"available: \n{list_all_components()}."
                 )
         elif isinstance(component, SimulationComponent):
             return component, False
@@ -783,7 +783,7 @@ class Simulator:
             raise ValueError(
                 "The input type for the component was not understood. "
                 "Must be a string, or a class/instance of type 'SimulationComponent'. "
-                f"Available component models are:\n{print_all_components()}"
+                f"Available component models are:\n{list_all_components()}"
             )
 
     def _generate_seed(self, model, key):
