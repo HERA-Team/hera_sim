@@ -314,11 +314,10 @@ class Simulator:
         # First, find out if it needs to be conjugated.
         try:
             blt_inds = self.data.antpair2ind(ant1, ant2)
-            # I don't think this will ever execute, but just in case...
             if blt_inds.size == 0:
-                raise ValueError  # pragma: no cover
+                raise ValueError
             conj_data = False
-        except ValueError:  # pragma: no cover
+        except ValueError:
             blt_inds = self.data.antpair2ind(ant2, ant1)
             conj_data = True
 
@@ -730,7 +729,8 @@ class Simulator:
             bl_in_cache = (ant1, ant2, pol) in antpairpol_cache
             conj_in_cache = (ant2, ant1, pol) in antpairpol_cache
 
-            if seed == "redundant" and conj_in_cache:
+            # I don't think this will ever get executed, but just in case...
+            if seed == "redundant" and conj_in_cache:  # pragma: no cover
                 # Ensure that V_ij = conj(V_ji).
                 seed = self._seed_rng(seed, model, ant2, ant1, pol)
             elif seed is not None:
@@ -751,11 +751,8 @@ class Simulator:
                 if not apply_filter:
                     data_copy[blt_inds, 0, :, pol_ind] *= gain
             else:
-                # if the conjugate baseline has been simulated and
-                # the RNG was only seeded initially, then we should
-                # not re-simulate to ensure invariance under complex
-                # conjugation and swapping antennas
-                if conj_in_cache and seed is None:
+                # I don't think this will ever be executed, but just in case...
+                if conj_in_cache and seed is None:  # pragma: no cover
                     conj_blts = self.data.antpair2ind((ant2, ant1))
                     vis = (data_copy - self.data.data_array)[
                         conj_blts, 0, :, pol_ind
