@@ -443,3 +443,34 @@ def test_run_sim_bad_param_value(base_sim):
     with pytest.raises(TypeError) as err:
         base_sim.run_sim(**bad_value)
     assert "The parameters for diffuse_foreground are not" in err.value.args[0]
+
+
+def test_plot_array(base_sim):
+    fig = base_sim.plot_array()
+    ax = fig.axes[0]
+    assert ax.get_xlabel() == "East Position [m]"
+    assert ax.get_ylabel() == "North Position [m]"
+    assert ax.get_title() == "Array Layout"
+
+
+# Testing against using reference files is already done in test_io,
+# so we only test for specifying integrations per file.
+def test_chunker(base_sim, tmp_path):
+    Nint_per_file = 5
+    prefix = "zen"
+    sky_cmp = "eor"
+    state = "test"
+    filetype = "uvh5"
+    Nfiles = base_sim.Ntimes // Nint_per_file
+    base_sim.add("noiselike_eor", seed="redundant")
+    base_sim.chunk_sim_and_save(
+        tmp_path,
+        Nint_per_file=Nint_per_file,
+        prefix=prefix,
+        sky_cmp=sky_cmp,
+        state=state,
+        filetype=filetype
+    )
+    assert len(
+        list(tmp_path.glob(f"{prefix}.*.{sky_cmp}.{state}.{filetype}"))
+    ) == Nfiles
