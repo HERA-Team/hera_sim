@@ -144,6 +144,6 @@ class TestPerturbedPolyBeam:
             run_sim(r, use_pixel_beams=False, use_gpu=True) 
 
         # Check that attempting to use GPU with MPI raises an error.
-        with pytest.raises(RuntimeError if HAVE_GPU else ImportError):
+        with pytest.raises(RuntimeError):
             run_sim(r, use_gpu=True, use_mpi=True)
 
