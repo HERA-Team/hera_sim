@@ -7,7 +7,6 @@ from copy import deepcopy
 from .defaults import defaults
 from typing import Dict, Optional, Tuple
 from types import new_class
-import inflection
 from collections import defaultdict
 
 _available_components = {}
