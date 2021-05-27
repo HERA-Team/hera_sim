@@ -160,10 +160,11 @@ def test_get_full_data(ref_sim, pol):
 
 
 @pytest.mark.parametrize("pol", [None, "xx"])
-def test_get_with_one_seed(base_sim, pol):
+@pytest.mark.parametrize("conj", [True, False])
+def test_get_with_one_seed(base_sim, pol, conj):
     # Set the seed mode to "once" even if that's not realistic.
     base_sim.add("noiselike_eor", seed="once")
-    ant1, ant2 = (1, 0)  # Use convention ant1 > ant2 for conjugation considerations.
+    ant1, ant2 = (0, 1) if conj else (1, 0)  
     key = (ant1, ant2, pol)
     data = base_sim.get("noiselike_eor", key)
     antpairpol = (ant1, ant2) if pol is None else (ant1, ant2, pol)
@@ -172,6 +173,20 @@ def test_get_with_one_seed(base_sim, pol):
         assert np.allclose(data, true_data, rtol=0, atol=1e-7)
     else:
         assert np.allclose(data[..., 0], true_data, rtol=0, atol=1e-7)
+
+
+# TODO: this will need to be updated when full polarization support is added
+@pytest.mark.parametrize("pol", [None, "xx"])
+@pytest.mark.parametrize("conj", [True, False])
+def test_get_with_initial_seed(base_sim, pol, conj):
+    # Simulate an effect where we would actually use this setting.
+    base_sim.add("thermal_noise", seed="initial")
+    ant1, ant2 = (0, 1) if conj else (1, 0)
+    vis = base_sim.get("thermal_noise", key=(ant1, ant2, pol))
+    if pol:
+        assert np.allclose(base_sim.data.get_data(ant1, ant2, pol),  vis)
+    else:
+        assert np.allclose(base_sim.data.get_data(ant1, ant2), vis[...,0])
 
 
 def test_get_nonexistent_component(ref_sim):

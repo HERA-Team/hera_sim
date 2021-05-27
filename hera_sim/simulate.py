@@ -295,7 +295,7 @@ class Simulator:
                 ret_vis=True,
                 seed=seed,
                 vis_filter=vis_filter,
-                antpairpol_cache=antpairpol_cache,
+                antpairpol_cache=None,
                 **kwargs,
             )
 
@@ -316,6 +316,7 @@ class Simulator:
         except ValueError:  # pragma: no cover
             blt_inds = self.data.antpair2ind(ant2, ant1)
             conj_data = True
+
         # We've got three different seeding cases to work out.
         if seed == "initial":
             # Initial seeding means we need to do the whole array.
@@ -325,7 +326,7 @@ class Simulator:
                 ret_vis=True,
                 seed=seed,
                 vis_filter=vis_filter,
-                antpairpol_cache=antpairpol_cache,
+                antpairpol_cache=None,
                 **kwargs,
             )[blt_inds, 0, :, :]
             if conj_data:  # pragma: no cover
@@ -651,6 +652,7 @@ class Simulator:
         model,
         add_vis=True,
         ret_vis=False,
+        seed=None,
         vis_filter=None,
         antpairpol_cache=None,
         **kwargs,
@@ -675,9 +677,6 @@ class Simulator:
         # pull lsts/freqs if required and find out which extra
         # parameters are required
         base_args = self._initialize_args_from_model(model)
-
-        # figure out whether or not to seed the RNG
-        seed = kwargs.pop("seed", None)
 
         # get a copy of the data array
         data_copy = self.data.data_array.copy()
