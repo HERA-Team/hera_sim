@@ -156,6 +156,7 @@ class Simulator:
         ret_vis: bool = False,
         seed: Optional[str] = None,
         vis_filter: Optional[Sequence] = None,
+        component_name: Optional[str] = None,
         **kwargs,
     ):
         """
@@ -182,16 +183,21 @@ class Simulator:
             Iterable specifying which antennas/polarizations for which the effect
             should be simulated. See documentation of .. meth:: _apply_filter for
             details of supported formats and functionality.
+        component_name: str, optional
+            Name to use when recording the parameters used for simulating the effect.
+            Default is to use the name of the class used to simulate the effect.
         **kwargs
             Optional keyword arguments for the provided ``component``.
         """
         # Obtain a callable reference to the simulation component model.
         model = self._get_component(component)
-        model_key = self._get_model_name(component)
+        model_key = component_name if component_name else self._get_model_name(component)
         if not isinstance(model, SimulationComponent):
             model = model(**kwargs)
         self._sanity_check(model)  # Check for component ordering issues.
         self._antpairpol_cache[model_key] = []  # Initialize this model's cache.
+        if seed is None:
+            cur_seed = np.random.get_state()[1][0]
 
         # Simulate the effect by iterating over baselines and polarizations.
         data = self._iteratively_apply(
@@ -211,9 +217,10 @@ class Simulator:
                     if param not in kwargs and param in defaults():
                         kwargs[param] = defaults(param)
             self._update_history(model, **kwargs)
-            if seed is not None:
-                kwargs["seed"] = seed
-                self._update_seeds(model_key)
+            # Record the random state in case no seed was specified.
+            # This ensures that the component can be recovered later.
+            kwargs["seed"] = cur_seed if seed is None else seed
+            self._update_seeds(model_key)
             if vis_filter is not None:
                 kwargs["vis_filter"] = vis_filter
             self._components[model_key] = kwargs
@@ -729,12 +736,9 @@ class Simulator:
             bl_in_cache = (ant1, ant2, pol) in antpairpol_cache
             conj_in_cache = (ant2, ant1, pol) in antpairpol_cache
 
-            # I don't think this will ever get executed, but just in case...
-            if seed == "redundant" and conj_in_cache:  # pragma: no cover
-                # Ensure that V_ij = conj(V_ji).
-                seed = self._seed_rng(seed, model, ant2, ant1, pol)
-            elif seed is not None:
-                seed = self._seed_rng(seed, model, ant1, ant2, pol)
+            # Seed the random number generator.
+            key = (ant2, ant1, pol) if conj_in_cache else (ant1, ant2, pol)
+            seed = self._seed_rng(seed, model, *key)
 
             # Prepare the actual arguments to be used.
             use_args = self._update_args(base_args, ant1, ant2, pol)
