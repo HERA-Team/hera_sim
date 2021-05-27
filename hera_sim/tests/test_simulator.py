@@ -201,6 +201,26 @@ def test_get_vis_only_one_antenna(ref_sim):
     assert "a pair of antennas must be provided" in err.value.args[0]
 
 
+@pytest.mark.parametrize("conj", [True, False])
+@pytest.mark.parametrize("pol", [None, "xx"])
+def test_get_redundant_data(pol, conj):
+    antpos = {
+        0: [0, 0, 0],
+        1: [10, 0, 0],
+        2: [0, 10, 0],
+        3: [10, 10, 0],
+    }
+    sim = create_sim(array_layout=antpos)
+    sim.add("diffuse_foreground", seed="redundant")
+    ant1, ant2 = (0, 1) if conj else (1, 0)
+    ai, aj = (2, 3) if conj else (3, 2)
+    vis = sim.get("diffuse_foreground", (ant1, ant2, pol))
+    if pol:
+        assert np.allclose(sim.data.get_data(ai, aj, pol), vis)
+    else:
+        assert np.allclose(sim.data.get_data(ai, aj), vis[...,0])
+
+
 @pytest.mark.parametrize("pol", [None, "xx"])
 @pytest.mark.parametrize("ant1", [None, 1])
 def test_get_multiplicative_effect(base_sim, pol, ant1):
