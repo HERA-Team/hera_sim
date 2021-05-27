@@ -18,7 +18,7 @@ from hera_sim.foregrounds import DiffuseForeground, diffuse_foreground
 from hera_sim.noise import HERA_Tsky_mdl
 from hera_sim.simulate import Simulator
 from hera_sim.antpos import hex_array
-from hera_sim import DATA_PATH, CONFIG_PATH
+from hera_sim import SimulationComponent, DATA_PATH, CONFIG_PATH
 from hera_sim.defaults import defaults
 from hera_sim.interpolators import Beam
 from pyuvdata import UVData
@@ -529,3 +529,20 @@ def test_vis_filter_arbitrary_key():
         np.all(sim.get_data((ai,aj,"xx")))
         for ai, aj in bls if ai in (1,3,5) or aj in (1,3,5)
     )
+
+
+def test_bad_initialization_data():
+    with pytest.raises(TypeError) as err:
+        Simulator(data=123)
+    assert "data type not understood." in err.value.args[0]
+
+
+def test_custom_component_without_is_multiplicative_attr(base_sim):
+    class Test:
+        def __init__(self):
+            pass
+        def __call__(self, lsts, freqs):
+            return np.zeros((lsts.size, freqs.size), dtype=np.complex)
+    with pytest.warns(UserWarning) as warning:
+        base_sim.add(Test)
+    assert "``is_multiplicative``" in warning.list[0].message.args[0]
