@@ -165,10 +165,32 @@ resample_Tsky = ThermalNoise.resample_Tsky
 thermal_noise = ThermalNoise()
 
 
-def sky_noise_jy(lsts, freqs, **kwargs):
+def sky_noise_jy(lsts: np.ndarray, freqs: np.ndarray, **kwargs):
+    """Generate thermal noise at particular LSTs and frequencies.
+
+    Parameters
+    ----------
+    lsts : array_like
+        LSTs at which to compute the sky noise.
+    freqs : array_like
+        Frequencies at which to compute the sky noise.
+
+    Other Parameters
+    ----------------
+    See :class:`ThermalNoise`.
+
+    Returns
+    -------
+    ndarray
+        2D array of white noise in LST/freq.
+    """
     return thermal_noise(lsts, freqs, Trx=0, **kwargs)
 
 
 def white_noise(*args, **kwargs):
+    """Generate white noise in an array.
+
+    Deprecated. Use ``utils.gen_white_noise`` instead.
+    """
     warnings.warn("white_noise is being deprecated. Use utils.gen_white_noise instead.")
     return utils.gen_white_noise(*args, **kwargs)

@@ -320,9 +320,7 @@ class Simulator:
         return model(**args)
 
     def plot_array(self) -> plt.Figure:
-        """Generate a plot of the array layout in ENU coordinates.
-
-        """
+        """Generate a plot of the array layout in ENU coordinates."""
         fig = plt.figure(figsize=(10, 8))
         ax = fig.add_subplot(1, 1, 1)
         ax.set_xlabel("East Position [m]", fontsize=12)
@@ -346,9 +344,7 @@ class Simulator:
         self._antpairpol_cache = {}
 
     def write(self, filename, save_format="uvh5", **kwargs):
-        # TODO: docstring
-        """
-        """
+        """Write the ``data`` to file in given format."""
         try:
             getattr(self.data, f"write_{save_format}")(filename, **kwargs)
         except AttributeError:

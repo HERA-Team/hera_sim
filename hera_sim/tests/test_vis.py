@@ -1,20 +1,17 @@
 import unittest
 
-import astropy_healpix as aph
-
+import healpy
 import healvis
 import numpy as np
 import pytest
-from astropy.units import sday, rad
+from astropy.units import sday
 from pyuvsim.analyticbeam import AnalyticBeam
-from hera_sim.defaults import defaults
 
 from hera_sim import io
 from hera_sim import vis
 from hera_sim.antpos import linear_array
-from hera_sim.visibilities import VisCPU, HealVis, VisibilitySimulator
+from hera_sim.visibilities import VisCPU, HealVis
 
-# temporarily restrict simulators to just VisCPU
 SIMULATORS = (HealVis, VisCPU)
 
 try:
@@ -40,61 +37,23 @@ NFREQ = 5
 
 @pytest.fixture
 def uvdata():
-    defaults.set("h1c")
     return io.empty_uvdata(
-        Nfreqs=NFREQ,
+        nfreq=NFREQ,
         integration_time=sday.to("s") / NTIMES,
-        Ntimes=NTIMES,
-        array_layout={0: (0, 0, 0),},
+        ntimes=NTIMES,
+        ants={0: (0, 0, 0),},
     )
 
 
 @pytest.fixture
 def uvdataJD():
-    defaults.set("h1c")
     return io.empty_uvdata(
-        Nfreqs=NFREQ,
+        nfreq=NFREQ,
         integration_time=sday.to("s") / NTIMES,
-        Ntimes=NTIMES,
-        array_layout={0: (0, 0, 0),},
+        ntimes=NTIMES,
+        ants={0: (0, 0, 0),},
         start_time=2456659,
     )
-
-
-def test_simulators_single_freq_input(uvdata):
-    """Test the case when point source flux is input with one frequency."""
-    freqs = np.unique(uvdata.freq_array)
-    # just anything
-    point_source_pos = np.array([[0, uvdata.telescope_location_lat_lon_alt[0]]])
-    point_source_flux = np.array([[1.0]])
-
-    hv = HealVis(
-        uvdata=uvdata,
-        sky_freqs=freqs,
-        point_source_flux=point_source_flux,
-        point_source_pos=point_source_pos,
-        nside=2 ** 4,
-    )
-
-    assert hv.point_source_flux.shape == (len(freqs), len(point_source_pos))
-    assert np.all(hv.point_source_flux == 1.0)
-
-
-def test_simulators_wrong_freq_input(uvdata):
-    """Test the case when point source flux is input with different number of frequencies than sky_freqs."""
-    freqs = np.unique(uvdata.freq_array)
-    # just anything
-    point_source_pos = np.array([[0, uvdata.telescope_location_lat_lon_alt[0]]])
-    point_source_flux = np.array([[1.0]] * (len(freqs) - 2))
-
-    with pytest.raises(ValueError):
-        HealVis(
-            uvdata=uvdata,
-            sky_freqs=freqs,
-            point_source_flux=point_source_flux,
-            point_source_pos=point_source_pos,
-            nside=2 ** 4,
-        )
 
 
 def test_healvis_beam(uvdata):
@@ -206,12 +165,11 @@ def test_JD(uvdata, uvdataJD):
 
 @pytest.fixture
 def uvdata2():
-    defaults.set("h1c")
     return io.empty_uvdata(
-        Nfreqs=NFREQ,
+        nfreq=NFREQ,
         integration_time=sday.to("s") / NTIMES,
-        Ntimes=NTIMES,
-        array_layout={0: (0, 0, 0), 1: (1, 1, 0)},
+        ntimes=NTIMES,
+        ants={0: (0, 0, 0), 1: (1, 1, 0)},
     )
 
 
@@ -220,17 +178,6 @@ def create_uniform_sky(nbase=4, scale=1, nfreq=NFREQ):
     nside = 2 ** nbase
     npix = 12 * nside ** 2
     return np.ones((nfreq, npix)) * scale / (4 * np.pi)
-
-
-def test_healpix_to_pntsrc():
-    """Test that when going from one resolution to another, the total 'point source' flux density is the same."""
-    sky1 = create_uniform_sky(nbase=3)
-    sky2 = create_uniform_sky(nbase=4)
-
-    sky1_ps = VisibilitySimulator.convert_healpix_to_point_sources(sky1)[1]
-    sky2_ps = VisibilitySimulator.convert_healpix_to_point_sources(sky2)[1]
-
-    assert np.isclose(np.sum(sky1_ps), np.sum(sky2_ps))
 
 
 @pytest.mark.parametrize("simulator", SIMULATORS)
@@ -272,13 +219,11 @@ def test_zero_sky(uvdata, simulator):
 
 @pytest.mark.parametrize("simulator", SIMULATORS)
 def test_autocorr_flat_beam(uvdata, simulator):
-    I_sky = create_uniform_sky(nbase=4)
-    print("DATA SHAPE: ", uvdata.data_array.shape)
+    I_sky = create_uniform_sky(nbase=6)
 
-    sim = simulator(
+    v = simulator(
         uvdata=uvdata, sky_freqs=np.unique(uvdata.freq_array), sky_intensity=I_sky,
-    )
-    v = sim.simulate()
+    ).simulate()
 
     np.testing.assert_allclose(np.abs(v), np.mean(v), rtol=1e-5)
     np.testing.assert_almost_equal(np.abs(v), 0.5, 2)
@@ -352,20 +297,18 @@ def align_src_to_healpix(point_source_pos, point_source_flux, nside=2 ** 4):
         Corresponding new flux values.
     """
 
-    hmap = np.zeros((len(point_source_flux), aph.nside_to_npix(nside)))
+    hmap = np.zeros((len(point_source_flux), healpy.nside2npix(nside)))
 
     # Get which pixel every point source lies in.
-    pix = aph.lonlat_to_healpix(
-        lon=point_source_pos[:, 0] * rad, lat=point_source_pos[:, 1] * rad, nside=nside
+    pix = healpy.ang2pix(
+        nside, np.pi / 2 - point_source_pos[:, 1], point_source_pos[:, 0]
     )
 
-    hmap[:, pix] += (
-        point_source_flux / aph.nside_to_pixel_area(nside).to(rad ** 2).value
-    )
-    nside = aph.npix_to_nside(len(hmap[0]))
-    ra, dec = aph.healpix_to_lonlat(np.arange(len(hmap[0])), nside)
-    flux = hmap * aph.nside_to_pixel_area(nside).to(rad ** 2).value
-    return np.array([ra.to(rad).value, dec.to(rad).value]).T, flux
+    hmap[:, pix] += point_source_flux / healpy.nside2pixarea(nside)
+    nside = healpy.get_nside(hmap[0])
+    ra, dec = healpy.pix2ang(nside, np.arange(len(hmap[0])), lonlat=True)
+    flux = hmap * healpy.nside2pixarea(nside)
+    return np.array([ra * np.pi / 180, dec * np.pi / 180]).T, flux
 
 
 def test_comparison_zenith(uvdata2):
@@ -397,7 +340,7 @@ def test_comparison_zenith(uvdata2):
     ).simulate()
 
     assert viscpu.shape == healvis.shape
-    assert np.allclose(viscpu, healvis, atol=0.05, rtol=0)
+    np.testing.assert_allclose(viscpu, healvis, rtol=0.05)
 
 
 def test_comparision_horizon(uvdata2):
@@ -478,12 +421,9 @@ def test_comparison_half(uvdata2):
 
     I_sky = create_uniform_sky(nbase=nbase)
 
+    vec = healpy.ang2vec(np.pi / 2, 0)
     # Zero out values within pi/2 of (theta=pi/2, phi=0)
-    H = aph.HEALPix(nside=nside)
-
-    ipix_disc = H.cone_search_lonlat(
-        lat=np.pi / 2 * rad, lon=0 * rad, radius=np.pi / 2 * rad
-    )
+    ipix_disc = healpy.query_disc(nside=nside, vec=vec, radius=np.pi / 2)
     for i in range(len(freqs)):
         I_sky[i][ipix_disc] = 0
 
@@ -506,11 +446,9 @@ def test_comparision_airy(uvdata2):
 
     I_sky = create_uniform_sky(nbase=nbase)
 
+    vec = healpy.ang2vec(np.pi / 2, 0)
     # Zero out values within pi/2 of (theta=pi/2, phi=0)
-    H = aph.HEALPix(nside=nside)
-    ipix_disc = H.cone_search_lonlat(
-        lat=np.pi / 2 * rad, lon=0 * rad, radius=np.pi / 2 * rad
-    )
+    ipix_disc = healpy.query_disc(nside=nside, vec=vec, radius=np.pi / 2)
     for i in range(len(freqs)):
         I_sky[i][ipix_disc] = 0
 

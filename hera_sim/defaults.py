@@ -223,7 +223,6 @@ class Defaults:
         nested_dict : dict
             A dictionary that may either be fully, partially, or not
             nested. May have any degree of nesting.
-
         new_dict : dict
             A dictionary, empty or not, to fill with the (key, value)
             pairs in `nested_dict` such that `value` is not a dict.

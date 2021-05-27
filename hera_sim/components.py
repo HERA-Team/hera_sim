@@ -118,20 +118,16 @@ def registry(cls):
             pass
 
         def _check_kwargs(self, **kwargs):
-            if any([key not in self.kwargs for key in kwargs]):
+            if any(key not in self.kwargs for key in kwargs):
                 error_msg = "The following keywords are not supported: "
-                error_msg += ", ".join(
-                    [key for key in kwargs if key not in self.kwargs]
-                )
+                error_msg += ", ".join(key for key in kwargs if key not in self.kwargs)
                 raise ValueError(error_msg)
 
         @classmethod
         def _update_call_docstring(cls):
             init_docstring = str(cls.__init__.__doc__)
             call_docstring = str(cls.__call__.__doc__)
-            if any(
-                ["Parameters" not in doc for doc in (init_docstring, call_docstring)]
-            ):
+            if any("Parameters" not in doc for doc in (init_docstring, call_docstring)):
                 return
             init_params = cls._extract_param_section(init_docstring)
             call_params = cls._extract_param_section(call_docstring)
