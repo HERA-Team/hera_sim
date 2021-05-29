@@ -601,3 +601,13 @@ def test_get_component_with_function():
 
     with pytest.raises(TypeError, match="function to a callable class"):
         Simulator._get_component(func)
+
+
+def test_get_component_bad_type():
+    with pytest.raises(TypeError, match="an instance of a callable"):
+        Simulator._get_component(3)
+
+
+def test_parse_key_with_baseline_number(base_sim):
+    bl = base_sim.data.antnums_to_baseline(0, 1)
+    assert base_sim._parse_key(bl) == (0, 1, None)
