@@ -649,7 +649,7 @@ class Simulator:
 
     def _initialize_args_from_model(self, model):
         """
-        Scan the __call__ method of the provided model and return its arguments.
+        Retrieve the LSTs and/or frequencies required for a model.
 
         Parameters
         ----------
@@ -999,17 +999,12 @@ class Simulator:
             if callable(component):
                 return component
             if not isinstance(component, str):
-                # TODO: update this error message to reflect the
-                # change in allowed component types
                 raise TypeError(
                     "``component`` must be either a class which "
-                    "derives from ``SimulationComponent`` or an "
-                    "instance of a callable class, or a function, "
-                    "whose signature is:\n"
-                    "func(lsts, freqs, *args, **kwargs)\n"
-                    "If it is none of the above, then it must be "
-                    "a string which corresponds to the name of a "
-                    "``hera_sim`` class or an alias thereof."
+                    "derives from ``SimulationComponent``, an "
+                    "instance of a callable class, or a string that "
+                    "corresponds to the name of a ``hera_sim`` class or "
+                    "an alias thereof."
                 )
 
             # TODO: make this a private method _check_registry
