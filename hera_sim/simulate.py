@@ -1055,26 +1055,15 @@ class Simulator:
 
     @staticmethod
     def _get_model_name(model):
-        # TODO: docstring
         """
+        Find out the (lowercase) name of a provided model.
         """
         if isinstance(model, str):
             return model.lower()
         try:
             return model.__name__.lower()
         except AttributeError:
-            # check if it's a user defined function
-            if model.__class__.__name__ == "function":
-                # don't allow users to pass functions, only classes
-                # TODO: find out if this check always happens before
-                # _get_component is called
-                raise TypeError(
-                    "You are trying to simulate an effect using a custom function. "
-                    "Please refer to the tutorial for instructions regarding how "
-                    "to define new simulation components compatible with the Simulator."
-                )
-            else:
-                return model.__class__.__name__.lower()
+            return model.__class__.__name__.lower()
 
     def _parse_key(self, key: Union[int, str, AntPair, AntPairPol]) -> AntPairPol:
         """Convert a key of at-most length-3 to an (ant1, ant2, pol) tuple."""
