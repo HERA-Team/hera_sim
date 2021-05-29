@@ -567,11 +567,29 @@ def test_none_seed_state_recovery(base_sim):
     assert np.allclose(base_sim.data.data_array, vis)
 
 
-@pytest.mark.parametrize("seed", [3.14, "redundant"])
+@pytest.mark.parametrize("seed", [3.14, "redundant", "unsupported"])
 def test_bad_seeds(base_sim, seed):
-    with pytest.raises(TypeError) as err:
-        base_sim._seed_rng(seed, None)
-    if seed == "redundant":
-        assert "baseline must be specified" in err.value.args[0]
+    if seed == "unsupported":
+        with pytest.raises(ValueError, match="Seeding mode not supported."):
+            base_sim._seed_rng(seed, None)
     else:
-        assert "seeding mode must be" in err.value.args[0]
+        with pytest.raises(TypeError) as err:
+            base_sim._seed_rng(seed, None)
+        if seed == "redundant":
+            assert "baseline must be specified" in err.value.args[0]
+        else:
+            assert "seeding mode must be" in err.value.args[0]
+
+
+def test_update_args_warning(base_sim):
+    class Test:
+        def __init__(self):
+            pass
+        def __call__(self, lsts, freqs, something_else):
+            pass
+
+    t = Test()
+    args = base_sim._initialize_args_from_model(t)
+    with pytest.warns(UserWarning) as warning:
+        base_sim._update_args(args)
+    assert "required parameters was not extracted." in warning.list[0].message.args[0]
