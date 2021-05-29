@@ -593,3 +593,11 @@ def test_update_args_warning(base_sim):
     with pytest.warns(UserWarning) as warning:
         base_sim._update_args(args)
     assert "required parameters was not extracted." in warning.list[0].message.args[0]
+
+
+def test_get_component_with_function():
+    def func():
+        pass
+
+    with pytest.raises(TypeError, match="function to a callable class"):
+        Simulator._get_component(func)
