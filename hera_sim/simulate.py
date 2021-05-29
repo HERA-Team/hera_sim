@@ -648,13 +648,37 @@ class Simulator:
             )
 
     def _initialize_args_from_model(self, model):
-        # TODO: docstring
         """
+        Scan the __call__ method of the provided model and return its arguments.
+
+        Parameters
+        ----------
+        model: callable
+            Model whose argspec is to be inspected and recovered.
+
+        Returns
+        -------
+        model_params: dict
+            Dictionary mapping positional argument names to either an
+            ``inspect._empty`` object or the relevant parameters pulled
+            from the ``Simulator`` object. The only parameters that are
+            not ``inspect._empty`` are "lsts" and "freqs", should they
+            appear in the model's argspec.
+
+        Examples
+        --------
+        Suppose we have the following function::
+            def func(freqs, ants, other=None):
+                pass
+        The returned object would be a dictionary with keys ``freqs`` and
+        ``ants``, with the value for ``freqs`` being ``self.freqs`` and
+        the value for ``ants`` being ``inspect._empty``. Since ``other``
+        has a default value, it will not be in the returned dictionary.
         """
         model_params = self._get_model_parameters(model)
         model_params = {k: v for k, v in model_params.items() if v is inspect._empty}
 
-        # pull the lst and frequency arrays as required
+        # Pull the LST and frequency arrays if they are required.
         args = {
             param: getattr(self, param)
             for param in model_params
@@ -859,11 +883,30 @@ class Simulator:
             raise ValueError("Seeding mode not supported.")
 
     def _update_args(self, args, ant1=None, ant2=None, pol=None):
-        # TODO: docstring
         """
+        Scan the provided arguments and pull data as necessary.
+
+        This method searches the provided dictionary for various positional
+        arguments that can be determined by data stored in the ``Simulator``
+        instance. Please refer to the source code to see what argument
+        names are searched for and how their values are obtained.
+
+        Parameters
+        ----------
+        args: dict
+            Dictionary mapping names of positional arguments to either
+            a value pulled from the ``Simulator`` instance or an
+            ``inspect._empty`` object. See .. meth: _initialize_args_from_model
+            for details on what to expect (these two methods are always
+            called in conjunction with one another).
+        ant1: int, optional
+            Required parameter if an autocorrelation visibility or a baseline
+            vector is in the keys of ``args``.
+        ant2: int, optional
+            Required parameter if a baseline vector is in the keys of ``args``.
+        pol: str, optional
+            Polarization string. Currently not used.
         """
-        # TODO: add helpful warning if unexpected arguments in signature
-        # helper for getting the correct parameter name
         def key(requires):
             return list(args)[requires.index(True)]
 
