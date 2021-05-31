@@ -258,7 +258,7 @@ class FreqInterpolator(Interpolator):
 
     Raises
     ------
-    AssertionError:
+    AssertionError
         This is raised if the choice of interpolator and the required type
         of the ref_file do not agree (i.e. trying to make a 'poly1d' object
         using a .npz file as a reference). An AssertionError is also raised

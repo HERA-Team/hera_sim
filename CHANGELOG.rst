@@ -14,39 +14,25 @@ Fixed
 Changed
 -------
 
-- All functions that take frequencies and LSTs as arguments have had \
-  their signatures changed to func(lsts, freqs, \*args, \*\*kwargs)
-
-- Changes to handling of functions which employ a fringe or delay \
-  filtering step with variable keywords for the filters used. Filter \
-  keywords are now specified with individual dictionaries called \
-  ``delay_filter_kwargs`` or ``fringe_filter_kwargs``, depending on \
-  the filter used.
-   - Functions affected by this change are as follows:
-      - ``diffuse_foreground``
-      - ``noiselike_eor``
-
-- Changes to parameters that shared the same name but represented \
-  conceptually different objects in various functions. Functions \
-  affected by this are as follows:
-   - ``utils.rough_delay_filter``
-   - ``utils.rough_fringe_filter``
-   - Most RFI functions
-
-- The ``io.empty_uvdata`` function had its default keyword values \
-  set to ``None``. The keywords accepted by this function have also \
-  been changed to match their names in \
-  ``pyuvsim.simsetup.initialize_uvdata_from_keywords``
-
-- Changes to parameters in most RFI models. Optional parameters that \
-  are common to many models (but should not share the same name), such \
-  as ``std`` or ``chance``, have been prefixed with the model name and \
-  an underscore (e.g. ``dtv_chance``). Various other parameters have \
-  been renamed for consistency/clarity. Note that the ``freq_min`` and \
-  ``freq_max`` parameters for ``rfi_dtv`` have been replaced by the \
-  single parameter ``dtv_band``, which is a tuple denoting the edges of \
-  the DTV band in GHz.
-
+- All functions that take frequencies and LSTs as arguments have had their signatures
+  changed to ``func(lsts, freqs, \*args, \*\*kwargs)``.
+- Changes to handling of functions which employ a fringe or delay filtering step with
+  variable keywords for the filters used. Filter keywords are now specified with
+  individual dictionaries called ``delay_filter_kwargs`` or ``fringe_filter_kwargs``,
+  depending on the filter used. Functions affected by this change are
+  ``diffuse_foreground`` and ``noiselike_eor``.
+- Changes to parameters that shared the same name but represented conceptually different
+  objects in various functions. Functions affected by this are:
+  ``utils.rough_delay_filter``, ``utils.rough_fringe_filter`` and most RFI functions.
+- The :func:`~hera_sim.io.empty_uvdata` function had its default keyword values
+  set to ``None``. The keywords accepted by this function have also been changed to
+  match their names in ``pyuvsim.simsetup.initialize_uvdata_from_keywords``.
+- Changes to parameters in most RFI models. Optional parameters that are common to many
+  models (but should not share the same name), such as ``std`` or ``chance``, have been
+  prefixed with the model name and an underscore (e.g. ``dtv_chance``). Various other
+  parameters have been renamed for consistency/clarity. Note that the ``freq_min`` and
+  ``freq_max`` parameters for ``rfi_dtv`` have been replaced by the single parameter
+  ``dtv_band``, which is a tuple denoting the edges of the DTV band in GHz.
 - Functions in ``utils`` now use ``freqs`` instead of ``fqs``.
 
 v0.3.0 [2019.12.10]

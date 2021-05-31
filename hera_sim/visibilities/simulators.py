@@ -85,12 +85,12 @@ class VisibilitySimulator(metaclass=ABCMeta):
         product of the responses of two input antenna beams.
     """
 
-    # Whether this particular simulator has the ability to simulate point
-    # sources directly.
+    #: Whether this particular simulator has the ability to simulate point
+    #: sources directly.
     point_source_ability = True
 
-    # Whether this particular simulator has the ability to simulate diffuse
-    # maps directly.
+    #: Whether this particular simulator has the ability to simulate diffuse
+    #: maps directly.
     diffuse_ability = True
 
     def __init__(

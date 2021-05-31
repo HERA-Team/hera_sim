@@ -2,7 +2,7 @@
 
 import numpy as np
 import warnings
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Union
 
 from scipy import stats
 
@@ -530,7 +530,9 @@ class WhiteNoiseCrosstalk(Crosstalk):
 
 
 def apply_gains(
-    vis: [float, np.ndarray], gains: Dict[int, [float, np.ndarray]], bl: Tuple[int, int]
+    vis: Union[float, np.ndarray],
+    gains: Dict[int, Union[float, np.ndarray]],
+    bl: Tuple[int, int],
 ) -> np.ndarray:
     """Apply antenna-based gains to a visibility.
 

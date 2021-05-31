@@ -77,6 +77,7 @@ def registry(cls):
             """
             super().__init_subclass__(**kwargs)
             cls._update_call_docstring()
+            #: whether the systematic multiplies existing visibilities.
             cls.is_multiplicative = is_multiplicative
             if not is_abstract:
                 cls.__base__._models[cls.__name__] = cls

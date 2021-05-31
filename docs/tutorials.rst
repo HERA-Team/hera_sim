@@ -29,3 +29,11 @@ command line:
    :maxdepth: 2
 
    tutorials/hera_sim_cli
+
+The following tutorial will give you an overview of how to simulate visibilities from
+sky models using ``hera_sim``:
+
+.. toctree::
+   :maxdepth: 2
+
+   tutorials/visibility_simulator
