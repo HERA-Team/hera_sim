@@ -1,3 +1,4 @@
+"""A package for running instrument and systematic simulations for HERA."""
 from pathlib import Path
 
 try:
@@ -10,7 +11,6 @@ try:
     CONFIG_PATH = Path(__file__).parent / "config"
     __version__ = version(__name__)
 except PackageNotFoundError:
-    print("package not found")
     # package is not installed
     pass
 

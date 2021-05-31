@@ -1,8 +1,4 @@
-"""
-Module containing useful helper functions and argparsers for running
-simulations with hera_sim via the command line.
-"""
-import copy
+"""Useful helper functions and argparsers for running simulations via CLI."""
 import itertools
 import os
 import numpy as np
@@ -152,11 +148,11 @@ def _validate_freq_params(freq_params):
         "freq_array",
         "channel_width",
     )
-    allowed_combinations = list(
+    allowed_combinations = [
         combo
         for combo in itertools.combinations(allowed_params, 3)
         if "start_freq" in combo and "freq_array" not in combo
-    ) + [("freq_array",)]
+    ] + [("freq_array",)]
     for combination in allowed_combinations:
         if all(freq_params.get(param, None) is not None for param in combination):
             return True

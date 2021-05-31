@@ -2,8 +2,6 @@
 
 import functools
 import inspect
-import os
-import sys
 import warnings
 import yaml
 import time
@@ -11,7 +9,6 @@ from pathlib import Path
 from typing import Optional, Union, Dict, Tuple, Type
 
 import numpy as np
-from cached_property import cached_property
 from pyuvdata import UVData
 from astropy import constants as const
 
@@ -35,33 +32,34 @@ def _generator_to_list(func, *args, **kwargs):
 # FIXME: some of the code in here is pretty brittle and breaks (sometimes silently)
 # if not used carefully. This definitely needs a review and cleanup.
 class Simulator:
+    """Class for managing a simulation.
+
+    Parameters
+    ----------
+    data
+        Any input data. If a path, will load a set of
+        visibilities using the ``read()`` method of
+        :class:`UVData`. Can be a :class:`UVData` object
+        to initialize directly. If not set, initialize an
+        empty :class:`UVData` object.
+    defaults_config
+        If given, either a path pointing to a defaults configuration
+        file, a string identifier of a particular config (e.g. 'h1c')
+        or a dictionary of configuration parameters (see :class:`defaults.Defaults`).
+
+    Other Parameters
+    ----------------
+    Used to initialize the data object. If nothing is given for ``data``, the relevant
+    parameters are those in :func:`io.empty_uvdata`. If ``data`` is a path, parameters
+    are those passed to ``UVData.read``.
+    """
+
     def __init__(
         self,
         data: Optional[Union[str, Path, UVData]] = None,
         defaults_config: Optional[Union[str, dict]] = None,
         **kwargs,
     ):
-        """Class for managing a simulation.
-
-        Parameters
-        ----------
-        data
-            Any input data. If a path, will load a set of
-            visibilities using the ``read()`` method of
-            :class:`UVData`. Can be a :class:`UVData` object
-            to initialize directly. If not set, initialize an
-            empty :class:`UVData` object.
-        defaults_config
-            If given, either a path pointing to a defaults configuration
-            file, a string identifier of a particular config (e.g. 'h1c')
-            or a dictionary of configuration parameters (see :class:`defaults.Defaults`).
-
-        Other Parameters
-        ----------------
-        Used to initialize the data object. If nothing is given for ``data``, the relevant
-        parameters are those in :func:`io.empty_uvdata`. If ``data`` is a path, parameters
-        are those passed to ``UVData.read``.
-        """
         # create some utility dictionaries
         self._components = {}
         self.extras = {}
@@ -104,7 +102,8 @@ class Simulator:
         config
             If given, either a path pointing to a defaults configuration
             file, a string identifier of a particular config (e.g. 'h1c')
-            or a dictionary of configuration parameters (see :class:`defaults.Defaults`).
+            or a dictionary of configuration parameters
+            (see :class:`defaults.Defaults`).
         refresh
             Whether to refresh the defaults.
         """
@@ -139,8 +138,6 @@ class Simulator:
         Optional[UVData]
             If ``ret_vis=True``, the data simulated from this component.
         """
-
-        # TODO: why aren't these just in the signature itself?
         # find out whether to add and/or return the component
         add_vis = kwargs.pop("add_vis", True)
         ret_vis = kwargs.pop("ret_vis", False)

@@ -1,11 +1,10 @@
 from contextlib import ExitStack as does_not_raise
 import pytest
-from hera_sim import foregrounds, noise
+from hera_sim import foregrounds
 from hera_sim import DATA_PATH
 from hera_sim.interpolators import Beam, Tsky
 from astropy import units
 import numpy as np
-from uvtools import dspec
 from uvtools.utils import FFT, fourier_freqs
 
 
@@ -61,7 +60,7 @@ def test_foreground_autos_are_real(freqs, lsts, Tsky_mdl, omega_p, model):
 @pytest.mark.parametrize("orientation", ["east", "west", "north"])
 @pytest.mark.parametrize(
     "model, expectation",
-    [("pntsrc", pytest.raises(AssertionError)), ("diffuse", does_not_raise()),],
+    [("pntsrc", pytest.raises(AssertionError)), ("diffuse", does_not_raise())],
 )
 def test_foreground_orientation(
     freqs, lsts, Tsky_mdl, omega_p, model, orientation, expectation

@@ -14,6 +14,8 @@ from typing import Optional
 
 @registry
 class EoR:
+    """Base class for fast EoR simualtors."""
+
     pass
 
 
@@ -52,8 +54,10 @@ class NoiselikeEoR(EoR):
         min_delay: Optional[float] = None,
         max_delay: Optional[float] = None,
         fringe_filter_type: str = "tophat",
-        fringe_filter_kwargs: dict = {},
+        fringe_filter_kwargs: Optional[dict] = None,
     ):
+        fringe_filter_kwargs = fringe_filter_kwargs or {}
+
         super().__init__(
             eor_amp=eor_amp,
             min_delay=min_delay,
@@ -63,6 +67,7 @@ class NoiselikeEoR(EoR):
         )
 
     def __call__(self, lsts, freqs, bl_vec, **kwargs):
+        """Compute the noise-like EoR model."""
         # validate the kwargs
         self._check_kwargs(**kwargs)
 

@@ -1,12 +1,8 @@
-"""
-This module is designed to allow for easy interfacing with simulation default
-parameters in an interactive environment.
-"""
+"""Module for interfacing with package-wide default parameters."""
 
 import yaml
 import inspect
 import functools
-import sys
 import warnings
 
 from os import path
@@ -62,7 +58,6 @@ class Defaults:
 
         Parameters
         ----------
-
         config : str or dict, optional (default 'h1c')
             May either be an absolute path to a configuration YAML, one of
             the observing season keywords ('h1c', 'h2c'), or a dictionary
@@ -70,7 +65,6 @@ class Defaults:
 
         Notes
         -----
-
         The configuration file may be formatted in practically any way,
         as long as it is parsable by `pyyaml`. That said, the resulting
         configuration will *always* take the form {param : value} for
@@ -82,7 +76,6 @@ class Defaults:
 
         Examples
         --------
-
         Consider the following contents of a configuration file::
 
             foregrounds:
@@ -215,7 +208,8 @@ class Defaults:
         # check if any items are repeated
         self._check_config()
 
-    def _unpack_dict(self, nested_dict, new_dict=None):
+    @staticmethod
+    def _unpack_dict(nested_dict, new_dict=None):
         """Extract individual components from a (partially) nested dictionary.
 
         Parameters
@@ -236,19 +230,23 @@ class Defaults:
 
         Examples
         --------
-        Input: nested_dict = {key1 : {k1 : v1, k2 : v2}, key2 : val2}
-               new_dict = {}
-        Output: new_dict = {k1 : v1, k2 : v2, key2 : val2}
+        >>> Defaults._unpack_dict(
+        >>>     nested_dict = {key1 : {k1 : v1, k2 : v2}, key2 : val2}
+        >>>     new_dict = {}
+        >>> )
+        {k1 : v1, k2 : v2, key2 : val2}
 
-        Input: nested_dict = {key1 : val1, key2 : val2}
-               new_dict = {key0 : val0}
-        Output: new_dict = {key0 : val0, key1 : val1, key2 : val2}
+        >>> Defaults._unpack_dict(
+        >>>     nested_dict = {key1 : val1, key2 : val2}
+        >>>     new_dict = {key0 : val0}
+        >>> )
+        {key0 : val0, key1 : val1, key2 : val2}
         """
         if new_dict is None:
             new_dict = {}
         for key, value in nested_dict.items():
             if isinstance(value, dict) and key != "array_layout":
-                self._unpack_dict(value, new_dict)
+                Defaults._unpack_dict(value, new_dict)
             else:
                 new_dict[key] = value
         return new_dict
@@ -339,7 +337,7 @@ class Defaults:
             final_args = {
                 arg: (
                     passed_args[arg]
-                    if arg in passed_args.keys()
+                    if arg in passed_args
                     else new_args[arg]
                     if self._override_defaults
                     else old_kwargs[arg]
@@ -353,9 +351,7 @@ class Defaults:
         return new_func
 
     def apply(self, func_kwargs, **kwargs):
-        # TODO: docstring
-        """Just update the kwargs given the function kwargs.
-        """
+        """Just update the kwargs given the function kwargs."""
         # pull the defaults from the active defaults
         new_args = self()
 
@@ -367,11 +363,7 @@ class Defaults:
         # get the keys to iterate over
         keys = set(list(new_args.keys()) + list(kwargs.keys()))
 
-        new_kwargs = {
-            arg: (kwargs[arg] if arg in kwargs else new_args[arg]) for arg in keys
-        }
-
-        return new_kwargs
+        return {arg: (kwargs[arg] if arg in kwargs else new_args[arg]) for arg in keys}
 
 
 defaults = Defaults()

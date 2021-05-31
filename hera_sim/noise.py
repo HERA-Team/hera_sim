@@ -1,6 +1,5 @@
 """Make some noise."""
 
-import os
 import warnings
 import astropy.units as u
 import numpy as np
@@ -25,6 +24,29 @@ class Noise:
 
 
 class ThermalNoise(Noise):
+    """Generate thermal noise based on a sky model.
+
+    Parameters
+    ----------
+    Tsky_mdl : callable, optional
+        A function of ``(lsts, freq)`` that returns the integrated
+        sky temperature at that time/frequency. If not provided, assumes
+        a power-law temperature with 180 K at 180 MHz and spectral index
+        of -2.5.
+    omega_p : array_like or callable, optional
+        If callable, a function of frequency giving the integrated beam
+        area. If an array, same length as given frequencies.
+    integration_time : float, optional
+        Integration time in seconds. By default, use the average difference
+        between given LSTs.
+    channel_width : float, optional
+        Channel width in Hz, by default the mean difference between frequencies.
+    Trx : float, optional
+        Receiver temperature in K
+    autovis : float, optional
+        Autocorrelation visibility amplitude. Used if provided instead of ``Tsky_mdl``.
+    """
+
     _alias = ("thermal_noise",)
 
     def __init__(
@@ -36,28 +58,6 @@ class ThermalNoise(Noise):
         Trx=0,
         autovis=None,
     ):
-        """Generate thermal noise based on a sky model.
-
-        Parameters
-        ----------
-        Tsky_mdl : callable, optional
-            A function of ``(lsts, freq)`` that returns the integrated
-            sky temperature at that time/frequency. If not provided, assumes
-            a power-law temperature with 180 K at 180 MHz and spectral index
-            of -2.5.
-        omega_p : array_like or callable, optional
-            If callable, a function of frequency giving the integrated beam
-            area. If an array, same length as given frequencies.
-        integration_time : float, optional
-            Integration time in seconds. By default, use the average difference
-            between given LSTs.
-        channel_width : float, optional
-            Channel width in Hz, by default the mean difference between frequencies.
-        Trx : float, optional
-            Receiver temperature in K
-        autovis : float, optional
-            Autocorrelation visibility amplitude. Used if provided instead of ``Tsky_mdl``.
-        """
         super().__init__(
             Tsky_mdl=Tsky_mdl,
             omega_p=omega_p,
@@ -67,9 +67,20 @@ class ThermalNoise(Noise):
             autovis=autovis,
         )
 
-    def __call__(self, lsts, freqs, **kwargs):
-        # TODO: docstring
-        """
+    def __call__(self, lsts: np.ndarray, freqs: np.ndarray, **kwargs):
+        """Compute the thermal noise.
+
+        Parameters
+        ----------
+        lsts
+            Local siderial times at which to compute the noise.
+        freqs
+            Frequencies at which to compute the noise.
+
+        Returns
+        -------
+        array
+            A 2D array shaped ``(lsts, freqs)`` with the thermal noise.
         """
         # validate the kwargs
         self._check_kwargs(**kwargs)
@@ -138,9 +149,10 @@ class ThermalNoise(Noise):
         Tsky : float, optional
             Sky temperature at ``mfreq``. Only used if ``Tsky_mdl`` not given.
         mfreq : float, optional
-            Reference frequency for sky temperature. Only used if ``Tsky_mdl`` not given.
+            Reference freq for sky temperature. Only used if ``Tsky_mdl`` not given.
         index : float, optional
-            Spectral index of sky temperature model. Only used if ``Tsky_mdl`` not given.
+            Spectral index of sky temperature model. Only used if ``Tsky_mdl`` not
+            given.
 
         Returns
         -------

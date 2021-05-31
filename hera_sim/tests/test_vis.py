@@ -6,6 +6,7 @@ import numpy as np
 import pytest
 from astropy.units import sday
 from pyuvsim.analyticbeam import AnalyticBeam
+from vis_cpu import HAVE_GPU
 
 from hera_sim import io
 from hera_sim import vis
@@ -14,18 +15,15 @@ from hera_sim.visibilities import VisCPU, HealVis
 
 SIMULATORS = (HealVis, VisCPU)
 
-try:
-    import hera_gpu
+if HAVE_GPU:
 
     class VisGPU(VisCPU):
         """Simple mock class to make testing VisCPU with use_gpu=True easier"""
 
         def __init__(self, *args, **kwargs):
-            self.__init__(*args, use_gpu=True, **kwargs)
+            super().__init__(*args, use_gpu=True, **kwargs)
 
     SIMULATORS = SIMULATORS + (VisGPU,)
-except ImportError:
-    pass
 
 
 np.random.seed(0)
@@ -41,7 +39,7 @@ def uvdata():
         nfreq=NFREQ,
         integration_time=sday.to("s") / NTIMES,
         ntimes=NTIMES,
-        ants={0: (0, 0, 0),},
+        ants={0: (0, 0, 0)},
     )
 
 
@@ -51,7 +49,7 @@ def uvdataJD():
         nfreq=NFREQ,
         integration_time=sday.to("s") / NTIMES,
         ntimes=NTIMES,
-        ants={0: (0, 0, 0),},
+        ants={0: (0, 0, 0)},
         start_time=2456659,
     )
 
@@ -532,8 +530,8 @@ class TestSimRedData(unittest.TestCase):
                 np.testing.assert_almost_equal(ans0yx, ans_yx, decimal=7)
                 np.testing.assert_almost_equal(ans0yy, ans_yy, decimal=7)
 
-        # Test that redundant baselines are redundant up to the gains in 4-pol minV mode (where
-        # Vxy = Vyx)
+        # Test that redundant baselines are redundant up to the gains in 4-pol minV mode
+        # (where Vxy = Vyx)
         reds = om.get_reds(antpos, pols=["xx", "yy", "xy", "yX"], pol_mode="4pol_minV")
         gains, true_vis, data = vis.sim_red_data(reds)
         assert len(gains) == 2 * (5)

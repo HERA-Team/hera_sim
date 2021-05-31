@@ -1,4 +1,4 @@
-""" Utility module """
+"""Utility module."""
 import numpy as np
 import astropy.constants as const
 import astropy.units as u
@@ -168,11 +168,13 @@ def rough_delay_filter(
     if delay_filter is None:
         if freqs is None:
             raise ValueError(
-                "If you don't provide a pre-computed delay filter, you must provide freqs"
+                "If you don't provide a pre-computed delay filter, you must "
+                "provide freqs"
             )
         if bl_len_ns is None:
             raise ValueError(
-                "If you don't provide a pre-computed delay filter, you must provide bl_len_ns"
+                "If you don't provide a pre-computed delay filter, you must provide "
+                "bl_len_ns"
             )
 
         delay_filter = gen_delay_filter(freqs=freqs, bl_len_ns=bl_len_ns, **kwargs)
@@ -216,8 +218,8 @@ def gen_fringe_filter(
 
         * ``FR_filter`` (ndarray): shape (Nfrates, Nfreqs) with custom filter (must be
           fftshifted, see below)
-        * ``FR_frates`` (ndarray): array of FR_filter fringe rates [Hz] (must be monotonically
-          increasing)
+        * ``FR_frates`` (ndarray): array of FR_filter fringe rates [Hz] (must be
+          monotonically increasing)
         * ``FR_freqs`` (ndarray): array of FR_filter freqs [GHz]
 
     Returns
@@ -331,7 +333,8 @@ def rough_fringe_filter(
     if fringe_filter is None:
         if any(k is None for k in [lsts, freqs, ew_bl_len_ns]):
             raise ValueError(
-                "Must provide 'lsts', 'freqs' and 'ew_bl_len_ns' if fringe_filter not given."
+                "Must provide 'lsts', 'freqs' and 'ew_bl_len_ns' if fringe_filter not "
+                "given."
             )
 
         fringe_filter = gen_fringe_filter(
@@ -372,7 +375,8 @@ def compute_ha(lsts: np.ndarray, ra: float) -> np.ndarray:
     Parameters
     ----------
     lsts
-        Local sidereal times of the observation to be generated [radians]. Shape=(NTIMES,)
+        Local sidereal times of the observation to be generated [radians].
+        Shape=(NTIMES,)
     ra
         The right ascension of a point source [radians].
 
@@ -434,8 +438,13 @@ def jansky_to_kelvin(freqs: np.ndarray, omega_p: [Beam, np.ndarray]) -> np.ndarr
 
 
 def Jy2T(freqs, omega_p):
+    """Convert Janskys to Kelvin.
+
+    Deprecated in v1.0.0. Will be removed in v1.1.0
+    """
     warnings.warn(
-        "The function Jy2T has been renamed 'jansky_to_kelvin'. It will be removed in v1.1."
+        "The function Jy2T has been renamed 'jansky_to_kelvin'. It will be removed in "
+        "v1.1."
     )
     return jansky_to_kelvin(freqs, omega_p)
 

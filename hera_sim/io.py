@@ -1,5 +1,4 @@
-"""
-"""
+"""Methods for input/output of data."""
 import os
 import warnings
 import numpy as np
@@ -29,8 +28,37 @@ def empty_uvdata(
     conjugation=None,
     **kwargs,
 ):
-    # TODO: docstring
-    """
+    """Create an empty UVData object with given specifications.
+
+    Parameters
+    ----------
+    Ntimes : int, optional
+        NUmber of unique times in the data object.
+    start_time : float, optional
+        Starting time (Julian date) by default 2456658.5
+    array_layout : [type], optional
+        Specify an array layout.
+    Nfreqs : int, optional
+        Number of frequency channels in the data object
+    start_freq : float, optional
+        Lowest frequency channel, by default None
+    channel_width : float, optional
+        Channel width, by default None
+    n_freq : [type], optional
+        Alias for ``Nfreqs``
+    n_times : [type], optional
+        Alias for ``Ntimes``.
+    antennas : [type], optional
+        Alias for array_layout?
+
+    Other Parameters
+    ----------------
+    Passed to :func:`initialize_uvdata_from_keywords`
+
+    Returns
+    -------
+    UVData
+        An empty UVData object with given specifications.
     """
     # issue a deprecation warning if any old parameters are used
     if any(param is not None for param in (n_freq, n_times, antennas)):

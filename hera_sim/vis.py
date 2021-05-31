@@ -1,3 +1,4 @@
+"""Functions for producing white-noise redundant visibilities."""
 import numpy as np
 from . import noise
 from copy import deepcopy
@@ -8,26 +9,34 @@ DEFAULT_FQS = np.linspace(0.1, 0.2, 1024, endpoint=False)
 
 def sim_red_data(reds, gains=None, shape=(10, 10), gain_scatter=0.1):
     """
-    Simulate thermal-noise-free random but redundant (up to differing gains) visibilities.
+    Simulate thermal-noise-free random but redundant (up to gains) visibilities.
 
-    Args:
-        reds (list of list of tuples): list of lists of baseline-pol tuples where each sublist has only
-            redundant pairs
-        gains (dict): pre-specify base gains to then scatter on top of in the
-            {(index,antpol): ndarray} format. Default gives all ones.
-        shape (tuple): (Ntimes, Nfreqs).
-        gain_scatter (float): relative amplitude of per-antenna complex gain scatter
+    Parameters
+    ----------
+    reds : list of list of tuples
+        list of lists of baseline-pol tuples where each sublist has only
+        redundant pairs
+    gains : dict
+        pre-specify base gains to then scatter on top of in the
+        {(index,antpol): ndarray} format. Default gives all ones.
+    shape : tuple
+        (Ntimes, Nfreqs).
+    gain_scatter : float
+        relative amplitude of per-antenna complex gain scatter
 
-    Returns:
-        dict: true gains used in the simulation in the {(index,antpol): np.array} format
-        dict: true underlying visibilities in the {(ind1,ind2,pol): np.array} format
-        dict: simulated visibilities in the {(ind1,ind2,pol): np.array} format
+    Returns
+    -------
+    dict
+        true gains used in the simulation in the {(index,antpol): np.array} format
+    dict
+        true underlying visibilities in the {(ind1,ind2,pol): np.array} format
+    dict
+        simulated visibilities in the {(ind1,ind2,pol): np.array} format
     """
-
     from hera_cal.utils import split_bl
 
     data, true_vis = {}, {}
-    ants = sorted(list({ant for bls in reds for bl in bls for ant in split_bl(bl)}))
+    ants = sorted({ant for bls in reds for bl in bls for ant in split_bl(bl)})
     gains = {} if gains is None else deepcopy(gains)
     for ant in ants:
         gains[ant] = gains.get(

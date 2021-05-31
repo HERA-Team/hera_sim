@@ -10,10 +10,11 @@ from .components import registry
 
 @registry
 class Foreground:
+    """Base class for foreground models."""
+
     pass
 
 
-# TODO: choose at which level we'll be documenting classes.
 class DiffuseForeground(Foreground):
     """
     Produce a rough simulation of diffuse foreground-like structure.
@@ -30,15 +31,12 @@ class DiffuseForeground(Foreground):
         to the ``freqs`` parameter.
     delay_filter_kwargs : dict, optional
         Keyword arguments and associated values to be passed to
-        .. func:: utils.rough_delay_filter. Default is to use the
-        following settings:
-            standoff : 0.0
-            delay_filter_type : tophat
+        :func:`~utils.rough_delay_filter`. Default is to use the
+        following settings: ``standoff : 0.0``, ``delay_filter_type : tophat``.
     fringe_filter_kwargs : dict, optional
         Keyword arguments and associated values to be passed to
-        .. func:: utils.rough_fringe_filter. Default is to use the
-        following settings:
-            fringe_filter_type : tophat
+        :func:`~utils.rough_fringe_filter`. Default is to use the
+        following settings: ``fringe_filter_type : tophat``.
 
     Notes
     -----
@@ -89,7 +87,7 @@ class DiffuseForeground(Foreground):
         )
 
     def __call__(self, lsts, freqs, bl_vec, **kwargs):
-        """
+        """Compute the foregrounds.
 
         Parameters
         ----------
@@ -108,7 +106,6 @@ class DiffuseForeground(Foreground):
             baseline vector. Returned in units of Jy with shape
             (lsts.size, freqs.size).
         """
-
         # validate the kwargs
         self._check_kwargs(**kwargs)
 
@@ -158,7 +155,7 @@ class DiffuseForeground(Foreground):
 
 class PointSourceForeground(Foreground):
     """
-    Produce a unfiformly-random point-source sky observed with a truncated Gaussian beam.
+    Produce a uniformly-random point-source sky observed with a truncated Gaussian beam.
 
     Parameters
     ----------
@@ -213,8 +210,8 @@ class PointSourceForeground(Foreground):
         )
 
     def __call__(self, lsts, freqs, bl_vec, **kwargs):
-        # TODO: fill in docstring
-        """
+        """Compute the point source foregrounds.
+
         Parameters
         ----------
         lsts : array-like of float

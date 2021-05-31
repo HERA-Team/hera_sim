@@ -1,7 +1,5 @@
-"""A module providing discoverability features for hera_sim.
-"""
+"""A module providing discoverability features for hera_sim."""
 
-import functools
 import re
 from abc import ABCMeta, abstractmethod
 
@@ -22,12 +20,15 @@ class SimulationComponent(metaclass=ABCMeta):
     """
 
     def __init_subclass__(cls, **kwargs):
+        """Save a private cache of models to the class."""
         super().__init_subclass__(**kwargs)
         cls._models = {}
 
 
 # class decorator for tracking subclasses
 def registry(cls):
+    """Register a class as a :class:`SimulationComponent`."""
+
     class NewClass(cls, SimulationComponent):
         def __init_subclass__(
             cls, is_abstract=False, is_multiplicative=False, **kwargs
@@ -43,7 +44,6 @@ def registry(cls):
                 is the feature that provides a neat interface for
                 automatic discoverability of component models. Default
                 behavior is to register the subclass.
-
             is_multiplicative : bool, optional
                 Specifies whether the model ``cls`` is a multiplicative
                 effect. This parameter lets the :class:`~Simulator`:
@@ -51,8 +51,10 @@ def registry(cls):
                 ``cls``. Default setting is False (i.e. the model is
                 assumed to be additive unless specified otherwise).
 
-            **kwargs
-                Passed to the superclass ``__init_subclass__`` method.
+
+            Other Parameters
+            ----------------
+            Passed to the superclass ``__init_subclass__`` method.
 
             Notes
             -----
@@ -82,19 +84,17 @@ def registry(cls):
         def _extract_kwarg_values(self, **kwargs):
             """Return the (optionally updated) model's optional parameters.
 
-            Parameters
-            ----------
-            **kwargs
-                An unpacked dictionary of optional parameter values
-                appropriate for the model. These are received directly
-                from the subclass's ``__call__`` method.
+            Other Parameters
+            ----------------
+            Optional parameters appropriate for the model. These are received
+            directly from the subclass's ``__call__`` method.
 
             Returns
             -------
             use_kwargs : dict values
                 Potentially updated parameter values for the parameters
-                passed in ``**kwargs``. This allows for a very simple
-                interface with the :module:`~defaults`: module, which
+                passed in. This allows for a very simple
+                interface with the :mod:`~defaults`: module, which
                 will automatically update parameter default values if
                 active.
             """
@@ -160,6 +160,7 @@ def registry(cls):
 
 
 def list_discoverable_components():
+    """List all available component models."""
     for cls in SimulationComponent.__subclasses__():
         for name, model in cls._models.items():
             name = ".".join([model.__module__, name])

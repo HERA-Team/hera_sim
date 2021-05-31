@@ -1,3 +1,4 @@
+"""Wrapper for vis_cpu visibility simulator."""
 from __future__ import division
 from builtins import range
 import numpy as np
@@ -17,23 +18,23 @@ class VisCPU(VisibilitySimulator):
 
     This is a fast, simple visibility simulator that is intended to be
     replaced by vis_gpu. It extends :class:`VisibilitySimulator`.
+
+    Parameters
+    ----------
+    bm_pix : int, optional
+        The number of pixels along a side in the beam map when
+        converted to (l, m) coordinates. Defaults to 100.
+    real_dtype : {np.float32, np.float64}
+        Data type for real-valued arrays.
+    complex_dtype : {np.complex64, np.complex128}
+        Data type for complex-valued arrays.
+
+    Other Parameters
+    ----------------
+    Passed through to :class:`VisibilitySimulator`.
     """
 
     def __init__(self, bm_pix=100, precision=1, use_gpu=False, **kwargs):
-        """
-        Parameters
-        ----------
-        bm_pix : int, optional
-            The number of pixels along a side in the beam map when
-            converted to (l, m) coordinates. Defaults to 100.
-        real_dtype : {np.float32, np.float64}
-            Data type for real-valued arrays.
-        complex_dtype : {np.complex64, np.complex128}
-            Data type for complex-valued arrays.
-        **kwargs
-            Arguments of :class:`VisibilitySimulator`.
-        """
-
         assert precision in (1, 2)
         self._precision = precision
         if precision == 1:
@@ -165,7 +166,6 @@ class VisCPU(VisibilitySimulator):
             to topocenteric co-ordinates at each LST.
             Shape=(NTIMES, 3, 3).
         """
-
         sid_time = self.lsts
         eq2tops = np.empty((len(sid_time), 3, 3), dtype=self._real_dtype)
 
@@ -290,7 +290,6 @@ def vis_cpu(antpos, freq, eq2tops, crd_eq, I_sky, bm_cube, precision=1):
     array_like
         Visibilities. Shape=(NTIMES, NANTS, NANTS).
     """
-
     assert precision in (1, 2)
     if precision == 1:
         real_dtype = np.float32

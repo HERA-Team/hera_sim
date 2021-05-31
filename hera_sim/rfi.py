@@ -15,6 +15,35 @@ class RFI:
 
 
 class RfiStation:
+    """Generate RFI based on a particular "station".
+
+    Parameters
+    ----------
+    f0 : float
+        Frequency that the station transmits (any units are fine).
+    duty_cycle : float, optional
+        With ``timescale``, controls how long the station is seen as "on". In
+        particular, ``duty_cycle`` specifies which parts of the station's cycle are
+        considered "on". Can be considered roughly a percentage of on time.
+    strength : float, optional
+        Mean magnitude of the transmission.
+    std : float, optional
+        Standard deviation of the random RFI magnitude.
+    timescale : float, optional
+        Controls the length of a transmision "cycle". Low points in the sin-wave cycle
+        are considered "off" and high points are considered "on" (just how high is
+        controlled by ``duty_cycle``). This is the wavelength (in seconds) of that
+        cycle.
+
+    Notes
+    -----
+    This creates RFI with random magnitude in each time bin based on a normal
+    distribution, with custom strength and variability. RFI is assumed to exist in one
+    frequency channel, with some spillage into an adjacent channel, proportional to the
+    distance to that channel from the station's frequency. It is not assumed to be
+    always on, but turns on for some amount of time at regular intervals.
+    """
+
     def __init__(
         self,
         f0: float,
@@ -23,33 +52,7 @@ class RfiStation:
         std: float = 10.0,
         timescale: float = 100.0,
     ):
-        """Generate RFI based on a particular "station".
 
-        Parameters
-        ----------
-        f0 : float
-            Frequency that the station transmits (any units are fine).
-        duty_cycle : float, optional
-            With ``timescale``, controls how long the station is seen as "on". In particular,
-            ``duty_cycle`` specifies which parts of the station's cycle are considered "on".
-            Can be considered roughly a percentage of on time.
-        strength : float, optional
-            Mean magnitude of the transmission.
-        std : float, optional
-            Standard deviation of the random RFI magnitude.
-        timescale : float, optional
-            Controls the length of a transmision "cycle". Low points in the sin-wave cycle
-            are considered "off" and high points are considered "on" (just how high is
-            controlled by ``duty_cycle``). This is the wavelength (in seconds) of that cycle.
-
-        Notes
-        -----
-        This creates RFI with random magnitude in each time bin based on a normal distribution, with
-        custom strength and variability. RFI is assumed to exist in one frequency channel, with some
-        spillage into an adjacent channel, proportional to the distance to that channel from the
-        station's frequency. It is not assumed to be always on, but turns on for some amount of time
-        at regular intervals.
-        """
         self.f0 = f0
         self.duty_cycle = duty_cycle
         self.strength = strength
@@ -115,18 +118,19 @@ class RfiStation:
 
 
 class Stations(RFI):
+    """A collection of RFI stations.
+
+    Generates RFI from all given stations.
+
+    Parameters
+    ----------
+    stations : list of :class:`RfiStation`
+        The list of stations that produce RFI.
+    """
+
     _alias = ("rfi_stations",)
 
     def __init__(self, stations=None):
-        """A collection of RFI stations.
-
-        Generates RFI from all given stations.
-
-        Parameters
-        ----------
-        stations : list of :class:`RfiStation`
-            The list of stations that produce RFI.
-        """
         super().__init__(stations=stations)
 
     def __call__(self, lsts, freqs, **kwargs):
@@ -183,20 +187,21 @@ class Stations(RFI):
 
 
 class Impulse(RFI):
+    """Generate RFI impulses (short time, broad frequency).
+
+    Parameters
+    ----------
+    impulse_chance : float, optional
+        The probability in any given LST that an impulse RFI will occur.
+    impulse_strength : float, optional
+        Strength of the impulse. This will not be randomized, though a phase
+        offset as a function of frequency will be applied, and will be random
+        for each impulse.
+    """
+
     _alias = ("rfi_impulse",)
 
     def __init__(self, impulse_chance=0.001, impulse_strength=20.0):
-        """Generate RFI impulses (short time, broad frequency).
-
-        Parameters
-        ----------
-        impulse_chance : float, optional
-            The probability in any given LST that an impulse RFI will occur.
-        impulse_strength : float, optional
-            Strength of the impulse. This will not be randomized, though a phase
-            offset as a function of frequency will be applied, and will be random
-            for each impulse.
-        """
         super().__init__(
             impulse_chance=impulse_chance, impulse_strength=impulse_strength
         )
@@ -244,21 +249,22 @@ class Impulse(RFI):
 
 
 class Scatter(RFI):
+    """Generate random RFI scattered around the waterfall.
+
+    Parameters
+    ----------
+    scatter_chance : float, optional
+        Probability that any LST/freq bin will be occupied by RFI.
+    scatter_strength : float, optional
+        Mean strength of RFI in any bin (each bin will receive its own
+        random strength).
+    scatter_std : float, optional
+        Standard deviation of the RFI strength.
+    """
+
     _alias = ("rfi_scatter",)
 
     def __init__(self, scatter_chance=0.0001, scatter_strength=10.0, scatter_std=10.0):
-        """Generate random RFI scattered around the waterfall.
-
-        Parameters
-        ----------
-        scatter_chance : float, optional
-            Probability that any LST/freq bin will be occupied by RFI.
-        scatter_strength : float, optional
-            Mean strength of RFI in any bin (each bin will receive its own
-            random strength).
-        scatter_std : float, optional
-            Standard deviation of the RFI strength.
-        """
         super().__init__(
             scatter_chance=scatter_chance,
             scatter_strength=scatter_strength,
@@ -304,6 +310,24 @@ class Scatter(RFI):
 
 
 class DTV(RFI):
+    """Generate RFI arising from digitial TV channels.
+
+    Digitial TV is assumed to be reasonably broad-band and scattered in time.
+
+    Parameters
+    ----------
+    dtv_band : tuple, optional
+        Lower edges of each of the DTV bands.
+    dtv_channel_width : float, optional
+        Channel width in GHz.
+    dtv_chance : float, optional
+        Chance that any particular time will have DTV.
+    dtv_strength : float, optional
+        Mean strength of RFI.
+    dtv_std : float, optional
+        Standard deviation of RFI strength.
+    """
+
     _alias = ("rfi_dtv",)
 
     def __init__(
@@ -314,23 +338,6 @@ class DTV(RFI):
         dtv_strength=10.0,
         dtv_std=10.0,
     ):
-        """Generate RFI arising from digitial TV channels.
-
-        Digitial TV is assumed to be reasonably broad-band and scattered in time.
-
-        Parameters
-        ----------
-        dtv_band : tuple, optional
-            Lower edges of each of the DTV bands.
-        dtv_channel_width : float, optional
-            Channel width in GHz.
-        dtv_chance : float, optional
-            Chance that any particular time will have DTV.
-        dtv_strength : float, optional
-            Mean strength of RFI.
-        dtv_std : float, optional
-            Standard deviation of RFI strength.
-        """
         super().__init__(
             dtv_band=dtv_band,
             dtv_channel_width=dtv_channel_width,
@@ -447,9 +454,6 @@ class DTV(RFI):
         return rfi
 
     def _listify_params(self, bands, *args):
-        # TODO: docstring
-        """
-        """
         Nchan = len(bands)
         listified_params = []
         for arg in args:

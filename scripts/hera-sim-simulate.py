@@ -17,7 +17,6 @@ import argparse
 import copy
 import os
 import sys
-import warnings
 import yaml
 
 import numpy as np

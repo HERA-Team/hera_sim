@@ -5,9 +5,7 @@ elsewhere.
 """
 
 import itertools
-import shutil
 import tempfile
-import sys
 import os
 import yaml
 

@@ -20,20 +20,21 @@ class Array:
 
 
 class LinearArray(Array):
-    """Build a linear (east-west) array configuration."""
+    """Build a linear (east-west) array configuration.
+
+    Parameters
+    ----------
+    sep : float, optional
+        The separation between adjacent antennas, in meters.
+        Default separation is 14.6 meters.
+    """
 
     def __init__(self, sep=14.6):
-        """
-        Parameters
-        ----------
-        sep : float, optional
-            The separation between adjacent antennas, in meters.
-            Default separation is 14.6 meters.
-        """
         super().__init__(sep=sep)
 
     def __call__(self, nants, **kwargs):
-        """
+        """Compute the antenna positions.
+
         Parameters
         ----------
         nants : int
@@ -60,30 +61,30 @@ class LinearArray(Array):
 
 class HexArray(Array):
     """Build a hexagonal array configuration, nominally matching HERA.
+
+    Parameters
+    ----------
+    sep : int, optional
+        The separation between adjacent grid points, in meters.
+        Default separation is 14.6 meters.
+    split_core : bool, optional
+        Whether to fracture the core into tridents that subdivide a
+        hexagonal grid. Loses :math:`N` antennas. Default behavior
+        is to split the core.
+    outriggers : int, optional
+        The number of rings of outriggers to add to the array. The
+        outriggers tile with the core to produce a fully-sampled
+        UV plane. The first ring corresponds to the exterior of a
+        hex_num=3 hexagon. For :math:`R` outriggers, :math:`3R^2 + 9R`
+        antennas are added to the array.
     """
 
     def __init__(self, sep=14.6, split_core=True, outriggers=2):
-        """
-        Parameters
-        ----------
-        sep : int, optional
-            The separation between adjacent grid points, in meters.
-            Default separation is 14.6 meters.
-        split_core : bool, optional
-            Whether to fracture the core into tridents that subdivide a
-            hexagonal grid. Loses :math:`N` antennas. Default behavior
-            is to split the core.
-        outriggers : int, optional
-            The number of rings of outriggers to add to the array. The
-            outriggers tile with the core to produce a fully-sampled
-            UV plane. The first ring corresponds to the exterior of a
-            hex_num=3 hexagon. For :math:`R` outriggers, :math:`3R^2 + 9R`
-            antennas are added to the array.
-        """
         super().__init__(sep=sep, split_core=split_core, outriggers=outriggers)
 
     def __call__(self, hex_num, **kwargs):
-        """
+        """Compute the positions of the antennas.
+
         Parameters
         ----------
         hex_num : int
@@ -118,7 +119,7 @@ class HexArray(Array):
         # split the core if desired
         if split_core:
             new_pos = []
-            for j, pos in enumerate(positions):
+            for pos in positions:
                 # find out which sector the antenna is in
                 theta = np.arctan2(pos[1], pos[0])
                 if pos[0] == 0 and pos[1] == 0:

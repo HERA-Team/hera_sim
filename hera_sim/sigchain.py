@@ -1,6 +1,5 @@
 """Object-oriented approach to signal chain systematics."""
 
-import os
 import numpy as np
 import warnings
 from typing import Dict, Tuple
@@ -24,27 +23,27 @@ class Gain:
 
 
 class Bandpass(Gain, is_multiplicative=True):
+    """Generate bandpass gains.
+
+    Parameters
+    ----------
+    gain_spread : float, optional
+        Standard deviation of random gains.
+    dly_rng : tuple, optional
+        Lower and upper range of delays which are uniformly sampled.
+    bp_poly : callable or array_like, optional
+        If an array, polynomial coefficients to evaluate. Otherwise, a function
+        of frequency that can be evaluated to generate real numbers giving
+        the bandpass gain.
+    """
+
     _alias = ("gains", "bandpass_gain")
 
     def __init__(self, gain_spread=0.1, dly_rng=(-20, 20), bp_poly=None):
-        """Generate bandpass gains.
-
-        Parameters
-        ----------
-        gain_spread : float, optional
-            Standard deviation of random gains.
-        dly_rng : tuple, optional
-            Lower and upper range of delays which are uniformly sampled.
-        bp_poly : callable or array_like, optional
-            If an array, polynomial coefficients to evaluate. Otherwise, a function
-            of frequency that can be evaluated to generate real numbers giving
-            the bandpass gain.
-
-        """
         super().__init__(gain_spread=gain_spread, dly_rng=dly_rng, bp_poly=bp_poly)
 
     def __call__(self, freqs, ants, **kwargs):
-        """Generate the bandpass
+        """Generate the bandpass.
 
         Parameters
         ----------
@@ -105,30 +104,31 @@ class Bandpass(Gain, is_multiplicative=True):
 
 
 class Reflections(Gain, is_multiplicative=True):
+    """Produce multiplicative reflection gains.
+
+    Parameters
+    ----------
+    amp : float, optional
+        Mean Amplitude of the reflection gains.
+    dly : float, optional
+        Mean delay of the reflection gains.
+    phs : float, optional
+        Phase of the reflection gains.
+    conj : bool, optional
+        Whether to conjugate the gain.
+    amp_jitter : float, optional
+        Final amplitudes are multiplied by a normal variable with mean one, and
+        with standard deviation of ``amp_jitter``.
+    dly_jitter : float, optional
+        Final delays are offset by a normal variable with mean
+        zero and standard deviation ``dly_jitter``.
+    """
+
     _alias = ("reflection_gains", "sigchain_reflections")
 
     def __init__(
         self, amp=None, dly=None, phs=None, conj=False, amp_jitter=0, dly_jitter=0
     ):
-        """Produce multiplicative reflection gains.
-
-        Parameters
-        ----------
-        amp : float, optional
-            Mean Amplitude of the reflection gains.
-        dly : float, optional
-            Mean delay of the reflection gains.
-        phs : float, optional
-            Phase of the reflection gains.
-        conj : bool, optional
-            Whether to conjugate the gain.
-        amp_jitter : float, optional
-            Final amplitudes are multiplied by a normal variable with mean one, and
-            with standard deviation of ``amp_jitter``.
-        dly_jitter : float, optional
-            Final delays are offset by a normal variable with mean
-            zero and standard deviation ``dly_jitter``.
-        """
         super().__init__(
             amp=amp, dly=dly, phs=phs, conj=conj, amp_jitter=0, dly_jitter=0
         )
@@ -309,30 +309,31 @@ class Crosstalk:
 
 
 class CrossCouplingCrosstalk(Crosstalk, Reflections):
+    """Generate cross-coupling xtalk.
+
+    Parameters
+    ----------
+    amp : float, optional
+        Mean Amplitude of the reflection gains.
+    dly : float, optional
+        Mean delay of the reflection gains.
+    phs : float, optional
+        Phase of the reflection gains.
+    conj : bool, optional
+        Whether to conjugate the gain.
+    amp_jitter : float, optional
+        Final amplitudes are multiplied by a normal variable with mean one, and
+        with standard deviation of ``amp_jitter``.
+    dly_jitter : float, optional
+        Final delays are offset by a normal variable with mean
+        zero and standard deviation ``dly_jitter``.
+    """
+
     _alias = ("cross_coupling_xtalk",)
 
     def __init__(
         self, amp=None, dly=None, phs=None, conj=False, amp_jitter=0, dly_jitter=0
     ):
-        """Generate cross-coupling xtalk.
-
-        Parameters
-        ----------
-        amp : float, optional
-            Mean Amplitude of the reflection gains.
-        dly : float, optional
-            Mean delay of the reflection gains.
-        phs : float, optional
-            Phase of the reflection gains.
-        conj : bool, optional
-            Whether to conjugate the gain.
-        amp_jitter : float, optional
-            Final amplitudes are multiplied by a normal variable with mean one, and
-            with standard deviation of ``amp_jitter``.
-        dly_jitter : float, optional
-            Final delays are offset by a normal variable with mean
-            zero and standard deviation ``dly_jitter``.
-        """
         super().__init__(
             amp=amp, dly=dly, phs=phs, conj=conj, amp_jitter=0, dly_jitter=0
         )
@@ -378,6 +379,35 @@ class CrossCouplingCrosstalk(Crosstalk, Reflections):
 
 
 class CrossCouplingSpectrum(Crosstalk):
+    """Generate a cross-coupling spectrum.
+
+    This generates multiple copies of :class:`CrossCouplingCrosstalk`
+    into the visibilities.
+
+    Parameters
+    ----------
+    Ncopies : int, optional
+        Number of random cross-talk models to add.
+    amp_range : tuple, optional
+        Two-tuple of floats specifying the range of amplitudes
+        to be sampled regularly in log-space.
+    dly_range : tuple, optional
+        Two-tuple of floats specifying the range of delays to be
+        sampled at regular intervals.
+    phs_range : tuple, optional
+        Range of uniformly random phases.
+    amp_jitter : int, optional
+        Standard deviation of random jitter to be applied to the
+        regular amplitudes.
+    dly_jitter : int, optional
+        Standard deviation of the random jitter to be applied to
+        the regular delays.
+    symmetrize : bool, optional
+        Whether to also produce statistically equivalent cross-talk at
+        negative delays. Note that while the statistics are equivalent,
+        both amplitudes and delays will be different random realizations.
+    """
+
     _alias = ("cross_coupling_spectrum", "xtalk_spectrum")
 
     def __init__(
@@ -390,35 +420,6 @@ class CrossCouplingSpectrum(Crosstalk):
         dly_jitter=0,
         symmetrize=True,
     ):
-        """Generate a cross-coupling spectrum.
-
-        This generates multiple copies of :class:`CrossCouplingCrosstalk`
-        into the visibilities.
-
-        Parameters
-        ----------
-        Ncopies : int, optional
-            Number of random cross-talk models to add.
-        amp_range : tuple, optional
-            Two-tuple of floats specifying the range of amplitudes
-            to be sampled regularly in log-space.
-        dly_range : tuple, optional
-            Two-tuple of floats specifying the range of delays to be
-            sampled at regular intervals.
-        phs_range : tuple, optional
-            Range of uniformly random phases.
-        amp_jitter : int, optional
-            Standard deviation of random jitter to be applied to the
-            regular amplitudes.
-        dly_jitter : int, optional
-            Standard deviation of the random jitter to be applied to
-            the regular delays.
-        symmetrize : bool, optional
-            Whether to also produce statistically equivalent cross-talk at
-            negative delays. Note that while the statistics are equivalent,
-            both amplitudes and delays will be different random realizations.
-        """
-
         super().__init__(
             Ncopies=Ncopies,
             amp_range=amp_range,
@@ -482,19 +483,20 @@ class CrossCouplingSpectrum(Crosstalk):
 
 
 class WhiteNoiseCrosstalk(Crosstalk):
+    """Generate cross-talk that is simply white noise.
+
+    Parameters
+    ----------
+    amplitude : float, optional
+        The amplitude of the white noise spectrum (i.e. its standard deviation).
+    """
+
     _alias = (
         "whitenoise_xtalk",
         "white_noise_xtalk",
     )
 
     def __init__(self, amplitude=3.0):
-        """Generate cross-talk that is simply white noise.
-
-        Parameters
-        ----------
-        amplitude : float, optional
-            The amplitude of the white noise spectrum (i.e. its standard deviation).
-        """
         super().__init__(amplitude=amplitude)
 
     def __call__(self, freqs, **kwargs):
@@ -578,7 +580,7 @@ def vary_gains_in_time(
     variation_amp=0.05,
     variation_mode="linear",
 ):
-    """
+    r"""
     Vary gain amplitudes, phases, or delays in time.
 
     Notes

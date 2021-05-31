@@ -6,17 +6,19 @@ import os
 import pathlib
 
 import numpy as np
-from astropy import units
 from scipy.interpolate import interp1d, RectBivariateSpline
 from warnings import warn
 
 from pyuvdata import UVData
-from pyuvdata.utils import polstr2num, polnum2str
+from pyuvdata.utils import polnum2str
 from .simulate import Simulator
 from .utils import _listify
 
 try:
-    import hera_cal
+    # Import hera_cal functions.
+    from hera_cal.io import to_HERAData
+    from hera_cal.abscal import get_d2m_time_map
+    from hera_cal.utils import lst_rephase
 
     HERA_CAL = True
 except ImportError:  # pragma: no cover
@@ -106,7 +108,7 @@ def adjust_to_reference(
     Unless the integration times for the target and reference match each other
     exactly, it is strongly recommended that you use cubic spline interpolation
     rather than the rephasing provided here (which is just a thin wrapper around
-    a rephasing tool from :package:`hera_cal`), since small discrepancies in
+    a rephasing tool from ``hera_cal``), since small discrepancies in
     integration times can result in some integrations effectively being skipped
     by the rephasing tool, producing discontinuities in the rephased data.
 
@@ -419,8 +421,9 @@ def interpolate_to_reference(
     kf=3,
 ):
     """
-    Interpolate target visibilities to reference times/frequencies. Interpolation
-    may be along one axis or both. Interpolating data with a phase wrap or
+    Interpolate target visibilities to reference times/frequencies.
+
+    Interpolation may be along one axis or both. Interpolating data with a phase wrap or
     interpolating data to a phase-wrapped set of LSTs is currently unsupported.
 
     Parameters
@@ -636,8 +639,9 @@ def rephase_to_reference(
     target, reference=None, ref_times=None, ref_lsts=None,
 ):
     """
-    Rephase target data to match overlapping reference LSTs. This function
-    requires that ``hera_cal`` be installed.
+    Rephase target data to match overlapping reference LSTs.
+
+    This function requires that ``hera_cal`` be installed.
 
     Parameters
     ----------
@@ -664,11 +668,6 @@ def rephase_to_reference(
         raise NotImplementedError(
             "You must have ``hera_cal`` installed to use this function."
         )
-
-    # Import hera_cal functions.
-    from hera_cal.io import to_HERAData
-    from hera_cal.abscal import get_d2m_time_map
-    from hera_cal.utils import lst_rephase
 
     # Convert target to a HERAData object.
     target_is_simulator = isinstance(target, Simulator)
@@ -717,22 +716,22 @@ def rephase_to_reference(
 
     # Choose times/lsts this way to accommodate multiplicities.
     ref_times = np.array(
-        list(
+        [
             ref_time
             for ref_time, target_time in ref_to_target_time_map.items()
             if target_time is not None
-        )
+        ]
     )
-    ref_lsts = np.array(list(ref_time_to_lst_map[ref_time] for ref_time in ref_times))
+    ref_lsts = np.array([ref_time_to_lst_map[ref_time] for ref_time in ref_times])
     target_times = np.array(
-        list(
+        [
             target_time
             for target_time in ref_to_target_time_map.values()
             if target_time is not None
-        )
+        ]
     )
     target_lsts = np.array(
-        list(target_time_to_lst_map[target_time] for target_time in target_times)
+        [target_time_to_lst_map[target_time] for target_time in target_times]
     )
 
     # Get rephasing amount for each integration.
