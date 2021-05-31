@@ -5,14 +5,13 @@ import numpy as np
 import warnings
 
 from scipy import stats
+from scipy.signal import blackmanharris
 
 from . import interpolators
 from . import utils
 from .components import component
 from . import DATA_PATH
 from .defaults import _defaults
-
-import aipy
 
 
 @component
@@ -62,7 +61,7 @@ class Bandpass(Gain):
             bp_base = bp_poly(freqs)
         else:
             bp_base = np.polyval(bp_poly, freqs)
-        window = aipy.dsp.gen_window(freqs.size, "blackman-harris")
+        window = blackmanharris(freqs.size)
         modes = np.abs(np.fft.fft(window * bp_base))
         gains = {}
         for ant in ants:

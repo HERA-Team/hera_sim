@@ -1,3 +1,4 @@
+"""Wrapper for healvis so that it accepts pyuvsim configuration inputs."""
 from __future__ import division
 
 import astropy_healpix as aph
@@ -13,28 +14,35 @@ try:
     from healvis.beam_model import AnalyticBeam
     from healvis.simulator import setup_observatory_from_uvdata
     from healvis.sky_model import SkyModel
+
+    HAVE_HEALVIS = True
 except ImportError:
-    raise ImportError("to use the healvis wrapper, you must install healvis!")
+    HAVE_HEALVIS = False
 
 
 class HealVis(VisibilitySimulator):
-    """Wrapper for healvis to produce visibilities from HEALPix maps."""
+    """Wrapper for healvis to produce visibilities from HEALPix maps.
+
+    Parameters
+    ----------
+    fov : float
+        Field of view (diameter) in degrees. Defaults to 180.
+    nprocesses : int
+        Number of concurrent processes. Defaults to 1.
+    sky_ref_chan : float
+        Frequency reference channel. Defaults to 0.
+
+    Other Parameters
+    ----------------
+    Passed through to :class:`VisibilitySimulator`.
+    """
 
     point_source_ability = False
 
     def __init__(self, fov=180, nprocesses=1, sky_ref_chan=0, **kwargs):
-        """
-        Parameters
-        ----------
-        fov : float
-            Field of view (diameter) in degrees. Defaults to 180.
-        nprocesses : int
-            Number of concurrent processes. Defaults to 1.
-        sky_ref_chan : float
-            Frequency reference channel. Defaults to 0.
-        **kwargs
-            Arguments of :class:`VisibilitySimulator`.
-        """
+        if not HAVE_HEALVIS:
+            raise ImportError("to use the healvis wrapper, you must install healvis!")
+
         self.fov = fov
         self._nprocs = nprocesses
         self._sky_ref_chan = sky_ref_chan
@@ -78,7 +86,7 @@ class HealVis(VisibilitySimulator):
             ]
 
     def validate(self):
-        """Validates that all data is correct.
+        """Validate that all data is correct.
 
         In addition to standard parameter restrictions, HealVis requires a single beam
         for all antennae.
@@ -89,7 +97,7 @@ class HealVis(VisibilitySimulator):
     @cached_property
     def sky_model(self):
         """
-        A SkyModel compatible with healvis.
+        A ``SkyModel`` compatible with healvis.
 
         Returns
         -------
