@@ -48,6 +48,8 @@ def uvdata():
         array_layout={
             0: (0, 0, 0),
         },
+        start_time=2456658.5,
+        conjugation="ant1<ant2",
     )
 
 
@@ -216,6 +218,8 @@ def uvdata2():
         integration_time=sday.to("s") / NTIMES,
         Ntimes=NTIMES,
         array_layout={0: (0, 0, 0), 1: (1, 1, 0)},
+        start_time=2456658.5,
+        conjugation="ant1<ant2",
     )
 
 
@@ -438,9 +442,6 @@ def test_comparision_horizon(uvdata2):
         nside=2 ** 4,
     ).simulate()
 
-    print(np.mean(viscpu))
-
-    print(np.mean(healvis))
     assert viscpu.shape == healvis.shape
     np.testing.assert_allclose(viscpu, healvis, rtol=0.05)
 
