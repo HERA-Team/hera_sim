@@ -19,6 +19,9 @@ class VisCPU(VisibilitySimulator):
 
     This is a fast, simple visibility simulator that is intended to be
     replaced by vis_gpu. It extends :class:`VisibilitySimulator`.
+
+    Note that that output of `simulate()` in this class always has ordering
+    in which the baselines are in increasing order of antenna number.
     """
 
     def __init__(
