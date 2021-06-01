@@ -172,7 +172,7 @@ class VisibilitySimulator:
 
             self.beams = [ab.AnalyticBeam("uniform")] if beams is None else beams
             if beam_ids is None:
-                self.beam_ids = np.arange(self.n_ant, dtype=np.int)
+                self.beam_ids = np.arange(self.n_ant, dtype=int)
             else:
                 self.beam_ids = beam_ids
 

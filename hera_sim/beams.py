@@ -72,9 +72,7 @@ class PolyBeam(AnalyticBeam):
         """
 
         # Empty data array
-        interp_data = np.zeros(
-            (2, 1, 2, freq_array.size, az_array.size), dtype=np.float
-        )
+        interp_data = np.zeros((2, 1, 2, freq_array.size, az_array.size), dtype=float)
 
         # Frequency scaling
         fscale = (freq_array / self.ref_freq) ** self.spectral_index
@@ -95,7 +93,7 @@ class PolyBeam(AnalyticBeam):
         if self.beam_type == "power":
             # Cross-multiplying feeds, adding vector components
             pairs = [(i, j) for i in range(2) for j in range(2)]
-            power_data = np.zeros((1, 1, 4) + values.shape, dtype=np.float)
+            power_data = np.zeros((1, 1, 4) + values.shape, dtype=float)
             for pol_i, pair in enumerate(pairs):
                 power_data[:, :, pol_i] = (
                     interp_data[0, :, pair[0]] * np.conj(interp_data[0, :, pair[1]])

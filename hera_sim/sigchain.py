@@ -309,7 +309,7 @@ class CrossCouplingSpectrum(Crosstalk):
         dlys = np.linspace(*dly_range, Ncopies)
 
         # Construct the spectrum of crosstalk.
-        crosstalk_spectrum = np.zeros(autovis.shape, dtype=np.complex128)
+        crosstalk_spectrum = np.zeros(autovis.shape, dtype=complex)
         for amp, dly in zip(amps, dlys):
             gen_xtalk = CrossCouplingCrosstalk(
                 amp=amp,

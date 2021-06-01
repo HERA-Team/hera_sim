@@ -250,7 +250,7 @@ def test_shapes(uvdata, simulator):
     assert v.simulate().shape == (uvdata.Nblts, 1, NFREQ, 1)
 
 
-@pytest.mark.parametrize("precision, cdtype", [(1, np.complex64), (2, np.complex128)])
+@pytest.mark.parametrize("precision, cdtype", [(1, np.complex64), (2, complex)])
 def test_dtypes(uvdata, precision, cdtype):
     I_sky = create_uniform_sky()
 
@@ -438,6 +438,9 @@ def test_comparision_horizon(uvdata2):
         nside=2 ** 4,
     ).simulate()
 
+    print(np.mean(viscpu))
+
+    print(np.mean(healvis))
     assert viscpu.shape == healvis.shape
     np.testing.assert_allclose(viscpu, healvis, rtol=0.05)
 

@@ -47,7 +47,7 @@ def test_gen_gains():
 
 def test_apply_gains():
     fqs = np.linspace(0.12, 0.18, 1024, endpoint=False)
-    vis = np.ones((100, fqs.size), dtype=np.complex128)
+    vis = np.ones((100, fqs.size), dtype=complex)
     g = sigchain.gen_gains(fqs, [1, 2], gain_spread=0, dly_rng=(10, 10))
     gvis = sigchain.apply_gains(vis, g, (1, 2))
     assert np.allclose(np.angle(gvis), 0, rtol=1e-5)
@@ -533,7 +533,7 @@ def test_vary_gains_exception_bad_times():
 
 def test_vary_gains_exception_complex_times():
     with pytest.raises(TypeError) as err:
-        sigchain.vary_gains_in_time(gains={}, times=np.ones(10, dtype=np.complex128))
+        sigchain.vary_gains_in_time(gains={}, times=np.ones(10, dtype=complex))
     assert err.value.args[0] == "times must be an array of real numbers."
 
 

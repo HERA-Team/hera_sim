@@ -60,8 +60,8 @@ class VisCPU(VisibilitySimulator):
             self._real_dtype = np.float32
             self._complex_dtype = np.complex64
         else:
-            self._real_dtype = np.float64
-            self._complex_dtype = np.complex128
+            self._real_dtype = float
+            self._complex_dtype = complex
 
         if use_gpu and mpi_comm is not None and mpi_comm.Get_size() > 1:
             raise RuntimeError("Can't use multiple MPI processes with GPU (yet)")
