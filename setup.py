@@ -59,7 +59,8 @@ setup_args = {
         'aipy>=3.0',
         'click',
         'astropy-healpix', # pyuvsim depenency not automatically installed,
-        "future"
+        "future",
+        "vis_cpu>=0.1.1"
     ],
     "extras_require": {
         "bda": ["bda @ git+git://github.com/HERA-Team/baseline_dependent_averaging"],
