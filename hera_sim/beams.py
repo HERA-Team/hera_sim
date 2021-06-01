@@ -129,7 +129,7 @@ class PolyBeam(AnalyticBeam):
         """
         # Empty data array
         interp_data = np.zeros((2, 1, 2, freq_array.size, az_array.size),
-                               dtype=np.float)
+                               dtype=np.complex128)
         
         # Frequency scaling
         fscale = (freq_array / self.ref_freq)**self.spectral_index
