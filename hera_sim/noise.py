@@ -34,8 +34,7 @@ class ThermalNoise(Noise):
         autovis=None,
     ):
         # TODO: docstring
-        """
-        """
+        """"""
         super().__init__(
             Tsky_mdl=Tsky_mdl,
             omega_p=omega_p,
@@ -47,8 +46,7 @@ class ThermalNoise(Noise):
 
     def __call__(self, lsts, freqs, **kwargs):
         # TODO: docstring
-        """
-        """
+        """"""
         # validate the kwargs
         self._check_kwargs(**kwargs)
 
@@ -103,8 +101,7 @@ class ThermalNoise(Noise):
     @staticmethod
     def resample_Tsky(lsts, freqs, Tsky_mdl=None, Tsky=180.0, mfreq=0.18, index=-2.5):
         # TODO: docstring
-        """
-        """
+        """"""
         # maybe add a DeprecationWarning?
 
         # actually resample the sky model if it's an interpolation object

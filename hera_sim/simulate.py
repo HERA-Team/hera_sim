@@ -35,9 +35,7 @@ def _generator_to_list(func, *args, **kwargs):
 # FIXME: some of the code in here is pretty brittle and breaks (sometimes silently)
 # if not used carefully. This definitely needs a review and cleanup.
 class Simulator:
-    """Class for managing a simulation.
-
-    """
+    """Class for managing a simulation."""
 
     def __init__(self, data=None, defaults_config=None, **kwargs):
         """Initialize a Simulator object.
@@ -64,8 +62,7 @@ class Simulator:
     @property
     def antpos(self):
         # TODO: docstring
-        """
-        """
+        """"""
         antpos, ants = self.data.get_ENU_antpos(pick_data_ants=True)
         return dict(zip(ants, antpos))
 
@@ -86,8 +83,7 @@ class Simulator:
 
     def apply_defaults(self, config, refresh=True):
         # TODO: docstring
-        """
-        """
+        """"""
         # actually apply the default settings
         defaults.set(config, refresh=refresh)
 
@@ -171,8 +167,7 @@ class Simulator:
     def get(self, component, ant1=None, ant2=None, pol=None):
         # TODO: docstring
         # TODO: figure out if this could be handled by _iteratively_apply
-        """
-        """
+        """"""
         # TODO: determine whether to leave this check here.
         if component not in self._components:
             raise AttributeError(
@@ -260,9 +255,7 @@ class Simulator:
         return model(**args)
 
     def plot_array(self):
-        """Generate a plot of the array layout in ENU coordinates.
-
-        """
+        """Generate a plot of the array layout in ENU coordinates."""
         import matplotlib.pyplot as plt
 
         fig = plt.figure(figsize=(10, 8))
@@ -289,8 +282,7 @@ class Simulator:
 
     def write(self, filename, save_format="uvh5", **kwargs):
         # TODO: docstring
-        """
-        """
+        """"""
         try:
             getattr(self.data, f"write_{save_format}")(filename, **kwargs)
         except AttributeError:
@@ -304,8 +296,7 @@ class Simulator:
     @_generator_to_list
     def run_sim(self, sim_file=None, **sim_params):
         # TODO: docstring
-        """
-        """
+        """"""
         # make sure that only sim_file or sim_params are specified
         if not (bool(sim_file) ^ bool(sim_params)):
             raise ValueError(
@@ -424,8 +415,7 @@ class Simulator:
     @staticmethod
     def _apply_filter(vis_filter, ant1, ant2, pol):
         # TODO: docstring
-        """
-        """
+        """"""
         # find out whether or not multiple keys are passed
         multikey = any(isinstance(key, (list, tuple)) for key in vis_filter)
         # iterate over the keys, find if any are okay
@@ -466,8 +456,7 @@ class Simulator:
 
     def _initialize_data(self, data, **kwargs):
         # TODO: docstring
-        """
-        """
+        """"""
         if data is None:
             self.data = io.empty_uvdata(**kwargs)
         elif isinstance(data, (str, Path)):
@@ -480,8 +469,7 @@ class Simulator:
 
     def _initialize_args_from_model(self, model):
         # TODO: docstring
-        """
-        """
+        """"""
         model_params = self._get_model_parameters(model)
         _ = model_params.pop("kwargs", None)
 
@@ -498,8 +486,7 @@ class Simulator:
 
     def _iterate_antpair_pols(self):
         # TODO: docstring
-        """
-        """
+        """"""
         for ant1, ant2, pol in self.data.get_antpairpols():
             blt_inds = self.data.antpair2ind((ant1, ant2))
             pol_ind = self.data.get_pols().index(pol)
@@ -515,8 +502,7 @@ class Simulator:
         **kwargs,
     ):
         # TODO: docstring
-        """
-        """
+        """"""
         # do nothing if neither adding nor returning the effect
         if not add_vis and not ret_vis:
             warnings.warn(
@@ -638,16 +624,14 @@ class Simulator:
     @staticmethod
     def _read_datafile(datafile, **kwargs):
         # TODO: docstring
-        """
-        """
+        """"""
         uvd = UVData()
         uvd.read(datafile, read_data=True, **kwargs)
         return uvd
 
     def _seed_rng(self, seed, model, ant1=None, ant2=None):
         # TODO: docstring
-        """
-        """
+        """"""
         if not isinstance(seed, str):
             raise TypeError("The seeding mode must be specified as a string.")
         if seed == "redundant":
@@ -688,8 +672,7 @@ class Simulator:
 
     def _update_args(self, args, ant1=None, ant2=None, pol=None):
         # TODO: docstring
-        """
-        """
+        """"""
         # helper for getting the correct parameter name
         def key(requires):
             return list(args)[requires.index(True)]
@@ -750,8 +733,7 @@ class Simulator:
 
     @staticmethod
     def _get_model_parameters(model):
-        """Retrieve the full model signature (init + call) parameters.
-        """
+        """Retrieve the full model signature (init + call) parameters."""
         init_params = inspect.signature(model.__class__).parameters
         call_params = inspect.signature(model).parameters
         # this doesn't work correctly if done on one line
@@ -764,9 +746,7 @@ class Simulator:
     def _get_component(
         component: [str, Type[SimulationComponent], SimulationComponent]
     ) -> Tuple[Union[SimulationComponent, Type[SimulationComponent]], bool]:
-        """Given an input component, normalize the output to be either a class or instance.
-
-        """
+        """Given an input component, normalize the output to be either a class or instance."""
         if np.issubclass_(component, SimulationComponent):
             return component, True
         elif isinstance(component, str):
@@ -788,8 +768,7 @@ class Simulator:
 
     def _generate_seed(self, model, key):
         # TODO: docstring
-        """
-        """
+        """"""
         model = self._get_model_name(model)
         # for the sake of randomness
         np.random.seed(int(time.time() * 1e6) % 2 ** 32)
@@ -799,8 +778,7 @@ class Simulator:
 
     def _generate_redundant_seeds(self, model):
         # TODO: docstring
-        """
-        """
+        """"""
         model = self._get_model_name(model)
         if model in self._seeds:
             return
@@ -809,8 +787,7 @@ class Simulator:
 
     def _get_seed(self, model, key):
         # TODO: docstring
-        """
-        """
+        """"""
         model = self._get_model_name(model)
         if model not in self._seeds:
             self._generate_seed(model, key)
@@ -822,8 +799,7 @@ class Simulator:
     @staticmethod
     def _get_model_name(model):
         # TODO: docstring
-        """
-        """
+        """"""
         if isinstance(model, str):
             return model
         elif np.issubclass_(model, SimulationComponent):
@@ -839,8 +815,7 @@ class Simulator:
 
     def _sanity_check(self, model):
         # TODO: docstring
-        """
-        """
+        """"""
         has_data = not np.all(self.data.data_array == 0)
         is_multiplicative = getattr(model, "is_multiplicative", False)
         contains_multiplicative_effect = any(
@@ -863,8 +838,7 @@ class Simulator:
 
     def _update_history(self, model, **kwargs):
         # TODO: docstring
-        """
-        """
+        """"""
         component = self._get_model_name(model)
         msg = f"hera_sim v{__version__}: Added {component} using kwargs:\n"
         if defaults._override_defaults:

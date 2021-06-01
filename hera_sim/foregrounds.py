@@ -15,9 +15,7 @@ class Foreground:
 
 # TODO: choose at which level we'll be documenting classes.
 class DiffuseForeground(Foreground):
-    """
-
-    """
+    """"""
 
     _alias = ("diffuse_foreground",)
 
@@ -166,9 +164,7 @@ class DiffuseForeground(Foreground):
 
 class PointSourceForeground(Foreground):
     # TODO: fill in docstring
-    """
-
-    """
+    """"""
     _alias = ("pntsrc_foreground",)
 
     def __init__(

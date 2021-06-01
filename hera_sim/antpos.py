@@ -20,8 +20,7 @@ class Array:
 
 
 class LinearArray(Array):
-    """Build a linear (east-west) array configuration.
-    """
+    """Build a linear (east-west) array configuration."""
 
     def __init__(self, sep=14.6):
         """
@@ -60,8 +59,7 @@ class LinearArray(Array):
 
 
 class HexArray(Array):
-    """Build a hexagonal array configuration, nominally matching HERA.
-    """
+    """Build a hexagonal array configuration, nominally matching HERA."""
 
     def __init__(self, sep=14.6, split_core=True, outriggers=2):
         """

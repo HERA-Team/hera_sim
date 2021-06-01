@@ -36,8 +36,7 @@ class NoiselikeEoR(EoR):
         fringe_filter_kwargs={},
     ):
         # TODO: docstring
-        """
-        """
+        """"""
         super().__init__(
             eor_amp=eor_amp,
             min_delay=min_delay,

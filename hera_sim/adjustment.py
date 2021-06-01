@@ -591,10 +591,18 @@ def interpolate_to_reference(
             vis = target.get_data(antpair + (pol,))
             if axis == "both":
                 re_spline = RectBivariateSpline(
-                    target_lsts, target_freqs, vis.real, kx=kt, ky=kf,
+                    target_lsts,
+                    target_freqs,
+                    vis.real,
+                    kx=kt,
+                    ky=kf,
                 )
                 im_spline = RectBivariateSpline(
-                    target_lsts, target_freqs, vis.imag, kx=kt, ky=kf,
+                    target_lsts,
+                    target_freqs,
+                    vis.imag,
+                    kx=kt,
+                    ky=kf,
                 )
                 new_data[this_slice, 0, :, pol_ind] = re_spline(
                     ref_lsts, ref_freqs
@@ -633,7 +641,10 @@ def interpolate_to_reference(
 
 
 def rephase_to_reference(
-    target, reference=None, ref_times=None, ref_lsts=None,
+    target,
+    reference=None,
+    ref_times=None,
+    ref_lsts=None,
 ):
     """
     Rephase target data to match overlapping reference LSTs. This function

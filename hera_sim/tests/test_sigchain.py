@@ -106,7 +106,9 @@ def vfft(vis):
 
 
 def test_reflection_gains_correct_delays(
-    fqs, vis, dlys,
+    fqs,
+    vis,
+    dlys,
 ):
     # introduce a cable reflection into the autocorrelation
     gains = sigchain.gen_reflection_gains(fqs, [0], amp=[1e-1], dly=[300], phs=[1])
@@ -223,7 +225,10 @@ def test_cross_coupling_spectrum(fqs, dlys, Tsky):
     amp_range = (-2, -5)
     dly_range = (50, 450)
     xtalk_spectrum = sigchain.CrossCouplingSpectrum(
-        Ncopies=Ncopies, amp_range=amp_range, dly_range=dly_range, symmetrize=True,
+        Ncopies=Ncopies,
+        amp_range=amp_range,
+        dly_range=dly_range,
+        symmetrize=True,
     )
     amplitudes = np.logspace(*amp_range, Ncopies)
     delays = np.linspace(*dly_range, Ncopies)
@@ -323,7 +328,9 @@ def test_vary_gain_amp_linear(gains, times):
 
     # Check that the original value is at the center time.
     assert np.allclose(
-        varied_gain[np.argmin(np.abs(times - times.mean())), :], gains[0], rtol=0.001,
+        varied_gain[np.argmin(np.abs(times - times.mean())), :],
+        gains[0],
+        rtol=0.001,
     )
 
     # Check that the variation amount is as expected.
@@ -629,6 +636,9 @@ def test_vary_gains_exception_not_enough_parameters(gains, times):
 def test_vary_gains_exception_bad_variation_mode(gains, times):
     with pytest.raises(NotImplementedError) as err:
         sigchain.vary_gains_in_time(
-            gains=gains, times=times, parameter="amp", variation_mode="foobar",
+            gains=gains,
+            times=times,
+            parameter="amp",
+            variation_mode="foobar",
         )
     assert err.value.args[0] == "Variation mode 'foobar' not supported."

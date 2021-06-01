@@ -14,8 +14,7 @@ class RFI:
 
 class RfiStation:
     # TODO: docstring
-    """
-    """
+    """"""
 
     def __init__(self, f0, duty_cycle=1.0, strength=100.0, std=10.0, timescale=100.0):
         self.f0 = f0
@@ -26,8 +25,7 @@ class RfiStation:
 
     def __call__(self, lsts, freqs):
         # TODO: docstring
-        """
-        """
+        """"""
         # initialize an array for storing the rfi
         rfi = np.zeros((lsts.size, freqs.size), dtype=np.complex128)
 
@@ -72,20 +70,17 @@ class RfiStation:
 
 class Stations(RFI):
     # TODO: docstring
-    """
-    """
+    """"""
     _alias = ("rfi_stations",)
 
     def __init__(self, stations=None):
         # TODO: docstring
-        """
-        """
+        """"""
         super().__init__(stations=stations)
 
     def __call__(self, lsts, freqs, **kwargs):
         # TODO: docstring
-        """
-        """
+        """"""
         # kind of silly to use **kwargs with just one optional parameter...
         self._check_kwargs(**kwargs)
 
@@ -121,22 +116,19 @@ class Stations(RFI):
 
 class Impulse(RFI):
     # TODO: docstring
-    """
-    """
+    """"""
     _alias = ("rfi_impulse",)
 
     def __init__(self, impulse_chance=0.001, impulse_strength=20.0):
         # TODO: docstring
-        """
-        """
+        """"""
         super().__init__(
             impulse_chance=impulse_chance, impulse_strength=impulse_strength
         )
 
     def __call__(self, lsts, freqs, **kwargs):
         # TODO: docstring
-        """
-        """
+        """"""
         # check that the kwargs are okay
         self._check_kwargs(**kwargs)
 
@@ -166,14 +158,12 @@ class Impulse(RFI):
 
 class Scatter(RFI):
     # TODO: docstring
-    """
-    """
+    """"""
     _alias = ("rfi_scatter",)
 
     def __init__(self, scatter_chance=0.0001, scatter_strength=10.0, scatter_std=10.0):
         # TODO: docstring
-        """
-        """
+        """"""
         super().__init__(
             scatter_chance=scatter_chance,
             scatter_strength=scatter_strength,
@@ -182,8 +172,7 @@ class Scatter(RFI):
 
     def __call__(self, lsts, freqs, **kwargs):
         # TODO: docstring
-        """
-        """
+        """"""
         # validate the kwargs
         self._check_kwargs(**kwargs)
 
@@ -209,8 +198,7 @@ class Scatter(RFI):
 
 class DTV(RFI):
     # TODO: docstring
-    """
-    """
+    """"""
     _alias = ("rfi_dtv",)
 
     def __init__(
@@ -222,8 +210,7 @@ class DTV(RFI):
         dtv_std=10.0,
     ):
         # TODO: docstring
-        """
-        """
+        """"""
         super().__init__(
             dtv_band=dtv_band,
             dtv_channel_width=dtv_channel_width,
@@ -234,8 +221,7 @@ class DTV(RFI):
 
     def __call__(self, lsts, freqs, **kwargs):
         # TODO: docstring
-        """
-        """
+        """"""
         # check the kwargs
         self._check_kwargs(**kwargs)
 
@@ -330,8 +316,7 @@ class DTV(RFI):
 
     def _listify_params(self, bands, *args):
         # TODO: docstring
-        """
-        """
+        """"""
         Nchan = len(bands)
         listified_params = []
         for arg in args:

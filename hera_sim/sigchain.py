@@ -25,15 +25,12 @@ class Bandpass(Gain):
 
     def __init__(self, gain_spread=0.1, dly_rng=(-20, 20), bp_poly=None):
         # TODO: docstring
-        """
-
-        """
+        """"""
         super().__init__(gain_spread=gain_spread, dly_rng=dly_rng, bp_poly=bp_poly)
 
     def __call__(self, freqs, ants, **kwargs):
         # TODO: docstring
-        """
-        """
+        """"""
         # validate kwargs
         self._check_kwargs(**kwargs)
 
@@ -86,16 +83,14 @@ class Reflections(Gain):
         self, amp=None, dly=None, phs=None, conj=False, amp_jitter=0, dly_jitter=0
     ):
         # TODO: docstring
-        """
-        """
+        """"""
         super().__init__(
             amp=amp, dly=dly, phs=phs, conj=conj, amp_jitter=0, dly_jitter=0
         )
 
     def __call__(self, freqs, ants, **kwargs):
         # TODO: docstring
-        """
-        """
+        """"""
         # check the kwargs
         self._check_kwargs(**kwargs)
 
@@ -123,8 +118,7 @@ class Reflections(Gain):
     @staticmethod
     def gen_reflection_coefficient(freqs, amp, dly, phs, conj=False):
         # TODO: docstring
-        """
-        """
+        """"""
         # this is copied directly from the old sigchain module
         # TODO: make this cleaner
 
@@ -240,16 +234,14 @@ class CrossCouplingCrosstalk(Crosstalk, Reflections):
         self, amp=None, dly=None, phs=None, conj=False, amp_jitter=0, dly_jitter=0
     ):
         # TODO: docstring
-        """
-        """
+        """"""
         super().__init__(
             amp=amp, dly=dly, phs=phs, conj=conj, amp_jitter=0, dly_jitter=0
         )
 
     def __call__(self, freqs, autovis, **kwargs):
         # TODO: docstring
-        """
-        """
+        """"""
         # check the kwargs
         self._check_kwargs(**kwargs)
 
@@ -299,8 +291,7 @@ class CrossCouplingSpectrum(Crosstalk):
 
     def __call__(self, freqs, autovis, **kwargs):
         # TODO: docstring
-        """
-        """
+        """"""
         self._check_kwargs(**kwargs)
 
         (
@@ -345,14 +336,12 @@ class WhiteNoiseCrosstalk(Crosstalk):
 
     def __init__(self, amplitude=3.0):
         # TODO: docstring
-        """
-        """
+        """"""
         super().__init__(amplitude=amplitude)
 
     def __call__(self, freqs, **kwargs):
         # TODO: docstring
-        """
-        """
+        """"""
         # check the kwargs
         self._check_kwargs(**kwargs)
 
@@ -371,8 +360,7 @@ class WhiteNoiseCrosstalk(Crosstalk):
 
 def apply_gains(vis, gains, bl):
     # TODO: docstring
-    """
-    """
+    """"""
     # get the gains for each antenna in the baseline
     # don't apply a gain if the antenna isn't found
     gi = 1.0 if bl[0] not in gains else gains[bl[0]]
