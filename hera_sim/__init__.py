@@ -29,6 +29,7 @@ from .visibilities import simulators
 from . import eor
 from . import utils
 from . import simulate
+from . import beams
 from .simulate import Simulator
 from .defaults import defaults
 from .components import SimulationComponent, component
