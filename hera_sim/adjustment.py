@@ -17,6 +17,7 @@ from .utils import _listify
 
 try:
     import hera_cal
+
     HERA_CAL = True
 except (ModuleNotFoundError, FileNotFoundError) as err:  # pragma: no cover
     if err is ModuleNotFoundError:
