@@ -44,8 +44,14 @@ class Simulator:
 
     """
 
-    # TODO: figure out how typing works for this
-    def __init__(self, data=None, defaults_config=None, **kwargs):
+    def __init__(
+        self,
+        *,
+        data: Optional[Union[str, UVData]] = None,
+        defaults_config: Optional[Union[str, Dict]] = None,
+        redundancy_tol: float = 1.0,
+        **kwargs,
+    ):
         """Simulate visibilities and instrumental effects for an entire array.
 
         Parameters
@@ -57,6 +63,9 @@ class Simulator:
             Path to defaults configuraiton, seasonal keyword, or configuration
             dictionary for setting default simulation parameters. See tutorial
             on setting defaults for further information.
+        redundancy_tol
+            Position tolerance for finding redundant groups, in meters. Default is
+            1 meter.
         kwargs
             Parameters to use for initializing UVData object if none is provided.
             If ``data`` is a file path, then these parameters are used when reading
@@ -79,14 +88,24 @@ class Simulator:
             Observed times in JD.
         pols: list of str
             Polarization strings.
+        red_grps: list of list of int
+            Redundant baseline groups. Each entry is a list containing the baseline
+            integer for each member of that redundant group.
+        red_vecs: list of np.ndarray of float
+            Average of all the baselines for each redundant group.
+        red_lengths: list of float
+            Length of each redundant baseline.
         """
         # TODO: add ability for user to specify parameter names to look for on
         # parsing call signature
         # create some utility dictionaries
         self._components = {}
-        self.extras = {}  # FIXME: we can just use self.data.extras
         self._seeds = {}
         self._antpairpol_cache = {}
+        self._filter_cache = {
+            "delay": {},
+            "fringe": {},
+        }
 
         # apply and activate defaults if specified
         if defaults_config:
@@ -94,6 +113,8 @@ class Simulator:
 
         # actually initialize the UVData object stored in self.data
         self._initialize_data(data, **kwargs)
+        self._calculate_reds(tol=redundancy_tol)
+        self.extras = self.data.extra_keywords
         for param in ("Ntimes", "Nfreqs", "Nblts", "Npols", "Nbls"):
             setattr(self, param, getattr(self.data, param))
         self.Nants = len(self.antpos)
@@ -132,13 +153,6 @@ class Simulator:
         """Array of polarization strings."""
         return self.data.get_pols()
 
-    @cached_property
-    def reds(self):
-        """
-        List of redundant groups; each entry is a list of baseline numbers.
-        """
-        return self.data.get_redundancies()[0]
-
     def apply_defaults(self, config, refresh=True):
         """
         Apply the provided default configuration.
@@ -147,6 +161,29 @@ class Simulator:
         See ``hera_sim.defaults.set`` documentation for further details.
         """
         defaults.set(config, refresh=refresh)
+
+    def calculate_filters(
+        self,
+        *,
+        delay_filter_kwds: Optional[Dict[str, Union[float, str]]] = None,
+        fringe_filter_kwds: Optional[Dict[str, Union[float, str, np.ndarray]]] = None,
+    ):
+        """
+        Pre-compute fringe-rate and delay filters for the entire array.
+
+        Parameters
+        ----------
+        delay_filter_kwds
+            Extra parameters necessary for generating a delay filter. See
+            :func:`utils.gen_delay_filter` for details.
+        fringe_filter_kwds
+            Extra parameters necessary for generating a fringe filter. See
+            :func:`utils.gen_fringe_filter` for details.
+        """
+        delay_filter_kwds = delay_filter_kwds or {}
+        fringe_filter_kwds = fringe_filter_kwds or {}
+        self._calculate_delay_filters(**delay_filter_kwds)
+        self._calculate_fringe_filters(**fringe_filter_kwds)
 
     def add(
         self,
@@ -630,6 +667,96 @@ class Simulator:
             # abnormally high system temperature.
             return not (pol in pols and (ant1 in ants or ant2 in ants))
 
+    def _calculate_reds(self, tol=1.0):
+        """Calculate redundant groups and populate class attributes."""
+        groups, centers, lengths = self.data.get_redundancies(tol=tol)
+        self.red_grps = groups
+        self.red_vecs = centers
+        self.red_lengths = lengths
+
+    def _calculate_delay_filters(
+        self,
+        *,
+        standoff: float = 0.0,
+        delay_filter_type: Optional[str] = "gauss",
+        min_delay: Optional[float] = None,
+        max_delay: Optional[float] = None,
+        normalize: Optional[float] = None,
+    ):
+        """
+        Calculate delay filters for each redundant group.
+
+        Parameters
+        ----------
+        standoff
+            Extra extent in delay that the filter extends out to in order to
+            allow for suprahorizon emission. Should be specified in nanoseconds.
+            Default buffer is zero.
+        delay_filter_type
+            String specifying the filter profile. See :func:`utils.gen_delay_filter`
+            for details.
+        min_delay
+            Minimum absolute delay of the filter, in nanoseconds.
+        max_delay
+            Maximum absolute delay of the filter, in nanoseconds.
+        normalize
+            Normalization of the filter such that the output power is the product
+            of the input power and the normalization factor.
+
+        See Also
+        --------
+        :func:`~utils.gen_delay_filter`
+        """
+        # Note that this is not the most efficient way of caching the filters;
+        # however, this is algorithmically very simple--just use one filter per
+        # redundant group. This could potentially be improved in the future,
+        # but it should work fine for our purposes.
+        for red_grp, bl_len in zip(self.red_grps, self.red_lengths):
+            bl_len_ns = bl_len / const.c.to("m/ns").value
+            bl_int = sorted(red_grp)[0]
+            delay_filter = utils.gen_delay_filter(
+                self.freqs,
+                bl_len_ns,
+                standoff=standoff,
+                delay_filter_type=delay_filter_type,
+                min_delay=min_delay,
+                max_delay=max_delay,
+                normalize=normalize,
+            )
+            self._filter_cache["delay"][bl_int] = delay_filter
+
+    def _calculate_fringe_filters(
+        self, *, fringe_filter_type: Optional[str] = "tophat", **filter_kwargs,
+    ):
+        """
+        Calculate fringe-rate filters for all baselines.
+
+        Parameters
+        ----------
+        fringe_filter_type
+            The fringe-rate filter profile.
+        filter_kwargs
+            Other parameters necessary for specifying the filter. These
+            differ based on the filter profile.
+
+        See Also
+        --------
+        :func:`~utils.gen_fringe_filter`
+        """
+        # This uses the same simplistic approach as the delay filter
+        # calculation does--just do one filter per redundant group.
+        for red_grp, (blx, bly, blz) in zip(self.red_grps, self.red_vecs):
+            ew_bl_len_ns = blx / const.c.to("m/ns").value
+            bl_int = sorted(red_grp)[0]
+            fringe_filter = utils.gen_fringe_filter(
+                self.lsts,
+                self.freqs,
+                ew_bl_len_ns,
+                fringe_filter_type=fringe_filter_type,
+                **filter_kwargs,
+            )
+            self._filter_cache["fringe"][bl_int] = fringe_filter
+
     def _initialize_data(self, data, **kwargs):
         """
         """
@@ -856,7 +983,7 @@ class Simulator:
                 )
             # Determine the key for the redundant group this baseline is in.
             bl_int = self.data.antnums_to_baseline(ant1, ant2)
-            key = (next(reds for reds in self.reds if bl_int in reds)[0],)
+            key = (next(reds for reds in self.red_grps if bl_int in reds)[0],)
             if pol:
                 key += (pol,)
             # seed the RNG accordingly
@@ -907,6 +1034,7 @@ class Simulator:
         pol: str, optional
             Polarization string. Currently not used.
         """
+
         def key(requires):
             return list(args)[requires.index(True)]
 
@@ -1126,8 +1254,8 @@ class Simulator:
             )
 
     def _update_history(self, model, **kwargs):
-        # TODO: docstring
         """
+        Record the component simulated and its parameters in the history.
         """
         component = self._get_model_name(model)
         vis_filter = kwargs.pop("vis_filter", None)
