@@ -56,7 +56,7 @@ def validate_config(config):
         raise ValueError("Insufficient information for initializing simulation.")
 
 
-def write_calfits(gains, filename, sim=None, freqs=None, times=None, clobber=False):
+def write_calfits(gains, filename, sim=None, freqs=None, times=None, x_direction="north", clobber=False):
     """
     Write gains to disk as a calfits file.
 
@@ -76,13 +76,15 @@ def write_calfits(gains, filename, sim=None, freqs=None, times=None, clobber=Fal
     times: array-like of float
         Times corresponding to gains, in JD. Does not need to be provided if
         ``sim`` is provided.
+    x_orientation: str, optional
+        Cardinal direction corresponding to x-orientation of the feeds. Default
+        is to assume that the x-direction points northward.
     clobber: bool, optional
         Whether to overwrite existing file in the case of a name conflict.
         Default is to *not* overwrite conflicting files.
     """
     from hera_cal.io import write_cal
-
-    gains = gains.copy()
+    from hera_cal.utils import jstr2num, jnum2str
 
     if sim is not None:
         if not isinstance(sim, (Simulator, UVData)):
@@ -91,9 +93,11 @@ def write_calfits(gains, filename, sim=None, freqs=None, times=None, clobber=Fal
         if isinstance(sim, Simulator):
             freqs = sim.freqs * 1e9
             times = sim.times
+            x_orientation = sim.data.x_orientation
         else:
             freqs = np.unique(sim.freq_array)
             times = np.unique(sim.time_array)
+            x_orientation = sim.x_orientation
     else:
         if freqs is None or times is None:
             raise ValueError(
@@ -101,17 +105,31 @@ def write_calfits(gains, filename, sim=None, freqs=None, times=None, clobber=Fal
                 "times must be specified."
             )
 
+    gain_dict = {}
     # Update gain keys to conform to write_cal assumptions.
     if all(np.issctype(type(ant)) for ant in gains.keys()):
-        # Make sure that gain keys are (ant, jpol) tuples.
-        gains = {(ant, "Jee"): gain for ant, gain in gains.items()}
+        if isinstance(list(gains.values())[0], dict):
+            # New-style gains: {pol: {ant: gain}}
+            for pol, _gains in gains.items():
+                if x_orientation:
+                    jpol = jnum2str(
+                        jstr2num(f"j{pol}"),
+                        x_orientation=x_orientation,
+                    )
+                else:
+                    jpol = pol
+                for ant, gain in _gains.items():
+                    gain_dict[(ant, jpol)] = gain
+        else:
+            # Old-style, single polarization assumption.
+            gain_dict = {(ant, "Jee"): gain for ant, gain in gains.items()}
 
     # Ensure that all of the gains have the right shape.
-    for antpol, gain in gains.items():
+    for antpol, gain in gain_dict.items():
         if gain.ndim == 1:
-            gains[antpol] = np.outer(np.ones(times.size), gain)
+            gain_dict[antpol] = np.outer(np.ones(times.size), gain)
 
-    write_cal(filename, gains, freqs, times, overwrite=clobber, return_uvc=False)
+    write_cal(filename, gain_dict, freqs, times, overwrite=clobber, return_uvc=False)
 
 
 def _validate_freq_params(freq_params):
