@@ -191,7 +191,7 @@ class Simulator:
         *,
         add_vis: bool = True,
         ret_vis: bool = False,
-        seed: Optional[str] = None,
+        seed: Optional[Union[str, int]] = None,
         vis_filter: Optional[Sequence] = None,
         name: Optional[str] = None,
         **kwargs,
@@ -829,16 +829,59 @@ class Simulator:
     # In particular, make the logic for adding/returning the effect easier to follow.
     def _iteratively_apply(
         self,
-        model,
-        add_vis=True,
-        ret_vis=False,
-        seed=None,
-        vis_filter=None,
-        antpairpol_cache=None,
+        model: SimulationComponent,
+        *,
+        add_vis: bool = True,
+        ret_vis: bool = False,
+        seed: Optional[Union[str, int]] = None,
+        vis_filter: Optional[Sequence] = None,
+        antpairpol_cache: Optional[Sequence[AntPairPol]] = None,
         **kwargs,
     ):
-        # TODO: docstring
         """
+        Simulate an effect for an entire array.
+
+        This method loops over every baseline and polarization in order
+        to simulate the effect ``model`` for the full array. The result
+        is optionally applied to the simulation's data and/or returned.
+
+        Parameters
+        ----------
+        model
+            Callable model used to simulate an effect.
+        add_vis
+            Whether to apply the effect to the simulation data. Default
+            is to apply the effect.
+        ret_vis
+            Whether to return the simulated effect. Default is to not
+            return the effect. Type of returned object depends on whether
+            the effect is multiplicative or not.
+        seed
+            Either an integer specifying the seed to be used in setting
+            the random state, or one of a select few keywords. Default
+            is to use the current random state. See :meth:`~_seed_rng`
+            for descriptions of the supported seeding modes.
+        vis_filter
+            List of antennas, baselines, polarizations, antenna-polarization
+            pairs, or antpairpols for which to simulate the effect. This
+            specifies which of the above the effect is to be simulated for,
+            and anything that does not meet the keys specified in this list
+            does not have the effect applied to it. See :meth:`~_apply_filter`
+            for more details.
+        antpairpol_cache
+            List of (ant1, ant2, pol) tuples specifying which antpairpols have
+            already had the effect simulated. Not intended for use by the
+            typical end-user.
+        kwargs
+            Extra parameters passed to ``model``.
+
+        Returns
+        -------
+        effect: np.ndarray or dict
+            The simulated effect. Only returned if ``ret_vis`` is set to True.
+            If the effect is *not* multiplicative, then the returned object
+            is an ndarray; otherwise, a dictionary mapping antenna numbers
+            to ndarrays is returned.
         """
         # do nothing if neither adding nor returning the effect
         if not add_vis and not ret_vis:
@@ -901,6 +944,19 @@ class Simulator:
             # Prepare the actual arguments to be used.
             use_args = self._update_args(base_args, ant1, ant2, pol)
             use_args.update(kwargs)
+            if any("filter" in key for key in model.kwargs):
+                is_smooth_in_freq = getattr(model, "is_smooth_in_freq", True)
+                get_delay_filter = (
+                    is_smooth_in_freq and "delay_filter_kwargs" not in use_args
+                )
+                get_fringe_filter = "fringe_filter_kwargs" not in use_args
+                filter_kwargs = self._get_filters(
+                    ant1,
+                    ant2,
+                    get_delay_filter=get_delay_filter,
+                    get_fringe_filter=get_fringe_filter,
+                )
+                use_args.update(filter_kwargs)
 
             # Cache simulated antpairpols if not filtered out.
             if not (bl_in_cache or conj_in_cache or apply_filter):
@@ -920,8 +976,6 @@ class Simulator:
                         conj_blts, 0, :, pol_ind
                     ].conj()
                 else:
-                    # TODO: see if it's not too complicated to use cached
-                    # delay/fringe filters here.
                     vis = model(**use_args)
 
                 # filter what's actually having data simulated
@@ -1091,6 +1145,58 @@ class Simulator:
             )
 
         return use_args
+
+    def _get_filters(
+        self,
+        ant1: int,
+        ant2: int,
+        *,
+        get_delay_filter: bool = True,
+        get_fringe_filter: bool = True,
+    ) -> Dict[str, np.ndarray]:
+        """
+        Retrieve delay and fringe filters from the cache.
+
+        Parameters
+        ----------
+        ant1
+            First antenna in the baseline.
+        ant2
+            Second antenna in the baseline.
+        get_delay_filter
+            Whether to retrieve the delay filter.
+        get_fringe_filter
+            Whether to retrieve the fringe filter.
+        
+        Returns
+        -------
+        filters
+            Dictionary containing the fringe and delay filters that
+            have been pre-calculated for the provided baseline.
+        """
+        filters = {}
+        if not get_delay_filter and not get_fringe_filter:
+            # Save some CPU cycles.
+            return filters
+        bl_int = self.data.antnums_to_baseline(ant1, ant2)
+        conj_bl_int = self.data.antnums_to_baseline(ant2, ant1)
+        is_conj = False
+        for red_grp in self.red_grps:
+            if bl_int in red_grp:
+                key = sorted(red_grp)[0]
+                break
+            if conj_bl_int in red_grp:
+                key = sorted(red_grp)[0]
+                is_conj = True
+                break
+        if get_delay_filter:
+            filters["delay_filter"] = self._filter_cache["delay"][key]
+        if get_fringe_filter:
+            filters["fringe_filter"] = self._filter_cache["fringe"][key]
+            if is_conj:
+                # Fringes are seen to move in the opposite direction.
+                filters["fringe_filter"] = filters["fringe_filter"][::-1,:]
+        return filters
 
     @staticmethod
     def _get_model_parameters(model):
