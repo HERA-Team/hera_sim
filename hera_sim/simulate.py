@@ -165,25 +165,25 @@ class Simulator:
     def calculate_filters(
         self,
         *,
-        delay_filter_kwds: Optional[Dict[str, Union[float, str]]] = None,
-        fringe_filter_kwds: Optional[Dict[str, Union[float, str, np.ndarray]]] = None,
+        delay_filter_kwargs: Optional[Dict[str, Union[float, str]]] = None,
+        fringe_filter_kwargs: Optional[Dict[str, Union[float, str, np.ndarray]]] = None,
     ):
         """
         Pre-compute fringe-rate and delay filters for the entire array.
 
         Parameters
         ----------
-        delay_filter_kwds
+        delay_filter_kwargs
             Extra parameters necessary for generating a delay filter. See
             :func:`utils.gen_delay_filter` for details.
-        fringe_filter_kwds
+        fringe_filter_kwargs
             Extra parameters necessary for generating a fringe filter. See
             :func:`utils.gen_fringe_filter` for details.
         """
-        delay_filter_kwds = delay_filter_kwds or {}
-        fringe_filter_kwds = fringe_filter_kwds or {}
-        self._calculate_delay_filters(**delay_filter_kwds)
-        self._calculate_fringe_filters(**fringe_filter_kwds)
+        delay_filter_kwargs = delay_filter_kwargs or {}
+        fringe_filter_kwargs = fringe_filter_kwargs or {}
+        self._calculate_delay_filters(**delay_filter_kwargs)
+        self._calculate_fringe_filters(**fringe_filter_kwargs)
 
     def add(
         self,
@@ -319,7 +319,6 @@ class Simulator:
         kwargs.pop("alias")  # To handle multiple instances of simulating an effect.
         seed = kwargs.pop("seed", None)
         vis_filter = kwargs.pop("vis_filter", None)
-        antpairpol_cache = self._antpairpol_cache[model_key]
         if not isinstance(model, SimulationComponent):
             model = model(**kwargs)
 
@@ -757,14 +756,32 @@ class Simulator:
             )
             self._filter_cache["fringe"][bl_int] = fringe_filter
 
-    def _initialize_data(self, data, **kwargs):
+    def _initialize_data(
+        self, data: Optional[Union[str, Path, UVData]], **kwargs,
+    ):
         """
+        Initialize the ``data`` attribute with a ``UVData`` object.
+
+        Parameters
+        ----------
+        data
+            Either a ``UVData`` object or a path-like object to a file
+            that can be loaded into a ``UVData`` object. If not provided,
+            then sufficient keywords for initializing a ``UVData`` object
+            must be provided. See :func:`~io.empty_uvdata` for more
+            information on which keywords are needed.
+
+        Raises
+        ------
+        TypeError
+            If the provided value for ``data`` is not an object that can
+            be cast to a ``UVData`` object.
         """
         if data is None:
             self.data = io.empty_uvdata(**kwargs)
         elif isinstance(data, (str, Path)):
             self.data = self._read_datafile(data, **kwargs)
-            self.extras["data_file"] = data
+            self.data.extra_keywords["data_file"] = data
         elif isinstance(data, UVData):
             self.data = data
         else:
@@ -817,13 +834,12 @@ class Simulator:
         return model_params
 
     def _iterate_antpair_pols(self):
-        # TODO: docstring
-        """
-        """
+        """Loop through all baselines and polarizations."""
         for ant1, ant2, pol in self.data.get_antpairpols():
             blt_inds = self.data.antpair2ind((ant1, ant2))
             pol_ind = self.data.get_pols().index(pol)
-            yield ant1, ant2, pol, blt_inds, pol_ind
+            if blt_inds.size:
+                yield ant1, ant2, pol, blt_inds, pol_ind
 
     # TODO: think about how to streamline this algorithm and make it more readable
     # In particular, make the logic for adding/returning the effect easier to follow.
@@ -883,7 +899,7 @@ class Simulator:
             is an ndarray; otherwise, a dictionary mapping antenna numbers
             to ndarrays is returned.
         """
-        # do nothing if neither adding nor returning the effect
+        # There's nothing to do if we're neither adding nor returning.
         if not add_vis and not ret_vis:
             warnings.warn(
                 "You have chosen to neither add nor return the effect "
@@ -893,21 +909,21 @@ class Simulator:
             )
             return
 
-        # make an empty list for antpairpol cache if it's none
+        # Initialize the antpairpol cache if we need to.
         if antpairpol_cache is None:
             antpairpol_cache = []
 
-        # pull lsts/freqs if required and find out which extra
-        # parameters are required
+        # Pull relevant parameters from Simulator.
+        # Also make placeholders for antenna/baseline dependent parameters.
         base_args = self._initialize_args_from_model(model)
 
         # get a copy of the data array
+        # TODO: figure out if we can do this in a more memory-efficient way.
         data_copy = self.data.data_array.copy()
 
-        # find out if the model is multiplicative
+        # Pull useful auxilliary parameters.
         is_multiplicative = getattr(model, "is_multiplicative", None)
-
-        # handle user-defined functions as the passed model
+        is_smooth_in_freq = getattr(model, "is_smooth_in_freq", True)
         if is_multiplicative is None:
             warnings.warn(
                 "You are attempting to compute a component but have "
@@ -927,11 +943,23 @@ class Simulator:
                     seed = self._seed_rng(seed, model, pol=pol)
                 gains[pol] = model(**args)
 
+        # Determine whether to use cached filters, and which ones to use if so.
+        model_kwargs = getattr(model, "kwargs", {})
+        use_cached_filters = any("filter" in key for key in model_kwargs)
+        get_delay_filter = is_smooth_in_freq and "delay_filter_kwargs" not in kwargs
+        get_delay_filter &= bool(self._filter_cache["delay"])
+        get_fringe_filter = "fringe_filter_kwargs" not in kwargs
+        get_fringe_filter &= bool(self._filter_cache["fringe"])
+        use_cached_filters &= get_delay_filter or get_fringe_filter
+
+        # Iterate over the array and simulate the effect as-needed.
         for ant1, ant2, pol, blt_inds, pol_ind in self._iterate_antpair_pols():
             # Determine whether or not to filter the result.
             apply_filter = self._apply_filter(
                 utils._listify(vis_filter), ant1, ant2, pol
             )
+            if apply_filter:
+                continue
 
             # Check if this antpairpol or its conjugate have been simulated.
             bl_in_cache = (ant1, ant2, pol) in antpairpol_cache
@@ -944,12 +972,7 @@ class Simulator:
             # Prepare the actual arguments to be used.
             use_args = self._update_args(base_args, ant1, ant2, pol)
             use_args.update(kwargs)
-            if any("filter" in key for key in model.kwargs):
-                is_smooth_in_freq = getattr(model, "is_smooth_in_freq", True)
-                get_delay_filter = (
-                    is_smooth_in_freq and "delay_filter_kwargs" not in use_args
-                )
-                get_fringe_filter = "fringe_filter_kwargs" not in use_args
+            if use_cached_filters:
                 filter_kwargs = self._get_filters(
                     ant1,
                     ant2,
@@ -966,8 +989,7 @@ class Simulator:
             if is_multiplicative:
                 # Calculate the complex gain, but only apply it if requested.
                 gain = gains[pol][ant1] * np.conj(gains[pol][ant2])
-                if not apply_filter:
-                    data_copy[blt_inds, 0, :, pol_ind] *= gain
+                data_copy[blt_inds, 0, :, pol_ind] *= gain
             else:
                 # I don't think this will ever be executed, but just in case...
                 if conj_in_cache and seed is None:  # pragma: no cover
@@ -978,10 +1000,6 @@ class Simulator:
                 else:
                     vis = model(**use_args)
 
-                # filter what's actually having data simulated
-                if apply_filter:
-                    vis = np.zeros_like(vis)
-
                 # and add it in
                 data_copy[blt_inds, 0, :, pol_ind] += vis
 
@@ -990,6 +1008,9 @@ class Simulator:
         # there aren't *three* copies of the data array floating around
         # this is to minimize the potential of triggering a MemoryError
         if ret_vis:
+            # return the gain dictionary if gains are simulated
+            if is_multiplicative:
+                return gains
             data_copy -= self.data.data_array
             # the only time we're allowed to have add_vis be False is
             # if ret_vis is True, and nothing happens if both are False
@@ -997,12 +1018,8 @@ class Simulator:
             # data array
             if add_vis:
                 self.data.data_array += data_copy
-            # return the gain dictionary if gains are simulated
-            if is_multiplicative:
-                return gains
             # otherwise return the actual visibility simulated
-            else:
-                return data_copy
+            return data_copy
         else:
             self.data.data_array = data_copy
 
@@ -1167,7 +1184,7 @@ class Simulator:
             Whether to retrieve the delay filter.
         get_fringe_filter
             Whether to retrieve the fringe filter.
-        
+
         Returns
         -------
         filters
@@ -1190,12 +1207,16 @@ class Simulator:
                 is_conj = True
                 break
         if get_delay_filter:
-            filters["delay_filter"] = self._filter_cache["delay"][key]
+            delay_filter = self._filter_cache["delay"][key]
+            filters["delay_filter_kwargs"] = {}
+            filters["delay_filter_kwargs"]["delay_filter"] = delay_filter
         if get_fringe_filter:
-            filters["fringe_filter"] = self._filter_cache["fringe"][key]
+            fringe_filter = self._filter_cache["fringe"][key]
             if is_conj:
                 # Fringes are seen to move in the opposite direction.
-                filters["fringe_filter"] = filters["fringe_filter"][::-1,:]
+                fringe_filter = fringe_filter[::-1, :]
+            filters["fringe_filter_kwargs"] = {}
+            filters["fringe_filter_kwargs"]["fringe_filter"] = fringe_filter
         return filters
 
     @staticmethod
