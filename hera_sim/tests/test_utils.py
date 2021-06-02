@@ -265,7 +265,10 @@ def test_fringe_filter_custom(freqs, lsts, fringe_rates):
     )
     # Check that the filters peak at roughly the same fringe rates.
     assert np.allclose(
-        peak_frates_model[nearest_neighbors], peak_frates_interp, rtol=0.05, atol=0,
+        peak_frates_model[nearest_neighbors],
+        peak_frates_interp,
+        rtol=0.05,
+        atol=0,
     )
 
 

@@ -16,7 +16,7 @@ from . import io
 from . import utils
 from .defaults import defaults
 from . import __version__
-from .components import SimulationComponent
+from .components import SimulationComponent, get_model, list_all_components
 
 
 # wrapper for the run_sim method, necessary for part of the CLI
@@ -347,7 +347,7 @@ class Simulator:
         This zeros the data array, resets the history, and clears the
         instance's _components dictionary.
         """
-        self.data.data_array = np.zeros(self.data.data_array.shape, dtype=np.complex128)
+        self.data.data_array = np.zeros(self.data.data_array.shape, dtype=complex)
         self.data.history = ""
         self._components.clear()
         self._antpairpol_cache = {}
@@ -367,8 +367,7 @@ class Simulator:
     @_generator_to_list
     def run_sim(self, sim_file=None, **sim_params):
         # TODO: docstring
-        """
-        """
+        """"""
         # make sure that only sim_file or sim_params are specified
         if not (bool(sim_file) ^ bool(sim_params)):
             raise ValueError(
@@ -487,8 +486,7 @@ class Simulator:
     @staticmethod
     def _apply_filter(vis_filter, ant1, ant2, pol):
         # TODO: docstring
-        """
-        """
+        """"""
         # find out whether or not multiple keys are passed
         multikey = any(isinstance(key, (list, tuple)) for key in vis_filter)
         # iterate over the keys, find if any are okay
@@ -529,8 +527,7 @@ class Simulator:
 
     def _initialize_data(self, data, **kwargs):
         # TODO: docstring
-        """
-        """
+        """"""
         if data is None:
             self.data = io.empty_uvdata(**kwargs)
         elif isinstance(data, (str, Path)):
@@ -543,8 +540,7 @@ class Simulator:
 
     def _initialize_args_from_model(self, model):
         # TODO: docstring
-        """
-        """
+        """"""
         model_params = self._get_model_parameters(model)
         _ = model_params.pop("kwargs", None)
 
@@ -561,8 +557,7 @@ class Simulator:
 
     def _iterate_antpair_pols(self):
         # TODO: docstring
-        """
-        """
+        """"""
         for ant1, ant2, pol in self.data.get_antpairpols():
             blt_inds = self.data.antpair2ind((ant1, ant2))
             pol_ind = self.data.get_pols().index(pol)
@@ -578,8 +573,7 @@ class Simulator:
         **kwargs,
     ):
         # TODO: docstring
-        """
-        """
+        """"""
         # do nothing if neither adding nor returning the effect
         if not add_vis and not ret_vis:
             warnings.warn(
@@ -672,7 +666,7 @@ class Simulator:
 
                 # filter what's actually having data simulated
                 if apply_filter:
-                    vis = np.zeros(vis.shape, dtype=np.complex128)
+                    vis = np.zeros(vis.shape, dtype=complex)
 
                 # and add it in
                 data_copy[blt_inds, 0, :, pol_ind] += vis
@@ -701,16 +695,14 @@ class Simulator:
     @staticmethod
     def _read_datafile(datafile, **kwargs):
         # TODO: docstring
-        """
-        """
+        """"""
         uvd = UVData()
         uvd.read(datafile, read_data=True, **kwargs)
         return uvd
 
     def _seed_rng(self, seed, model, ant1=None, ant2=None):
         # TODO: docstring
-        """
-        """
+        """"""
         if not isinstance(seed, str):
             raise TypeError("The seeding mode must be specified as a string.")
         if seed == "redundant":
@@ -751,8 +743,7 @@ class Simulator:
 
     def _update_args(self, args, ant1=None, ant2=None, pol=None):
         # TODO: docstring
-        """
-        """
+        """"""
         # helper for getting the correct parameter name
         def key(requires):
             return list(args)[requires.index(True)]
@@ -813,8 +804,7 @@ class Simulator:
 
     @staticmethod
     def _get_model_parameters(model):
-        """Retrieve the full model signature (init + call) parameters.
-        """
+        """Retrieve the full model signature (init + call) parameters."""
         init_params = inspect.signature(model.__class__).parameters
         call_params = inspect.signature(model).parameters
         # this doesn't work correctly if done on one line
@@ -824,70 +814,32 @@ class Simulator:
         return model_params
 
     @staticmethod
-    def _get_component(component):
-        # TODO: docstring
-        """
-        """
-        try:
-            if issubclass(component, SimulationComponent):
-                # support passing user-defined classes that inherit from
-                # the SimulationComponent base class to add method
-                return component, True
-            else:
-                # issubclass will not raise a TypeError in python <= 3.6
-                raise TypeError
-        except TypeError:
-            # this is raised if ``component`` is not a class
-            if component.__class__.__name__ == "function":
-                raise TypeError(
-                    "You are attempting to add a component that is "
-                    "modeled using a function. Please convert the "
-                    "function to a callable class and try again."
+    def _get_component(
+        component: [str, Type[SimulationComponent], SimulationComponent]
+    ) -> Tuple[Union[SimulationComponent, Type[SimulationComponent]], bool]:
+        """Normalize a component to be either a class or instance."""
+        if np.issubclass_(component, SimulationComponent):
+            return component, True
+        elif isinstance(component, str):
+            try:
+                return get_model(component), True
+            except KeyError:
+                raise ValueError(
+                    f"The model '{component}' does not exist. The following models are "
+                    f"available: \n{list_all_components()}."
                 )
-            if callable(component):
-                # if it's callable, then it's either a user-defined
-                # function or a class instance
-                return component, False
-            if not isinstance(component, str):
-                # TODO: update this error message to reflect the
-                # change in allowed component types
-                raise TypeError(
-                    "``component`` must be either a class which "
-                    "derives from ``SimulationComponent`` or an "
-                    "instance of a callable class, or a function, "
-                    "whose signature is:\n"
-                    "func(lsts, freqs, *args, **kwargs)\n"
-                    "If it is none of the above, then it must be "
-                    "a string which corresponds to the name of a "
-                    "``hera_sim`` class or an alias thereof."
-                )
-
-            # keep track of all known aliases in case desired
-            # component isn't found in the search
-            all_aliases = []
-            for registry in SimulationComponent.__subclasses__():
-                for model in registry.__subclasses__():
-                    aliases = (model.__name__,)
-                    aliases += getattr(model, "_alias", ())
-                    aliases = [alias.lower() for alias in aliases]
-                    for alias in aliases:
-                        all_aliases.append(alias)
-                    if component.lower() in aliases:
-                        return model, True
-
-            # if this part is executed, then the model wasn't found, so
-            string_of_aliases = ", ".join(set(all_aliases))
-            raise UnboundLocalError(
-                f"The component '{component}' wasn't found. The "
-                f"following aliases are known: \n{string_of_aliases}\n"
-                "Please ensure that the component you are trying "
-                "to add is a subclass of a registry."
+        elif isinstance(component, SimulationComponent):
+            return component, False
+        else:
+            raise ValueError(
+                "The input type for the component was not understood. "
+                "Must be a string, or a class/instance of type 'SimulationComponent'. "
+                f"Available component models are:\n{list_all_components()}"
             )
 
     def _generate_seed(self, model, key):
         # TODO: docstring
-        """
-        """
+        """"""
         model = self._get_model_name(model)
         # for the sake of randomness
         np.random.seed(int(time.time() * 1e6) % 2 ** 32)
@@ -897,8 +849,7 @@ class Simulator:
 
     def _generate_redundant_seeds(self, model):
         # TODO: docstring
-        """
-        """
+        """"""
         model = self._get_model_name(model)
         if model in self._seeds:
             return
@@ -907,8 +858,7 @@ class Simulator:
 
     def _get_seed(self, model, key):
         # TODO: docstring
-        """
-        """
+        """"""
         model = self._get_model_name(model)
         if model not in self._seeds:
             self._generate_seed(model, key)
@@ -920,30 +870,23 @@ class Simulator:
     @staticmethod
     def _get_model_name(model):
         # TODO: docstring
-        """
-        """
+        """"""
         if isinstance(model, str):
             return model
-        try:
+        elif np.issubclass_(model, SimulationComponent):
             return model.__name__
-        except AttributeError:
-            # check if it's a user defined function
-            if model.__class__.__name__ == "function":
-                # don't allow users to pass functions, only classes
-                # TODO: find out if this check always happens before
-                # _get_component is called
-                raise TypeError(
-                    "You are trying to simulate an effect using a custom function. "
-                    "Please refer to the tutorial for instructions regarding how "
-                    "to define new simulation components compatible with the Simulator."
-                )
-            else:
-                return model.__class__.__name__
+        elif isinstance(model, SimulationComponent):
+            return model.__class__.__name__
+        else:
+            raise TypeError(
+                "You are trying to simulate an effect using a custom function. "
+                "Please refer to the tutorial for instructions regarding how "
+                "to define new simulation components compatible with the Simulator."
+            )
 
     def _sanity_check(self, model):
         # TODO: docstring
-        """
-        """
+        """"""
         has_data = not np.all(self.data.data_array == 0)
         is_multiplicative = getattr(model, "is_multiplicative", False)
         contains_multiplicative_effect = any(
@@ -966,8 +909,7 @@ class Simulator:
 
     def _update_history(self, model, **kwargs):
         # TODO: docstring
-        """
-        """
+        """"""
         component = self._get_model_name(model)
         msg = f"hera_sim v{__version__}: Added {component} using kwargs:\n"
         if defaults._override_defaults:

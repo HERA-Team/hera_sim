@@ -5,10 +5,10 @@ from astropy import constants
 from astropy import units
 
 from . import utils
-from .components import registry
+from .components import component
 
 
-@registry
+@component
 class Foreground:
     """Base class for foreground models."""
 
@@ -135,7 +135,7 @@ class DiffuseForeground(Foreground):
 
         # resample the sky temperature model
         Tsky = Tsky_mdl(lsts=lsts, freqs=freqs)  # K
-        vis = np.asarray(Tsky / utils.jansky_to_kelvin(freqs, omega_p), np.complex128)
+        vis = np.asarray(Tsky / utils.jansky_to_kelvin(freqs, omega_p), complex)
 
         if np.isclose(np.linalg.norm(bl_vec), 0):
             return vis
@@ -272,7 +272,7 @@ class PointSourceForeground(Foreground):
         ) ** (1 / alpha)
 
         # initialize the visibility array
-        vis = np.zeros((lsts.size, freqs.size), dtype=np.complex128)
+        vis = np.zeros((lsts.size, freqs.size), dtype=complex)
 
         # iterate over ra, flux, spectral indices
         for ra, flux, index in zip(ras, flux_densities, spec_indices):

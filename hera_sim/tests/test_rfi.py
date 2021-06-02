@@ -119,7 +119,10 @@ def test_rfi_dtv_occupancy_variable_chance(freqs, lsts):
         for i, chance in enumerate(chances)
     )
     assert np.isclose(
-        np.mean(np.abs(rfi_vis).astype(bool)), expected_occupancy, atol=0.05, rtol=0,
+        np.mean(np.abs(rfi_vis).astype(bool)),
+        expected_occupancy,
+        atol=0.05,
+        rtol=0,
     )
 
 

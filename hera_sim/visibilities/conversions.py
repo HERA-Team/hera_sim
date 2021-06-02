@@ -107,3 +107,25 @@ def healpix_to_crd_eq(h, nest=False):
     return np.array(
         healpy.pix2vec(aph.npix_to_nside(len(h)), px, nest=nest), dtype=np.float32
     )
+
+
+def lm_to_az_za(ell, m):
+    """
+    Convert l and m (on intervals -1, +1) to azimuth and zenith angle.
+
+    Parameters
+    ----------
+    l, m : array_like
+        Normalized angular coordinates on the interval (-1, +1).
+
+    Returns
+    -------
+    az, za : array_like
+        Corresponding azimuth and zenith angles (in radians).
+    """
+    lsqr = ell ** 2.0 + m ** 2.0
+    n = np.where(lsqr < 1.0, np.sqrt(1.0 - lsqr), 0.0)
+
+    az = -np.arctan2(m, ell)
+    za = np.pi / 2.0 - np.arcsin(n)
+    return az, za

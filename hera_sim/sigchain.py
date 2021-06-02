@@ -5,17 +5,16 @@ import warnings
 from typing import Dict, Tuple, Union
 
 from scipy import stats
+from scipy.signal import blackmanharris
 
 from . import interpolators
 from . import utils
-from .components import registry
+from .components import component
 from . import DATA_PATH
 from .defaults import _defaults
 
-import aipy
 
-
-@registry
+@component
 class Gain:
     """Base class for systematic gains."""
 
@@ -85,7 +84,7 @@ class Bandpass(Gain, is_multiplicative=True):
             bp_base = bp_poly(freqs)
         else:
             bp_base = np.polyval(bp_poly, freqs)
-        window = aipy.dsp.gen_window(freqs.size, "blackman-harris")
+        window = blackmanharris(freqs.size)
         modes = np.abs(np.fft.fft(window * bp_base))
         gains = {}
         for ant in ants:
@@ -301,7 +300,7 @@ class Reflections(Gain, is_multiplicative=True):
         return amps, dlys, phases
 
 
-@registry
+@component
 class Crosstalk:
     """Base class for cross-talk models."""
 
@@ -463,7 +462,7 @@ class CrossCouplingSpectrum(Crosstalk):
         dlys = np.linspace(*dly_range, Ncopies)
 
         # Construct the spectrum of crosstalk.
-        crosstalk_spectrum = np.zeros(autovis.shape, dtype=np.complex128)
+        crosstalk_spectrum = np.zeros(autovis.shape, dtype=complex)
         for amp, dly in zip(amps, dlys):
             gen_xtalk = CrossCouplingCrosstalk(
                 amp=amp,

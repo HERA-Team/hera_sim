@@ -14,8 +14,10 @@ try:
     from healvis.beam_model import AnalyticBeam
     from healvis.simulator import setup_observatory_from_uvdata
     from healvis.sky_model import SkyModel
+
+    HAVE_HEALVIS = True
 except ImportError:
-    raise ImportError("to use the healvis wrapper, you must install healvis!")
+    HAVE_HEALVIS = False
 
 
 class HealVis(VisibilitySimulator):
@@ -38,6 +40,9 @@ class HealVis(VisibilitySimulator):
     point_source_ability = False
 
     def __init__(self, fov=180, nprocesses=1, sky_ref_chan=0, **kwargs):
+        if not HAVE_HEALVIS:
+            raise ImportError("to use the healvis wrapper, you must install healvis!")
+
         self.fov = fov
         self._nprocs = nprocesses
         self._sky_ref_chan = sky_ref_chan
@@ -92,7 +97,7 @@ class HealVis(VisibilitySimulator):
     @cached_property
     def sky_model(self):
         """
-        A SkyModel compatible with healvis.
+        A ``SkyModel`` compatible with healvis.
 
         Returns
         -------
@@ -129,7 +134,9 @@ class HealVis(VisibilitySimulator):
             parameters.
         """
         return setup_observatory_from_uvdata(
-            self.uvdata, fov=self.fov, beam=self.beams[0],
+            self.uvdata,
+            fov=self.fov,
+            beam=self.beams[0],
         )
 
     def _simulate(self):

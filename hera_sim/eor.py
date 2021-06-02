@@ -7,12 +7,12 @@ a visibility appropriate for the given baseline.
 """
 
 import numpy as np
-from .components import registry
+from .components import component
 from . import utils
 from typing import Optional
 
 
-@registry
+@component
 class EoR:
     """Base class for fast EoR simualtors."""
 
@@ -114,7 +114,7 @@ class NoiselikeEoR(EoR):
         # Handling autos this way makes the covariance look like it has
         # no structure... which is wrong.
         if np.all(np.isclose(bl_vec, 0)):
-            data = data.real.astype(np.complex128)
+            data = data.real.astype(complex)
 
         return data
 

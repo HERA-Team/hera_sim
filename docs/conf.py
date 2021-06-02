@@ -12,38 +12,9 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-from __future__ import print_function
-
 from pkg_resources import get_distribution
 
 __version__ = get_distribution("hera_sim").version
-
-# import os
-# import sys
-#
-# from unittest.mock import MagicMock
-#
-# sys.path.insert(0, os.path.abspath("../"))
-#
-#
-# class Mock(MagicMock):
-#     @classmethod
-#     def __getattr__(cls, name):
-#         return MagicMock()
-#
-#
-# MOCK_MODULES = [
-#     "pyuvsim",
-#     "aipy",
-#     "aipy.const",
-#     "pyuvdata",
-#     "pyuvdata.utils",
-#     "astropy",
-#     "astropy.units",
-#     "cached_property",
-# ]
-# sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
-
 # -- Project information -----------------------------------------------------
 
 project = "hera_sim"

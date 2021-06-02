@@ -41,7 +41,7 @@ def sim_red_data(reds, gains=None, shape=(10, 10), gain_scatter=0.1):
     for ant in ants:
         gains[ant] = gains.get(
             ant, 1 + gain_scatter * noise.white_noise((1,))
-        ) * np.ones(shape, dtype=np.complex128)
+        ) * np.ones(shape, dtype=complex)
     for bls in reds:
         true_vis[bls[0]] = noise.white_noise(shape)
         for bl in bls:
