@@ -4,6 +4,7 @@ from hera_sim.visibilities import VisCPU
 from hera_sim import io
 from hera_sim.beams import PerturbedPolyBeam
 from vis_cpu import HAVE_GPU
+from hera_sim.defaults import defaults
 
 np.seterr(invalid="ignore")
 
@@ -110,18 +111,19 @@ def run_sim(beam_rotation, use_pixel_beams=True, use_gpu=False, use_mpi=False):
     """
     Run a simple sim using a rotated elliptic polybeam.
     """
+    defaults.set("h1c")
 
     ants = antennas()
 
     # Observing parameters in a UVData object.
     uvdata = io.empty_uvdata(
-        nfreq=1,
+        Nfreqs=1,
         start_freq=100000000.0,
         channel_width=97000.0,
         start_time=2458902.4,
         integration_time=40,
-        ntimes=1,
-        ants=ants,
+        Ntimes=1,
+        array_layout=ants,
     )
 
     freqs = np.unique(uvdata.freq_array)
