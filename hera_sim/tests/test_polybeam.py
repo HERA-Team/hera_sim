@@ -181,8 +181,8 @@ class TestPerturbedPolyBeam:
         assert max_percent_diff < 5
 
         # Check that rotations 0 and 180 produce the same values.
-        assert pix_results[0] == pytest.approx(pix_results[180], abs=1e-15)
-        assert calc_results[0] == pytest.approx(calc_results[180], abs=1e-15)
+        assert pix_results[0] == pytest.approx(pix_results[180], abs=1e-8)
+        assert calc_results[0] == pytest.approx(calc_results[180], abs=1e-8)
 
         # Check that the values are not all the same. Shouldn't be, due to
         # elliptic beam.
