@@ -1324,7 +1324,7 @@ class Simulator:
         """Convert a key of at-most length-3 to an (ant1, ant2, pol) tuple."""
         if key is None:
             ant1, ant2, pol = None, None, None
-        elif isinstance(key, int):
+        elif np.issubdtype(type(key), int):
             # Figure out if it's an antenna or baseline integer
             if key in self.antpos:
                 ant1, ant2, pol = key, None, None
