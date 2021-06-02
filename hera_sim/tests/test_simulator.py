@@ -364,9 +364,9 @@ def test_bad_yaml_config(base_sim, tmp_path):
 
 def test_run_sim_bad_param_key(base_sim):
     bad_key = {"something": {"something else": "another different thing"}}
-    with pytest.raises(UnboundLocalError) as err:
+    with pytest.raises(ValueError) as err:
         base_sim.run_sim(**bad_key)
-    assert "The component 'something' wasn't found." in err.value.args[0]
+        assert "The component 'something' does not exist" in err.value.args[0]
 
 
 def test_run_sim_bad_param_value(base_sim):

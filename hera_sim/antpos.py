@@ -5,14 +5,14 @@ dictionary whose keys refer to antenna numbers and whose values refer
 to the ENU position of the antennas.
 """
 import numpy as np
-from .components import registry
+from .components import component
 
 # FIXME: old docstrings state that the positions are returned in topocentric
 # coordinates, but this is contradictory to the claim that a linear array
 # is constructed as purely east-west. Let's resolve this before publishing v1
 
 
-@registry
+@component
 class Array:
     """Base class for constructing telescope array objects."""
 
@@ -20,8 +20,7 @@ class Array:
 
 
 class LinearArray(Array):
-    """Build a linear (east-west) array configuration.
-    """
+    """Build a linear (east-west) array configuration."""
 
     def __init__(self, sep=14.6):
         """
@@ -60,8 +59,7 @@ class LinearArray(Array):
 
 
 class HexArray(Array):
-    """Build a hexagonal array configuration, nominally matching HERA.
-    """
+    """Build a hexagonal array configuration, nominally matching HERA."""
 
     def __init__(self, sep=14.6, split_core=True, outriggers=2):
         """

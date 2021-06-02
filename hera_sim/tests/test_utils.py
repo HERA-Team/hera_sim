@@ -265,7 +265,10 @@ def test_fringe_filter_custom(freqs, lsts, fringe_rates):
     )
     # Check that the filters peak at roughly the same fringe rates.
     assert np.allclose(
-        peak_frates_model[nearest_neighbors], peak_frates_interp, rtol=0.05, atol=0,
+        peak_frates_model[nearest_neighbors],
+        peak_frates_interp,
+        rtol=0.05,
+        atol=0,
     )
 
 
@@ -346,7 +349,20 @@ def test_get_bl_len_vec(baseline):
     assert len(utils._get_bl_len_vec(baseline)) == 3
 
 
-@pytest.mark.parametrize("baseline", [1, [1 / np.sqrt(2),] * 2, [1 / np.sqrt(3),] * 3])
+@pytest.mark.parametrize(
+    "baseline",
+    [
+        1,
+        [
+            1 / np.sqrt(2),
+        ]
+        * 2,
+        [
+            1 / np.sqrt(3),
+        ]
+        * 3,
+    ],
+)
 def test_get_bl_len_magnitude(baseline):
     assert np.isclose(utils.get_bl_len_magnitude(baseline), 1)
 

@@ -19,6 +19,9 @@ class VisCPU(VisibilitySimulator):
 
     This is a fast, simple visibility simulator that is intended to be
     replaced by vis_gpu. It extends :class:`VisibilitySimulator`.
+
+    Note that that output of `simulate()` in this class always has ordering
+    in which the baselines are in increasing order of antenna number.
     """
 
     def __init__(
@@ -60,8 +63,8 @@ class VisCPU(VisibilitySimulator):
             self._real_dtype = np.float32
             self._complex_dtype = np.complex64
         else:
-            self._real_dtype = np.float64
-            self._complex_dtype = np.complex128
+            self._real_dtype = float
+            self._complex_dtype = complex
 
         if use_gpu and mpi_comm is not None and mpi_comm.Get_size() > 1:
             raise RuntimeError("Can't use multiple MPI processes with GPU (yet)")

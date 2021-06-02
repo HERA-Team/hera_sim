@@ -442,7 +442,9 @@ def test_interpolation_in_frequency_with_simulators(base_config, base_sim):
 
     # Interpolate base_sim to ref_sim along the frequency axis.
     interpolated_sim = adjustment.interpolate_to_reference(
-        target=base_sim, reference=ref_sim, axis="freq",
+        target=base_sim,
+        reference=ref_sim,
+        axis="freq",
     )
 
     # Check that frequency metadata is updated appropriately.
@@ -455,7 +457,9 @@ def test_interpolation_in_frequency_with_array(base_config, base_sim):
     ref_freqs = np.linspace(105e6, 145e6, 200)  # Hz
     base_sim.add("diffuse_foreground", Tsky_mdl=Tsky_mdl, omega_p=omega_p)
     interpolated_sim = adjustment.interpolate_to_reference(
-        target=base_sim, ref_freqs=ref_freqs, axis="freq",
+        target=base_sim,
+        ref_freqs=ref_freqs,
+        axis="freq",
     )
 
     # Check frequency metadata; Simulator.freqs returns frequencies in GHz.
@@ -476,12 +480,16 @@ def test_interpolation_in_frequency_is_consistent(base_config, base_sim):
 
     # Interpolate base_sim to ref_sim along the frequency axis.
     interpolated_sim_A = adjustment.interpolate_to_reference(
-        target=base_sim, reference=ref_sim, axis="freq",
+        target=base_sim,
+        reference=ref_sim,
+        axis="freq",
     )
 
     # Do the same, but using a frequency array.
     interpolated_sim_B = adjustment.interpolate_to_reference(
-        target=base_sim, ref_freqs=ref_freqs, axis="freq",
+        target=base_sim,
+        ref_freqs=ref_freqs,
+        axis="freq",
     )
 
     # The interpolated data arrays should be nearly identical.
@@ -504,7 +512,9 @@ def test_interpolation_in_time_with_simulators(base_config, base_sim):
 
     # Interpolate base_sim to ref_sim along the time axis.
     interpolated_sim = adjustment.interpolate_to_reference(
-        target=base_sim, reference=ref_sim, axis="time",
+        target=base_sim,
+        reference=ref_sim,
+        axis="time",
     )
 
     # Check that the metadata checks out.
@@ -526,7 +536,10 @@ def test_interpolation_in_time_with_array(base_config, base_sim):
     base_sim.add("diffuse_foreground", Tsky_mdl=Tsky_mdl, omega_p=omega_p)
 
     interpolated_sim = adjustment.interpolate_to_reference(
-        target=base_sim, ref_times=ref_sim.times, ref_lsts=ref_sim.lsts, axis="time",
+        target=base_sim,
+        ref_times=ref_sim.times,
+        ref_lsts=ref_sim.lsts,
+        axis="time",
     )
 
     # Same metadata checks as before.
@@ -548,10 +561,15 @@ def test_interpolation_in_time_is_consistent(base_config, base_sim):
     base_sim.add("diffuse_foreground", Tsky_mdl=Tsky_mdl, omega_p=omega_p)
 
     interpolated_sim_A = adjustment.interpolate_to_reference(
-        target=base_sim, reference=ref_sim, axis="time",
+        target=base_sim,
+        reference=ref_sim,
+        axis="time",
     )
     interpolated_sim_B = adjustment.interpolate_to_reference(
-        target=base_sim, ref_times=ref_sim.times, ref_lsts=ref_sim.lsts, axis="time",
+        target=base_sim,
+        ref_times=ref_sim.times,
+        ref_lsts=ref_sim.lsts,
+        axis="time",
     )
 
     assert np.allclose(
@@ -575,7 +593,9 @@ def test_interpolation_both_axes_with_simulators(base_config, base_sim):
 
     # Interpolate base_sim to ref_sim along both axes.
     interpolated_sim = adjustment.interpolate_to_reference(
-        target=base_sim, reference=ref_sim, axis="both",
+        target=base_sim,
+        reference=ref_sim,
+        axis="both",
     )
 
     # Check that the metadata checks out.
@@ -635,7 +655,9 @@ def test_interpolation_both_axes_is_consistent(base_config, base_sim):
 
     # Do the interpolation both ways.
     interpolated_sim_A = adjustment.interpolate_to_reference(
-        target=base_sim, reference=ref_sim, axis="both",
+        target=base_sim,
+        reference=ref_sim,
+        axis="both",
     )
     interpolated_sim_B = adjustment.interpolate_to_reference(
         target=base_sim,
@@ -699,7 +721,9 @@ def test_interpolate_warning_partial_frequency_match(base_config, base_sim):
     ref_sim = Simulator(**base_config)
     with pytest.warns(UserWarning) as record:
         adjustment.interpolate_to_reference(
-            target=base_sim, reference=ref_sim, axis="both",
+            target=base_sim,
+            reference=ref_sim,
+            axis="both",
         )
     assert "Reference frequencies not a subset" in record[0].message.args[0]
 
@@ -708,7 +732,9 @@ def test_interpolate_partial_frequency_match(base_config, base_sim):
     base_config["start_freq"] = 120e6
     ref_sim = Simulator(**base_config)
     interpolated_sim = adjustment.interpolate_to_reference(
-        target=base_sim, reference=ref_sim, axis="both",
+        target=base_sim,
+        reference=ref_sim,
+        axis="both",
     )
     overlapping_channels = np.unique(
         list(np.argmin(np.abs(base_sim.freqs - freq)) for freq in ref_sim.freqs)
@@ -722,7 +748,9 @@ def test_interpolate_warning_partial_lst_match(base_config, base_sim):
     ref_sim = Simulator(**base_config)
     with pytest.warns(UserWarning) as record:
         adjustment.interpolate_to_reference(
-            target=base_sim, reference=ref_sim, axis="both",
+            target=base_sim,
+            reference=ref_sim,
+            axis="both",
         )
     assert "Reference LSTs not a subset" in record[0].message.args[0]
 
@@ -732,7 +760,9 @@ def test_interpolate_partial_lst_match(base_config, base_sim):
     base_config["start_time"] = base_config["start_time"] + time_offset
     ref_sim = Simulator(**base_config)
     interpolated_sim = adjustment.interpolate_to_reference(
-        target=base_sim, reference=ref_sim, axis="both",
+        target=base_sim,
+        reference=ref_sim,
+        axis="both",
     )
     overlapping_integrations = np.unique(
         list(np.argmin(np.abs(base_sim.lsts - lst)) for lst in ref_sim.lsts)
@@ -934,7 +964,9 @@ def test_adjust_to_reference_verbosity_with_interpolating(
 ):
     with caplog.at_level(logging.INFO):
         adjustment.adjust_to_reference(
-            target=redundant_sim, reference=ref_sim, conjugation_convention="ant1<ant2",
+            target=redundant_sim,
+            reference=ref_sim,
+            conjugation_convention="ant1<ant2",
         )
     assert "Validating positional arguments..." in caplog.text
     assert "Interpolating target data to reference data LSTs..." in caplog.text

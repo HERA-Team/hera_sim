@@ -45,7 +45,11 @@ def uvdata():
         Nfreqs=NFREQ,
         integration_time=sday.to("s") / NTIMES,
         Ntimes=NTIMES,
-        array_layout={0: (0, 0, 0),},
+        array_layout={
+            0: (0, 0, 0),
+        },
+        start_time=2456658.5,
+        conjugation="ant1<ant2",
     )
 
 
@@ -56,7 +60,9 @@ def uvdataJD():
         Nfreqs=NFREQ,
         integration_time=sday.to("s") / NTIMES,
         Ntimes=NTIMES,
-        array_layout={0: (0, 0, 0),},
+        array_layout={
+            0: (0, 0, 0),
+        },
         start_time=2456659,
     )
 
@@ -212,6 +218,8 @@ def uvdata2():
         integration_time=sday.to("s") / NTIMES,
         Ntimes=NTIMES,
         array_layout={0: (0, 0, 0), 1: (1, 1, 0)},
+        start_time=2456658.5,
+        conjugation="ant1<ant2",
     )
 
 
@@ -238,13 +246,15 @@ def test_shapes(uvdata, simulator):
     I_sky = create_uniform_sky()
 
     v = simulator(
-        uvdata=uvdata, sky_freqs=np.unique(uvdata.freq_array), sky_intensity=I_sky,
+        uvdata=uvdata,
+        sky_freqs=np.unique(uvdata.freq_array),
+        sky_intensity=I_sky,
     )
 
     assert v.simulate().shape == (uvdata.Nblts, 1, NFREQ, 1)
 
 
-@pytest.mark.parametrize("precision, cdtype", [(1, np.complex64), (2, np.complex128)])
+@pytest.mark.parametrize("precision, cdtype", [(1, np.complex64), (2, complex)])
 def test_dtypes(uvdata, precision, cdtype):
     I_sky = create_uniform_sky()
 
@@ -276,7 +286,9 @@ def test_autocorr_flat_beam(uvdata, simulator):
     print("DATA SHAPE: ", uvdata.data_array.shape)
 
     sim = simulator(
-        uvdata=uvdata, sky_freqs=np.unique(uvdata.freq_array), sky_intensity=I_sky,
+        uvdata=uvdata,
+        sky_freqs=np.unique(uvdata.freq_array),
+        sky_intensity=I_sky,
     )
     v = sim.simulate()
 
@@ -562,31 +574,87 @@ class TestSimRedData(unittest.TestCase):
         for bls in reds:
             bl0 = bls[0]
             ai, aj, pol = bl0
-            ans0xx = data[(ai, aj, "xx",)] / (
-                gains[(ai, "Jxx")] * gains[(aj, "Jxx")].conj()
+            ans0xx = (
+                data[
+                    (
+                        ai,
+                        aj,
+                        "xx",
+                    )
+                ]
+                / (gains[(ai, "Jxx")] * gains[(aj, "Jxx")].conj())
             )
-            ans0xy = data[(ai, aj, "xy",)] / (
-                gains[(ai, "Jxx")] * gains[(aj, "Jyy")].conj()
+            ans0xy = (
+                data[
+                    (
+                        ai,
+                        aj,
+                        "xy",
+                    )
+                ]
+                / (gains[(ai, "Jxx")] * gains[(aj, "Jyy")].conj())
             )
-            ans0yx = data[(ai, aj, "yx",)] / (
-                gains[(ai, "Jyy")] * gains[(aj, "Jxx")].conj()
+            ans0yx = (
+                data[
+                    (
+                        ai,
+                        aj,
+                        "yx",
+                    )
+                ]
+                / (gains[(ai, "Jyy")] * gains[(aj, "Jxx")].conj())
             )
-            ans0yy = data[(ai, aj, "yy",)] / (
-                gains[(ai, "Jyy")] * gains[(aj, "Jyy")].conj()
+            ans0yy = (
+                data[
+                    (
+                        ai,
+                        aj,
+                        "yy",
+                    )
+                ]
+                / (gains[(ai, "Jyy")] * gains[(aj, "Jyy")].conj())
             )
             for bl in bls[1:]:
                 ai, aj, pol = bl
-                ans_xx = data[(ai, aj, "xx",)] / (
-                    gains[(ai, "Jxx")] * gains[(aj, "Jxx")].conj()
+                ans_xx = (
+                    data[
+                        (
+                            ai,
+                            aj,
+                            "xx",
+                        )
+                    ]
+                    / (gains[(ai, "Jxx")] * gains[(aj, "Jxx")].conj())
                 )
-                ans_xy = data[(ai, aj, "xy",)] / (
-                    gains[(ai, "Jxx")] * gains[(aj, "Jyy")].conj()
+                ans_xy = (
+                    data[
+                        (
+                            ai,
+                            aj,
+                            "xy",
+                        )
+                    ]
+                    / (gains[(ai, "Jxx")] * gains[(aj, "Jyy")].conj())
                 )
-                ans_yx = data[(ai, aj, "yx",)] / (
-                    gains[(ai, "Jyy")] * gains[(aj, "Jxx")].conj()
+                ans_yx = (
+                    data[
+                        (
+                            ai,
+                            aj,
+                            "yx",
+                        )
+                    ]
+                    / (gains[(ai, "Jyy")] * gains[(aj, "Jxx")].conj())
                 )
-                ans_yy = data[(ai, aj, "yy",)] / (
-                    gains[(ai, "Jyy")] * gains[(aj, "Jyy")].conj()
+                ans_yy = (
+                    data[
+                        (
+                            ai,
+                            aj,
+                            "yy",
+                        )
+                    ]
+                    / (gains[(ai, "Jyy")] * gains[(aj, "Jyy")].conj())
                 )
                 # compare calibrated visibilities knowing the input gains
                 np.testing.assert_almost_equal(ans0xx, ans_xx, decimal=7)
@@ -603,32 +671,88 @@ class TestSimRedData(unittest.TestCase):
         for bls in reds:
             bl0 = bls[0]
             ai, aj, pol = bl0
-            ans0xx = data[(ai, aj, "xx",)] / (
-                gains[(ai, "Jxx")] * gains[(aj, "Jxx")].conj()
+            ans0xx = (
+                data[
+                    (
+                        ai,
+                        aj,
+                        "xx",
+                    )
+                ]
+                / (gains[(ai, "Jxx")] * gains[(aj, "Jxx")].conj())
             )
-            ans0xy = data[(ai, aj, "xy",)] / (
-                gains[(ai, "Jxx")] * gains[(aj, "Jyy")].conj()
+            ans0xy = (
+                data[
+                    (
+                        ai,
+                        aj,
+                        "xy",
+                    )
+                ]
+                / (gains[(ai, "Jxx")] * gains[(aj, "Jyy")].conj())
             )
-            ans0yx = data[(ai, aj, "yx",)] / (
-                gains[(ai, "Jyy")] * gains[(aj, "Jxx")].conj()
+            ans0yx = (
+                data[
+                    (
+                        ai,
+                        aj,
+                        "yx",
+                    )
+                ]
+                / (gains[(ai, "Jyy")] * gains[(aj, "Jxx")].conj())
             )
-            ans0yy = data[(ai, aj, "yy",)] / (
-                gains[(ai, "Jyy")] * gains[(aj, "Jyy")].conj()
+            ans0yy = (
+                data[
+                    (
+                        ai,
+                        aj,
+                        "yy",
+                    )
+                ]
+                / (gains[(ai, "Jyy")] * gains[(aj, "Jyy")].conj())
             )
             np.testing.assert_almost_equal(ans0xy, ans0yx, decimal=7)
             for bl in bls[1:]:
                 ai, aj, pol = bl
-                ans_xx = data[(ai, aj, "xx",)] / (
-                    gains[(ai, "Jxx")] * gains[(aj, "Jxx")].conj()
+                ans_xx = (
+                    data[
+                        (
+                            ai,
+                            aj,
+                            "xx",
+                        )
+                    ]
+                    / (gains[(ai, "Jxx")] * gains[(aj, "Jxx")].conj())
                 )
-                ans_xy = data[(ai, aj, "xy",)] / (
-                    gains[(ai, "Jxx")] * gains[(aj, "Jyy")].conj()
+                ans_xy = (
+                    data[
+                        (
+                            ai,
+                            aj,
+                            "xy",
+                        )
+                    ]
+                    / (gains[(ai, "Jxx")] * gains[(aj, "Jyy")].conj())
                 )
-                ans_yx = data[(ai, aj, "yx",)] / (
-                    gains[(ai, "Jyy")] * gains[(aj, "Jxx")].conj()
+                ans_yx = (
+                    data[
+                        (
+                            ai,
+                            aj,
+                            "yx",
+                        )
+                    ]
+                    / (gains[(ai, "Jyy")] * gains[(aj, "Jxx")].conj())
                 )
-                ans_yy = data[(ai, aj, "yy",)] / (
-                    gains[(ai, "Jyy")] * gains[(aj, "Jyy")].conj()
+                ans_yy = (
+                    data[
+                        (
+                            ai,
+                            aj,
+                            "yy",
+                        )
+                    ]
+                    / (gains[(ai, "Jyy")] * gains[(aj, "Jyy")].conj())
                 )
                 # compare calibrated visibilities knowing the input gains
                 np.testing.assert_almost_equal(ans0xx, ans_xx, decimal=7)
