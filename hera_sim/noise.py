@@ -19,8 +19,7 @@ HERA_Tsky_mdl = {
 class Noise:
     """Base class for thermal noise models."""
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+    pass
 
 
 class ThermalNoise(Noise):

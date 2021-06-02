@@ -274,32 +274,19 @@ class VisCPU(VisibilitySimulator):
         for i, freq in enumerate(self.freqs):
 
             # Divide tasks between MPI workers if needed
-            if self.mpi_comm is not None:
-                if i % nproc != myid:
-                    continue
+            if self.mpi_comm is not None and i % nproc != myid:
+                continue
 
-            if self.use_pixel_beams:
-                # Use pixelized primary beams
-                vis = self._vis_cpu(
-                    antpos=self.antpos,
-                    freq=freq,
-                    eq2tops=eq2tops,
-                    crd_eq=crd_eq,
-                    I_sky=I_sky[i],
-                    bm_cube=beam_lm[:, i],
-                    precision=self._precision,
-                )
-            else:
-                # Use UVBeam objects directly
-                vis = self._vis_cpu(
-                    antpos=self.antpos,
-                    freq=freq,
-                    eq2tops=eq2tops,
-                    crd_eq=crd_eq,
-                    I_sky=I_sky[i],
-                    beam_list=beam_list,
-                    precision=self._precision,
-                )
+            vis = self._vis_cpu(
+                antpos=self.antpos,
+                freq=freq,
+                eq2tops=eq2tops,
+                crd_eq=crd_eq,
+                I_sky=I_sky[i],
+                beam_list=beam_list if not self.use_pixel_beams else None,
+                bm_cube=beam_lm[:, i] if self.use_pixel_beams else None,
+                precision=self._precision,
+            )
 
             indices = np.triu_indices(vis.shape[1])
             vis_upper_tri = vis[:, indices[0], indices[1]]

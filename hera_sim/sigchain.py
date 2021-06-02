@@ -21,7 +21,7 @@ class Gain:
     pass
 
 
-class Bandpass(Gain, is_multiplicative=True):
+class Bandpass(Gain):
     """Generate bandpass gains.
 
     Parameters
@@ -36,6 +36,7 @@ class Bandpass(Gain, is_multiplicative=True):
         the bandpass gain.
     """
 
+    is_multiplicative = True
     _alias = ("gains", "bandpass_gain")
 
     def __init__(self, gain_spread=0.1, dly_rng=(-20, 20), bp_poly=None):
@@ -102,7 +103,7 @@ class Bandpass(Gain, is_multiplicative=True):
         return phases
 
 
-class Reflections(Gain, is_multiplicative=True):
+class Reflections(Gain):
     """Produce multiplicative reflection gains.
 
     Parameters
@@ -123,6 +124,7 @@ class Reflections(Gain, is_multiplicative=True):
         zero and standard deviation ``dly_jitter``.
     """
 
+    is_multiplicative = True
     _alias = ("reflection_gains", "sigchain_reflections")
 
     def __init__(
