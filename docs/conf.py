@@ -186,4 +186,4 @@ napoleon_use_ivar = True
 napoleon_use_rtype = False
 napoleon_use_param = False
 
-autodoc_typehints = "both"  # put typehints in the signature AND description.
+autodoc_typehints = "signature"  # put typehints in the signature AND description.

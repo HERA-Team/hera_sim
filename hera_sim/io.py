@@ -7,6 +7,7 @@ from pyuvsim.simsetup import initialize_uvdata_from_keywords
 from .defaults import _defaults
 from . import DATA_PATH
 import re
+from typing import Dict, Sequence
 
 HERA_LAT_LON_ALT = np.load(DATA_PATH / "HERA_LAT_LON_ALT.npy")
 
@@ -18,7 +19,7 @@ def empty_uvdata(
     Ntimes=None,
     start_time=2456658.5,  # Jan 1 2014
     integration_time=None,
-    array_layout=None,
+    array_layout: Dict[int, Sequence[float]] = None,
     Nfreqs=None,
     start_freq=None,
     channel_width=None,
@@ -36,20 +37,21 @@ def empty_uvdata(
         NUmber of unique times in the data object.
     start_time : float, optional
         Starting time (Julian date) by default 2456658.5
-    array_layout : [type], optional
-        Specify an array layout.
+    array_layout : dict, optional
+        Specify an array layout. Keys should be integers specifying antenna numbers,
+        and values should be length-3 sequences of floats specifying ENU positions.
     Nfreqs : int, optional
         Number of frequency channels in the data object
     start_freq : float, optional
         Lowest frequency channel, by default None
     channel_width : float, optional
         Channel width, by default None
-    n_freq : [type], optional
+    n_freq : int, optional
         Alias for ``Nfreqs``
-    n_times : [type], optional
+    n_times : int, optional
         Alias for ``Ntimes``.
-    antennas : [type], optional
-        Alias for array_layout?
+    antennas : dict, optional
+        Alias for array_layout for backwards compatibility.
 
     Other Parameters
     ----------------
