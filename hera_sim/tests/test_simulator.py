@@ -221,7 +221,7 @@ def test_get_redundant_data(pol, conj):
         assert np.allclose(sim.data.get_data(ai, aj), vis[..., 0])
 
 
-@pytest.mark.parametrize("pol", [None, "xx"])
+@pytest.mark.parametrize("pol", [None, "x"])
 @pytest.mark.parametrize("ant1", [None, 1])
 def test_get_multiplicative_effect(base_sim, pol, ant1):
     gains = base_sim.add("gains", seed="once", ret_vis=True)
@@ -232,7 +232,7 @@ def test_get_multiplicative_effect(base_sim, pol, ant1):
         assert all(
             np.all(
                 gains[(ant1, _pol)] == _gains[(ant1, _pol)]
-            ) for _pol in base_sim.pols
+            ) for _pol in base_sim.data.get_feedpols()
         )
     elif pol is not None and ant1 is None:
         assert all(

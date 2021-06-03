@@ -335,7 +335,7 @@ class Simulator:
             if ant1 is not None:
                 if pol:
                     return gains[(ant1, pol)]
-                return {(ant1, _pol): gains[(ant1, _pol)] for _pol in self.pols}
+                return {key: gain for key, gain in gains.items() if ant1 in key}
             else:
                 if pol:
                     return {key: gain for key, gain in gains.items() if pol in key}
@@ -938,7 +938,7 @@ class Simulator:
             gains = {}
             args = self._update_args(base_args)
             args.update(kwargs)
-            for pol in self.pols:
+            for pol in self.data.get_feedpols():
                 if seed:
                     seed = self._seed_rng(seed, model, pol=pol)
                 polarized_gains = model(**args)
@@ -990,7 +990,7 @@ class Simulator:
             # Check whether we're simulating a gain or a visibility.
             if is_multiplicative:
                 # Calculate the complex gain, but only apply it if requested.
-                gain = gains[(ant1, pol)] * np.conj(gains[(ant2, pol)])
+                gain = gains[(ant1, pol[0])] * np.conj(gains[(ant2, pol[1])])
                 data_copy[blt_inds, 0, :, pol_ind] *= gain
             else:
                 # I don't think this will ever be executed, but just in case...
@@ -1423,16 +1423,22 @@ class Simulator:
         self, model: Component, ant1: int, ant2: int, pol: str
     ) -> None:
         """Verify that the provided antpairpol is appropriate given the model."""
+        if getattr(model, "is_multiplicative", False):
+            pols = self.data.get_feedpols()
+            pol_type = "Feed"
+        else:
+            pols = self.pols
+            pol_type = "Visibility"
         if ant1 is None and ant2 is None:
-            if pol is None or pol in self.pols:
+            if pol is None or pol in pols:
                 return
             else:
-                raise ValueError(f"Polarization {pol} not found.")
+                raise ValueError(f"{pol_type} polarization {pol} not found.")
 
-        if pol is not None and pol not in self.pols:
-            raise ValueError(f"Polarization {pol} not found.")
+        if pol is not None and pol not in pols:
+            raise ValueError(f"{pol_type} polarization {pol} not found.")
 
-        if model.is_multiplicative:
+        if getattr(model, "is_multiplicative", False):
             if ant1 is not None and ant2 is not None:
                 raise ValueError(
                     "At most one antenna may be specified when retrieving "
