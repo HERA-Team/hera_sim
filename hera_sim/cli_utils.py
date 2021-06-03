@@ -64,7 +64,7 @@ def write_calfits(
     freqs=None,
     times=None,
     x_orientation="north",
-    clobber=False
+    clobber=False,
 ):
     """
     Write gains to disk as a calfits file.
@@ -169,18 +169,16 @@ def _format_gain_dict(gains, x_orientation):
         strings.
     """
     from hera_cal.io import jnum2str, jstr2num
+
     pol_array = list(set(antpol[1] for antpol in gains))
     jones_array = [
         jnum2str(
-            jstr2num(pol, x_orientation=x_orientation),
-            x_orientation=x_orientation
-        ) for pol in pol_array
+            jstr2num(pol, x_orientation=x_orientation), x_orientation=x_orientation
+        )
+        for pol in pol_array
     ]
     mapping = {pol: jpol for pol, jpol in zip(pol_array, jones_array)}
-    return {
-        (antpol[0], mapping[antpol[1]]): gain
-        for antpol, gain in gains.items()
-    }
+    return {(antpol[0], mapping[antpol[1]]): gain for antpol, gain in gains.items()}
 
 
 def _validate_freq_params(freq_params):
