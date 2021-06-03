@@ -5,6 +5,7 @@ simulations with hera_sim via the command line.
 import copy
 import itertools
 import os
+import warnings
 import numpy as np
 from .defaults import SEASON_CONFIGS
 from .simulate import Simulator
@@ -56,7 +57,15 @@ def validate_config(config):
         raise ValueError("Insufficient information for initializing simulation.")
 
 
-def write_calfits(gains, filename, sim=None, freqs=None, times=None, x_direction="north", clobber=False):
+def write_calfits(
+    gains,
+    filename,
+    sim=None,
+    freqs=None,
+    times=None,
+    x_orientation="north",
+    clobber=False
+):
     """
     Write gains to disk as a calfits file.
 
@@ -77,14 +86,13 @@ def write_calfits(gains, filename, sim=None, freqs=None, times=None, x_direction
         Times corresponding to gains, in JD. Does not need to be provided if
         ``sim`` is provided.
     x_orientation: str, optional
-        Cardinal direction corresponding to x-orientation of the feeds. Default
-        is to assume that the x-direction points northward.
+        Cardinal direction that the x-direction corresponds to. Defaults to the
+        HERA configuration of north.
     clobber: bool, optional
         Whether to overwrite existing file in the case of a name conflict.
         Default is to *not* overwrite conflicting files.
     """
     from hera_cal.io import write_cal
-    from hera_cal.utils import jstr2num, jnum2str
 
     gains = gains.copy()
 
@@ -95,11 +103,18 @@ def write_calfits(gains, filename, sim=None, freqs=None, times=None, x_direction
         if isinstance(sim, Simulator):
             freqs = sim.freqs * 1e9
             times = sim.times
-            x_orientation = sim.data.x_orientation
+            sim_x_orientation = sim.data.x_orientation
         else:
             freqs = np.unique(sim.freq_array)
             times = np.unique(sim.time_array)
-            x_orientation = sim.x_orientation
+            sim_x_orientation = sim.x_orientation
+        if sim_x_orientation is None:
+            warnings.warn(
+                "x_orientation not specified in simulation object."
+                "Assuming that the x-direction points north."
+            )
+        else:
+            x_orientation = sim_x_orientation
     else:
         if freqs is None or times is None:
             raise ValueError(
@@ -114,12 +129,47 @@ def write_calfits(gains, filename, sim=None, freqs=None, times=None, x_direction
         # Old-style, single polarization assumption.
         gains = {(ant, "Jee"): gain for ant, gain in gains.items()}
 
+    gains = _format_gain_dict(gains, x_orientation=x_orientation)
     # Ensure that all of the gains have the right shape.
     for antpol, gain in gains.items():
         if gain.ndim == 1:
             gains[antpol] = np.outer(np.ones(times.size), gain)
 
     write_cal(filename, gains, freqs, times, overwrite=clobber, return_uvc=False)
+
+
+def _format_gain_dict(gains, x_orientation):
+    """
+    Format a gain dictionary to match the expectation from hera_cal.
+
+    Parameters
+    ----------
+    gains: dict
+        Dictionary mapping (ant, pol) tuples to gain spectra/waterfalls.
+    x_orientation: str
+        Cardinal direction corresponding to the array's x-direction.
+
+    Returns
+    -------
+    gains: dict
+        Dictionary mapping (ant, jpol) tuples to gain spectra/waterfalls. The
+        distinction here is that the polarizations are Jones polarization
+        strings, whereas the input gains may have ordinary linear polarization
+        strings.
+    """
+    from hera_cal.io import jnum2str, jstr2num
+    pol_array = list(set(antpol[1] for antpol in gains))
+    jones_array = [
+        jnum2str(
+            jstr2num(pol, x_orientation=x_orientation),
+            x_orientation=x_orientation
+        ) for pol in pol_array
+    ]
+    mapping = {pol: jpol for pol, jpol in zip(pol_array, jones_array)}
+    return {
+        (antpol[0], mapping[antpol[1]]): gain
+        for antpol, gain in gains.items()
+    }
 
 
 def _validate_freq_params(freq_params):
