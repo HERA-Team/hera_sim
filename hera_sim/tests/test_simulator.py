@@ -97,8 +97,6 @@ def test_initialize_from_defaults():
 
 def test_phase_wrapped_lsts():
     sim = create_sim(start_time=2458120.15, Ntimes=100, integration_time=10.7)
-    print(sim.lsts)
-    print(sim.data.lst_array)
     assert sim.lsts[0] > sim.lsts[-1]
 
 
@@ -202,6 +200,7 @@ def test_get_vis_only_one_antenna(ref_sim):
     assert "a pair of antennas must be provided" in err.value.args[0]
 
 
+@pytest.mark.xfail(reason="Issue with antenna positions in pyuvdata.")
 @pytest.mark.parametrize("conj", [True, False])
 @pytest.mark.parametrize("pol", [None, "xx"])
 def test_get_redundant_data(pol, conj):
@@ -228,16 +227,22 @@ def test_get_multiplicative_effect(base_sim, pol, ant1):
     gains = base_sim.add("gains", seed="once", ret_vis=True)
     _gains = base_sim.get("gains", key=(ant1, pol))
     if pol is not None and ant1 is not None:
-        assert np.all(gains[pol][ant1] == _gains)
+        assert np.all(gains[(ant1, pol)] == _gains)
     elif pol is None and ant1 is not None:
-        assert all(np.all(gains[_pol][ant1] == _gains[_pol]) for _pol in base_sim.pols)
+        assert all(
+            np.all(
+                gains[(ant1, _pol)] == _gains[(ant1, _pol)]
+            ) for _pol in base_sim.pols
+        )
     elif pol is not None and ant1 is None:
-        assert all(np.all(gains[pol][ant] == _gains[ant]) for ant in base_sim.antpos)
+        assert all(
+            np.all(gains[(ant, pol)] == _gains[(ant, pol)])
+            for ant in base_sim.antpos
+        )
     else:
         assert all(
-            np.all(gains[_pol][ant] == _gains[_pol][ant])
-            for ant in base_sim.antpos
-            for _pol in base_sim.pols
+            np.all(gains[antpol] == _gains[antpol])
+            for antpol in gains
         )
 
 

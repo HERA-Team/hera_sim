@@ -251,7 +251,7 @@ class Simulator:
         if add_vis:
             # Record the component simulated and the parameters used.
             if defaults._override_defaults:
-                for param in model.kwargs:
+                for param in getattr(model, "kwargs", {}):
                     if param not in kwargs and param in defaults():
                         kwargs[param] = defaults(param)
             self._update_history(model, **kwargs)
@@ -334,11 +334,11 @@ class Simulator:
             )
             if ant1 is not None:
                 if pol:
-                    return gains[pol][ant1]
-                return {_pol: gains[_pol][ant1] for _pol in self.pols}
+                    return gains[(ant1, pol)]
+                return {(ant1, _pol): gains[(ant1, _pol)] for _pol in self.pols}
             else:
                 if pol:
-                    return gains[pol]
+                    return {key: gain for key, gain in gains.items() if pol in key}
                 return gains
 
         # Specifying neither antenna implies the full array's data is desired.
@@ -941,7 +941,9 @@ class Simulator:
             for pol in self.pols:
                 if seed:
                     seed = self._seed_rng(seed, model, pol=pol)
-                gains[pol] = model(**args)
+                polarized_gains = model(**args)
+                for ant, gain in polarized_gains.items():
+                    gains[(ant, pol)] = gain
 
         # Determine whether to use cached filters, and which ones to use if so.
         model_kwargs = getattr(model, "kwargs", {})
@@ -988,7 +990,7 @@ class Simulator:
             # Check whether we're simulating a gain or a visibility.
             if is_multiplicative:
                 # Calculate the complex gain, but only apply it if requested.
-                gain = gains[pol][ant1] * np.conj(gains[pol][ant2])
+                gain = gains[(ant1, pol)] * np.conj(gains[(ant2, pol)])
                 data_copy[blt_inds, 0, :, pol_ind] *= gain
             else:
                 # I don't think this will ever be executed, but just in case...
