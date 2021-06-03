@@ -86,6 +86,8 @@ def write_calfits(gains, filename, sim=None, freqs=None, times=None, x_direction
     from hera_cal.io import write_cal
     from hera_cal.utils import jstr2num, jnum2str
 
+    gains = gains.copy()
+
     if sim is not None:
         if not isinstance(sim, (Simulator, UVData)):
             raise TypeError("sim must be a Simulator or UVData object.")
@@ -105,31 +107,19 @@ def write_calfits(gains, filename, sim=None, freqs=None, times=None, x_direction
                 "times must be specified."
             )
 
-    gain_dict = {}
     # Update gain keys to conform to write_cal assumptions.
+    # New Simulator gains have keys (ant, pol), so shouldn't need
+    # special pre-processing.
     if all(np.issctype(type(ant)) for ant in gains.keys()):
-        if isinstance(list(gains.values())[0], dict):
-            # New-style gains: {pol: {ant: gain}}
-            for pol, _gains in gains.items():
-                if x_orientation:
-                    jpol = jnum2str(
-                        jstr2num(f"j{pol}"),
-                        x_orientation=x_orientation,
-                    )
-                else:
-                    jpol = pol
-                for ant, gain in _gains.items():
-                    gain_dict[(ant, jpol)] = gain
-        else:
-            # Old-style, single polarization assumption.
-            gain_dict = {(ant, "Jee"): gain for ant, gain in gains.items()}
+        # Old-style, single polarization assumption.
+        gains = {(ant, "Jee"): gain for ant, gain in gains.items()}
 
     # Ensure that all of the gains have the right shape.
-    for antpol, gain in gain_dict.items():
+    for antpol, gain in gains.items():
         if gain.ndim == 1:
-            gain_dict[antpol] = np.outer(np.ones(times.size), gain)
+            gains[antpol] = np.outer(np.ones(times.size), gain)
 
-    write_cal(filename, gain_dict, freqs, times, overwrite=clobber, return_uvc=False)
+    write_cal(filename, gains, freqs, times, overwrite=clobber, return_uvc=False)
 
 
 def _validate_freq_params(freq_params):
