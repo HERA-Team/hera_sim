@@ -129,6 +129,17 @@ def write_calfits(
         # Old-style, single polarization assumption.
         gains = {(ant, "Jee"): gain for ant, gain in gains.items()}
 
+    # At the time of writing, the write_cal function *fails silently* if the
+    # keys for the gain dictionary are not tuples specifying the antenna and
+    # Jones polarization string. Using linear polarizations, as in (1, 'x'),
+    # will cause the function to think that the gains do not exist, and so
+    # will write a UVCal object whose gain_array consists solely of ones. In
+    # order to prevent this behavior, it is necessary to ensure that the
+    # keys of the gain dictionary are formatted correctly. This is also why
+    # the x_orientation is *required* (and a value is assumed if none is
+    # specified in the simulation object)--the Jones polarization strings
+    # cannot be recovered from the usual linear polarization strings 'x', 'y'
+    # without specifying the x-orientation.
     gains = _format_gain_dict(gains, x_orientation=x_orientation)
     # Ensure that all of the gains have the right shape.
     for antpol, gain in gains.items():
