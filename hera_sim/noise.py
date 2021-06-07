@@ -185,10 +185,8 @@ def sky_noise_jy(lsts: np.ndarray, freqs: np.ndarray, **kwargs):
         LSTs at which to compute the sky noise.
     freqs : array_like
         Frequencies at which to compute the sky noise.
-
-    Other Parameters
-    ----------------
-    See :class:`ThermalNoise`.
+    **kwargs
+        Passed to :class:`ThermalNoise`.
 
     Returns
     -------

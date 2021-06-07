@@ -39,10 +39,8 @@ class VisCPU(VisibilitySimulator):
         Whether to use the GPU version of vis_cpu or not. Default: False.
     mpi_comm : MPI communicator
         MPI communicator, for parallelization.
-
-    Other Parameters
-    ----------------
-    Passed through to :class:`VisibilitySimulator`.
+    **kwargs
+        Passed through to :class:`VisibilitySimulator`.
     """
 
     def __init__(

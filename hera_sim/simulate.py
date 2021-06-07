@@ -46,12 +46,10 @@ class Simulator:
         If given, either a path pointing to a defaults configuration
         file, a string identifier of a particular config (e.g. 'h1c')
         or a dictionary of configuration parameters (see :class:`defaults.Defaults`).
-
-    Other Parameters
-    ----------------
-    Used to initialize the data object. If nothing is given for ``data``, the relevant
-    parameters are those in :func:`io.empty_uvdata`. If ``data`` is a path, parameters
-    are those passed to ``UVData.read``.
+    **kwargs
+        Used to initialize the data object. If nothing is given for ``data``, the
+        relevant parameters are those in :func:`io.empty_uvdata`. If ``data`` is a path,
+        parameters are those passed to ``UVData.read``.
     """
 
     def __init__(

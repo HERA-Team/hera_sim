@@ -153,10 +153,8 @@ class PerturbedPolyBeam(PolyBeam):
         apply to the width of the beam.
     ref_freq : float, optional
         Reference frequency for the beam width scaling power law, in Hz.
-
-    Other Parameters
-    ----------------
-    Any other parameters are used to initialize superclass :class:`PolyBeam`.
+    **kwargs
+        Any other parameters are used to initialize superclass :class:`PolyBeam`.
     """
 
     def __init__(

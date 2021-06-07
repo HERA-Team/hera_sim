@@ -85,11 +85,11 @@ class SimulationComponent(metaclass=ABCMeta):
     def _extract_kwarg_values(self, **kwargs):
         """Return the (optionally updated) model's optional parameters.
 
-        Other Parameters
+        Parameters
         ----------------
-        Optional parameter values
-        appropriate for the model. These are received directly
-        from the subclass's ``__call__`` method.
+        **kwargs
+            Optional parameter values appropriate for the model. These are received
+            directly from the subclass's ``__call__`` method.
 
         Returns
         -------
@@ -195,7 +195,7 @@ def component(cls):
     # Add some common text to the docstring.
     cls.__doc__ += """
 
-    This is an _abstract_ class, and should not be directly instantiated. It represents
+    This is an *abstract* class, and should not be directly instantiated. It represents
     a "component" -- a modular part of a simulation for which several models may be
     defined. Models for this component may be defined by subclassing this abstract base
     class and implementing (at least) the :meth:`__call__` method. Some of these are
@@ -206,7 +206,7 @@ def component(cls):
     As with all components, all parameters that define the behaviour of the model are
     accepted at class instantiation. The :meth:`__call__` method actually computes the
     simulated effect of the component (typically, but not always, a set of visibilities
-    or gains), by _default_ using these parameters. However, these parameters can be
+    or gains), by *default* using these parameters. However, these parameters can be
     over-ridden at call-time. Inputs such as the frequencies, times or baselines at
     which to compute the effect are specific to the call, and do not get passed at
     instantiation.

@@ -52,10 +52,8 @@ def empty_uvdata(
         Alias for ``Ntimes``.
     antennas : dict, optional
         Alias for array_layout for backwards compatibility.
-
-    Other Parameters
-    ----------------
-    Passed to :func:`initialize_uvdata_from_keywords`
+    **kwargs
+        Passed to :func:`initialize_uvdata_from_keywords`
 
     Returns
     -------

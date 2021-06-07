@@ -151,10 +151,8 @@ def rough_delay_filter(
     delay_filter
         The pre-computed filter to use. A filter can be created on-the-fly by
         passing kwargs.
-
-    Other Parameters
-    ----------------
-    All other parameters passed to :func:`gen_delay_filter`.
+    **kwargs
+        Passed to :func:`gen_delay_filter`.
 
     Returns
     -------
@@ -205,22 +203,20 @@ def gen_fringe_filter(
         Projected East-West baseline length [nanosec]
     fringe_filter_type
         Options ``['tophat', 'gauss', 'custom', 'none']``
+    **filter_kwargs
+        These are specific to each ``fringe_filter_type``.
 
-    Other Parameters
-    ----------------
-    Other parameters are specific to each ``filter_type``.
+        For ``filter_type == 'gauss'``:
 
-    For ``filter_type == 'gauss'``
+            * **fr_width** (float or array): Sets gaussian width in fringe-rate [Hz]
 
-        * fr_width (float or array): Sets gaussian width in fringe-rate [Hz]
+        For ``filter_type == 'custom'``:
 
-    For ``filter_type == 'custom'``
-
-        * ``FR_filter`` (ndarray): shape (Nfrates, Nfreqs) with custom filter (must be
-          fftshifted, see below)
-        * ``FR_frates`` (ndarray): array of FR_filter fringe rates [Hz] (must be
-          monotonically increasing)
-        * ``FR_freqs`` (ndarray): array of FR_filter freqs [GHz]
+            * **FR_filter** (ndarray): shape (Nfrates, Nfreqs) with custom filter (must
+              be fftshifted, see below)
+            * **FR_frates** (ndarray): array of FR_filter fringe rates [Hz] (must be
+              monotonically increasing)
+            * **FR_freqs** (ndarray): array of FR_filter freqs [GHz]
 
     Returns
     -------
@@ -313,12 +309,10 @@ def rough_fringe_filter(
         data to filter along zeroth axis
     fringe_filter
         A pre-computed fringe-filter to use. Computed on the fly if not given.
-
-    Other Parameters
-    ----------------
-    All other parameters passed to :func:`gen_fringe_filter` to compute the fringe
-    filter on the fly (if necessary). If so, at least ``lsts``, ``freqs``, and
-    ``ew_bl_len_ns`` are required.
+    **kwargs
+        Passed to :func:`gen_fringe_filter` to compute the fringe
+        filter on the fly (if necessary). If so, at least ``lsts``, ``freqs``, and
+        ``ew_bl_len_ns`` are required.
 
     Returns
     -------
