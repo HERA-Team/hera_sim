@@ -8,7 +8,7 @@ import itertools
 import tempfile
 import os
 import yaml
-
+from deprecation import fail_if_not_removed
 import numpy as np
 import pytest
 
@@ -372,3 +372,18 @@ def test_run_sim_bad_param_value(base_sim):
     with pytest.raises(TypeError) as err:
         base_sim.run_sim(**bad_value)
     assert "The parameters for diffuse_foreground are not" in err.value.args[0]
+
+
+@fail_if_not_removed
+def test_add_eor(base_sim):
+    base_sim.add_eor("noiselike_eor")
+
+
+@fail_if_not_removed
+def test_add_fg(base_sim):
+    base_sim.add_foregrounds("pntsrc_foreground")
+
+
+@fail_if_not_removed
+def test_add_rfi(base_sim):
+    base_sim.add_rfi("dtv")

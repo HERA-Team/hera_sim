@@ -17,7 +17,6 @@ per-file-ignores =
     docs/conf.py:D,A
     */__init__.py:F401
     scripts/*:T001
-    hera_sim/simulate.py:D
     hera_sim/components.py:T001
 rst-roles =
     class

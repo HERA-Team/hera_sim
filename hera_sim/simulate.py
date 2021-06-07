@@ -6,7 +6,8 @@ import warnings
 import yaml
 import time
 from pathlib import Path
-from typing import Optional, Union, Dict, Tuple, Type
+from typing import Optional, Union, Dict, Tuple, Type, List
+from deprecation import deprecated
 
 import numpy as np
 from pyuvdata import UVData
@@ -17,6 +18,10 @@ from . import utils
 from .defaults import defaults
 from . import __version__
 from .components import SimulationComponent, get_model, list_all_components
+
+_add_depr = deprecated(
+    deprecated_in="1.0", removed_in="2.0", details="Use the :meth:`add` method instead."
+)
 
 
 # wrapper for the run_sim method, necessary for part of the CLI
@@ -363,9 +368,27 @@ class Simulator:
     # simulation components as a return value from run_sim. Remove the
     # _generator_to_list wrapper if we do not make that a feature.
     @_generator_to_list
-    def run_sim(self, sim_file=None, **sim_params):
-        # TODO: docstring
-        """"""
+    def run_sim(
+        self, sim_file: Optional[Union[str, Path]] = None, **sim_params
+    ) -> Optional[List[np.ndarray]]:
+        """Run a full simulation.
+
+        Parameters
+        ----------
+        sim_file
+            Path to a YAML file containing configuration of the simulation components.
+        **sim_params
+            If ``sim_file`` is not given, configuration can be provided directly as
+            parameters.
+
+        Returns
+        -------
+        components
+            If ``ret_vis=True``, the visibilities from each added simulation component
+            as a list.
+        """
+        # TODO: fill out docstring more comprehensively
+
         # make sure that only sim_file or sim_params are specified
         if not (bool(sim_file) ^ bool(sim_params)):
             raise ValueError(
@@ -428,63 +451,51 @@ class Simulator:
             filetype=filetype,
             clobber=clobber,
         )
-        return
 
     # -------------- Legacy Functions -------------- #
-    # TODO: write a deprecated wrapper function
+    @_add_depr
     def add_eor(self, model, **kwargs):
-        """
-        Add an EoR-like model to the visibilities. See :meth:`add` for
-        more details.
-        """
+        """Add an EoR-like model to the visibilities."""
         return self.add(model, **kwargs)
 
+    @_add_depr
     def add_foregrounds(self, model, **kwargs):
-        """
-        Add foregrounds to the visibilities. See :meth:`add` for
-        more details.
-        """
-
+        """Add foregrounds to the visibilities."""
         return self.add(model, **kwargs)
 
+    @_add_depr
     def add_noise(self, model, **kwargs):
-        """
-        Add thermal noise to the visibilities. See :meth:`add` for
-        more details.
-        """
+        """Add thermal noise to the visibilities."""
         return self.add(model, **kwargs)
 
     def _get_reds(self):
         return self.data.get_redundancies()[0]
 
+    @_add_depr
     def add_rfi(self, model, **kwargs):
-        """Add RFI to the visibilities. See :meth:`add` for more details."""
+        """Add RFI to the visibilities."""
         return self.add(model, **kwargs)
 
+    @_add_depr
     def add_gains(self, **kwargs):
-        """
-        Apply bandpass gains to the visibilities. See :meth:`add` for
-        more details.
-        """
+        """Apply bandpass gains to the visibilities."""
         return self.add("gains", **kwargs)
 
+    @_add_depr
     def add_sigchain_reflections(self, ants=None, **kwargs):
-        """
-        Apply reflection gains to the visibilities. See :meth:`add` for
-        more details.
-        """
+        """Apply reflection gains to the visibilities."""
         kwargs.update(ants=ants)
         return self.add("reflections", **kwargs)
 
+    @_add_depr
     def add_xtalk(self, model="gen_whitenoise_xtalk", bls=None, **kwargs):
-        """Add crosstalk to the visibilities. See :meth:`add` for more details."""
+        """Add crosstalk to the visibilities."""
         kwargs.update(vis_filter=bls)
         return self.add(model, **kwargs)
 
     @staticmethod
     def _apply_filter(vis_filter, ant1, ant2, pol):
         # TODO: docstring
-        """"""
         # find out whether or not multiple keys are passed
         multikey = any(isinstance(key, (list, tuple)) for key in vis_filter)
         # iterate over the keys, find if any are okay
@@ -525,7 +536,6 @@ class Simulator:
 
     def _initialize_data(self, data, **kwargs):
         # TODO: docstring
-        """"""
         if data is None:
             self.data = io.empty_uvdata(**kwargs)
         elif isinstance(data, (str, Path)):
@@ -538,7 +548,6 @@ class Simulator:
 
     def _initialize_args_from_model(self, model):
         # TODO: docstring
-        """"""
         model_params = self._get_model_parameters(model)
         _ = model_params.pop("kwargs", None)
 
@@ -555,7 +564,6 @@ class Simulator:
 
     def _iterate_antpair_pols(self):
         # TODO: docstring
-        """"""
         for ant1, ant2, pol in self.data.get_antpairpols():
             blt_inds = self.data.antpair2ind((ant1, ant2))
             pol_ind = self.data.get_pols().index(pol)
@@ -571,7 +579,6 @@ class Simulator:
         **kwargs,
     ):
         # TODO: docstring
-        """"""
         # do nothing if neither adding nor returning the effect
         if not add_vis and not ret_vis:
             warnings.warn(
@@ -691,16 +698,28 @@ class Simulator:
             self.data.data_array = data_copy
 
     @staticmethod
-    def _read_datafile(datafile, **kwargs):
-        # TODO: docstring
-        """"""
+    def _read_datafile(datafile: Union[str, Path], **kwargs) -> UVData:
+        """Read a file as a ``UVData`` object.
+
+        Parameters
+        ----------
+        datafile
+            Path to a file containing visibility data readable by ``pyuvdata``.
+        **kwargs
+            Arguments passed to the ``UVData.read`` method.
+
+        Returns
+        -------
+        UVData
+            The read-in data object.
+        """
         uvd = UVData()
         uvd.read(datafile, read_data=True, **kwargs)
         return uvd
 
     def _seed_rng(self, seed, model, ant1=None, ant2=None):
-        # TODO: docstring
-        """"""
+        """Seed the random number generator."""
+        # TODO: fill out docstring.
         if not isinstance(seed, str):
             raise TypeError("The seeding mode must be specified as a string.")
         if seed == "redundant":
@@ -741,7 +760,6 @@ class Simulator:
 
     def _update_args(self, args, ant1=None, ant2=None, pol=None):
         # TODO: docstring
-        """"""
         # helper for getting the correct parameter name
         def key(requires):
             return list(args)[requires.index(True)]
@@ -813,7 +831,7 @@ class Simulator:
 
     @staticmethod
     def _get_component(
-        component: [str, Type[SimulationComponent], SimulationComponent]
+        component: Union[str, Type[SimulationComponent], SimulationComponent]
     ) -> Tuple[Union[SimulationComponent, Type[SimulationComponent]], bool]:
         """Normalize a component to be either a class or instance."""
         if np.issubclass_(component, SimulationComponent):
@@ -837,7 +855,6 @@ class Simulator:
 
     def _generate_seed(self, model, key):
         # TODO: docstring
-        """"""
         model = self._get_model_name(model)
         # for the sake of randomness
         np.random.seed(int(time.time() * 1e6) % 2 ** 32)
@@ -847,7 +864,6 @@ class Simulator:
 
     def _generate_redundant_seeds(self, model):
         # TODO: docstring
-        """"""
         model = self._get_model_name(model)
         if model in self._seeds:
             return
@@ -856,7 +872,6 @@ class Simulator:
 
     def _get_seed(self, model, key):
         # TODO: docstring
-        """"""
         model = self._get_model_name(model)
         if model not in self._seeds:
             self._generate_seed(model, key)
@@ -868,7 +883,6 @@ class Simulator:
     @staticmethod
     def _get_model_name(model):
         # TODO: docstring
-        """"""
         if isinstance(model, str):
             return model
         elif np.issubclass_(model, SimulationComponent):
@@ -884,7 +898,6 @@ class Simulator:
 
     def _sanity_check(self, model):
         # TODO: docstring
-        """"""
         has_data = not np.all(self.data.data_array == 0)
         is_multiplicative = getattr(model, "is_multiplicative", False)
         contains_multiplicative_effect = any(
@@ -907,7 +920,6 @@ class Simulator:
 
     def _update_history(self, model, **kwargs):
         # TODO: docstring
-        """"""
         component = self._get_model_name(model)
         msg = f"hera_sim v{__version__}: Added {component} using kwargs:\n"
         if defaults._override_defaults:
