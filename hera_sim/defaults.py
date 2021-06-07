@@ -14,7 +14,16 @@ SEASON_CONFIGS = {
 }
 
 
-class Defaults:
+class _Singleton(type):
+    _instances = {}
+
+    def __call__(cls, *args, **kwargs):
+        if cls not in cls._instances:
+            cls._instances[cls] = super(_Singleton, cls).__call__(*args, **kwargs)
+        return cls._instances[cls]
+
+
+class Defaults(metaclass=_Singleton):
     """Class for dynamically changing hera_sim parameter defaults.
 
     This class handles the retreival of simulation default parameters from
@@ -366,5 +375,7 @@ class Defaults:
         return {arg: (kwargs[arg] if arg in kwargs else new_args[arg]) for arg in keys}
 
 
+#: An object specifying the defaults to use throughout hera_sim, and methods to alter
+#: them.
 defaults = Defaults()
 _defaults = defaults._handler
