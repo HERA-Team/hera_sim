@@ -20,7 +20,7 @@ class SimulationComponent(metaclass=ABCMeta):
           component models (see :meth:`~list_discoverable_components`").
         - Ensure that each subclass can create abstract methods.
 
-    The :meth:`~registry`: class decorator provides a simple way of
+    The :meth:`~component`: class decorator provides a simple way of
     accomplishing the above, while also providing some useful extra
     features.
 
@@ -176,7 +176,7 @@ class SimulationComponent(metaclass=ABCMeta):
 
 # class decorator for tracking subclasses
 def component(cls):
-    """Decorator to create a new specific Component that tracks its models."""
+    """Decorator to create a new :class:`SimulationComponent` that tracks its models."""
     cls._models = {}
     # This function creates a new class dynamically.
     # The idea is to create a new class that is essentially the input cls, but has a
@@ -191,6 +191,26 @@ def component(cls):
         exec_body=lambda namespace: namespace.update(dict(cls.__dict__)),
     )
     _available_components[cls.__name__] = cls
+
+    # Add some common text to the docstring.
+    cls.__doc__ += """
+
+    This is an _abstract_ class, and should not be directly instantiated. It represents
+    a "component" -- a modular part of a simulation for which several models may be
+    defined. Models for this component may be defined by subclassing this abstract base
+    class and implementing (at least) the :meth:`__call__` method. Some of these are
+    implemented within hera_sim already, but custom models may be implemented outside
+    of hera_sim, and used on equal footing with the the internal models (as long as
+    they subclass this abstract component).
+
+    As with all components, all parameters that define the behaviour of the model are
+    accepted at class instantiation. The :meth:`__call__` method actually computes the
+    simulated effect of the component (typically, but not always, a set of visibilities
+    or gains), by _default_ using these parameters. However, these parameters can be
+    over-ridden at call-time. Inputs such as the frequencies, times or baselines at
+    which to compute the effect are specific to the call, and do not get passed at
+    instantiation.
+    """
     return cls
 
 

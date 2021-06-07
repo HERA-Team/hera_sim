@@ -3,12 +3,12 @@ import numpy as np
 import astropy.constants as const
 import astropy.units as u
 from scipy.interpolate import RectBivariateSpline
-from typing import Sequence, Optional, Tuple
+from typing import Sequence, Optional, Tuple, Union
 import warnings
 from .interpolators import Beam
 
 
-def _get_bl_len_vec(bl_len_ns: [float, np.ndarray]) -> np.ndarray:
+def _get_bl_len_vec(bl_len_ns: Union[float, np.ndarray]) -> np.ndarray:
     """
     Convert a baseline length in a variety of formats to a standard length-3 vector.
 
@@ -33,7 +33,7 @@ def _get_bl_len_vec(bl_len_ns: [float, np.ndarray]) -> np.ndarray:
     return bl_len_ns
 
 
-def get_bl_len_magnitude(bl_len_ns: [float, np.ndarray, Sequence]) -> float:
+def get_bl_len_magnitude(bl_len_ns: Union[float, np.ndarray, Sequence]) -> float:
     """
     Get the magnitude of the length of the given baseline.
 
@@ -55,7 +55,7 @@ def get_bl_len_magnitude(bl_len_ns: [float, np.ndarray, Sequence]) -> float:
 
 def gen_delay_filter(
     freqs: np.ndarray,
-    bl_len_ns: [float, np.ndarray, Sequence],
+    bl_len_ns: Union[float, np.ndarray, Sequence],
     standoff: float = 0.0,
     delay_filter_type: Optional[str] = "gauss",
     min_delay: Optional[float] = None,
@@ -391,7 +391,7 @@ def compute_ha(lsts: np.ndarray, ra: float) -> np.ndarray:
     return ha
 
 
-def gen_white_noise(size: [int, Tuple[int]] = 1) -> np.ndarray:
+def gen_white_noise(size: Union[int, Tuple[int]] = 1) -> np.ndarray:
     """Produce complex Gaussian noise with unity variance.
 
     Parameters
@@ -411,7 +411,7 @@ def gen_white_noise(size: [int, Tuple[int]] = 1) -> np.ndarray:
     )
 
 
-def jansky_to_kelvin(freqs: np.ndarray, omega_p: [Beam, np.ndarray]) -> np.ndarray:
+def jansky_to_kelvin(freqs: np.ndarray, omega_p: Union[Beam, np.ndarray]) -> np.ndarray:
     """Return Kelvin -> Jy conversion as a function of frequency.
 
     Parameters
