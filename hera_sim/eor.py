@@ -7,11 +7,11 @@ a visibility appropriate for the given baseline.
 """
 
 import numpy as np
-from .components import registry
+from .components import component
 from . import utils
 
 
-@registry
+@component
 class EoR:
     pass
 
@@ -36,8 +36,7 @@ class NoiselikeEoR(EoR):
         fringe_filter_kwargs={},
     ):
         # TODO: docstring
-        """
-        """
+        """"""
         super().__init__(
             eor_amp=eor_amp,
             min_delay=min_delay,
@@ -93,7 +92,7 @@ class NoiselikeEoR(EoR):
         # Handling autos this way makes the covariance look like it has
         # no structure... which is wrong.
         if np.all(np.isclose(bl_vec, 0)):
-            data = data.real.astype(np.complex128)
+            data = data.real.astype(complex)
 
         return data
 

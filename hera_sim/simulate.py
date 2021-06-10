@@ -19,7 +19,8 @@ from . import io
 from . import utils
 from .defaults import defaults
 from . import __version__
-from .components import SimulationComponent
+from .components import SimulationComponent, get_model, list_all_components
+from typing import Type, Union, Tuple
 
 
 # Define some commonly used types for typing purposes.
@@ -40,9 +41,7 @@ def _generator_to_list(func, *args, **kwargs):
 
 
 class Simulator:
-    """Class for managing a simulation.
-
-    """
+    """Class for managing a simulation."""
 
     def __init__(
         self,
@@ -124,8 +123,7 @@ class Simulator:
     @cached_property
     def antpos(self):
         # TODO: docstring
-        """
-        """
+        """"""
         antpos, ants = self.data.get_ENU_antpos(pick_data_ants=True)
         return dict(zip(ants, antpos))
 
@@ -421,9 +419,7 @@ class Simulator:
         return data[return_slice]
 
     def plot_array(self):
-        """Generate a plot of the array layout in ENU coordinates.
-
-        """
+        """Generate a plot of the array layout in ENU coordinates."""
         import matplotlib.pyplot as plt
 
         fig = plt.figure(figsize=(10, 8))
@@ -443,7 +439,7 @@ class Simulator:
         This zeros the data array, resets the history, and clears the
         instance's _components dictionary.
         """
-        self.data.data_array = np.zeros(self.data.data_array.shape, dtype=np.complex128)
+        self.data.data_array = np.zeros(self.data.data_array.shape, dtype=complex)
         self.data.history = ""
         self._components.clear()
         self._antpairpol_cache.clear()
@@ -452,8 +448,7 @@ class Simulator:
 
     def write(self, filename, save_format="uvh5", **kwargs):
         # TODO: docstring
-        """
-        """
+        """"""
         try:
             getattr(self.data, f"write_{save_format}")(filename, **kwargs)
         except AttributeError:
@@ -467,8 +462,7 @@ class Simulator:
     @_generator_to_list
     def run_sim(self, sim_file=None, **sim_params):
         # TODO: docstring
-        """
-        """
+        """"""
         # make sure that only sim_file or sim_params are specified
         if not (bool(sim_file) ^ bool(sim_params)):
             raise ValueError(
@@ -1028,8 +1022,7 @@ class Simulator:
     @staticmethod
     def _read_datafile(datafile, **kwargs):
         # TODO: docstring
-        """
-        """
+        """"""
         uvd = UVData()
         uvd.read(datafile, read_data=True, **kwargs)
         return uvd
@@ -1107,7 +1100,7 @@ class Simulator:
         pol: str, optional
             Polarization string. Currently not used.
         """
-
+        # Helper function for getting the correct parameter name
         def key(requires):
             return list(args)[requires.index(True)]
 
@@ -1235,62 +1228,32 @@ class Simulator:
         return model_params
 
     @staticmethod
-    def _get_component(component):
-        """Cast input ``component`` to a SimulationComponent or instance thereof."""
-        try:
-            if issubclass(component, SimulationComponent):
-                # support passing user-defined classes that inherit from
-                # the SimulationComponent base class to add method
-                return component
-            else:
-                # issubclass will not raise a TypeError in python <= 3.6
-                raise TypeError
-        except TypeError:
-            # this is raised if ``component`` is not a class
-            if component.__class__.__name__ == "function":
-                raise TypeError(
-                    "You are attempting to add a component that is "
-                    "modeled using a function. Please convert the "
-                    "function to a callable class and try again."
+    def _get_component(
+        component: [str, Type[SimulationComponent], SimulationComponent]
+    ) -> Tuple[Union[SimulationComponent, Type[SimulationComponent]], bool]:
+        """Given an input component, normalize the output to be either a class or instance."""
+        if np.issubclass_(component, SimulationComponent):
+            return component, True
+        elif isinstance(component, str):
+            try:
+                return get_model(component), True
+            except KeyError:
+                raise ValueError(
+                    f"The model '{component}' does not exist. The following models are "
+                    f"available: \n{list_all_components()}."
                 )
-            if callable(component):
-                return component
-            if not isinstance(component, str):
-                raise TypeError(
-                    "``component`` must be either a class which "
-                    "derives from ``SimulationComponent``, an "
-                    "instance of a callable class, or a string that "
-                    "corresponds to the name of a ``hera_sim`` class or "
-                    "an alias thereof."
-                )
-
-            # TODO: make this a private method _check_registry
-            # keep track of all known aliases in case desired
-            # component isn't found in the search
-            all_aliases = []
-            for registry in SimulationComponent.__subclasses__():
-                for model in registry.__subclasses__():
-                    aliases = (model.__name__,)
-                    aliases += getattr(model, "_alias", ())
-                    aliases = [alias.lower() for alias in aliases]
-                    for alias in aliases:
-                        all_aliases.append(alias)
-                    if component.lower() in aliases:
-                        return model
-
-            # if this part is executed, then the model wasn't found, so
-            string_of_aliases = ", ".join(set(all_aliases))
-            raise UnboundLocalError(
-                f"The component '{component}' wasn't found. The "
-                f"following aliases are known: \n{string_of_aliases}\n"
-                "Please ensure that the component you are trying "
-                "to add is a subclass of a registry."
+        elif isinstance(component, SimulationComponent):
+            return component, False
+        else:
+            raise ValueError(
+                "The input type for the component was not understood. "
+                "Must be a string, or a class/instance of type 'SimulationComponent'. "
+                f"Available component models are:\n{list_all_components()}"
             )
 
     def _generate_seed(self, model, key):
         # TODO: docstring
-        """
-        """
+        """"""
         model = self._get_model_name(model)
         # for the sake of randomness
         np.random.seed(int(time.time() * 1e6) % 2 ** 32)
@@ -1300,8 +1263,7 @@ class Simulator:
 
     def _get_seed(self, model, key):
         # TODO: docstring
-        """
-        """
+        """"""
         model = self._get_model_name(model)
         if model not in self._seeds:
             self._generate_seed(model, key)
@@ -1316,11 +1278,17 @@ class Simulator:
         Find out the (lowercase) name of a provided model.
         """
         if isinstance(model, str):
-            return model.lower()
-        try:
-            return model.__name__.lower()
-        except AttributeError:
-            return model.__class__.__name__.lower()
+            return model
+        elif np.issubclass_(model, SimulationComponent):
+            return model.__name__
+        elif isinstance(model, SimulationComponent):
+            return model.__class__.__name__
+        else:
+            raise TypeError(
+                "You are trying to simulate an effect using a custom function. "
+                "Please refer to the tutorial for instructions regarding how "
+                "to define new simulation components compatible with the Simulator."
+            )
 
     def _parse_key(self, key: Union[int, str, AntPair, AntPairPol]) -> AntPairPol:
         """Convert a key of at-most length-3 to an (ant1, ant2, pol) tuple."""
@@ -1360,8 +1328,7 @@ class Simulator:
 
     def _sanity_check(self, model):
         # TODO: docstring
-        """
-        """
+        """"""
         has_data = not np.all(self.data.data_array == 0)
         is_multiplicative = getattr(model, "is_multiplicative", False)
         contains_multiplicative_effect = any(

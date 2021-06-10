@@ -5,36 +5,32 @@ import numpy as np
 import warnings
 
 from scipy import stats
+from scipy.signal import blackmanharris
 
 from . import interpolators
 from . import utils
-from .components import registry
+from .components import component
 from . import DATA_PATH
 from .defaults import _defaults
 
-import aipy
 
-
-@registry
+@component
 class Gain:
     # TODO: docstring
-    pass
+    is_multiplicative = True
 
 
-class Bandpass(Gain, is_multiplicative=True):
+class Bandpass(Gain):
     _alias = ("gains", "bandpass_gain")
 
     def __init__(self, gain_spread=0.1, dly_rng=(-20, 20), bp_poly=None):
         # TODO: docstring
-        """
-
-        """
+        """"""
         super().__init__(gain_spread=gain_spread, dly_rng=dly_rng, bp_poly=bp_poly)
 
     def __call__(self, freqs, ants, **kwargs):
         # TODO: docstring
-        """
-        """
+        """"""
         # validate kwargs
         self._check_kwargs(**kwargs)
 
@@ -62,7 +58,7 @@ class Bandpass(Gain, is_multiplicative=True):
             bp_base = bp_poly(freqs)
         else:
             bp_base = np.polyval(bp_poly, freqs)
-        window = aipy.dsp.gen_window(freqs.size, "blackman-harris")
+        window = blackmanharris(freqs.size)
         modes = np.abs(np.fft.fft(window * bp_base))
         gains = {}
         for ant in ants:
@@ -80,23 +76,21 @@ class Bandpass(Gain, is_multiplicative=True):
         return phases
 
 
-class Reflections(Gain, is_multiplicative=True):
+class Reflections(Gain):
     _alias = ("reflection_gains", "sigchain_reflections")
 
     def __init__(
         self, amp=None, dly=None, phs=None, conj=False, amp_jitter=0, dly_jitter=0
     ):
         # TODO: docstring
-        """
-        """
+        """"""
         super().__init__(
             amp=amp, dly=dly, phs=phs, conj=conj, amp_jitter=0, dly_jitter=0
         )
 
     def __call__(self, freqs, ants, **kwargs):
         # TODO: docstring
-        """
-        """
+        """"""
         # check the kwargs
         self._check_kwargs(**kwargs)
 
@@ -124,8 +118,7 @@ class Reflections(Gain, is_multiplicative=True):
     @staticmethod
     def gen_reflection_coefficient(freqs, amp, dly, phs, conj=False):
         # TODO: docstring
-        """
-        """
+        """"""
         # this is copied directly from the old sigchain module
         # TODO: make this cleaner
 
@@ -229,7 +222,7 @@ class Reflections(Gain, is_multiplicative=True):
         return amps, dlys, phases
 
 
-@registry
+@component
 class Crosstalk:
     pass
 
@@ -241,16 +234,14 @@ class CrossCouplingCrosstalk(Crosstalk, Reflections):
         self, amp=None, dly=None, phs=None, conj=False, amp_jitter=0, dly_jitter=0
     ):
         # TODO: docstring
-        """
-        """
+        """"""
         super().__init__(
             amp=amp, dly=dly, phs=phs, conj=conj, amp_jitter=0, dly_jitter=0
         )
 
     def __call__(self, freqs, autovis, **kwargs):
         # TODO: docstring
-        """
-        """
+        """"""
         # check the kwargs
         self._check_kwargs(**kwargs)
 
@@ -300,8 +291,7 @@ class CrossCouplingSpectrum(Crosstalk):
 
     def __call__(self, freqs, autovis, **kwargs):
         # TODO: docstring
-        """
-        """
+        """"""
         self._check_kwargs(**kwargs)
 
         (
@@ -319,7 +309,7 @@ class CrossCouplingSpectrum(Crosstalk):
         dlys = np.linspace(*dly_range, Ncopies)
 
         # Construct the spectrum of crosstalk.
-        crosstalk_spectrum = np.zeros(autovis.shape, dtype=np.complex128)
+        crosstalk_spectrum = np.zeros(autovis.shape, dtype=complex)
         for amp, dly in zip(amps, dlys):
             gen_xtalk = CrossCouplingCrosstalk(
                 amp=amp,
@@ -346,14 +336,12 @@ class WhiteNoiseCrosstalk(Crosstalk):
 
     def __init__(self, amplitude=3.0):
         # TODO: docstring
-        """
-        """
+        """"""
         super().__init__(amplitude=amplitude)
 
     def __call__(self, freqs, **kwargs):
         # TODO: docstring
-        """
-        """
+        """"""
         # check the kwargs
         self._check_kwargs(**kwargs)
 
@@ -372,8 +360,7 @@ class WhiteNoiseCrosstalk(Crosstalk):
 
 def apply_gains(vis, gains, bl):
     # TODO: docstring
-    """
-    """
+    """"""
     # get the gains for each antenna in the baseline
     # don't apply a gain if the antenna isn't found
     gi = 1.0 if bl[0] not in gains else gains[bl[0]]

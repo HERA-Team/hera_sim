@@ -29,8 +29,9 @@ from .visibilities import simulators
 from . import eor
 from . import utils
 from . import simulate
+from . import beams
 from .simulate import Simulator
 from .defaults import defaults
-from .components import SimulationComponent, registry
-from .components import list_discoverable_components
+from .components import SimulationComponent, component
+from .components import get_all_components, get_model, get_models
 from .interpolators import Tsky, Bandpass, Beam

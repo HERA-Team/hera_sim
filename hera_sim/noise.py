@@ -5,7 +5,7 @@ import warnings
 import astropy.units as u
 import numpy as np
 
-from .components import registry
+from .components import component
 from . import DATA_PATH
 from .interpolators import Tsky
 from . import utils
@@ -16,10 +16,9 @@ HERA_Tsky_mdl = {
 }
 
 
-@registry
+@component
 class Noise:
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+    pass
 
 
 class ThermalNoise(Noise):
@@ -35,8 +34,7 @@ class ThermalNoise(Noise):
         autovis=None,
     ):
         # TODO: docstring
-        """
-        """
+        """"""
         super().__init__(
             Tsky_mdl=Tsky_mdl,
             omega_p=omega_p,
@@ -48,8 +46,7 @@ class ThermalNoise(Noise):
 
     def __call__(self, lsts, freqs, **kwargs):
         # TODO: docstring
-        """
-        """
+        """"""
         # validate the kwargs
         self._check_kwargs(**kwargs)
 
@@ -104,8 +101,7 @@ class ThermalNoise(Noise):
     @staticmethod
     def resample_Tsky(lsts, freqs, Tsky_mdl=None, Tsky=180.0, mfreq=0.18, index=-2.5):
         # TODO: docstring
-        """
-        """
+        """"""
         # maybe add a DeprecationWarning?
 
         # actually resample the sky model if it's an interpolation object

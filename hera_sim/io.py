@@ -30,8 +30,7 @@ def empty_uvdata(
     **kwargs,
 ):
     # TODO: docstring
-    """
-    """
+    """"""
     # issue a deprecation warning if any old parameters are used
     if any([param is not None for param in (n_freq, n_times, antennas)]):
         warnings.warn(

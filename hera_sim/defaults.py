@@ -359,8 +359,7 @@ class Defaults:
 
     def apply(self, func_kwargs, **kwargs):
         # TODO: docstring
-        """Just update the kwargs given the function kwargs.
-        """
+        """Just update the kwargs given the function kwargs."""
         # pull the defaults from the active defaults
         new_args = self()
 
