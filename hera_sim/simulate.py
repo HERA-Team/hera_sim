@@ -58,30 +58,30 @@ class Simulator:
         Parameters to use for initializing UVData object if none is provided.
         If ``data`` is a file path, then these parameters are used when reading
         the file. Otherwise, the parameters are used in creating a ``UVData``
-        object using ``io.empty_uvdata``.
+        object using :func:`~io.empty_uvdata`.
 
     Attributes
     ----------
-    data: ``pyuvdata.UVData``
+    data : ``pyuvdata.UVData``
         Object containing simulated visibilities and metadata.
-    extras: dict
+    extras : dict
         Dictionary to use for storing extra parameters.
-    antpos: dict
+    antpos : dict
         Dictionary pairing antenna numbers to ENU positions in meters.
-    lsts: np.ndarray of float
+    lsts : np.ndarray of float
         Observed LSTs in radians.
-    freqs: np.ndarray of float
+    freqs : np.ndarray of float
         Observed frequencies in GHz.
-    times: np.ndarray of float
+    times : np.ndarray of float
         Observed times in JD.
-    pols: list of str
+    pols : list of str
         Polarization strings.
-    red_grps: list of list of int
+    red_grps : list of list of int
         Redundant baseline groups. Each entry is a list containing the baseline
         integer for each member of that redundant group.
-    red_vecs: list of np.ndarray of float
+    red_vecs : list of np.ndarray of float
         Average of all the baselines for each redundant group.
-    red_lengths: list of float
+    red_lengths : list of float
         Length of each redundant baseline.
     """
 
@@ -153,8 +153,8 @@ class Simulator:
         """
         Apply the provided default configuration.
 
-        Equivalent to calling ``hera_sim.defaults`` with the same parameters.
-        See ``hera_sim.defaults.set`` documentation for further details.
+        Equivalent to calling :meth:~`hera_sim.defaults` with the same parameters.
+        See :meth:~`hera_sim.defaults.set` documentation for further details.
         """
         defaults.set(config, refresh=refresh)
 
@@ -171,10 +171,10 @@ class Simulator:
         ----------
         delay_filter_kwargs
             Extra parameters necessary for generating a delay filter. See
-            :func:`utils.gen_delay_filter` for details.
+            :func:~`utils.gen_delay_filter` for details.
         fringe_filter_kwargs
             Extra parameters necessary for generating a fringe filter. See
-            :func:`utils.gen_fringe_filter` for details.
+            :func:~`utils.gen_fringe_filter` for details.
         """
         delay_filter_kwargs = delay_filter_kwargs or {}
         fringe_filter_kwargs = fringe_filter_kwargs or {}
@@ -197,26 +197,26 @@ class Simulator:
 
         Parameters
         ----------
-        component: str or SimulationComponent subclass
+        component : str or :class:~`SimulationComponent` subclass
             Effect to be simulated. This can either be an alias of the effect,
             or the class (or instance thereof) that simulates the effect.
-        add_vis: bool, optional
+        add_vis : bool, optional
             Whether to apply the effect to the simulated data. Default is True.
-        ret_vis: bool, optional
+        ret_vis : bool, optional
             Whether to return the simulated effect. If the effect is a per-antenna
             effect, then a dictionary mapping antenna numbers to ``np.ndarray``s is
             returned. Otherwise, a ``pyuvdata.UVData.data_array``-style array is
             returned. Default is False,
-        seed: str or int, optional
+        seed : str or int, optional
             How to seed the random number generator. Can either directly provide
             a seed as an integer, or use one of the supported keywords. See
-            .. meth:: print_seed_types for information on supported keywords.
+            :meth:~`print_seed_types` for information on supported keywords.
             Default is to not seed the random number generator.
-        vis_filter: iterable, optional
+        vis_filter : iterable, optional
             Iterable specifying which antennas/polarizations for which the effect
-            should be simulated. See documentation of .. meth:: _apply_filter for
+            should be simulated. See documentation of :meth:~`_apply_filter` for
             details of supported formats and functionality.
-        component_name: str, optional
+        component_name : str, optional
             Name to use when recording the parameters used for simulating the effect.
             Default is to use the name of the class used to simulate the effect.
         **kwargs
@@ -275,7 +275,7 @@ class Simulator:
         Parameters
         ----------
         component
-            Effect that is to be retrieved. See .. meth:: add for more details.
+            Effect that is to be retrieved. See :meth:~`add` for more details.
         key
             Key for retrieving simulated effect. Possible choices are as follows:
                 An integer may specify either a single antenna (for per-antenna
@@ -529,14 +529,14 @@ class Simulator:
     # TODO: write a deprecated wrapper function
     def add_eor(self, model, **kwargs):
         """
-        Add an EoR-like model to the visibilities. See .. meth:: `add` for
+        Add an EoR-like model to the visibilities. See :meth:~`add` for
         more details.
         """
         return self.add(model, **kwargs)
 
     def add_foregrounds(self, model, **kwargs):
         """
-        Add foregrounds to the visibilities. See .. meth:: `add` for
+        Add foregrounds to the visibilities. See :meth:~`add` for
         more details.
         """
 
@@ -544,25 +544,25 @@ class Simulator:
 
     def add_noise(self, model, **kwargs):
         """
-        Add thermal noise to the visibilities. See .. meth:: `add` for
+        Add thermal noise to the visibilities. See :meth:~`add` for
         more details.
         """
         return self.add(model, **kwargs)
 
     def add_rfi(self, model, **kwargs):
-        """Add RFI to the visibilities. See .. meth:: `add` for more details."""
+        """Add RFI to the visibilities. See :meth:~`add` for more details."""
         return self.add(model, **kwargs)
 
     def add_gains(self, **kwargs):
         """
-        Apply bandpass gains to the visibilities. See .. meth:: `add` for
+        Apply bandpass gains to the visibilities. See :meth:~`add` for
         more details.
         """
         return self.add("gains", **kwargs)
 
     def add_sigchain_reflections(self, ants=None, **kwargs):
         """
-        Apply reflection gains to the visibilities. See .. meth:: `add` for
+        Apply reflection gains to the visibilities. See :meth:~`add` for
         more details.
         """
         if ants is not None:
@@ -570,7 +570,7 @@ class Simulator:
         return self.add("reflections", **kwargs)
 
     def add_xtalk(self, model="gen_whitenoise_xtalk", bls=None, **kwargs):
-        """Add crosstalk to the visibilities. See .. meth:: `add` for more details."""
+        """Add crosstalk to the visibilities. See :meth:~`add` for more details."""
         if bls is not None:
             kwargs.update(vis_filter=bls)
         return self.add(model, **kwargs)
