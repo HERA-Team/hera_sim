@@ -229,6 +229,7 @@ class Crosstalk:
 
 class CrossCouplingCrosstalk(Crosstalk, Reflections):
     _alias = ("cross_coupling_xtalk",)
+    is_multiplicative = False
 
     def __init__(
         self, amp=None, dly=None, phs=None, conj=False, amp_jitter=0, dly_jitter=0

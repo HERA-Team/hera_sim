@@ -911,8 +911,7 @@ class Simulator:
         # Also make placeholders for antenna/baseline dependent parameters.
         base_args = self._initialize_args_from_model(model)
 
-        # get a copy of the data array
-        # TODO: figure out if we can do this in a more memory-efficient way.
+        # Get a copy of the data array.
         data_copy = self.data.data_array.copy()
 
         # Pull useful auxilliary parameters.
@@ -1130,6 +1129,7 @@ class Simulator:
         # visibility. as of now, this should only be cross coupling
         # crosstalk
         elif requires_vis:
+            print(f"{ant1}, {ant2}, {pol}")
             autovis = self.data.get_data(ant1, ant1, pol)
             new_param = {key(_requires_vis): autovis}
         else:
@@ -1230,22 +1230,22 @@ class Simulator:
     @staticmethod
     def _get_component(
         component: [str, Type[SimulationComponent], SimulationComponent]
-    ) -> Tuple[Union[SimulationComponent, Type[SimulationComponent]], bool]:
+    ) -> Union[SimulationComponent, Type[SimulationComponent]]:
         """Given an input component, normalize the output to be either a class or instance."""
         if np.issubclass_(component, SimulationComponent):
-            return component, True
+            return component
         elif isinstance(component, str):
             try:
-                return get_model(component), True
+                return get_model(component)
             except KeyError:
                 raise ValueError(
                     f"The model '{component}' does not exist. The following models are "
                     f"available: \n{list_all_components()}."
                 )
         elif isinstance(component, SimulationComponent):
-            return component, False
+            return component
         else:
-            raise ValueError(
+            raise TypeError(
                 "The input type for the component was not understood. "
                 "Must be a string, or a class/instance of type 'SimulationComponent'. "
                 f"Available component models are:\n{list_all_components()}"

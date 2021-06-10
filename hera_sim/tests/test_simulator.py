@@ -15,6 +15,7 @@ import yaml
 import numpy as np
 import pytest
 
+from hera_sim.components import component
 from hera_sim.foregrounds import DiffuseForeground, diffuse_foreground
 from hera_sim.noise import HERA_Tsky_mdl
 from hera_sim.simulate import Simulator
@@ -200,7 +201,6 @@ def test_get_vis_only_one_antenna(ref_sim):
     assert "a pair of antennas must be provided" in err.value.args[0]
 
 
-@pytest.mark.xfail(reason="Issue with antenna positions in pyuvdata.")
 @pytest.mark.parametrize("conj", [True, False])
 @pytest.mark.parametrize("pol", [None, "xx"])
 def test_get_redundant_data(pol, conj):
@@ -537,19 +537,6 @@ def test_bad_initialization_data():
     assert "data type not understood." in err.value.args[0]
 
 
-def test_custom_component_without_is_multiplicative_attr(base_sim):
-    class Test:
-        def __init__(self):
-            pass
-
-        def __call__(self, lsts, freqs):
-            return np.zeros((lsts.size, freqs.size), dtype=np.complex)
-
-    with pytest.warns(UserWarning) as warning:
-        base_sim.add(Test)
-    assert "``is_multiplicative``" in warning.list[0].message.args[0]
-
-
 def test_integer_seed(base_sim):
     seed = 2 ** 18
     d1 = base_sim.add("noiselike_eor", add_vis=False, ret_vis=True, seed=seed)
@@ -602,12 +589,12 @@ def test_get_component_with_function():
     def func():
         pass
 
-    with pytest.raises(TypeError, match="function to a callable class"):
+    with pytest.raises(TypeError, match="The input type for the component"):
         Simulator._get_component(func)
 
 
 def test_get_component_bad_type():
-    with pytest.raises(TypeError, match="an instance of a callable"):
+    with pytest.raises(TypeError, match="Available component models are:"):
         Simulator._get_component(3)
 
 
