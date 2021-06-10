@@ -58,7 +58,7 @@ class Simulator:
         Parameters to use for initializing UVData object if none is provided.
         If ``data`` is a file path, then these parameters are used when reading
         the file. Otherwise, the parameters are used in creating a ``UVData``
-        object using :func:`~io.empty_uvdata`.
+        object using :func:~`io.empty_uvdata`.
 
     Attributes
     ----------
@@ -509,7 +509,7 @@ class Simulator:
         """
         Chunk a simulation in time and write to disk.
 
-        This function is a thin wrapper around :func:`io.chunk_sim_and_save`;
+        This function is a thin wrapper around :func:~`io.chunk_sim_and_save`;
         please see that function's documentation for more information.
         """
         io.chunk_sim_and_save(
@@ -684,7 +684,7 @@ class Simulator:
             allow for suprahorizon emission. Should be specified in nanoseconds.
             Default buffer is zero.
         delay_filter_type
-            String specifying the filter profile. See :func:`utils.gen_delay_filter`
+            String specifying the filter profile. See :func:~`utils.gen_delay_filter`
             for details.
         min_delay
             Minimum absolute delay of the filter, in nanoseconds.
@@ -696,7 +696,7 @@ class Simulator:
 
         See Also
         --------
-        :func:`~utils.gen_delay_filter`
+        :func:~`utils.gen_delay_filter`
         """
         # Note that this is not the most efficient way of caching the filters;
         # however, this is algorithmically very simple--just use one filter per
@@ -735,7 +735,7 @@ class Simulator:
 
         See Also
         --------
-        :func:`~utils.gen_fringe_filter`
+        :func:~`utils.gen_fringe_filter`
         """
         # This uses the same simplistic approach as the delay filter
         # calculation does--just do one filter per redundant group.
@@ -765,7 +765,7 @@ class Simulator:
             Either a ``UVData`` object or a path-like object to a file
             that can be loaded into a ``UVData`` object. If not provided,
             then sufficient keywords for initializing a ``UVData`` object
-            must be provided. See :func:`~io.empty_uvdata` for more
+            must be provided. See :func:~`io.empty_uvdata` for more
             information on which keywords are needed.
 
         Raises
@@ -872,14 +872,14 @@ class Simulator:
         seed
             Either an integer specifying the seed to be used in setting
             the random state, or one of a select few keywords. Default
-            is to use the current random state. See :meth:`~_seed_rng`
+            is to use the current random state. See :meth:~`_seed_rng`
             for descriptions of the supported seeding modes.
         vis_filter
             List of antennas, baselines, polarizations, antenna-polarization
             pairs, or antpairpols for which to simulate the effect. This
             specifies which of the above the effect is to be simulated for,
             and anything that does not meet the keys specified in this list
-            does not have the effect applied to it. See :meth:`~_apply_filter`
+            does not have the effect applied to it. See :meth:~`_apply_filter`
             for more details.
         antpairpol_cache
             List of (ant1, ant2, pol) tuples specifying which antpairpols have
