@@ -40,7 +40,50 @@ def _generator_to_list(func, *args, **kwargs):
 
 
 class Simulator:
-    """Class for managing a simulation."""
+    """Simulate visibilities and/or instrumental effects for an entire array.
+
+    Parameters
+    ----------
+    data
+        ``pyuvdata.UVData`` object to use for the simulation or path to a
+        UVData-supported file.
+    defaults_config
+        Path to defaults configuraiton, seasonal keyword, or configuration
+        dictionary for setting default simulation parameters. See tutorial
+        on setting defaults for further information.
+    redundancy_tol
+        Position tolerance for finding redundant groups, in meters. Default is
+        1 meter.
+    kwargs
+        Parameters to use for initializing UVData object if none is provided.
+        If ``data`` is a file path, then these parameters are used when reading
+        the file. Otherwise, the parameters are used in creating a ``UVData``
+        object using ``io.empty_uvdata``.
+
+    Attributes
+    ----------
+    data: ``pyuvdata.UVData``
+        Object containing simulated visibilities and metadata.
+    extras: dict
+        Dictionary to use for storing extra parameters.
+    antpos: dict
+        Dictionary pairing antenna numbers to ENU positions in meters.
+    lsts: np.ndarray of float
+        Observed LSTs in radians.
+    freqs: np.ndarray of float
+        Observed frequencies in GHz.
+    times: np.ndarray of float
+        Observed times in JD.
+    pols: list of str
+        Polarization strings.
+    red_grps: list of list of int
+        Redundant baseline groups. Each entry is a list containing the baseline
+        integer for each member of that redundant group.
+    red_vecs: list of np.ndarray of float
+        Average of all the baselines for each redundant group.
+    red_lengths: list of float
+        Length of each redundant baseline.
+    """
 
     def __init__(
         self,
@@ -50,53 +93,9 @@ class Simulator:
         redundancy_tol: float = 1.0,
         **kwargs,
     ):
-        """Simulate visibilities and instrumental effects for an entire array.
-
-        Parameters
-        ----------
-        data
-            ``pyuvdata.UVData`` object to use for the simulation or path to a
-            UVData-supported file.
-        defaults_config
-            Path to defaults configuraiton, seasonal keyword, or configuration
-            dictionary for setting default simulation parameters. See tutorial
-            on setting defaults for further information.
-        redundancy_tol
-            Position tolerance for finding redundant groups, in meters. Default is
-            1 meter.
-        kwargs
-            Parameters to use for initializing UVData object if none is provided.
-            If ``data`` is a file path, then these parameters are used when reading
-            the file. Otherwise, the parameters are used in creating a ``UVData``
-            object using ``io.empty_uvdata``.
-
-        Attributes
-        ----------
-        data: ``pyuvdata.UVData``
-            Object containing simulated visibilities and metadata.
-        extras: dict
-            Dictionary to use for storing extra parameters.
-        antpos: dict
-            Dictionary pairing antenna numbers to ENU positions in meters.
-        lsts: np.ndarray of float
-            Observed LSTs in radians.
-        freqs: np.ndarray of float
-            Observed frequencies in GHz.
-        times: np.ndarray of float
-            Observed times in JD.
-        pols: list of str
-            Polarization strings.
-        red_grps: list of list of int
-            Redundant baseline groups. Each entry is a list containing the baseline
-            integer for each member of that redundant group.
-        red_vecs: list of np.ndarray of float
-            Average of all the baselines for each redundant group.
-        red_lengths: list of float
-            Length of each redundant baseline.
-        """
         # TODO: add ability for user to specify parameter names to look for on
         # parsing call signature
-        # create some utility dictionaries
+        # Create some utility dictionaries.
         self._components = {}
         self._seeds = {}
         self._antpairpol_cache = {}
