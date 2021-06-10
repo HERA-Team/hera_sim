@@ -20,7 +20,6 @@ from . import utils
 from .defaults import defaults
 from . import __version__
 from .components import SimulationComponent, get_model, list_all_components
-from typing import Type, Union, Tuple
 
 
 # Define some commonly used types for typing purposes.
@@ -719,7 +718,10 @@ class Simulator:
             self._filter_cache["delay"][bl_int] = delay_filter
 
     def _calculate_fringe_filters(
-        self, *, fringe_filter_type: Optional[str] = "tophat", **filter_kwargs,
+        self,
+        *,
+        fringe_filter_type: Optional[str] = "tophat",
+        **filter_kwargs,
     ):
         """
         Calculate fringe-rate filters for all baselines.
@@ -751,7 +753,9 @@ class Simulator:
             self._filter_cache["fringe"][bl_int] = fringe_filter
 
     def _initialize_data(
-        self, data: Optional[Union[str, Path, UVData]], **kwargs,
+        self,
+        data: Optional[Union[str, Path, UVData]],
+        **kwargs,
     ):
         """
         Initialize the ``data`` attribute with a ``UVData`` object.
@@ -1028,8 +1032,7 @@ class Simulator:
 
     def _seed_rng(self, seed, model, ant1=None, ant2=None, pol=None):
         # TODO: docstring
-        """
-        """
+        """"""
         if seed is None:
             return
         if type(seed) is int:

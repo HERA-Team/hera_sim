@@ -15,7 +15,6 @@ import yaml
 import numpy as np
 import pytest
 
-from hera_sim.components import component
 from hera_sim.foregrounds import DiffuseForeground, diffuse_foreground
 from hera_sim.noise import HERA_Tsky_mdl
 from hera_sim.simulate import Simulator
