@@ -191,36 +191,43 @@ class Simulator:
         vis_filter: Optional[Sequence] = None,
         name: Optional[str] = None,
         **kwargs,
-    ):
+    ) -> Optional[Union[np.ndarray, Dict[int, np.ndarray]]]:
         """
         Simulate an effect then apply and/or return the result.
 
         Parameters
         ----------
-        component : str or :class:`SimulationComponent` subclass
+        component
             Effect to be simulated. This can either be an alias of the effect,
             or the class (or instance thereof) that simulates the effect.
-        add_vis : bool, optional
+        add_vis
             Whether to apply the effect to the simulated data. Default is True.
-        ret_vis : bool, optional
-            Whether to return the simulated effect. If the effect is a per-antenna
-            effect, then a dictionary mapping antenna numbers to ``np.ndarray``s is
-            returned. Otherwise, a ``pyuvdata.UVData.data_array``-style array is
-            returned. Default is False,
-        seed : str or int, optional
+        ret_vis
+            Whether to return the simulated effect. Nothing is returned by default.
+        seed
             How to seed the random number generator. Can either directly provide
             a seed as an integer, or use one of the supported keywords. See
-            :meth:`print_seed_types` for information on supported keywords.
-            Default is to not seed the random number generator.
-        vis_filter : iterable, optional
+            :meth:`_seed_rng` docstring for information on accepted values.
+            Default is to use a seed based on the current random state.
+        vis_filter
             Iterable specifying which antennas/polarizations for which the effect
             should be simulated. See documentation of :meth:`_apply_filter` for
             details of supported formats and functionality.
-        component_name : str, optional
+        component_name
             Name to use when recording the parameters used for simulating the effect.
             Default is to use the name of the class used to simulate the effect.
         **kwargs
             Optional keyword arguments for the provided ``component``.
+
+        Returns
+        -------
+        effect
+            The simulated effect; only returned if ``ret_vis`` is set to ``True``.
+            If the simulated effect is multiplicative, then a dictionary mapping
+            antenna numbers to the per-antenna effect (as a ``np.ndarray``) is
+            returned. Otherwise, the effect for the entire array is returned with
+            the same structure as the ``pyuvdata.UVData.data_array`` that the
+            data is stored in.
         """
         # Obtain a callable reference to the simulation component model.
         model = self._get_component(component)
