@@ -1,4 +1,10 @@
-"""Re-imagining of the simulation module."""
+"""Module containing a high-level interface for :mod:`hera_sim`.
+
+This module defines the :class:`Simulator` class, which provides the user
+with a high-level interface to all of the features provided by :mod:`hera_sim`.
+For detailed instructions on how to manage a simulation using the
+:class:`Simulator`, please refer to the tutorials.
+"""
 
 import functools
 import inspect
@@ -120,8 +126,7 @@ class Simulator:
 
     @cached_property
     def antpos(self):
-        # TODO: docstring
-        """"""
+        """Mapping between antenna numbers and ENU positions in meters."""
         antpos, ants = self.data.get_ENU_antpos(pick_data_ants=True)
         return dict(zip(ants, antpos))
 
@@ -153,7 +158,7 @@ class Simulator:
         """
         Apply the provided default configuration.
 
-        Equivalent to calling :meth:`hera_sim.defaults` with the same parameters.
+        Equivalent to calling :meth:`hera_sim.defaults.set` with the same parameters.
         See :meth:`hera_sim.defaults.set` documentation for further details.
         """
         defaults.set(config, refresh=refresh)
@@ -452,8 +457,7 @@ class Simulator:
         self.extras.clear()
 
     def write(self, filename, save_format="uvh5", **kwargs):
-        # TODO: docstring
-        """"""
+        """Write data to disk using a ``pyuvdata``-supported filetype."""
         try:
             getattr(self.data, f"write_{save_format}")(filename, **kwargs)
         except AttributeError:
@@ -466,8 +470,48 @@ class Simulator:
     # _generator_to_list wrapper if we do not make that a feature.
     @_generator_to_list
     def run_sim(self, sim_file=None, **sim_params):
-        # TODO: docstring
-        """"""
+        """
+        Run an entire simulation.
+
+        Parameters
+        ----------
+        sim_file
+            Path to a configuration file specifying simulation parameters.
+            Required if ``sim_params`` is not provided.
+        **sim_params
+            Once-nested dictionary mapping simulation components to models,
+            with each model mapping to parameter-value pairs. Required if
+            ``sim_file`` is not provided.
+
+        Returns
+        -------
+        components
+            List of simulation components that were generated with the
+            parameter ``ret_vis`` set to ``True``, returned in the order
+            that they were simulated. This is only returned if there is
+            at least one simulation component with ``ret_vis`` set to
+            ``True`` in its configuration file/dictionary.
+
+        Examples
+        --------
+        Suppose we have the following configuration dictionary::
+            sim_params = {
+                "pntsrc_foreground": {"seed": "once", "nsrcs": 500},
+                "gains": {"seed": "once", "dly_rng": [-20, 20], "ret_vis": True},
+                "reflections": {"seed": "once", "dly_jitter": 10},
+            }
+        Invoking this method with ``**sim_params`` as its argument will simulate
+        visibilities appropriate for a sky with 500 point sources, generate
+        bandpass gains for each antenna and apply the effect to the foreground
+        data, then generate cable reflections with a Gaussian jitter in the
+        reflection delays with a standard deviation of 10 ns and apply the
+        effect to the data. The return value will be a list with one entry:
+        a dictionary mapping antenna numbers to their associated bandpass gains.
+
+        The same effect can be achieved by writing a YAML file that is loaded
+        into a dictionary formatted as above. See the ``Simulator`` tutorial
+        for a more in-depth explanation of how to use this method.
+        """
         # make sure that only sim_file or sim_params are specified
         if not (bool(sim_file) ^ bool(sim_params)):
             raise ValueError(
@@ -489,10 +533,9 @@ class Simulator:
             # make sure that the parameters are a dictionary
             if not isinstance(params, dict):
                 raise TypeError(
-                    "The parameters for {component} are not formatted "
+                    f"The parameters for {component} are not formatted "
                     "properly. Please ensure that the parameters for "
-                    "each component are specified using a "
-                    "dictionary.".format(component=component)
+                    "each component are specified using a dictionary."
                 )
 
             # add the component to the data
@@ -533,7 +576,6 @@ class Simulator:
         return
 
     # -------------- Legacy Functions -------------- #
-    # TODO: write a deprecated wrapper function
     def add_eor(self, model, **kwargs):
         """
         Add an EoR-like model to the visibilities. See :meth:`add` for
@@ -845,8 +887,6 @@ class Simulator:
             if blt_inds.size:
                 yield ant1, ant2, pol, blt_inds, pol_ind
 
-    # TODO: think about how to streamline this algorithm and make it more readable
-    # In particular, make the logic for adding/returning the effect easier to follow.
     def _iteratively_apply(
         self,
         model: SimulationComponent,
@@ -857,7 +897,7 @@ class Simulator:
         vis_filter: Optional[Sequence] = None,
         antpairpol_cache: Optional[Sequence[AntPairPol]] = None,
         **kwargs,
-    ):
+    ) -> Optional[Union[np.ndarray, Dict[int, np.ndarray]]]:
         """
         Simulate an effect for an entire array.
 
@@ -908,8 +948,7 @@ class Simulator:
             warnings.warn(
                 "You have chosen to neither add nor return the effect "
                 "you are trying to simulate, so nothing will be "
-                "computed. This warning was raised for the model: "
-                "{model}".format(model=self._get_model_name(model))
+                f"computed. This warning was raised for the model: {model}"
             )
             return
 
@@ -1030,20 +1069,75 @@ class Simulator:
 
     @staticmethod
     def _read_datafile(datafile, **kwargs):
-        # TODO: docstring
-        """"""
+        """Load the provided file into a ``pyuvdata.UVData`` object."""
         uvd = UVData()
         uvd.read(datafile, read_data=True, **kwargs)
         return uvd
 
     def _seed_rng(self, seed, model, ant1=None, ant2=None, pol=None):
-        # TODO: docstring
-        """"""
+        """
+        Set the random state according to the provided parameters.
+
+        This is a helper function intended to be used solely in the
+        :meth:`_iteratively_apply` method. It exists in order to ensure that
+        the simulated data is as realistic as possible, assuming the user
+        understands the proper choice of seeding method to use for the
+        various effects that can be simulated.
+
+        Parameters
+        -----------
+        seed
+            Either the random seed to use (when provided as an integer),
+            or one of the following keywords:
+                ``"once"``:
+                    The random state is set to the same value for
+                    every baseline and polarization; one unique seed is
+                    created for each model that uses this seeding mode.
+                    This is recommended for simulating point-source foregrounds
+                    and per-antenna effects.
+                ``"redundant"``:
+                    The random state is only uniquely set once per redundant
+                    group for a given model. This is recommended for simulating
+                    diffuse foregrounds and the reionization signal.
+                ``"initial"``:
+                    The random state is set at the very beginning of the
+                    iteration over the array. This is essentially the same as
+                    using a seeding mode of ``None``, though not identical.
+                    This is recommended for simulating thermal noise, or for
+                    simulating an effect that has a random component that
+                    changes between baselines.
+        model
+            Name of the model for which to either recover or cache the seed.
+            This is used to lookup random state seeds in the :attr:`_seeds`
+            dictionary.
+        ant1
+            First antenna in the baseline.
+        ant2
+            Second antenna in the baseline (for baseline-dependent effects).
+        pol
+            Polarization string.
+
+        Returns
+        -------
+        updated_seed
+            Either the input seed or ``None``, depending on the provided seed.
+            This is just used to ensure that the logic for setting the random
+            state in the :meth:`_iteratively_apply` routine works out.
+
+        Raises
+        ------
+        TypeError
+            The provided seed is not ``None``, an integer, or a string.
+        ValueError
+            Two cases: one, the ``"redundant"`` seeding mode is being used
+            and a baseline isn't provided; two, the seed is a string, but
+            is not one of the supported seeding modes.
+        """
         if seed is None:
             return
         if type(seed) is int:
             np.random.seed(seed)
-            return
+            return seed
         if not isinstance(seed, str):
             raise TypeError(
                 "The seeding mode must be specified as a string or integer. "
@@ -1051,7 +1145,7 @@ class Simulator:
             )
         if seed == "redundant":
             if ant1 is None or ant2 is None:
-                raise TypeError(
+                raise ValueError(
                     "A baseline must be specified in order to "
                     "seed by redundant group."
                 )
@@ -1271,8 +1365,7 @@ class Simulator:
         self._seeds[model][key] = np.random.randint(2 ** 32)
 
     def _get_seed(self, model, key):
-        # TODO: docstring
-        """"""
+        """Retrieve or generate a random seed given a model and key."""
         model = self._get_model_name(model)
         if model not in self._seeds:
             self._generate_seed(model, key)
@@ -1336,8 +1429,7 @@ class Simulator:
         return ant1, ant2, pol
 
     def _sanity_check(self, model):
-        # TODO: docstring
-        """"""
+        """Check that simulation components are applied sensibly."""
         has_data = not np.all(self.data.data_array == 0)
         is_multiplicative = getattr(model, "is_multiplicative", False)
         contains_multiplicative_effect = any(

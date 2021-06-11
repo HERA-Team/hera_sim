@@ -557,16 +557,14 @@ def test_none_seed_state_recovery(base_sim):
 
 @pytest.mark.parametrize("seed", [3.14, "redundant", "unsupported"])
 def test_bad_seeds(base_sim, seed):
-    if seed == "unsupported":
-        with pytest.raises(ValueError, match="Seeding mode not supported."):
-            base_sim._seed_rng(seed, None)
-    else:
-        with pytest.raises(TypeError) as err:
-            base_sim._seed_rng(seed, None)
-        if seed == "redundant":
-            assert "baseline must be specified" in err.value.args[0]
-        else:
-            assert "seeding mode must be" in err.value.args[0]
+    err = TypeError if seed == 3.14 else ValueError
+    match = {
+        3.14: "seeding mode must be",
+        "redundant": "baseline must be specified",
+        "unsupported": "Seeding mode not supported.",
+    }[seed]
+    with pytest.raises(err, match=match):
+        base_sim._seed_rng(seed, None)
 
 
 def test_update_args_warning(base_sim):
