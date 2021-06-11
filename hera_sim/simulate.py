@@ -58,7 +58,7 @@ class Simulator:
         Parameters to use for initializing UVData object if none is provided.
         If ``data`` is a file path, then these parameters are used when reading
         the file. Otherwise, the parameters are used in creating a ``UVData``
-        object using :func:~`io.empty_uvdata`.
+        object using :func:`io.empty_uvdata`.
 
     Attributes
     ----------
@@ -153,8 +153,8 @@ class Simulator:
         """
         Apply the provided default configuration.
 
-        Equivalent to calling :meth:~`hera_sim.defaults` with the same parameters.
-        See :meth:~`hera_sim.defaults.set` documentation for further details.
+        Equivalent to calling :meth:`hera_sim.defaults` with the same parameters.
+        See :meth:`hera_sim.defaults.set` documentation for further details.
         """
         defaults.set(config, refresh=refresh)
 
@@ -171,10 +171,10 @@ class Simulator:
         ----------
         delay_filter_kwargs
             Extra parameters necessary for generating a delay filter. See
-            :func:~`utils.gen_delay_filter` for details.
+            :func:`utils.gen_delay_filter` for details.
         fringe_filter_kwargs
             Extra parameters necessary for generating a fringe filter. See
-            :func:~`utils.gen_fringe_filter` for details.
+            :func:`utils.gen_fringe_filter` for details.
         """
         delay_filter_kwargs = delay_filter_kwargs or {}
         fringe_filter_kwargs = fringe_filter_kwargs or {}
@@ -197,7 +197,7 @@ class Simulator:
 
         Parameters
         ----------
-        component : str or :class:~`SimulationComponent` subclass
+        component : str or :class:`SimulationComponent` subclass
             Effect to be simulated. This can either be an alias of the effect,
             or the class (or instance thereof) that simulates the effect.
         add_vis : bool, optional
@@ -210,11 +210,11 @@ class Simulator:
         seed : str or int, optional
             How to seed the random number generator. Can either directly provide
             a seed as an integer, or use one of the supported keywords. See
-            :meth:~`print_seed_types` for information on supported keywords.
+            :meth:`print_seed_types` for information on supported keywords.
             Default is to not seed the random number generator.
         vis_filter : iterable, optional
             Iterable specifying which antennas/polarizations for which the effect
-            should be simulated. See documentation of :meth:~`_apply_filter` for
+            should be simulated. See documentation of :meth:`_apply_filter` for
             details of supported formats and functionality.
         component_name : str, optional
             Name to use when recording the parameters used for simulating the effect.
@@ -275,7 +275,7 @@ class Simulator:
         Parameters
         ----------
         component
-            Effect that is to be retrieved. See :meth:~`add` for more details.
+            Effect that is to be retrieved. See :meth:`add` for more details.
         key
             Key for retrieving simulated effect. Possible choices are as follows:
                 An integer may specify either a single antenna (for per-antenna
@@ -509,7 +509,7 @@ class Simulator:
         """
         Chunk a simulation in time and write to disk.
 
-        This function is a thin wrapper around :func:~`io.chunk_sim_and_save`;
+        This function is a thin wrapper around :func:`io.chunk_sim_and_save`;
         please see that function's documentation for more information.
         """
         io.chunk_sim_and_save(
@@ -529,14 +529,14 @@ class Simulator:
     # TODO: write a deprecated wrapper function
     def add_eor(self, model, **kwargs):
         """
-        Add an EoR-like model to the visibilities. See :meth:~`add` for
+        Add an EoR-like model to the visibilities. See :meth:`add` for
         more details.
         """
         return self.add(model, **kwargs)
 
     def add_foregrounds(self, model, **kwargs):
         """
-        Add foregrounds to the visibilities. See :meth:~`add` for
+        Add foregrounds to the visibilities. See :meth:`add` for
         more details.
         """
 
@@ -544,25 +544,25 @@ class Simulator:
 
     def add_noise(self, model, **kwargs):
         """
-        Add thermal noise to the visibilities. See :meth:~`add` for
+        Add thermal noise to the visibilities. See :meth:`add` for
         more details.
         """
         return self.add(model, **kwargs)
 
     def add_rfi(self, model, **kwargs):
-        """Add RFI to the visibilities. See :meth:~`add` for more details."""
+        """Add RFI to the visibilities. See :meth:`add` for more details."""
         return self.add(model, **kwargs)
 
     def add_gains(self, **kwargs):
         """
-        Apply bandpass gains to the visibilities. See :meth:~`add` for
+        Apply bandpass gains to the visibilities. See :meth:`add` for
         more details.
         """
         return self.add("gains", **kwargs)
 
     def add_sigchain_reflections(self, ants=None, **kwargs):
         """
-        Apply reflection gains to the visibilities. See :meth:~`add` for
+        Apply reflection gains to the visibilities. See :meth:`add` for
         more details.
         """
         if ants is not None:
@@ -570,7 +570,7 @@ class Simulator:
         return self.add("reflections", **kwargs)
 
     def add_xtalk(self, model="gen_whitenoise_xtalk", bls=None, **kwargs):
-        """Add crosstalk to the visibilities. See :meth:~`add` for more details."""
+        """Add crosstalk to the visibilities. See :meth:`add` for more details."""
         if bls is not None:
             kwargs.update(vis_filter=bls)
         return self.add(model, **kwargs)
@@ -684,7 +684,7 @@ class Simulator:
             allow for suprahorizon emission. Should be specified in nanoseconds.
             Default buffer is zero.
         delay_filter_type
-            String specifying the filter profile. See :func:~`utils.gen_delay_filter`
+            String specifying the filter profile. See :func:`utils.gen_delay_filter`
             for details.
         min_delay
             Minimum absolute delay of the filter, in nanoseconds.
@@ -696,7 +696,7 @@ class Simulator:
 
         See Also
         --------
-        :func:~`utils.gen_delay_filter`
+        :func:`utils.gen_delay_filter`
         """
         # Note that this is not the most efficient way of caching the filters;
         # however, this is algorithmically very simple--just use one filter per
@@ -735,7 +735,7 @@ class Simulator:
 
         See Also
         --------
-        :func:~`utils.gen_fringe_filter`
+        :func:`utils.gen_fringe_filter`
         """
         # This uses the same simplistic approach as the delay filter
         # calculation does--just do one filter per redundant group.
@@ -765,7 +765,7 @@ class Simulator:
             Either a ``UVData`` object or a path-like object to a file
             that can be loaded into a ``UVData`` object. If not provided,
             then sufficient keywords for initializing a ``UVData`` object
-            must be provided. See :func:~`io.empty_uvdata` for more
+            must be provided. See :func:`io.empty_uvdata` for more
             information on which keywords are needed.
 
         Raises
@@ -872,14 +872,14 @@ class Simulator:
         seed
             Either an integer specifying the seed to be used in setting
             the random state, or one of a select few keywords. Default
-            is to use the current random state. See :meth:~`_seed_rng`
+            is to use the current random state. See :meth:`_seed_rng`
             for descriptions of the supported seeding modes.
         vis_filter
             List of antennas, baselines, polarizations, antenna-polarization
             pairs, or antpairpols for which to simulate the effect. This
             specifies which of the above the effect is to be simulated for,
             and anything that does not meet the keys specified in this list
-            does not have the effect applied to it. See :meth:~`_apply_filter`
+            does not have the effect applied to it. See :meth:`_apply_filter`
             for more details.
         antpairpol_cache
             List of (ant1, ant2, pol) tuples specifying which antpairpols have
