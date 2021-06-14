@@ -1085,7 +1085,7 @@ class Simulator:
         various effects that can be simulated.
 
         Parameters
-        -----------
+        ----------
         seed
             Either the random seed to use (when provided as an integer),
             or one of the following keywords:
@@ -1231,8 +1231,12 @@ class Simulator:
         # check if this is something that depends on another
         # visibility. as of now, this should only be cross coupling
         # crosstalk
+        # TODO: We'll need to use a somewhat strict convention for parameter
+        # names if we implement Alec and AEW's cross-coupling stuff, where one
+        # cross-correlation actually depends on another cross-correlation.
+        # (It is implicitly assumed here that the only time we need another
+        # visibility is if it's an autocorrelation.)
         elif requires_vis:
-            print(f"{ant1}, {ant2}, {pol}")
             autovis = self.data.get_data(ant1, ant1, pol)
             new_param = {key(_requires_vis): autovis}
         else:
@@ -1355,8 +1359,10 @@ class Simulator:
             )
 
     def _generate_seed(self, model, key):
-        # TODO: docstring
-        """"""
+        """Generate a random seed based on the current time.
+
+        Populate the ``_seeds`` dictionary appropriately with the result.
+        """
         model = self._get_model_name(model)
         # for the sake of randomness
         np.random.seed(int(time.time() * 1e6) % 2 ** 32)
@@ -1369,7 +1375,6 @@ class Simulator:
         model = self._get_model_name(model)
         if model not in self._seeds:
             self._generate_seed(model, key)
-        # TODO: handle conjugate baselines here instead of other places
         if key not in self._seeds[model]:
             self._generate_seed(model, key)
         return self._seeds[model][key]
