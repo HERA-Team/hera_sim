@@ -74,18 +74,6 @@ def beams(rotation, nants):
     )
     beams = [
         PerturbedPolyBeam(
-            perturb_coeffs=np.array(
-                [
-                    -0.20437532,
-                    -0.4864951,
-                    -0.18577532,
-                    -0.38053642,
-                    0.08897764,
-                    0.06367166,
-                    0.29634711,
-                    1.40277112,
-                ]
-            ),
             mainlobe_scale=1.0,
             xstretch=1.1,
             ystretch=0.8,
