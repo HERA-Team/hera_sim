@@ -4,6 +4,7 @@ check for correctness of individual models, as they should be tested
 elsewhere.
 """
 
+import copy
 import itertools
 import tempfile
 import os
@@ -29,19 +30,23 @@ Tsky_mdl = HERA_Tsky_mdl["xx"]
 Nfreqs = 10
 Ntimes = 20
 
+base_config = dict(
+    Nfreqs=Nfreqs,
+    start_freq=1e8,
+    channel_width=1e8 / 1024,
+    Ntimes=Ntimes,
+    start_time=2458115.9,
+    integration_time=10.7,
+    array_layout={0: (20.0, 20.0, 0), 1: (50.0, 50.0, 0)},
+    no_autos=True,
+)
+
 
 def create_sim(autos=False, **kwargs):
-    return Simulator(
-        Nfreqs=Nfreqs,
-        start_freq=1e8,
-        channel_width=1e8 / 1024,
-        Ntimes=Ntimes,
-        start_time=2458115.9,
-        integration_time=10.7,
-        array_layout={0: (20.0, 20.0, 0), 1: (50.0, 50.0, 0)},
-        no_autos=not autos,
-        **kwargs
-    )
+    config = base_config.copy()
+    config["no_autos"] = not autos
+    config.update(kwargs)
+    return Simulator(**config)
 
 
 @pytest.fixture(scope="function")
@@ -86,6 +91,11 @@ def test_initialize_from_defaults():
             len(sim.antpos) == len(array),
         ]
     )
+
+
+def test_phase_wrapped_lsts():
+    sim = create_sim(start_time=2458120.15, Ntimes=100, integration_time=10.7)
+    assert sim.lsts[0] > sim.lsts[-1]
 
 
 def test_add_with_str(base_sim):
@@ -139,7 +149,7 @@ def test_io_bad_format(base_sim, tmp_path):
 
 @pytest.mark.parametrize("pol", [None, "xx"])
 def test_get_full_data(ref_sim, pol):
-    data = ref_sim.get("noiselike_eor", pol=pol)
+    data = ref_sim.get("noiselike_eor", pol)
     if pol is None:
         assert np.allclose(data, ref_sim.data.data_array, rtol=0, atol=1e-7)
     else:
@@ -147,29 +157,85 @@ def test_get_full_data(ref_sim, pol):
 
 
 @pytest.mark.parametrize("pol", [None, "xx"])
-def test_get_with_one_seed(base_sim, pol):
+@pytest.mark.parametrize("conj", [True, False])
+def test_get_with_one_seed(base_sim, pol, conj):
     # Set the seed mode to "once" even if that's not realistic.
     base_sim.add("noiselike_eor", seed="once")
-    ant1, ant2 = (1, 0)  # Use convention ant1 > ant2 for conjugation considerations.
-    data = base_sim.get("noiselike_eor", ant1=ant1, ant2=ant2, pol=pol)
+    ant1, ant2 = (0, 1) if conj else (1, 0)
+    key = (ant1, ant2, pol)
+    data = base_sim.get("noiselike_eor", key)
     antpairpol = (ant1, ant2) if pol is None else (ant1, ant2, pol)
     true_data = base_sim.data.get_data(antpairpol)
-    if pol is None:
-        assert np.allclose(data[..., 0], true_data, rtol=0, atol=1e-7)
-    else:
+    if pol:
         assert np.allclose(data, true_data, rtol=0, atol=1e-7)
+    else:
+        assert np.allclose(data[..., 0], true_data, rtol=0, atol=1e-7)
+
+
+# TODO: this will need to be updated when full polarization support is added
+@pytest.mark.parametrize("pol", [None, "xx"])
+@pytest.mark.parametrize("conj", [True, False])
+def test_get_with_initial_seed(base_sim, pol, conj):
+    # Simulate an effect where we would actually use this setting.
+    base_sim.add("thermal_noise", seed="initial")
+    ant1, ant2 = (0, 1) if conj else (1, 0)
+    vis = base_sim.get("thermal_noise", key=(ant1, ant2, pol))
+    if pol:
+        assert np.allclose(base_sim.data.get_data(ant1, ant2, pol), vis)
+    else:
+        assert np.allclose(base_sim.data.get_data(ant1, ant2), vis[..., 0])
 
 
 def test_get_nonexistent_component(ref_sim):
-    with pytest.raises(AttributeError) as err:
+    with pytest.raises(ValueError) as err:
         ref_sim.get("diffuse_foreground")
-    assert "has not been simulated" in err.value.args[0]
+    assert "has not yet been simulated" in err.value.args[0]
 
 
-def test_get_without_specifying_antenna(ref_sim):
-    with pytest.raises(TypeError) as err:
-        ref_sim.get("noiselike_eor", ant1=1, ant2=None)
-    assert "specify an antenna pair" in err.value.args[0]
+def test_get_vis_only_one_antenna(ref_sim):
+    with pytest.raises(ValueError) as err:
+        ref_sim.get("noiselike_eor", 1)
+    assert "a pair of antennas must be provided" in err.value.args[0]
+
+
+@pytest.mark.parametrize("conj", [True, False])
+@pytest.mark.parametrize("pol", [None, "xx"])
+def test_get_redundant_data(pol, conj):
+    antpos = {
+        0: [0, 0, 0],
+        1: [10, 0, 0],
+        2: [0, 10, 0],
+        3: [10, 10, 0],
+    }
+    sim = create_sim(array_layout=antpos)
+    sim.add("diffuse_foreground", seed="redundant")
+    ant1, ant2 = (0, 1) if conj else (1, 0)
+    ai, aj = (2, 3) if conj else (3, 2)
+    vis = sim.get("diffuse_foreground", (ant1, ant2, pol))
+    if pol:
+        assert np.allclose(sim.data.get_data(ai, aj, pol), vis)
+    else:
+        assert np.allclose(sim.data.get_data(ai, aj), vis[..., 0])
+
+
+@pytest.mark.parametrize("pol", [None, "x"])
+@pytest.mark.parametrize("ant1", [None, 1])
+def test_get_multiplicative_effect(base_sim, pol, ant1):
+    gains = base_sim.add("gains", seed="once", ret_vis=True)
+    _gains = base_sim.get("gains", key=(ant1, pol))
+    if pol is not None and ant1 is not None:
+        assert np.all(gains[(ant1, pol)] == _gains)
+    elif pol is None and ant1 is not None:
+        assert all(
+            np.all(gains[(ant1, _pol)] == _gains[(ant1, _pol)])
+            for _pol in base_sim.data.get_feedpols()
+        )
+    elif pol is not None and ant1 is None:
+        assert all(
+            np.all(gains[(ant, pol)] == _gains[(ant, pol)]) for ant in base_sim.antpos
+        )
+    else:
+        assert all(np.all(gains[antpol] == _gains[antpol]) for antpol in gains)
 
 
 def test_not_add_vis(base_sim):
@@ -237,7 +303,7 @@ def test_consistent_across_reds():
     # deactivate defaults for good measure
     defaults.deactivate()
 
-    reds = sim._get_reds()[1]  # choose non-autos
+    reds = sim.red_grps[1]  # choose non-autos
     # check that every pair in the redundant group agrees
     for i, _bl1 in enumerate(reds):
         for bl2 in reds[i + 1 :]:
@@ -387,3 +453,179 @@ def test_add_fg(base_sim):
 @fail_if_not_removed
 def test_add_rfi(base_sim):
     base_sim.add_rfi("dtv")
+
+
+def test_plot_array(base_sim):
+    fig = base_sim.plot_array()
+    ax = fig.axes[0]
+    assert ax.get_xlabel() == "East Position [m]"
+    assert ax.get_ylabel() == "North Position [m]"
+    assert ax.get_title() == "Array Layout"
+
+
+# Testing against using reference files is already done in test_io,
+# so we only test for specifying integrations per file.
+def test_chunker(base_sim, tmp_path):
+    Nint_per_file = 5
+    prefix = "zen"
+    sky_cmp = "eor"
+    state = "test"
+    filetype = "uvh5"
+    Nfiles = base_sim.Ntimes // Nint_per_file
+    base_sim.add("noiselike_eor", seed="redundant")
+    base_sim.chunk_sim_and_save(
+        tmp_path,
+        Nint_per_file=Nint_per_file,
+        prefix=prefix,
+        sky_cmp=sky_cmp,
+        state=state,
+        filetype=filetype,
+    )
+    assert (
+        len(list(tmp_path.glob(f"{prefix}.*.{sky_cmp}.{state}.{filetype}"))) == Nfiles
+    )
+
+
+@pytest.mark.parametrize(
+    "component",
+    ["eor", "foregrounds", "noise", "rfi", "gains", "sigchain_reflections", "xtalk"],
+)
+def test_legacy_funcs(component):
+    args = []
+    sim = create_sim(autos=True)
+    if component in ["eor", "foregrounds", "noise", "rfi", "xtalk"]:
+        model = {
+            "eor": "noiselike_eor",
+            "foregrounds": "pntsrc_foreground",
+            "noise": "thermal_noise",
+            "rfi": "rfi_dtv",
+            "xtalk": "cross_coupling_xtalk",
+        }[component]
+        args.append(model)
+    if component == "sigchain_reflections":
+        args.append([1])
+    elif component == "xtalk":
+        args.append([(0, 1)])
+    getattr(sim, f"add_{component}")(*args)
+
+
+def test_vis_filter_single_pol():
+    sim = create_sim(polarization_array=["xx", "yy"])
+    sim.add("noiselike_eor", vis_filter=["xx"])
+    assert np.all(sim.get_data("xx")) and not np.any(sim.get_data("yy"))
+
+
+def test_vis_filter_two_pol():
+    sim = create_sim(polarization_array=["xx", "xy", "yx", "yy"])
+    sim.add("noiselike_eor", vis_filter=["xx", "yy"])
+    assert all(
+        [
+            np.all(sim.get_data("xx")),
+            np.all(sim.get_data("yy")),
+            not np.any(sim.get_data("xy")),
+            not np.any(sim.get_data("yx")),
+        ]
+    )
+
+
+def test_vis_filter_arbitrary_key():
+    sim = create_sim(
+        array_layout=hex_array(2, split_core=False, outriggers=0),
+        polarization_array=["xx", "yy"],
+    )
+    sim.add("noiselike_eor", vis_filter=[1, 3, 5, "xx"])
+    bls = sim.data.get_antpairs()
+    assert not np.any(sim.get_data("yy"))
+    assert all(
+        np.all(sim.get_data((ai, aj, "xx")))
+        for ai, aj in bls
+        if ai in (1, 3, 5) or aj in (1, 3, 5)
+    )
+
+
+def test_bad_initialization_data():
+    with pytest.raises(TypeError) as err:
+        Simulator(data=123)
+    assert "data type not understood." in err.value.args[0]
+
+
+def test_integer_seed(base_sim):
+    seed = 2 ** 18
+    d1 = base_sim.add("noiselike_eor", add_vis=False, ret_vis=True, seed=seed)
+    d2 = base_sim.add("noiselike_eor", add_vis=False, ret_vis=True, seed=seed)
+    assert np.allclose(d1, d2)
+
+
+def test_none_seed(base_sim):
+    d1 = base_sim.add("noiselike_eor", add_vis=False, ret_vis=True, seed=None)
+    d2 = base_sim.add("noiselike_eor", add_vis=False, ret_vis=True, seed=None)
+    assert not np.allclose(d1, d2)
+
+
+def test_none_seed_state_recovery(base_sim):
+    base_sim.add("noiselike_eor", seed=None)
+    vis = base_sim.get("noiselike_eor")
+    assert np.allclose(base_sim.data.data_array, vis)
+
+
+@pytest.mark.parametrize("seed", [3.14, "redundant", "unsupported"])
+def test_bad_seeds(base_sim, seed):
+    err = TypeError if seed == 3.14 else ValueError
+    match = {
+        3.14: "seeding mode must be",
+        "redundant": "baseline must be specified",
+        "unsupported": "Seeding mode not supported.",
+    }[seed]
+    with pytest.raises(err, match=match):
+        base_sim._seed_rng(seed, None)
+
+
+def test_update_args_warning(base_sim):
+    class Test:
+        def __init__(self):
+            pass
+
+        def __call__(self, lsts, freqs, something_else):
+            pass
+
+    t = Test()
+    args = base_sim._initialize_args_from_model(t)
+    with pytest.warns(UserWarning) as warning:
+        base_sim._update_args(args)
+    assert "required parameters was not extracted." in warning.list[0].message.args[0]
+
+
+def test_get_component_with_function():
+    def func():
+        pass
+
+    with pytest.raises(TypeError, match="The input type for the component"):
+        Simulator._get_component(func)
+
+
+def test_get_component_bad_type():
+    with pytest.raises(TypeError, match="Available component models are:"):
+        Simulator._get_component(3)
+
+
+def test_parse_key_with_baseline_number(base_sim):
+    bl = base_sim.data.antnums_to_baseline(0, 1)
+    assert base_sim._parse_key(bl) == (0, 1, None)
+
+
+def test_cached_filters():
+    defaults.set("debug")
+    sim1 = create_sim(Ntimes=1000, Nfreqs=100)
+    sim2 = copy.deepcopy(sim1)
+    fringe_filter_kwargs = dict(fringe_filter_type="gauss", fr_width=0.005)
+    delay_filter_kwargs = dict(delay_filter_type="gauss", standoff=15)
+    kwargs = dict(
+        delay_filter_kwargs=delay_filter_kwargs,
+        fringe_filter_kwargs=fringe_filter_kwargs,
+    )
+    seed = 1420
+    sim2.calculate_filters(**kwargs)
+    sim1.add("diffuse_foreground", seed=seed, **kwargs)
+    sim2.add("diffuse_foreground", seed=seed)
+    defaults.deactivate()
+    assert np.allclose(sim1.data.data_array, sim2.data.data_array)

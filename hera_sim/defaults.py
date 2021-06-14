@@ -11,6 +11,7 @@ from .config import CONFIG_PATH
 SEASON_CONFIGS = {
     "h1c": path.join(CONFIG_PATH, "H1C.yaml"),
     "h2c": path.join(CONFIG_PATH, "H2C.yaml"),
+    "debug": path.join(CONFIG_PATH, "debug.yaml"),
 }
 
 
