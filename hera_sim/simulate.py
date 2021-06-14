@@ -205,7 +205,7 @@ class Simulator:
         ret_vis: bool = False,
         seed: Optional[Union[str, int]] = None,
         vis_filter: Optional[Sequence] = None,
-        name: Optional[str] = None,
+        component_name: Optional[str] = None,
         **kwargs,
     ) -> Optional[Union[np.ndarray, Dict[int, np.ndarray]]]:
         """
@@ -247,7 +247,9 @@ class Simulator:
         """
         # Obtain a callable reference to the simulation component model.
         model = self._get_component(component)
-        model_key = name if name else self._get_model_name(component)
+        model_key = (
+            component_name if component_name else self._get_model_name(component)
+        )
         if not isinstance(model, SimulationComponent):
             model = model(**kwargs)
         self._sanity_check(model)  # Check for component ordering issues.
