@@ -212,11 +212,11 @@ class Simulator:
         seed
             How to seed the random number generator. Can either directly provide
             a seed as an integer, or use one of the supported keywords. See
-            :meth:`_seed_rng` docstring for information on accepted values.
+            tutorial for using the :class:`Simulator` for supported seeding modes.
             Default is to use a seed based on the current random state.
         vis_filter
             Iterable specifying which antennas/polarizations for which the effect
-            should be simulated. See documentation of :meth:`_apply_filter` for
+            should be simulated. See tutorial for using the :class:`Simulator` for
             details of supported formats and functionality.
         component_name
             Name to use when recording the parameters used for simulating the effect.
@@ -447,7 +447,7 @@ class Simulator:
         """Refresh the Simulator object.
 
         This zeros the data array, resets the history, and clears the
-        instance's _components dictionary.
+        instance's ``_components`` dictionary.
         """
         self.data.data_array = np.zeros(self.data.data_array.shape, dtype=complex)
         self.data.history = ""
