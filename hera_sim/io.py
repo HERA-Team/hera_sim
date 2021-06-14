@@ -166,7 +166,7 @@ def chunk_sim_and_save(
         if sky_cmp is not None:
             filename = filename.replace(f".{filetype}", f".{sky_cmp}.{filetype}")
         if state is not None:
-            filename = filename.replace(".{filetype}", f".{state}.{filetype}")
+            filename = filename.replace(f".{filetype}", f".{state}.{filetype}")
         save_path = os.path.join(save_dir, filename)
 
         # Chunk it and write to disk.

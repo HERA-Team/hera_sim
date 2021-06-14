@@ -1,4 +1,10 @@
-"""Re-imagining of the simulation module."""
+"""Module containing a high-level interface for :mod:`hera_sim`.
+
+This module defines the :class:`Simulator` class, which provides the user
+with a high-level interface to all of the features provided by :mod:`hera_sim`.
+For detailed instructions on how to manage a simulation using the
+:class:`Simulator`, please refer to the tutorials.
+"""
 
 import functools
 import inspect
@@ -13,13 +19,20 @@ import numpy as np
 from cached_property import cached_property
 from pyuvdata import UVData
 from astropy import constants as const
+from typing import Type, Union, Tuple, Sequence, Optional, Dict
 
 from . import io
 from . import utils
 from .defaults import defaults
 from . import __version__
 from .components import SimulationComponent, get_model, list_all_components
-from typing import Type, Union, Tuple
+
+
+# Define some commonly used types for typing purposes.
+AntPairPol = Tuple[int, int, str]
+AntPair = Tuple[int, int]
+AntPol = Tuple[int, str]
+Component = Union[str, Type[SimulationComponent], SimulationComponent]
 
 
 # wrapper for the run_sim method, necessary for part of the CLI
@@ -32,25 +45,70 @@ def _generator_to_list(func, *args, **kwargs):
     return new_func
 
 
-# FIXME: some of the code in here is pretty brittle and breaks (sometimes silently)
-# if not used carefully. This definitely needs a review and cleanup.
 class Simulator:
-    """Class for managing a simulation."""
+    """Simulate visibilities and/or instrumental effects for an entire array.
 
-    def __init__(self, data=None, defaults_config=None, **kwargs):
-        """Initialize a Simulator object.
+    Parameters
+    ----------
+    data
+        ``pyuvdata.UVData`` object to use for the simulation or path to a
+        UVData-supported file.
+    defaults_config
+        Path to defaults configuraiton, seasonal keyword, or configuration
+        dictionary for setting default simulation parameters. See tutorial
+        on setting defaults for further information.
+    redundancy_tol
+        Position tolerance for finding redundant groups, in meters. Default is
+        1 meter.
+    kwargs
+        Parameters to use for initializing UVData object if none is provided.
+        If ``data`` is a file path, then these parameters are used when reading
+        the file. Otherwise, the parameters are used in creating a ``UVData``
+        object using :func:`io.empty_uvdata`.
 
-        Idea: Make Simulator object have three major components:
-            sim.data -> UVData object for storing the "measured" data
-                Also keep track of most metadata here
-            sim.defaults -> Defaults object
+    Attributes
+    ----------
+    data : ``pyuvdata.UVData``
+        Object containing simulated visibilities and metadata.
+    extras : dict
+        Dictionary to use for storing extra parameters.
+    antpos : dict
+        Dictionary pairing antenna numbers to ENU positions in meters.
+    lsts : np.ndarray of float
+        Observed LSTs in radians.
+    freqs : np.ndarray of float
+        Observed frequencies in GHz.
+    times : np.ndarray of float
+        Observed times in JD.
+    pols : list of str
+        Polarization strings.
+    red_grps : list of list of int
+        Redundant baseline groups. Each entry is a list containing the baseline
+        integer for each member of that redundant group.
+    red_vecs : list of np.ndarray of float
+        Average of all the baselines for each redundant group.
+    red_lengths : list of float
+        Length of each redundant baseline.
+    """
 
-        """
-        # create some utility dictionaries
+    def __init__(
+        self,
+        *,
+        data: Optional[Union[str, UVData]] = None,
+        defaults_config: Optional[Union[str, Dict]] = None,
+        redundancy_tol: float = 1.0,
+        **kwargs,
+    ):
+        # TODO: add ability for user to specify parameter names to look for on
+        # parsing call signature
+        # Create some utility dictionaries.
         self._components = {}
-        self.extras = {}
         self._seeds = {}
         self._antpairpol_cache = {}
+        self._filter_cache = {
+            "delay": {},
+            "fringe": {},
+        }
 
         # apply and activate defaults if specified
         if defaults_config:
@@ -58,201 +116,317 @@ class Simulator:
 
         # actually initialize the UVData object stored in self.data
         self._initialize_data(data, **kwargs)
+        self._calculate_reds(tol=redundancy_tol)
+        self.extras = self.data.extra_keywords
+        for param in ("Ntimes", "Nfreqs", "Nblts", "Npols", "Nbls"):
+            setattr(self, param, getattr(self.data, param))
+        self.Nants = len(self.antpos)
+        self.get_data = self.data.get_data
+        self.get_flags = self.data.get_flags
 
-    @property
+    @cached_property
     def antpos(self):
-        # TODO: docstring
-        """"""
+        """Mapping between antenna numbers and ENU positions in meters."""
         antpos, ants = self.data.get_ENU_antpos(pick_data_ants=True)
         return dict(zip(ants, antpos))
 
-    @property
+    @cached_property
     def lsts(self):
-        # TODO: docstring
-        return np.unique(self.data.lst_array)
+        """Observed Local Sidereal Times in radians."""
+        # This process retrieves the unique LSTs while respecting phase wraps.
+        unique_lsts, inverse_inds, counts = np.unique(
+            self.data.lst_array, return_inverse=True, return_counts=True
+        )
+        return unique_lsts[inverse_inds[:: counts[0]]]
 
-    @property
+    @cached_property
     def freqs(self):
         """Frequencies in GHz."""
         return np.unique(self.data.freq_array) / 1e9
 
-    @property
+    @cached_property
     def times(self):
-        """Return unique simulation times."""
+        """Simulation times in JD."""
         return np.unique(self.data.time_array)
 
+    @cached_property
+    def pols(self):
+        """Array of polarization strings."""
+        return self.data.get_pols()
+
     def apply_defaults(self, config, refresh=True):
-        # TODO: docstring
-        """"""
-        # actually apply the default settings
+        """
+        Apply the provided default configuration.
+
+        Equivalent to calling :meth:`hera_sim.defaults.set` with the same parameters.
+        See :meth:`hera_sim.defaults.set` documentation for further details.
+        """
         defaults.set(config, refresh=refresh)
 
-    def add(
-        self, component: [str, Type[SimulationComponent], SimulationComponent], **kwargs
+    def calculate_filters(
+        self,
+        *,
+        delay_filter_kwargs: Optional[Dict[str, Union[float, str]]] = None,
+        fringe_filter_kwargs: Optional[Dict[str, Union[float, str, np.ndarray]]] = None,
     ):
         """
-        Add a simulation component to the data array.
+        Pre-compute fringe-rate and delay filters for the entire array.
 
-        Self-consistently adds simulated data from a given component model to the data
-        array. Note that all available models can be accessed by calling
-        :func:`hera_sim.get_all_components`.
+        Parameters
+        ----------
+        delay_filter_kwargs
+            Extra parameters necessary for generating a delay filter. See
+            :func:`utils.gen_delay_filter` for details.
+        fringe_filter_kwargs
+            Extra parameters necessary for generating a fringe filter. See
+            :func:`utils.gen_fringe_filter` for details.
         """
-        # find out whether to add and/or return the component
-        add_vis = kwargs.pop("add_vis", True)
-        ret_vis = kwargs.pop("ret_vis", False)
+        delay_filter_kwargs = delay_filter_kwargs or {}
+        fringe_filter_kwargs = fringe_filter_kwargs or {}
+        self._calculate_delay_filters(**delay_filter_kwargs)
+        self._calculate_fringe_filters(**fringe_filter_kwargs)
 
-        # find out whether the data application should be filtered
-        vis_filter = kwargs.pop("vis_filter", None)
+    def add(
+        self,
+        component: Component,
+        *,
+        add_vis: bool = True,
+        ret_vis: bool = False,
+        seed: Optional[Union[str, int]] = None,
+        vis_filter: Optional[Sequence] = None,
+        name: Optional[str] = None,
+        **kwargs,
+    ) -> Optional[Union[np.ndarray, Dict[int, np.ndarray]]]:
+        """
+        Simulate an effect then apply and/or return the result.
 
-        # take out the seed kwarg so as not to break initializor
-        seed = kwargs.pop("seed", -1)
+        Parameters
+        ----------
+        component
+            Effect to be simulated. This can either be an alias of the effect,
+            or the class (or instance thereof) that simulates the effect.
+        add_vis
+            Whether to apply the effect to the simulated data. Default is True.
+        ret_vis
+            Whether to return the simulated effect. Nothing is returned by default.
+        seed
+            How to seed the random number generator. Can either directly provide
+            a seed as an integer, or use one of the supported keywords. See
+            tutorial for using the :class:`Simulator` for supported seeding modes.
+            Default is to use a seed based on the current random state.
+        vis_filter
+            Iterable specifying which antennas/polarizations for which the effect
+            should be simulated. See tutorial for using the :class:`Simulator` for
+            details of supported formats and functionality.
+        component_name
+            Name to use when recording the parameters used for simulating the effect.
+            Default is to use the name of the class used to simulate the effect.
+        **kwargs
+            Optional keyword arguments for the provided ``component``.
 
-        # get the model for the desired component
-        model, is_class = self._get_component(component)
-
-        # make a new entry in the antpairpol cache
-        self._antpairpol_cache[model] = []
-
-        # get a reference to the cache
-        antpairpol_cache = self._antpairpol_cache[model]
-
-        # make sure to keep the key handy in case it's a class
-        model_key = model
-
-        # instantiate the class if the component is a class
-        if is_class:
+        Returns
+        -------
+        effect
+            The simulated effect; only returned if ``ret_vis`` is set to ``True``.
+            If the simulated effect is multiplicative, then a dictionary mapping
+            antenna numbers to the per-antenna effect (as a ``np.ndarray``) is
+            returned. Otherwise, the effect for the entire array is returned with
+            the same structure as the ``pyuvdata.UVData.data_array`` that the
+            data is stored in.
+        """
+        # Obtain a callable reference to the simulation component model.
+        model = self._get_component(component)
+        model_key = name if name else self._get_model_name(component)
+        if not isinstance(model, SimulationComponent):
             model = model(**kwargs)
+        self._sanity_check(model)  # Check for component ordering issues.
+        self._antpairpol_cache[model_key] = []  # Initialize this model's cache.
+        if seed is None:
+            # Ensure we can recover the data later via ``get``
+            seed = int(np.random.get_state()[1][0])
 
-        # check that there isn't an issue with component ordering
-        self._sanity_check(model)
-
-        # re-add the seed kwarg if it was specified
-        if seed != -1:
-            kwargs["seed"] = seed
-
-        # calculate the effect
+        # Simulate the effect by iterating over baselines and polarizations.
         data = self._iteratively_apply(
             model,
             add_vis=add_vis,
             ret_vis=ret_vis,
             vis_filter=vis_filter,
-            antpairpol_cache=antpairpol_cache,
+            antpairpol_cache=self._antpairpol_cache[model_key],
+            seed=seed,
             **kwargs,
-        )
+        )  # This is None if ret_vis is False
 
-        # log the component and its kwargs, if added to data
         if add_vis:
-            # note the filter used if any
+            # Record the component simulated and the parameters used.
+            if defaults._override_defaults:
+                for param in getattr(model, "kwargs", {}):
+                    if param not in kwargs and param in defaults():
+                        kwargs[param] = defaults(param)
+            self._update_history(model, **kwargs)
+            # Record the random state in case no seed was specified.
+            # This ensures that the component can be recovered later.
+            kwargs["seed"] = seed
+            self._update_seeds(model_key)
             if vis_filter is not None:
                 kwargs["vis_filter"] = vis_filter
-            # note the defaults used if any
-            if defaults._override_defaults:
-                kwargs["defaults"] = defaults()
-            # log the component and the settings used
-            self._components[component] = kwargs
-            # update the history
-            self._update_history(model, **kwargs)
-            # track the seed(s) used, if any
-            if seed != -1:
-                self._update_seeds(self._get_model_name(model))
+            self._components[model_key] = kwargs
+            self._components[model_key]["alias"] = component
         else:
-            # if we're not adding it, then we don't want to keep
-            # the antpairpol cache
-            _ = self._antpairpol_cache.pop(model_key)
+            del self._antpairpol_cache[model_key]
 
-        # return the data if desired
-        if ret_vis:
-            return data
+        return data
 
-    def get(self, component, ant1=None, ant2=None, pol=None):
-        # TODO: docstring
-        # TODO: figure out if this could be handled by _iteratively_apply
-        """"""
-        # TODO: determine whether to leave this check here.
-        if component not in self._components:
-            raise AttributeError(
-                "You are trying to retrieve a component that has not "
-                "been simulated. Please check that the component you "
-                "are passing is correct. Consult the _components "
-                "attribute to see which components have been simulated "
-                "and which keys are provided."
-            )
+    def get(
+        self,
+        component: Component,
+        key: Optional[Union[int, str, AntPair, AntPairPol]] = None,
+    ) -> Union[np.ndarray, Dict[int, np.ndarray]]:
+        """
+        Retrieve an effect that was previously simulated.
 
-        if (ant1 is None) ^ (ant2 is None):
-            raise TypeError(
-                "You are trying to retrieve a visibility but have only "
-                "specified one antenna. This use is unsupported; please "
-                "either specify an antenna pair or leave both as None."
-            )
+        Parameters
+        ----------
+        component
+            Effect that is to be retrieved. See :meth:`add` for more details.
+        key
+            Key for retrieving simulated effect. Possible choices are as follows:
+                An integer may specify either a single antenna (for per-antenna
+                effects) or be a ``pyuvdata``-style baseline integer.
+                A string specifying a polarization can be used to retrieve the
+                effect for every baseline for the specified polarization.
+                A length-2 tuple of integers can be used to retrieve the effect
+                for that baseline for all polarizations.
+                A length-3 tuple specifies a particular baseline and polarization
+                for which to retrieve the effect.
+            Not specifying a key results in the effect being returned for all
+            baselines (or antennas, if the effect is per-antenna) and polarizations.
 
-        # retrieve the model
-        model, is_class = self._get_component(component)
+        Returns
+        -------
+        effect
+            The simulated effect appropriate for the provided key. Return type
+            depends on the effect being simulated and the provided key. See the
+            tutorial Jupyter notebook for the ``Simulator`` for example usage.
+        """
+        # Retrieve the model and verify it has been simulated.
+        if component in self._components:
+            model = self._get_component(self._components[component]["alias"])
+            model_key = component
+        else:
+            model = self._get_component(component)
+            model_key = self._get_model_name(component)
+            if model_key not in self._components:
+                raise ValueError("The provided component has not yet been simulated.")
 
-        # get the kwargs
-        kwargs = self._components[component].copy()
+        # Parse the key and verify that it's properly formatted.
+        ant1, ant2, pol = self._parse_key(key)
+        self._validate_get_request(model, ant1, ant2, pol)
 
-        # figure out whether or not to seed the rng
+        # Prepare to re-simulate the effect.
+        kwargs = self._components[model_key].copy()
+        kwargs.pop("alias")  # To handle multiple instances of simulating an effect.
         seed = kwargs.pop("seed", None)
-
-        # get the antpairpol cache
-        antpairpol_cache = self._antpairpol_cache[model]
-
-        # figure out whether or not to apply defaults
-        use_defaults = kwargs.pop("defaults", {})
-        if use_defaults:
-            self.apply_defaults(use_defaults)
-
-        # instantiate the model if it's a class
-        if is_class:
+        vis_filter = kwargs.pop("vis_filter", None)
+        if not isinstance(model, SimulationComponent):
             model = model(**kwargs)
 
-        # if ant1, ant2 not specified, then do the whole array
-        # TODO: proofread this to make sure that seeds are handled correctly
-        if ant1 is None and ant2 is None:
-            # re-add seed to the kwargs
-            kwargs["seed"] = seed
+        if model.is_multiplicative:
+            # We'll get a dictionary back, so the handling is different.
+            gains = self._iteratively_apply(
+                model,
+                add_vis=False,
+                ret_vis=True,
+                seed=seed,
+                vis_filter=vis_filter,
+                **kwargs,
+            )
+            if ant1 is not None:
+                if pol:
+                    return gains[(ant1, pol)]
+                return {key: gain for key, gain in gains.items() if ant1 in key}
+            else:
+                if pol:
+                    return {key: gain for key, gain in gains.items() if pol in key}
+                return gains
 
-            # get the data
+        # Specifying neither antenna implies the full array's data is desired.
+        if ant1 is None and ant2 is None:
+            # Simulate the effect
             data = self._iteratively_apply(
                 model,
                 add_vis=False,
                 ret_vis=True,
-                antpairpol_cache=antpairpol_cache,
+                seed=seed,
+                vis_filter=vis_filter,
+                antpairpol_cache=None,
                 **kwargs,
             )
 
-            # return a subset if a polarization is specified
+            # Trim the data if a specific polarization is requested.
+            if pol is None:
+                return data
+            pol_ind = self.pols.index(pol)
+            return data[:, 0, :, pol_ind]
+
+        # We're only simulating for a particular baseline.
+        # First, find out if it needs to be conjugated.
+        try:
+            blt_inds = self.data.antpair2ind(ant1, ant2)
+            if blt_inds.size == 0:
+                raise ValueError
+            conj_data = False
+        except ValueError:
+            blt_inds = self.data.antpair2ind(ant2, ant1)
+            conj_data = True
+
+        # We've got three different seeding cases to work out.
+        if seed == "initial":
+            # Initial seeding means we need to do the whole array.
+            data = self._iteratively_apply(
+                model,
+                add_vis=False,
+                ret_vis=True,
+                seed=seed,
+                vis_filter=vis_filter,
+                antpairpol_cache=None,
+                **kwargs,
+            )[blt_inds, 0, :, :]
+            if conj_data:  # pragma: no cover
+                data = np.conj(data)
             if pol is None:
                 return data
             pol_ind = self.data.get_pols().index(pol)
-            return data[:, 0, :, pol_ind]
-
-        # seed the RNG if desired, but be careful...
-        if seed == "once":
-            # in this case, we need to use _iteratively_apply
-            # otherwise, the seeding will be wrong
-            kwargs["seed"] = seed
-            data = self._iteratively_apply(model, add_vis=False, ret_vis=True, **kwargs)
-            blt_inds = self.data.antpair2ind((ant1, ant2), ordered=False)
-            if pol is None:
-                return data[blt_inds, 0, :, :]
-            pol_ind = self.data.get_pols().index(pol)
-            return data[blt_inds, 0, :, pol_ind]
+            return data[..., pol_ind]
         elif seed == "redundant":
-            # TODO: this will need to be modified when polarization handling is fixed
-            # putting the comment here for lack of a "best" place to put it
-            if any((ant2, ant1) == item[:-1] for item in antpairpol_cache):
-                self._seed_rng(seed, model, ant2, ant1)
+            if conj_data:
+                self._seed_rng(seed, model, ant2, ant1, pol)
             else:
-                self._seed_rng(seed, model, ant1, ant2)
+                self._seed_rng(seed, model, ant1, ant2, pol)
+        elif seed is not None:
+            self._seed_rng(seed, model, ant1, ant2, pol)
 
-        # get the arguments necessary for the model
-        args = self._initialize_args_from_model(model)
-        args = self._update_args(args, ant1, ant2, pol)
-        args.update(kwargs)
-
-        # now calculate the effect and return it
-        return model(**args)
+        # Prepare the model parameters, then simulate and return the effect.
+        if pol is None:
+            data_shape = (self.lsts.size, self.freqs.size, len(self.pols))
+            pols = self.pols
+            return_slice = (slice(None),) * 3
+        else:
+            data_shape = (self.lsts.size, self.freqs.size, 1)
+            pols = (pol,)
+            return_slice = (slice(None), slice(None), 0)
+        data = np.zeros(data_shape, dtype=np.complex)
+        for i, _pol in enumerate(pols):
+            args = self._initialize_args_from_model(model)
+            args = self._update_args(args, ant1, ant2, pol)
+            args.update(kwargs)
+            if conj_data:
+                self._seed_rng(seed, model, ant2, ant1, _pol)
+            else:
+                self._seed_rng(seed, model, ant1, ant2, _pol)
+            data[..., i] = model(**args)
+        if conj_data:
+            data = np.conj(data)
+        return data[return_slice]
 
     def plot_array(self):
         """Generate a plot of the array layout in ENU coordinates."""
@@ -273,16 +447,17 @@ class Simulator:
         """Refresh the Simulator object.
 
         This zeros the data array, resets the history, and clears the
-        instance's _components dictionary.
+        instance's ``_components`` dictionary.
         """
         self.data.data_array = np.zeros(self.data.data_array.shape, dtype=complex)
         self.data.history = ""
         self._components.clear()
-        self._antpairpol_cache = {}
+        self._antpairpol_cache.clear()
+        self._seeds.clear()
+        self.extras.clear()
 
     def write(self, filename, save_format="uvh5", **kwargs):
-        # TODO: docstring
-        """"""
+        """Write data to disk using a ``pyuvdata``-supported filetype."""
         try:
             getattr(self.data, f"write_{save_format}")(filename, **kwargs)
         except AttributeError:
@@ -295,8 +470,48 @@ class Simulator:
     # _generator_to_list wrapper if we do not make that a feature.
     @_generator_to_list
     def run_sim(self, sim_file=None, **sim_params):
-        # TODO: docstring
-        """"""
+        """
+        Run an entire simulation.
+
+        Parameters
+        ----------
+        sim_file
+            Path to a configuration file specifying simulation parameters.
+            Required if ``sim_params`` is not provided.
+        **sim_params
+            Once-nested dictionary mapping simulation components to models,
+            with each model mapping to parameter-value pairs. Required if
+            ``sim_file`` is not provided.
+
+        Returns
+        -------
+        components
+            List of simulation components that were generated with the
+            parameter ``ret_vis`` set to ``True``, returned in the order
+            that they were simulated. This is only returned if there is
+            at least one simulation component with ``ret_vis`` set to
+            ``True`` in its configuration file/dictionary.
+
+        Examples
+        --------
+        Suppose we have the following configuration dictionary::
+            sim_params = {
+                "pntsrc_foreground": {"seed": "once", "nsrcs": 500},
+                "gains": {"seed": "once", "dly_rng": [-20, 20], "ret_vis": True},
+                "reflections": {"seed": "once", "dly_jitter": 10},
+            }
+        Invoking this method with ``**sim_params`` as its argument will simulate
+        visibilities appropriate for a sky with 500 point sources, generate
+        bandpass gains for each antenna and apply the effect to the foreground
+        data, then generate cable reflections with a Gaussian jitter in the
+        reflection delays with a standard deviation of 10 ns and apply the
+        effect to the data. The return value will be a list with one entry:
+        a dictionary mapping antenna numbers to their associated bandpass gains.
+
+        The same effect can be achieved by writing a YAML file that is loaded
+        into a dictionary formatted as above. See the ``Simulator`` tutorial
+        for a more in-depth explanation of how to use this method.
+        """
         # make sure that only sim_file or sim_params are specified
         if not (bool(sim_file) ^ bool(sim_params)):
             raise ValueError(
@@ -318,10 +533,9 @@ class Simulator:
             # make sure that the parameters are a dictionary
             if not isinstance(params, dict):
                 raise TypeError(
-                    "The parameters for {component} are not formatted "
+                    f"The parameters for {component} are not formatted "
                     "properly. Please ensure that the parameters for "
-                    "each component are specified using a "
-                    "dictionary.".format(component=component)
+                    "each component are specified using a dictionary."
                 )
 
             # add the component to the data
@@ -362,7 +576,6 @@ class Simulator:
         return
 
     # -------------- Legacy Functions -------------- #
-    # TODO: write a deprecated wrapper function
     def add_eor(self, model, **kwargs):
         """
         Add an EoR-like model to the visibilities. See :meth:`add` for
@@ -385,9 +598,6 @@ class Simulator:
         """
         return self.add(model, **kwargs)
 
-    def _get_reds(self):
-        return self.data.get_redundancies()[0]
-
     def add_rfi(self, model, **kwargs):
         """Add RFI to the visibilities. See :meth:`add` for more details."""
         return self.add(model, **kwargs)
@@ -404,76 +614,261 @@ class Simulator:
         Apply reflection gains to the visibilities. See :meth:`add` for
         more details.
         """
-        kwargs.update(ants=ants)
+        if ants is not None:
+            kwargs.update(vis_filter=ants)
         return self.add("reflections", **kwargs)
 
     def add_xtalk(self, model="gen_whitenoise_xtalk", bls=None, **kwargs):
         """Add crosstalk to the visibilities. See :meth:`add` for more details."""
-        kwargs.update(vis_filter=bls)
+        if bls is not None:
+            kwargs.update(vis_filter=bls)
         return self.add(model, **kwargs)
 
     @staticmethod
     def _apply_filter(vis_filter, ant1, ant2, pol):
-        # TODO: docstring
-        """"""
-        # find out whether or not multiple keys are passed
+        """Determine whether to filter the visibility for (ant1, ant2, pol).
+
+        Functionally, ``vis_filter`` specifies which (ant1, ant2, pol) tuples
+        will have a simulated effect propagated through the ``_iteratively_apply``
+        method. ``vis_filter`` acts as a logical equivalent of a passband filter.
+
+        Parameters
+        ----------
+        vis_filter
+            Either a polarization string, antenna number, baseline, antpairpol
+            (baseline + polarization), collection of antenna numbers and/or
+            polarization strings, or collection of such keys.
+        ant1, ant2, pol
+            Baseline + polarization to compare against the provided filter.
+
+        Returns
+        -------
+        apply_filter
+            False if the provided antpairpol satisfies any of the keys provided
+            in ``vis_filter``; True otherwise. See examples for details.
+
+        Examples
+        --------
+        ``vis_filter`` = (0,)
+        returns: False for any baseline including antenna 0
+            -> only baselines including antenna 0 have a simulated effect applied.
+
+        ``vis_filter`` = ('xx',)
+        returns: False if ``pol == "xx"`` else True
+            -> only polarization "xx" has a simulated effect applied.
+
+        ``vis_filter`` = (0, 1, 'yy')
+        returns: False if ``(ant1, ant2, pol) in [(0, 1, 'yy'), (1, 0, 'yy)]``
+            -> only baseline (0,1), or its conjugate, with polarization 'yy' will
+            have a simulated effect applied.
+        """
+        # If multiple complex keys are passed, do this recursively...
         multikey = any(isinstance(key, (list, tuple)) for key in vis_filter)
-        # iterate over the keys, find if any are okay
         if multikey:
             apply_filter = [
                 Simulator._apply_filter(key, ant1, ant2, pol) for key in vis_filter
             ]
-            # if a single filter says to let it pass, then do so
-            return all(apply_filter)
+            return all(apply_filter)  # and approve if just one key fits.
         elif all(item is None for item in vis_filter):
-            # support passing tuple of None
+            # Support passing a list of None.
             return False
         elif len(vis_filter) == 1:
-            # check if the polarization matches, since the only
-            # string identifiers should be polarization strings
-            if isinstance(vis_filter, str):
+            # For now, assume a string specifies a polarization.
+            if isinstance(vis_filter[0], str):
                 return not pol == vis_filter[0]
-            # otherwise assume that this is specifying an antenna
+            # Otherwise, assume that this specifies an antenna.
             else:
                 return not vis_filter[0] in (ant1, ant2)
         elif len(vis_filter) == 2:
-            # there are three cases: two polarizations are specified;
-            # an antpol is specified; a baseline is specified
-            # first, handle the case of two polarizations
+            # TODO: This will need to be updated when we support ant strings.
+            # Three cases: two pols; an ant+pol; a baseline.
+            # If it's two polarizations, then make sure this pol is one of them.
             if all(isinstance(key, str) for key in vis_filter):
                 return pol not in vis_filter
-            # otherwise it's simple
+            # Otherwise this is straightforward.
             else:
                 return not all(key in (ant1, ant2, pol) for key in vis_filter)
         elif len(vis_filter) == 3:
-            # assume it's a proper antpairpol
+            # Assume it's a proper antpairpol.
             return not (
                 vis_filter == [ant1, ant2, pol] or vis_filter == [ant2, ant1, pol]
             )
         else:
-            # assume it's some list of antennas/polarizations
-            return not any(key in (ant1, ant2, pol) for key in vis_filter)
+            # Assume it's some list of antennas/polarizations.
+            pols = []
+            ants = []
+            for key in vis_filter:
+                if isinstance(key, str):
+                    pols.append(key)
+                elif type(key) is int:
+                    ants.append(key)
+            # We want polarization and ant1 or ant2 in the filter.
+            # This would be used in simulating e.g. a few feeds that have an
+            # abnormally high system temperature.
+            return not (pol in pols and (ant1 in ants or ant2 in ants))
 
-    def _initialize_data(self, data, **kwargs):
-        # TODO: docstring
-        """"""
+    def _calculate_reds(self, tol=1.0):
+        """Calculate redundant groups and populate class attributes."""
+        groups, centers, lengths = self.data.get_redundancies(tol=tol)
+        self.red_grps = groups
+        self.red_vecs = centers
+        self.red_lengths = lengths
+
+    def _calculate_delay_filters(
+        self,
+        *,
+        standoff: float = 0.0,
+        delay_filter_type: Optional[str] = "gauss",
+        min_delay: Optional[float] = None,
+        max_delay: Optional[float] = None,
+        normalize: Optional[float] = None,
+    ):
+        """
+        Calculate delay filters for each redundant group.
+
+        Parameters
+        ----------
+        standoff
+            Extra extent in delay that the filter extends out to in order to
+            allow for suprahorizon emission. Should be specified in nanoseconds.
+            Default buffer is zero.
+        delay_filter_type
+            String specifying the filter profile. See :func:`utils.gen_delay_filter`
+            for details.
+        min_delay
+            Minimum absolute delay of the filter, in nanoseconds.
+        max_delay
+            Maximum absolute delay of the filter, in nanoseconds.
+        normalize
+            Normalization of the filter such that the output power is the product
+            of the input power and the normalization factor.
+
+        See Also
+        --------
+        :func:`utils.gen_delay_filter`
+        """
+        # Note that this is not the most efficient way of caching the filters;
+        # however, this is algorithmically very simple--just use one filter per
+        # redundant group. This could potentially be improved in the future,
+        # but it should work fine for our purposes.
+        for red_grp, bl_len in zip(self.red_grps, self.red_lengths):
+            bl_len_ns = bl_len / const.c.to("m/ns").value
+            bl_int = sorted(red_grp)[0]
+            delay_filter = utils.gen_delay_filter(
+                self.freqs,
+                bl_len_ns,
+                standoff=standoff,
+                delay_filter_type=delay_filter_type,
+                min_delay=min_delay,
+                max_delay=max_delay,
+                normalize=normalize,
+            )
+            self._filter_cache["delay"][bl_int] = delay_filter
+
+    def _calculate_fringe_filters(
+        self,
+        *,
+        fringe_filter_type: Optional[str] = "tophat",
+        **filter_kwargs,
+    ):
+        """
+        Calculate fringe-rate filters for all baselines.
+
+        Parameters
+        ----------
+        fringe_filter_type
+            The fringe-rate filter profile.
+        filter_kwargs
+            Other parameters necessary for specifying the filter. These
+            differ based on the filter profile.
+
+        See Also
+        --------
+        :func:`utils.gen_fringe_filter`
+        """
+        # This uses the same simplistic approach as the delay filter
+        # calculation does--just do one filter per redundant group.
+        for red_grp, (blx, bly, blz) in zip(self.red_grps, self.red_vecs):
+            ew_bl_len_ns = blx / const.c.to("m/ns").value
+            bl_int = sorted(red_grp)[0]
+            fringe_filter = utils.gen_fringe_filter(
+                self.lsts,
+                self.freqs,
+                ew_bl_len_ns,
+                fringe_filter_type=fringe_filter_type,
+                **filter_kwargs,
+            )
+            self._filter_cache["fringe"][bl_int] = fringe_filter
+
+    def _initialize_data(
+        self,
+        data: Optional[Union[str, Path, UVData]],
+        **kwargs,
+    ):
+        """
+        Initialize the ``data`` attribute with a ``UVData`` object.
+
+        Parameters
+        ----------
+        data
+            Either a ``UVData`` object or a path-like object to a file
+            that can be loaded into a ``UVData`` object. If not provided,
+            then sufficient keywords for initializing a ``UVData`` object
+            must be provided. See :func:`io.empty_uvdata` for more
+            information on which keywords are needed.
+
+        Raises
+        ------
+        TypeError
+            If the provided value for ``data`` is not an object that can
+            be cast to a ``UVData`` object.
+        """
         if data is None:
             self.data = io.empty_uvdata(**kwargs)
         elif isinstance(data, (str, Path)):
             self.data = self._read_datafile(data, **kwargs)
-            self.extras["data_file"] = data
+            self.data.extra_keywords["data_file"] = data
         elif isinstance(data, UVData):
             self.data = data
         else:
-            raise TypeError("Unsupported type.")  # make msg better
+            raise TypeError(
+                "data type not understood. Only a UVData object or a path to "
+                "a UVData-compatible file may be passed as the data parameter. "
+                "Otherwise, keywords must be provided to build a UVData object."
+            )
 
     def _initialize_args_from_model(self, model):
-        # TODO: docstring
-        """"""
-        model_params = self._get_model_parameters(model)
-        _ = model_params.pop("kwargs", None)
+        """
+        Retrieve the LSTs and/or frequencies required for a model.
 
-        # pull the lst and frequency arrays as required
+        Parameters
+        ----------
+        model: callable
+            Model whose argspec is to be inspected and recovered.
+
+        Returns
+        -------
+        model_params: dict
+            Dictionary mapping positional argument names to either an
+            ``inspect._empty`` object or the relevant parameters pulled
+            from the ``Simulator`` object. The only parameters that are
+            not ``inspect._empty`` are "lsts" and "freqs", should they
+            appear in the model's argspec.
+
+        Examples
+        --------
+        Suppose we have the following function::
+            def func(freqs, ants, other=None):
+                pass
+        The returned object would be a dictionary with keys ``freqs`` and
+        ``ants``, with the value for ``freqs`` being ``self.freqs`` and
+        the value for ``ants`` being ``inspect._empty``. Since ``other``
+        has a default value, it will not be in the returned dictionary.
+        """
+        model_params = self._get_model_parameters(model)
+        model_params = {k: v for k, v in model_params.items() if v is inspect._empty}
+
+        # Pull the LST and frequency arrays if they are required.
         args = {
             param: getattr(self, param)
             for param in model_params
@@ -485,52 +880,92 @@ class Simulator:
         return model_params
 
     def _iterate_antpair_pols(self):
-        # TODO: docstring
-        """"""
+        """Loop through all baselines and polarizations."""
         for ant1, ant2, pol in self.data.get_antpairpols():
             blt_inds = self.data.antpair2ind((ant1, ant2))
             pol_ind = self.data.get_pols().index(pol)
-            yield ant1, ant2, pol, blt_inds, pol_ind
+            if blt_inds.size:
+                yield ant1, ant2, pol, blt_inds, pol_ind
 
     def _iteratively_apply(
         self,
-        model,
-        add_vis=True,
-        ret_vis=False,
-        vis_filter=None,
-        antpairpol_cache=None,
+        model: SimulationComponent,
+        *,
+        add_vis: bool = True,
+        ret_vis: bool = False,
+        seed: Optional[Union[str, int]] = None,
+        vis_filter: Optional[Sequence] = None,
+        antpairpol_cache: Optional[Sequence[AntPairPol]] = None,
         **kwargs,
-    ):
-        # TODO: docstring
-        """"""
-        # do nothing if neither adding nor returning the effect
+    ) -> Optional[Union[np.ndarray, Dict[int, np.ndarray]]]:
+        """
+        Simulate an effect for an entire array.
+
+        This method loops over every baseline and polarization in order
+        to simulate the effect ``model`` for the full array. The result
+        is optionally applied to the simulation's data and/or returned.
+
+        Parameters
+        ----------
+        model
+            Callable model used to simulate an effect.
+        add_vis
+            Whether to apply the effect to the simulation data. Default
+            is to apply the effect.
+        ret_vis
+            Whether to return the simulated effect. Default is to not
+            return the effect. Type of returned object depends on whether
+            the effect is multiplicative or not.
+        seed
+            Either an integer specifying the seed to be used in setting
+            the random state, or one of a select few keywords. Default
+            is to use the current random state. See :meth:`_seed_rng`
+            for descriptions of the supported seeding modes.
+        vis_filter
+            List of antennas, baselines, polarizations, antenna-polarization
+            pairs, or antpairpols for which to simulate the effect. This
+            specifies which of the above the effect is to be simulated for,
+            and anything that does not meet the keys specified in this list
+            does not have the effect applied to it. See :meth:`_apply_filter`
+            for more details.
+        antpairpol_cache
+            List of (ant1, ant2, pol) tuples specifying which antpairpols have
+            already had the effect simulated. Not intended for use by the
+            typical end-user.
+        kwargs
+            Extra parameters passed to ``model``.
+
+        Returns
+        -------
+        effect: np.ndarray or dict
+            The simulated effect. Only returned if ``ret_vis`` is set to True.
+            If the effect is *not* multiplicative, then the returned object
+            is an ndarray; otherwise, a dictionary mapping antenna numbers
+            to ndarrays is returned.
+        """
+        # There's nothing to do if we're neither adding nor returning.
         if not add_vis and not ret_vis:
             warnings.warn(
                 "You have chosen to neither add nor return the effect "
                 "you are trying to simulate, so nothing will be "
-                "computed. This warning was raised for the model: "
-                "{model}".format(model=self._get_model_name(model))
+                f"computed. This warning was raised for the model: {model}"
             )
             return
 
-        # make an empty list for antpairpol cache if it's none
+        # Initialize the antpairpol cache if we need to.
         if antpairpol_cache is None:
             antpairpol_cache = []
 
-        # pull lsts/freqs if required and find out which extra
-        # parameters are required
-        args = self._initialize_args_from_model(model)
+        # Pull relevant parameters from Simulator.
+        # Also make placeholders for antenna/baseline dependent parameters.
+        base_args = self._initialize_args_from_model(model)
 
-        # figure out whether or not to seed the RNG
-        seed = kwargs.pop("seed", None)
-
-        # get a copy of the data array
+        # Get a copy of the data array.
         data_copy = self.data.data_array.copy()
 
-        # find out if the model is multiplicative
+        # Pull useful auxilliary parameters.
         is_multiplicative = getattr(model, "is_multiplicative", None)
-
-        # handle user-defined functions as the passed model
+        is_smooth_in_freq = getattr(model, "is_smooth_in_freq", True)
         if is_multiplicative is None:
             warnings.warn(
                 "You are attempting to compute a component but have "
@@ -540,62 +975,74 @@ class Simulator:
             )
             is_multiplicative = False
 
+        # Pre-simulate gains.
+        if is_multiplicative:
+            gains = {}
+            args = self._update_args(base_args)
+            args.update(kwargs)
+            for pol in self.data.get_feedpols():
+                if seed:
+                    seed = self._seed_rng(seed, model, pol=pol)
+                polarized_gains = model(**args)
+                for ant, gain in polarized_gains.items():
+                    gains[(ant, pol)] = gain
+
+        # Determine whether to use cached filters, and which ones to use if so.
+        model_kwargs = getattr(model, "kwargs", {})
+        use_cached_filters = any("filter" in key for key in model_kwargs)
+        get_delay_filter = is_smooth_in_freq and "delay_filter_kwargs" not in kwargs
+        get_delay_filter &= bool(self._filter_cache["delay"])
+        get_fringe_filter = "fringe_filter_kwargs" not in kwargs
+        get_fringe_filter &= bool(self._filter_cache["fringe"])
+        use_cached_filters &= get_delay_filter or get_fringe_filter
+
+        # Iterate over the array and simulate the effect as-needed.
         for ant1, ant2, pol, blt_inds, pol_ind in self._iterate_antpair_pols():
-            # find out whether or not to filter the result
+            # Determine whether or not to filter the result.
             apply_filter = self._apply_filter(
                 utils._listify(vis_filter), ant1, ant2, pol
             )
+            if apply_filter:
+                continue
 
-            # check if the antpolpair or its conjugate have data
+            # Check if this antpairpol or its conjugate have been simulated.
             bl_in_cache = (ant1, ant2, pol) in antpairpol_cache
             conj_in_cache = (ant2, ant1, pol) in antpairpol_cache
 
-            if seed == "redundant" and conj_in_cache:
-                seed = self._seed_rng(seed, model, ant2, ant1)
-            elif seed is not None:
-                seed = self._seed_rng(seed, model, ant1, ant2)
+            # Seed the random number generator.
+            key = (ant2, ant1, pol) if conj_in_cache else (ant1, ant2, pol)
+            seed = self._seed_rng(seed, model, *key)
 
-            # parse the model signature to get the required arguments
-            use_args = self._update_args(args, ant1, ant2, pol)
-
-            # update with the passed kwargs
+            # Prepare the actual arguments to be used.
+            use_args = self._update_args(base_args, ant1, ant2, pol)
             use_args.update(kwargs)
+            if use_cached_filters:
+                filter_kwargs = self._get_filters(
+                    ant1,
+                    ant2,
+                    get_delay_filter=get_delay_filter,
+                    get_fringe_filter=get_fringe_filter,
+                )
+                use_args.update(filter_kwargs)
 
-            # if neither are in the cache, then add it to the cache
-            if not (bl_in_cache or conj_in_cache):
+            # Cache simulated antpairpols if not filtered out.
+            if not (bl_in_cache or conj_in_cache or apply_filter):
                 antpairpol_cache.append((ant1, ant2, pol))
 
-            # check whether we're simulating a gain or a visibility
+            # Check whether we're simulating a gain or a visibility.
             if is_multiplicative:
-                # get the gains for the entire array
-                # this is sloppy, but ensures seeding works correctly
-                gains = model(**use_args)
-
-                # now get the product g_1g_2*
-                gain = gains[ant1] * np.conj(gains[ant2])
-
-                # don't actually do anything if we're filtering this
-                if apply_filter:
-                    gain = np.ones(gain.shape)
-
-                # apply the effect to the appropriate part of the data
+                # Calculate the complex gain, but only apply it if requested.
+                gain = gains[(ant1, pol[0])] * np.conj(gains[(ant2, pol[1])])
                 data_copy[blt_inds, 0, :, pol_ind] *= gain
             else:
-                # if the conjugate baseline has been simulated and
-                # the RNG was only seeded initially, then we should
-                # not re-simulate to ensure invariance under complex
-                # conjugation and swapping antennas
-                if conj_in_cache and seed is None:
+                # I don't think this will ever be executed, but just in case...
+                if conj_in_cache and seed is None:  # pragma: no cover
                     conj_blts = self.data.antpair2ind((ant2, ant1))
                     vis = (data_copy - self.data.data_array)[
                         conj_blts, 0, :, pol_ind
                     ].conj()
                 else:
                     vis = model(**use_args)
-
-                # filter what's actually having data simulated
-                if apply_filter:
-                    vis = np.zeros(vis.shape, dtype=complex)
 
                 # and add it in
                 data_copy[blt_inds, 0, :, pol_ind] += vis
@@ -605,6 +1052,9 @@ class Simulator:
         # there aren't *three* copies of the data array floating around
         # this is to minimize the potential of triggering a MemoryError
         if ret_vis:
+            # return the gain dictionary if gains are simulated
+            if is_multiplicative:
+                return gains
             data_copy -= self.data.data_array
             # the only time we're allowed to have add_vis be False is
             # if ret_vis is True, and nothing happens if both are False
@@ -612,43 +1062,98 @@ class Simulator:
             # data array
             if add_vis:
                 self.data.data_array += data_copy
-            # return the gain dictionary if gains are simulated
-            if is_multiplicative:
-                return gains
             # otherwise return the actual visibility simulated
-            else:
-                return data_copy
+            return data_copy
         else:
             self.data.data_array = data_copy
 
     @staticmethod
     def _read_datafile(datafile, **kwargs):
-        # TODO: docstring
-        """"""
+        """Load the provided file into a ``pyuvdata.UVData`` object."""
         uvd = UVData()
         uvd.read(datafile, read_data=True, **kwargs)
         return uvd
 
-    def _seed_rng(self, seed, model, ant1=None, ant2=None):
-        # TODO: docstring
-        """"""
+    def _seed_rng(self, seed, model, ant1=None, ant2=None, pol=None):
+        """
+        Set the random state according to the provided parameters.
+
+        This is a helper function intended to be used solely in the
+        :meth:`_iteratively_apply` method. It exists in order to ensure that
+        the simulated data is as realistic as possible, assuming the user
+        understands the proper choice of seeding method to use for the
+        various effects that can be simulated.
+
+        Parameters
+        ----------
+        seed
+            Either the random seed to use (when provided as an integer),
+            or one of the following keywords:
+                ``"once"``:
+                    The random state is set to the same value for
+                    every baseline and polarization; one unique seed is
+                    created for each model that uses this seeding mode.
+                    This is recommended for simulating point-source foregrounds
+                    and per-antenna effects.
+                ``"redundant"``:
+                    The random state is only uniquely set once per redundant
+                    group for a given model. This is recommended for simulating
+                    diffuse foregrounds and the reionization signal.
+                ``"initial"``:
+                    The random state is set at the very beginning of the
+                    iteration over the array. This is essentially the same as
+                    using a seeding mode of ``None``, though not identical.
+                    This is recommended for simulating thermal noise, or for
+                    simulating an effect that has a random component that
+                    changes between baselines.
+        model
+            Name of the model for which to either recover or cache the seed.
+            This is used to lookup random state seeds in the :attr:`_seeds`
+            dictionary.
+        ant1
+            First antenna in the baseline.
+        ant2
+            Second antenna in the baseline (for baseline-dependent effects).
+        pol
+            Polarization string.
+
+        Returns
+        -------
+        updated_seed
+            Either the input seed or ``None``, depending on the provided seed.
+            This is just used to ensure that the logic for setting the random
+            state in the :meth:`_iteratively_apply` routine works out.
+
+        Raises
+        ------
+        TypeError
+            The provided seed is not ``None``, an integer, or a string.
+        ValueError
+            Two cases: one, the ``"redundant"`` seeding mode is being used
+            and a baseline isn't provided; two, the seed is a string, but
+            is not one of the supported seeding modes.
+        """
+        if seed is None:
+            return
+        if type(seed) is int:
+            np.random.seed(seed)
+            return seed
         if not isinstance(seed, str):
-            raise TypeError("The seeding mode must be specified as a string.")
+            raise TypeError(
+                "The seeding mode must be specified as a string or integer. "
+                "If an integer is provided, then it will be used as the seed."
+            )
         if seed == "redundant":
             if ant1 is None or ant2 is None:
-                raise TypeError(
+                raise ValueError(
                     "A baseline must be specified in order to "
                     "seed by redundant group."
                 )
-
-            # generate seeds for each redundant group
-            # this does nothing if the seeds already exist
-            self._generate_redundant_seeds(model)
-
             # Determine the key for the redundant group this baseline is in.
             bl_int = self.data.antnums_to_baseline(ant1, ant2)
-            red_grps = self._get_reds()
-            key = next(reds for reds in red_grps if bl_int in reds)[0]
+            key = (next(reds for reds in self.red_grps if bl_int in reds)[0],)
+            if pol:
+                key += (pol,)
             # seed the RNG accordingly
             np.random.seed(self._get_seed(model, key))
             return "redundant"
@@ -659,21 +1164,45 @@ class Simulator:
             # entire gain dictionary is simulated each time), or for
             # something like PointSourceForeground, where objects on
             # the sky are being placed randomly
-            np.random.seed(self._get_seed(model, 0))
+            key = (pol,) if pol else 0
+            np.random.seed(self._get_seed(model, key))
             return "once"
         elif seed == "initial":
             # this seeds the RNG once at the very beginning of
             # _iteratively_apply. this would be useful for something
             # like ThermalNoise
-            np.random.seed(self._get_seed(model, -1))
+            key = (pol,) if pol else -1
+            np.random.seed(self._get_seed(model, key))
             return None
         else:
             raise ValueError("Seeding mode not supported.")
 
     def _update_args(self, args, ant1=None, ant2=None, pol=None):
-        # TODO: docstring
-        """"""
-        # helper for getting the correct parameter name
+        """
+        Scan the provided arguments and pull data as necessary.
+
+        This method searches the provided dictionary for various positional
+        arguments that can be determined by data stored in the ``Simulator``
+        instance. Please refer to the source code to see what argument
+        names are searched for and how their values are obtained.
+
+        Parameters
+        ----------
+        args: dict
+            Dictionary mapping names of positional arguments to either
+            a value pulled from the ``Simulator`` instance or an
+            ``inspect._empty`` object. See .. meth: _initialize_args_from_model
+            for details on what to expect (these two methods are always
+            called in conjunction with one another).
+        ant1: int, optional
+            Required parameter if an autocorrelation visibility or a baseline
+            vector is in the keys of ``args``.
+        ant2: int, optional
+            Required parameter if a baseline vector is in the keys of ``args``.
+        pol: str, optional
+            Polarization string. Currently not used.
+        """
+        # Helper function for getting the correct parameter name
         def key(requires):
             return list(args)[requires.index(True)]
 
@@ -702,6 +1231,11 @@ class Simulator:
         # check if this is something that depends on another
         # visibility. as of now, this should only be cross coupling
         # crosstalk
+        # TODO: We'll need to use a somewhat strict convention for parameter
+        # names if we implement Alec and AEW's cross-coupling stuff, where one
+        # cross-correlation actually depends on another cross-correlation.
+        # (It is implicitly assumed here that the only time we need another
+        # visibility is if it's an autocorrelation.)
         elif requires_vis:
             autovis = self.data.get_data(ant1, ant1, pol)
             new_param = {key(_requires_vis): autovis}
@@ -731,6 +1265,62 @@ class Simulator:
 
         return use_args
 
+    def _get_filters(
+        self,
+        ant1: int,
+        ant2: int,
+        *,
+        get_delay_filter: bool = True,
+        get_fringe_filter: bool = True,
+    ) -> Dict[str, np.ndarray]:
+        """
+        Retrieve delay and fringe filters from the cache.
+
+        Parameters
+        ----------
+        ant1
+            First antenna in the baseline.
+        ant2
+            Second antenna in the baseline.
+        get_delay_filter
+            Whether to retrieve the delay filter.
+        get_fringe_filter
+            Whether to retrieve the fringe filter.
+
+        Returns
+        -------
+        filters
+            Dictionary containing the fringe and delay filters that
+            have been pre-calculated for the provided baseline.
+        """
+        filters = {}
+        if not get_delay_filter and not get_fringe_filter:
+            # Save some CPU cycles.
+            return filters
+        bl_int = self.data.antnums_to_baseline(ant1, ant2)
+        conj_bl_int = self.data.antnums_to_baseline(ant2, ant1)
+        is_conj = False
+        for red_grp in self.red_grps:
+            if bl_int in red_grp:
+                key = sorted(red_grp)[0]
+                break
+            if conj_bl_int in red_grp:
+                key = sorted(red_grp)[0]
+                is_conj = True
+                break
+        if get_delay_filter:
+            delay_filter = self._filter_cache["delay"][key]
+            filters["delay_filter_kwargs"] = {}
+            filters["delay_filter_kwargs"]["delay_filter"] = delay_filter
+        if get_fringe_filter:
+            fringe_filter = self._filter_cache["fringe"][key]
+            if is_conj:
+                # Fringes are seen to move in the opposite direction.
+                fringe_filter = fringe_filter[::-1, :]
+            filters["fringe_filter_kwargs"] = {}
+            filters["fringe_filter_kwargs"]["fringe_filter"] = fringe_filter
+        return filters
+
     @staticmethod
     def _get_model_parameters(model):
         """Retrieve the full model signature (init + call) parameters."""
@@ -738,37 +1328,41 @@ class Simulator:
         call_params = inspect.signature(model).parameters
         # this doesn't work correctly if done on one line
         model_params = {}
-        model_params.update(**call_params, **init_params)
-        _ = model_params.pop("kwargs", None)
+        for params in (call_params, init_params):
+            for parameter, value in params.items():
+                model_params[parameter] = value.default
+        model_params.pop("kwargs", None)
         return model_params
 
     @staticmethod
     def _get_component(
         component: [str, Type[SimulationComponent], SimulationComponent]
-    ) -> Tuple[Union[SimulationComponent, Type[SimulationComponent]], bool]:
+    ) -> Union[SimulationComponent, Type[SimulationComponent]]:
         """Given an input component, normalize the output to be either a class or instance."""
         if np.issubclass_(component, SimulationComponent):
-            return component, True
+            return component
         elif isinstance(component, str):
             try:
-                return get_model(component), True
+                return get_model(component)
             except KeyError:
                 raise ValueError(
                     f"The model '{component}' does not exist. The following models are "
                     f"available: \n{list_all_components()}."
                 )
         elif isinstance(component, SimulationComponent):
-            return component, False
+            return component
         else:
-            raise ValueError(
+            raise TypeError(
                 "The input type for the component was not understood. "
                 "Must be a string, or a class/instance of type 'SimulationComponent'. "
                 f"Available component models are:\n{list_all_components()}"
             )
 
     def _generate_seed(self, model, key):
-        # TODO: docstring
-        """"""
+        """Generate a random seed based on the current time.
+
+        Populate the ``_seeds`` dictionary appropriately with the result.
+        """
         model = self._get_model_name(model)
         # for the sake of randomness
         np.random.seed(int(time.time() * 1e6) % 2 ** 32)
@@ -776,30 +1370,20 @@ class Simulator:
             self._seeds[model] = {}
         self._seeds[model][key] = np.random.randint(2 ** 32)
 
-    def _generate_redundant_seeds(self, model):
-        # TODO: docstring
-        """"""
-        model = self._get_model_name(model)
-        if model in self._seeds:
-            return
-        for red_grp in self._get_reds():
-            self._generate_seed(model, red_grp[0])
-
     def _get_seed(self, model, key):
-        # TODO: docstring
-        """"""
+        """Retrieve or generate a random seed given a model and key."""
         model = self._get_model_name(model)
         if model not in self._seeds:
             self._generate_seed(model, key)
-        # TODO: handle conjugate baselines here instead of other places
         if key not in self._seeds[model]:
             self._generate_seed(model, key)
         return self._seeds[model][key]
 
     @staticmethod
     def _get_model_name(model):
-        # TODO: docstring
-        """"""
+        """
+        Find out the (lowercase) name of a provided model.
+        """
         if isinstance(model, str):
             return model
         elif np.issubclass_(model, SimulationComponent):
@@ -813,13 +1397,48 @@ class Simulator:
                 "to define new simulation components compatible with the Simulator."
             )
 
+    def _parse_key(self, key: Union[int, str, AntPair, AntPairPol]) -> AntPairPol:
+        """Convert a key of at-most length-3 to an (ant1, ant2, pol) tuple."""
+        if key is None:
+            ant1, ant2, pol = None, None, None
+        elif np.issubdtype(type(key), int):
+            # Figure out if it's an antenna or baseline integer
+            if key in self.antpos:
+                ant1, ant2, pol = key, None, None
+            else:
+                ant1, ant2 = self.data.baseline_to_antnums(key)
+                pol = None
+        elif isinstance(key, str):
+            if key.lower() in ("auto", "cross"):
+                raise NotImplementedError("Functionality not yet supported.")
+            ant1, ant2, pol = None, None, key
+        else:
+            try:
+                iter(key)
+                if len(key) not in (2, 3):
+                    raise TypeError
+            except TypeError:
+                raise ValueError(
+                    "Key must be an integer, string, antenna pair, or antenna "
+                    "pair with a polarization string."
+                )
+            if len(key) == 2:
+                if all(type(val) is int for val in key):
+                    ant1, ant2 = key
+                    pol = None
+                else:
+                    ant1, pol = key
+                    ant2 = None
+            else:
+                ant1, ant2, pol = key
+        return ant1, ant2, pol
+
     def _sanity_check(self, model):
-        # TODO: docstring
-        """"""
+        """Check that simulation components are applied sensibly."""
         has_data = not np.all(self.data.data_array == 0)
         is_multiplicative = getattr(model, "is_multiplicative", False)
         contains_multiplicative_effect = any(
-            self._get_component(component)[0].is_multiplicative
+            self._get_component(component).is_multiplicative
             for component in self._components
         )
 
@@ -837,14 +1456,17 @@ class Simulator:
             )
 
     def _update_history(self, model, **kwargs):
-        # TODO: docstring
-        """"""
+        """
+        Record the component simulated and its parameters in the history.
+        """
         component = self._get_model_name(model)
-        msg = f"hera_sim v{__version__}: Added {component} using kwargs:\n"
-        if defaults._override_defaults:
-            kwargs["defaults"] = defaults._config_name
+        vis_filter = kwargs.pop("vis_filter", None)
+        msg = f"hera_sim v{__version__}: Added {component} using parameters:\n"
         for param, value in defaults._unpack_dict(kwargs).items():
             msg += f"{param} = {value}\n"
+        if vis_filter is not None:
+            msg += "Effect simulated for the following antennas/baselines/pols:\n"
+            msg += ", ".join(vis_filter)
         self.data.history += msg
 
     def _update_seeds(self, model_name=None):
@@ -869,3 +1491,37 @@ class Simulator:
 
         # Now actually update the extra_keywords dictionary.
         self.data.extra_keywords.update(seed_dict)
+
+    def _validate_get_request(
+        self, model: Component, ant1: int, ant2: int, pol: str
+    ) -> None:
+        """Verify that the provided antpairpol is appropriate given the model."""
+        if getattr(model, "is_multiplicative", False):
+            pols = self.data.get_feedpols()
+            pol_type = "Feed"
+        else:
+            pols = self.pols
+            pol_type = "Visibility"
+        if ant1 is None and ant2 is None:
+            if pol is None or pol in pols:
+                return
+            else:
+                raise ValueError(f"{pol_type} polarization {pol} not found.")
+
+        if pol is not None and pol not in pols:
+            raise ValueError(f"{pol_type} polarization {pol} not found.")
+
+        if getattr(model, "is_multiplicative", False):
+            if ant1 is not None and ant2 is not None:
+                raise ValueError(
+                    "At most one antenna may be specified when retrieving "
+                    "a multiplicative effect."
+                )
+        else:
+            if (ant1 is None) ^ (ant2 is None):
+                raise ValueError(
+                    "Either no antennas or a pair of antennas must be provided "
+                    "when retrieving a non-multiplicative effect."
+                )
+            if ant1 not in self.antpos or ant2 not in self.antpos:
+                raise ValueError("At least one antenna is not in the array layout.")

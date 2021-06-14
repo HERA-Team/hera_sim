@@ -19,9 +19,14 @@ try:
     import hera_cal
 
     HERA_CAL = True
-except ImportError:  # pragma: no cover
-    warn("hera_cal is not installed. Certain features will be unavailable.")
+except (ModuleNotFoundError, FileNotFoundError) as err:  # pragma: no cover
+    if err is ModuleNotFoundError:
+        missing = "hera_cal"
+    else:
+        missing = "git"
+    warn(f"{missing} is not installed. Rephasing tool unavailable.")
     HERA_CAL = False
+
 
 logger = logging.getLogger(__name__)
 

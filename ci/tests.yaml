@@ -20,6 +20,7 @@ dependencies:
   - basemap
   - pyuvdata>=2.1.4
   - blas<2.0
+  - git
   - pip:
     - cached-property
     - git+https://github.com/RadioAstronomySoftwareGroup/pyuvsim.git
