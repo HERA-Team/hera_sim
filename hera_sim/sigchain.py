@@ -1,4 +1,8 @@
-"""Object-oriented approach to signal chain systematics."""
+"""Models of signal-chain systematics.
+
+This module defines several models of systematics that arise in the signal chain, for
+example bandpass gains, reflections and cross-talk.
+"""
 
 import numpy as np
 import warnings

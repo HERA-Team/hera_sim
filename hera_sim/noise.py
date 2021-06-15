@@ -1,4 +1,4 @@
-"""Make some noise."""
+"""Models of thermal noise."""
 
 import warnings
 import astropy.units as u

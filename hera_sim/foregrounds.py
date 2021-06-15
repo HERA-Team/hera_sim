@@ -1,4 +1,7 @@
-"""Reimagining of the foregrounds module, using an object-oriented approach."""
+"""Visibility-space foreground models.
+
+This module defines several cheap foreground models evaluated in visibility space.
+"""
 
 import numpy as np
 from astropy import constants
