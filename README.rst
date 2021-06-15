@@ -1,12 +1,17 @@
 ``hera_sim``: Simple visibility and instrumental systematics simulator for the HERA array
 =========================================================================================
 
-|Build Status| |Coverage Status|
+|Build Status| |Coverage Status| |RTD|
 
 Basic simulation package for HERA-like redundant interferometric arrays.
 
-For a tutorial and overview of available features, check out the Jupyter
-notebook: ``docs/tutorials/hera_sim tour.ipynb``.
+
+Documentation
+-------------
+At `ReadTheDocs <https://hera-sim.readthedocs.io/en/latest/>`_.
+In particular, for a tutorial and overview of available features, check out the
+`tour <https://hera-sim.readthedocs.io/en/latest/tutorials/hera_sim_tour.html>`_
+
 
 Installation
 ------------
@@ -41,15 +46,14 @@ Other optional extras can be installed as well. To use
 baseline-dependent averaging functionality, install the extra ``[bda]``.
 For the ability to simulate redundant gains, install ``[cal]``. To
 enable GPU functionality on some of the methods (especially visibility
-simulators), install ``[gpu]``. ## Documentation
-
-https://hera-sim.readthedocs.io/en/latest/
+simulators), install ``[gpu]``.
 
 Versioning
 ----------
 
 We use semantic versioning (``major``.\ ``minor``.\ ``patch``) for the
-``hera_sim`` package (see https://semver.org). To briefly summarize, new
+``hera_sim`` package (see `SemVer documentation <https://semver.org>`_).
+To briefly summarize, new
 ``major`` versions include API-breaking changes, new ``minor`` versions
 add new features in a backwards-compatible way, and new ``patch``
 versions implement backwards-compatible bug fixes.
@@ -58,3 +62,6 @@ versions implement backwards-compatible bug fixes.
    :target: https://github.com/HERA-Team/hera_sim
 .. |Coverage Status| image:: https://coveralls.io/repos/github/HERA-Team/hera_sim/badge.svg?branch=master
    :target: https://coveralls.io/github/HERA-Team/hera_sim?branch=master
+.. |RTD| image:: https://readthedocs.org/projects/hera-sim/badge/?version=latest
+   :target: https://hera-sim.readthedocs.io/en/latest/?badge=latest
+   :alt: Documentation Status
