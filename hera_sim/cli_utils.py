@@ -1,6 +1,7 @@
 """Useful helper functions and argparsers for running simulations via CLI."""
 import itertools
 import os
+import warnings
 import numpy as np
 from .defaults import SEASON_CONFIGS
 from .simulate import Simulator
@@ -81,7 +82,15 @@ def validate_config(config: dict):
         raise ValueError("Insufficient information for initializing simulation.")
 
 
-def write_calfits(gains, filename, sim=None, freqs=None, times=None, clobber=False):
+def write_calfits(
+    gains,
+    filename,
+    sim=None,
+    freqs=None,
+    times=None,
+    x_orientation="north",
+    clobber=False,
+):
     """
     Write gains to disk as a calfits file.
 
@@ -101,6 +110,9 @@ def write_calfits(gains, filename, sim=None, freqs=None, times=None, clobber=Fal
     times: array-like of float
         Times corresponding to gains, in JD. Does not need to be provided if
         ``sim`` is provided.
+    x_orientation: str, optional
+        Cardinal direction that the x-direction corresponds to. Defaults to the
+        HERA configuration of north.
     clobber: bool, optional
         Whether to overwrite existing file in the case of a name conflict.
         Default is to *not* overwrite conflicting files.
@@ -116,9 +128,18 @@ def write_calfits(gains, filename, sim=None, freqs=None, times=None, clobber=Fal
         if isinstance(sim, Simulator):
             freqs = sim.freqs * 1e9
             times = sim.times
+            sim_x_orientation = sim.data.x_orientation
         else:
             freqs = np.unique(sim.freq_array)
             times = np.unique(sim.time_array)
+            sim_x_orientation = sim.x_orientation
+        if sim_x_orientation is None:
+            warnings.warn(
+                "x_orientation not specified in simulation object."
+                "Assuming that the x-direction points north."
+            )
+        else:
+            x_orientation = sim_x_orientation
     else:
         if freqs is None or times is None:
             raise ValueError(
@@ -127,16 +148,62 @@ def write_calfits(gains, filename, sim=None, freqs=None, times=None, clobber=Fal
             )
 
     # Update gain keys to conform to write_cal assumptions.
+    # New Simulator gains have keys (ant, pol), so shouldn't need
+    # special pre-processing.
     if all(np.issctype(type(ant)) for ant in gains.keys()):
-        # Make sure that gain keys are (ant, jpol) tuples.
+        # Old-style, single polarization assumption.
         gains = {(ant, "Jee"): gain for ant, gain in gains.items()}
 
+    # At the time of writing, the write_cal function *fails silently* if the
+    # keys for the gain dictionary are not tuples specifying the antenna and
+    # Jones polarization string. Using linear polarizations, as in (1, 'x'),
+    # will cause the function to think that the gains do not exist, and so
+    # will write a UVCal object whose gain_array consists solely of ones. In
+    # order to prevent this behavior, it is necessary to ensure that the
+    # keys of the gain dictionary are formatted correctly. This is also why
+    # the x_orientation is *required* (and a value is assumed if none is
+    # specified in the simulation object)--the Jones polarization strings
+    # cannot be recovered from the usual linear polarization strings 'x', 'y'
+    # without specifying the x-orientation.
+    gains = _format_gain_dict(gains, x_orientation=x_orientation)
     # Ensure that all of the gains have the right shape.
     for antpol, gain in gains.items():
         if gain.ndim == 1:
             gains[antpol] = np.outer(np.ones(times.size), gain)
 
     write_cal(filename, gains, freqs, times, overwrite=clobber, return_uvc=False)
+
+
+def _format_gain_dict(gains, x_orientation):
+    """
+    Format a gain dictionary to match the expectation from hera_cal.
+
+    Parameters
+    ----------
+    gains: dict
+        Dictionary mapping (ant, pol) tuples to gain spectra/waterfalls.
+    x_orientation: str
+        Cardinal direction corresponding to the array's x-direction.
+
+    Returns
+    -------
+    gains: dict
+        Dictionary mapping (ant, jpol) tuples to gain spectra/waterfalls. The
+        distinction here is that the polarizations are Jones polarization
+        strings, whereas the input gains may have ordinary linear polarization
+        strings.
+    """
+    from hera_cal.io import jnum2str, jstr2num
+
+    pol_array = list({antpol[1] for antpol in gains})
+    jones_array = [
+        jnum2str(
+            jstr2num(pol, x_orientation=x_orientation), x_orientation=x_orientation
+        )
+        for pol in pol_array
+    ]
+    mapping = {pol: jpol for pol, jpol in zip(pol_array, jones_array)}
+    return {(antpol[0], mapping[antpol[1]]): gain for antpol, gain in gains.items()}
 
 
 def _validate_freq_params(freq_params):
