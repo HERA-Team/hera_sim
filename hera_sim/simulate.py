@@ -53,7 +53,7 @@ class Simulator:
     Parameters
     ----------
     data
-        ``pyuvdata.UVData`` object to use for the simulation or path to a
+        :class:`pyuvdata.UVData` object to use for the simulation or path to a
         UVData-supported file.
     defaults_config
         Path to defaults configuraiton, seasonal keyword, or configuration
@@ -66,11 +66,11 @@ class Simulator:
         Parameters to use for initializing UVData object if none is provided.
         If ``data`` is a file path, then these parameters are used when reading
         the file. Otherwise, the parameters are used in creating a ``UVData``
-        object using :func:`io.empty_uvdata`.
+        object using :func:`~.io.empty_uvdata`.
 
     Attributes
     ----------
-    data : ``pyuvdata.UVData``
+    data : :class:`pyuvdata.UVData` instance
         Object containing simulated visibilities and metadata.
     extras : dict
         Dictionary to use for storing extra parameters.
@@ -87,7 +87,7 @@ class Simulator:
     red_grps : list of list of int
         Redundant baseline groups. Each entry is a list containing the baseline
         integer for each member of that redundant group.
-    red_vecs : list of np.ndarray of float
+    red_vecs : list of :class:`numpy.ndarray` of float
         Average of all the baselines for each redundant group.
     red_lengths : list of float
         Length of each redundant baseline.
@@ -160,7 +160,7 @@ class Simulator:
         """
         Apply the provided default configuration.
 
-        Equivalent to calling :meth:`hera_sim.defaults.set` with the same parameters.
+        Equivalent to calling :meth:`~hera_sim.defaults.set` with the same parameters.
 
         Parameters
         ----------
@@ -1333,15 +1333,13 @@ class Simulator:
                 break
         if get_delay_filter:
             delay_filter = self._filter_cache["delay"][key]
-            filters["delay_filter_kwargs"] = {}
-            filters["delay_filter_kwargs"]["delay_filter"] = delay_filter
+            filters["delay_filter_kwargs"] = {"delay_filter": delay_filter}
         if get_fringe_filter:
             fringe_filter = self._filter_cache["fringe"][key]
             if is_conj:
                 # Fringes are seen to move in the opposite direction.
                 fringe_filter = fringe_filter[::-1, :]
-            filters["fringe_filter_kwargs"] = {}
-            filters["fringe_filter_kwargs"]["fringe_filter"] = fringe_filter
+            filters["fringe_filter_kwargs"] = {"fringe_filter": fringe_filter}
         return filters
 
     @staticmethod
