@@ -28,7 +28,7 @@ class SimulationComponent(metaclass=ABCMeta):
     ----------
     is_multiplicative
         Specifies whether the model ``cls`` is a multiplicative
-        effect. This parameter lets the :class:`~Simulator`:
+        effect. This parameter lets the :class:`~hera_sim.simulate.Simulator`:
         class determine how to apply the effect simulated by
         ``cls``. Default setting is False (i.e. the model is
         assumed to be additive unless specified otherwise).
@@ -96,7 +96,7 @@ class SimulationComponent(metaclass=ABCMeta):
         use_kwargs : dict values
             Potentially updated parameter values for the parameters
             passed in. This allows for a very simple
-            interface with the :mod:`~defaults`: module, which
+            interface with the :mod:`~hera_sim.defaults`: module, which
             will automatically update parameter default values if
             active.
         """

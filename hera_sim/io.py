@@ -53,7 +53,7 @@ def empty_uvdata(
     antennas : dict, optional
         Alias for array_layout for backwards compatibility.
     **kwargs
-        Passed to :func:`initialize_uvdata_from_keywords`
+        Passed to :func:`pyuvsim.simsetup.initialize_uvdata_from_keywords`
 
     Returns
     -------

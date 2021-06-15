@@ -44,17 +44,17 @@ class Simulator:
     data
         Any input data. If a path, will load a set of
         visibilities using the ``read()`` method of
-        :class:`UVData`. Can be a :class:`UVData` object
+        :class:`pyuvdata.UVData`. Can be a :class:`UVData` object
         to initialize directly. If not set, initialize an
-        empty :class:`UVData` object.
+        empty :class:`pyuvdata.UVData` object.
     defaults_config
         If given, either a path pointing to a defaults configuration
         file, a string identifier of a particular config (e.g. 'h1c')
-        or a dictionary of configuration parameters (see :class:`defaults.Defaults`).
+        or a dictionary of configuration parameters (see :class:`~.defaults.Defaults`).
     **kwargs
         Used to initialize the data object. If nothing is given for ``data``, the
-        relevant parameters are those in :func:`io.empty_uvdata`. If ``data`` is a path,
-        parameters are those passed to ``UVData.read``.
+        relevant parameters are those in :func:`~.io.empty_uvdata`. If ``data`` is a
+        path, parameters are those passed to `:func:`pyuvdata.UVData.read`.
     """
 
     def __init__(
@@ -106,7 +106,7 @@ class Simulator:
             If given, either a path pointing to a defaults configuration
             file, a string identifier of a particular config (e.g. 'h1c')
             or a dictionary of configuration parameters
-            (see :class:`defaults.Defaults`).
+            (see :class:`~.defaults.Defaults`).
         refresh
             Whether to refresh the defaults.
         """
@@ -437,7 +437,7 @@ class Simulator:
         """
         Chunk a simulation in time and write to disk.
 
-        This function is a thin wrapper around :func:`io.chunk_sim_and_save`;
+        This function is a thin wrapper around :func:`~.io.chunk_sim_and_save`;
         please see that function's documentation for more information.
         """
         io.chunk_sim_and_save(

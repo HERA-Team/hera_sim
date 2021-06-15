@@ -89,10 +89,10 @@ def adjust_to_reference(
 
     Returns
     -------
-    modified_data : :class:`pyuvdata.UVData` or :class:`Simulator` object
+    modified_data : :class:`pyuvdata.UVData` or :class:`~.simulate.Simulator` object
         :class:`pyuvdata.UVData` object containing the modified target data.
-        If the initial target data was passed as a :class:`Simulator` object,
-        then the returned object is also a :class:`Simulator` object.
+        If the initial target data was passed as a :class:`~.simulate.Simulator` object,
+        then the returned object is also a :class:`~.simulate.Simulator` object.
 
     Notes
     -----
@@ -219,7 +219,7 @@ def match_antennas(
 
     Parameters
     ----------
-    target: :class:`pyuvdata.UVData` instance or :class:`Simulator` instance
+    target: :class:`pyuvdata.UVData` instance or :class:`~.simulate.Simulator` instance
         Object containing the data and metadata for which the antenna position
         adjustment is intended.
     reference: :class:`pyuvdata.UVData`
@@ -252,7 +252,7 @@ def match_antennas(
 
     Returns
     -------
-    modified_data: :class:`pyuvdata.UVData` instance or :class:`Simulator` instance
+    modified_data: :class:`pyuvdata.UVData` or :class:`~.simulate.Simulator` instance
         Object containing the ``target`` data with its antenna array modified and
         a downselect performed to only keep data for remaining antennas.
     """
@@ -428,10 +428,10 @@ def interpolate_to_reference(
 
     Parameters
     ----------
-    target: :class:`pyuvdata.UVData` instance or :class:`Simulator` instance
+    target: :class:`pyuvdata.UVData` or :class:`~.simulate.Simulator` instance
         Object containing the visibility data and metadata which is to be
         interpolated to the reference LSTs and/or frequencies.
-    reference: :class:`pyuvdata.UVData` instance or :class:`Simulator` instance
+    reference: :class:`pyuvdata.UVData` or :class:`~.simulate.Simulator` instance
         Object containing reference metadata. Does not need to be provided if
         metadata arrays are provided (``ref_times``, ``ref_lsts``, and/or
         ``ref_freqs``, depending on which axis is used).
@@ -458,7 +458,7 @@ def interpolate_to_reference(
 
     Returns
     -------
-    modified_data: :class:`pyuvdata.UVData` instance or :class:`Simulator` instance
+    modified_data: :class:`pyuvdata.UVData` or :class:`~.simulate.Simulator` instance
         Data adjusted so that its times match the reference times which correspond
         to overlapping LSTs. The type of object returned is the same as the type
         of object passed.
@@ -656,7 +656,7 @@ def rephase_to_reference(
 
     Parameters
     ----------
-    target: :class:`pyuvdata.UVData` instance or :class:`Simulator` instance
+    target: :class:`pyuvdata.UVData` or :class:`~.simulate.Simulator` instance
         Object containing the visibility data and metadata which is to be
         rephased to reference LSTs.
     reference: :class:`pyuvdata.UVData`
@@ -670,7 +670,7 @@ def rephase_to_reference(
 
     Returns
     -------
-    rephased_data: :class:`pyuvdata.UVData` instance or :class:`Simulator` instance
+    rephased_data: :class:`pyuvdata.UVData` or :class:`~.simulate.Simulator` instance
         Object containing the rephased data with metadata updated appropriately.
         The times in this object are relabeled to be the reference times with
         LSTs sufficiently close to target LSTs for rephasing.
