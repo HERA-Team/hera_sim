@@ -1,9 +1,25 @@
-``hera_sim``
-============
+hera_sim
+========
 
 |Build Status| |Coverage Status| |RTD|
 
 **Basic simulation package for HERA-like redundant interferometric arrays.**
+
+Features
+--------
+
+* Many models of instrumental systematics in various forms, eg. thermal noise, RFI,
+  bandpass gains, cross-talk, cable reflections and foregrounds.
+* All models have defaults tuned to HERA, with various default "sets" available (eg.
+  H1C, H3C)
+* Interoperability with ``pyuvdata`` datasets.
+* High-level interface for adding multiple systematics to existing visibilities in a
+  self-consistent way.
+* A high-level interface for visbility simulation that is compatible with the
+  configuration definition from ``pyuvsim`` but is able to call multiple simulator
+  implementations.
+* Methods for adjusting simulated data to match the times/baselines of a reference
+  dataset.
 
 Documentation
 -------------
