@@ -1,8 +1,4 @@
-"""
-Module containing useful helper functions and argparsers for running
-simulations with hera_sim via the command line.
-"""
-import copy
+"""Useful helper functions and argparsers for running simulations via CLI."""
 import itertools
 import os
 import warnings
@@ -12,8 +8,25 @@ from .simulate import Simulator
 from pyuvdata import UVData
 
 
-def get_filing_params(config):
-    """Extract filing parameters from a configuration dictionary."""
+def get_filing_params(config: dict):
+    """Extract filing parameters from a configuration dictionary.
+
+    Parameters
+    ----------
+    config
+        The full configuration dict.
+
+    Returns
+    -------
+    dict
+        Filing parameter from the config, with default entries
+        filled in.
+
+    Raises
+    ------
+    ValueError
+        If ``output_format`` not in "miriad", "uvfits", or "uvh5".
+    """
     filing_params = dict(
         outdir=os.getcwd(),
         outfile_name="hera_sim_simulation.uvh5",
@@ -29,9 +42,21 @@ def get_filing_params(config):
     return filing_params
 
 
-def validate_config(config):
-    """Validate the contents of a loaded configuration file."""
-    if config.get("defaults", None) is not None:
+def validate_config(config: dict):
+    """Validate the contents of a loaded configuration file.
+
+    Parameters
+    ----------
+    config
+        The full configuration dict.
+
+    Raises
+    ------
+    ValueError
+        If either insufficient information is provided, or the info
+        is not valid.
+    """
+    if config.get("defaults") is not None:
         if type(config["defaults"]) is not str:
             raise ValueError(
                 "Defaults in the CLI may only be specified using a string. "
@@ -47,7 +72,7 @@ def validate_config(config):
     freq_params = config.get("freq", {})
     time_params = config.get("time", {})
     array_params = config.get("telescope", {}).get("array_layout", {})
-    if any(param == {} for param in (freq_params, time_params, array_params)):
+    if {} in (freq_params, time_params, array_params):
         raise ValueError("Insufficient information for initializing simulation.")
 
     freqs_ok = _validate_freq_params(freq_params)
@@ -76,7 +101,7 @@ def write_calfits(
         may either be spectra or waterfalls.
     filename: str
         Name of file, including desired extension.
-    sim: :class:`pyuvdata.UVData` instance or :class:`Simulator` instance
+    sim: :class:`pyuvdata.UVData` instance or :class:`~.simulate.Simulator` instance
         Object containing metadata pertaining to the gains to be saved. Does not
         need to be provided if both ``freqs`` and ``times`` are provided.
     freqs: array-like of float
@@ -170,7 +195,7 @@ def _format_gain_dict(gains, x_orientation):
     """
     from hera_cal.io import jnum2str, jstr2num
 
-    pol_array = list(set(antpol[1] for antpol in gains))
+    pol_array = list({antpol[1] for antpol in gains})
     jones_array = [
         jnum2str(
             jstr2num(pol, x_orientation=x_orientation), x_orientation=x_orientation
@@ -190,11 +215,11 @@ def _validate_freq_params(freq_params):
         "freq_array",
         "channel_width",
     )
-    allowed_combinations = list(
+    allowed_combinations = [
         combo
         for combo in itertools.combinations(allowed_params, 3)
         if "start_freq" in combo and "freq_array" not in combo
-    ) + [("freq_array",)]
+    ] + [("freq_array",)]
     for combination in allowed_combinations:
         if all(freq_params.get(param, None) is not None for param in combination):
             return True

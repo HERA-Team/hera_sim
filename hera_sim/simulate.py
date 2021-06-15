@@ -6,17 +6,16 @@ For detailed instructions on how to manage a simulation using the
 :class:`Simulator`, please refer to the tutorials.
 """
 
+from cached_property import cached_property
 import functools
 import inspect
-import os
-import sys
 import warnings
 import yaml
 import time
 from pathlib import Path
+from deprecation import deprecated
 
 import numpy as np
-from cached_property import cached_property
 from pyuvdata import UVData
 from astropy import constants as const
 from typing import Type, Union, Tuple, Sequence, Optional, Dict
@@ -27,6 +26,9 @@ from .defaults import defaults
 from . import __version__
 from .components import SimulationComponent, get_model, list_all_components
 
+_add_depr = deprecated(
+    deprecated_in="1.0", removed_in="2.0", details="Use the :meth:`add` method instead."
+)
 
 # Define some commonly used types for typing purposes.
 AntPairPol = Tuple[int, int, str]
@@ -51,7 +53,7 @@ class Simulator:
     Parameters
     ----------
     data
-        ``pyuvdata.UVData`` object to use for the simulation or path to a
+        :class:`pyuvdata.UVData` object to use for the simulation or path to a
         UVData-supported file.
     defaults_config
         Path to defaults configuraiton, seasonal keyword, or configuration
@@ -64,11 +66,11 @@ class Simulator:
         Parameters to use for initializing UVData object if none is provided.
         If ``data`` is a file path, then these parameters are used when reading
         the file. Otherwise, the parameters are used in creating a ``UVData``
-        object using :func:`io.empty_uvdata`.
+        object using :func:`~.io.empty_uvdata`.
 
     Attributes
     ----------
-    data : ``pyuvdata.UVData``
+    data : :class:`pyuvdata.UVData` instance
         Object containing simulated visibilities and metadata.
     extras : dict
         Dictionary to use for storing extra parameters.
@@ -85,7 +87,7 @@ class Simulator:
     red_grps : list of list of int
         Redundant baseline groups. Each entry is a list containing the baseline
         integer for each member of that redundant group.
-    red_vecs : list of np.ndarray of float
+    red_vecs : list of :class:`numpy.ndarray` of float
         Average of all the baselines for each redundant group.
     red_lengths : list of float
         Length of each redundant baseline.
@@ -95,7 +97,7 @@ class Simulator:
         self,
         *,
         data: Optional[Union[str, UVData]] = None,
-        defaults_config: Optional[Union[str, Dict]] = None,
+        defaults_config: Optional[Union[str, dict]] = None,
         redundancy_tol: float = 1.0,
         **kwargs,
     ):
@@ -154,12 +156,21 @@ class Simulator:
         """Array of polarization strings."""
         return self.data.get_pols()
 
-    def apply_defaults(self, config, refresh=True):
+    def apply_defaults(self, config: Optional[Union[str, dict]], refresh: bool = True):
         """
         Apply the provided default configuration.
 
-        Equivalent to calling :meth:`hera_sim.defaults.set` with the same parameters.
-        See :meth:`hera_sim.defaults.set` documentation for further details.
+        Equivalent to calling :meth:`~hera_sim.defaults.set` with the same parameters.
+
+        Parameters
+        ----------
+        config
+            If given, either a path pointing to a defaults configuration
+            file, a string identifier of a particular config (e.g. 'h1c')
+            or a dictionary of configuration parameters
+            (see :class:`~.defaults.Defaults`).
+        refresh
+            Whether to refresh the defaults.
         """
         defaults.set(config, refresh=refresh)
 
@@ -194,7 +205,7 @@ class Simulator:
         ret_vis: bool = False,
         seed: Optional[Union[str, int]] = None,
         vis_filter: Optional[Sequence] = None,
-        name: Optional[str] = None,
+        component_name: Optional[str] = None,
         **kwargs,
     ) -> Optional[Union[np.ndarray, Dict[int, np.ndarray]]]:
         """
@@ -236,7 +247,9 @@ class Simulator:
         """
         # Obtain a callable reference to the simulation component model.
         model = self._get_component(component)
-        model_key = name if name else self._get_model_name(component)
+        model_key = (
+            component_name if component_name else self._get_model_name(component)
+        )
         if not isinstance(model, SimulationComponent):
             model = model(**kwargs)
         self._sanity_check(model)  # Check for component ordering issues.
@@ -298,6 +311,7 @@ class Simulator:
                 for that baseline for all polarizations.
                 A length-3 tuple specifies a particular baseline and polarization
                 for which to retrieve the effect.
+
             Not specifying a key results in the effect being returned for all
             baselines (or antennas, if the effect is per-antenna) and polarizations.
 
@@ -306,7 +320,7 @@ class Simulator:
         effect
             The simulated effect appropriate for the provided key. Return type
             depends on the effect being simulated and the provided key. See the
-            tutorial Jupyter notebook for the ``Simulator`` for example usage.
+            tutorial Jupyter notebook for the :class:`Simulator` for example usage.
         """
         # Retrieve the model and verify it has been simulated.
         if component in self._components:
@@ -444,7 +458,7 @@ class Simulator:
         return fig
 
     def refresh(self):
-        """Refresh the Simulator object.
+        """Refresh the object.
 
         This zeros the data array, resets the history, and clears the
         instance's ``_components`` dictionary.
@@ -457,7 +471,7 @@ class Simulator:
         self.extras.clear()
 
     def write(self, filename, save_format="uvh5", **kwargs):
-        """Write data to disk using a ``pyuvdata``-supported filetype."""
+        """Write the ``data`` to disk using a ``pyuvdata``-supported filetype."""
         try:
             getattr(self.data, f"write_{save_format}")(filename, **kwargs)
         except AttributeError:
@@ -480,8 +494,8 @@ class Simulator:
             Required if ``sim_params`` is not provided.
         **sim_params
             Once-nested dictionary mapping simulation components to models,
-            with each model mapping to parameter-value pairs. Required if
-            ``sim_file`` is not provided.
+            with each model mapping to a dictionary of parameter-value pairs.
+            Required if ``sim_file`` is not provided.
 
         Returns
         -------
@@ -495,11 +509,13 @@ class Simulator:
         Examples
         --------
         Suppose we have the following configuration dictionary::
+
             sim_params = {
                 "pntsrc_foreground": {"seed": "once", "nsrcs": 500},
                 "gains": {"seed": "once", "dly_rng": [-20, 20], "ret_vis": True},
                 "reflections": {"seed": "once", "dly_jitter": 10},
             }
+
         Invoking this method with ``**sim_params`` as its argument will simulate
         visibilities appropriate for a sky with 500 point sources, generate
         bandpass gains for each antenna and apply the effect to the foreground
@@ -509,7 +525,7 @@ class Simulator:
         a dictionary mapping antenna numbers to their associated bandpass gains.
 
         The same effect can be achieved by writing a YAML file that is loaded
-        into a dictionary formatted as above. See the ``Simulator`` tutorial
+        into a dictionary formatted as above. See the :class:`Simulator` tutorial
         for a more in-depth explanation of how to use this method.
         """
         # make sure that only sim_file or sim_params are specified
@@ -559,7 +575,7 @@ class Simulator:
         """
         Chunk a simulation in time and write to disk.
 
-        This function is a thin wrapper around :func:`io.chunk_sim_and_save`;
+        This function is a thin wrapper around :func:`~.io.chunk_sim_and_save`;
         please see that function's documentation for more information.
         """
         io.chunk_sim_and_save(
@@ -573,51 +589,41 @@ class Simulator:
             filetype=filetype,
             clobber=clobber,
         )
-        return
 
     # -------------- Legacy Functions -------------- #
+    @_add_depr
     def add_eor(self, model, **kwargs):
-        """
-        Add an EoR-like model to the visibilities. See :meth:`add` for
-        more details.
-        """
+        """Add an EoR-like model to the visibilities."""
         return self.add(model, **kwargs)
 
+    @_add_depr
     def add_foregrounds(self, model, **kwargs):
-        """
-        Add foregrounds to the visibilities. See :meth:`add` for
-        more details.
-        """
-
+        """Add foregrounds to the visibilities."""
         return self.add(model, **kwargs)
 
+    @_add_depr
     def add_noise(self, model, **kwargs):
-        """
-        Add thermal noise to the visibilities. See :meth:`add` for
-        more details.
-        """
+        """Add thermal noise to the visibilities."""
         return self.add(model, **kwargs)
 
+    @_add_depr
     def add_rfi(self, model, **kwargs):
-        """Add RFI to the visibilities. See :meth:`add` for more details."""
+        """Add RFI to the visibilities."""
         return self.add(model, **kwargs)
 
+    @_add_depr
     def add_gains(self, **kwargs):
-        """
-        Apply bandpass gains to the visibilities. See :meth:`add` for
-        more details.
-        """
+        """Apply bandpass gains to the visibilities."""
         return self.add("gains", **kwargs)
 
+    @_add_depr
     def add_sigchain_reflections(self, ants=None, **kwargs):
-        """
-        Apply reflection gains to the visibilities. See :meth:`add` for
-        more details.
-        """
+        """Apply reflections to the visibilities. See :meth:`add` for details."""
         if ants is not None:
             kwargs.update(vis_filter=ants)
         return self.add("reflections", **kwargs)
 
+    @_add_depr
     def add_xtalk(self, model="gen_whitenoise_xtalk", bls=None, **kwargs):
         """Add crosstalk to the visibilities. See :meth:`add` for more details."""
         if bls is not None:
@@ -651,18 +657,18 @@ class Simulator:
         --------
         ``vis_filter`` = (0,)
         returns: False for any baseline including antenna 0
-            -> only baselines including antenna 0 have a simulated effect applied.
+        result: only baselines including antenna 0 have a simulated effect applied.
 
         ``vis_filter`` = ('xx',)
         returns: False if ``pol == "xx"`` else True
-            -> only polarization "xx" has a simulated effect applied.
+        result: only polarization "xx" has a simulated effect applied.
 
         ``vis_filter`` = (0, 1, 'yy')
         returns: False if ``(ant1, ant2, pol) in [(0, 1, 'yy'), (1, 0, 'yy)]``
-            -> only baseline (0,1), or its conjugate, with polarization 'yy' will
-            have a simulated effect applied.
+        result: only baseline (0,1), or its conjugate, with polarization "yy" will
+        have a simulated effect applied.
         """
-        # If multiple complex keys are passed, do this recursively...
+        # If multiple keys are passed, do this recursively...
         multikey = any(isinstance(key, (list, tuple)) for key in vis_filter)
         if multikey:
             apply_filter = [
@@ -788,7 +794,7 @@ class Simulator:
         """
         # This uses the same simplistic approach as the delay filter
         # calculation does--just do one filter per redundant group.
-        for red_grp, (blx, bly, blz) in zip(self.red_grps, self.red_vecs):
+        for red_grp, (blx, _bly, _blz) in zip(self.red_grps, self.red_vecs):
             ew_bl_len_ns = blx / const.c.to("m/ns").value
             bl_int = sorted(red_grp)[0]
             fringe_filter = utils.gen_fringe_filter(
@@ -858,8 +864,10 @@ class Simulator:
         Examples
         --------
         Suppose we have the following function::
+
             def func(freqs, ants, other=None):
                 pass
+
         The returned object would be a dictionary with keys ``freqs`` and
         ``ants``, with the value for ``freqs`` being ``self.freqs`` and
         the value for ``ants`` being ``inspect._empty``. Since ``other``
@@ -1068,8 +1076,21 @@ class Simulator:
             self.data.data_array = data_copy
 
     @staticmethod
-    def _read_datafile(datafile, **kwargs):
-        """Load the provided file into a ``pyuvdata.UVData`` object."""
+    def _read_datafile(datafile: Union[str, Path], **kwargs) -> UVData:
+        """Read a file as a ``UVData`` object.
+
+        Parameters
+        ----------
+        datafile
+            Path to a file containing visibility data readable by ``pyuvdata``.
+        **kwargs
+            Arguments passed to the ``UVData.read`` method.
+
+        Returns
+        -------
+        UVData
+            The read-in data object.
+        """
         uvd = UVData()
         uvd.read(datafile, read_data=True, **kwargs)
         return uvd
@@ -1089,6 +1110,7 @@ class Simulator:
         seed
             Either the random seed to use (when provided as an integer),
             or one of the following keywords:
+
                 ``"once"``:
                     The random state is set to the same value for
                     every baseline and polarization; one unique seed is
@@ -1106,6 +1128,7 @@ class Simulator:
                     This is recommended for simulating thermal noise, or for
                     simulating an effect that has a random component that
                     changes between baselines.
+
         model
             Name of the model for which to either recover or cache the seed.
             This is used to lookup random state seeds in the :attr:`_seeds`
@@ -1310,15 +1333,13 @@ class Simulator:
                 break
         if get_delay_filter:
             delay_filter = self._filter_cache["delay"][key]
-            filters["delay_filter_kwargs"] = {}
-            filters["delay_filter_kwargs"]["delay_filter"] = delay_filter
+            filters["delay_filter_kwargs"] = {"delay_filter": delay_filter}
         if get_fringe_filter:
             fringe_filter = self._filter_cache["fringe"][key]
             if is_conj:
                 # Fringes are seen to move in the opposite direction.
                 fringe_filter = fringe_filter[::-1, :]
-            filters["fringe_filter_kwargs"] = {}
-            filters["fringe_filter_kwargs"]["fringe_filter"] = fringe_filter
+            filters["fringe_filter_kwargs"] = {"fringe_filter": fringe_filter}
         return filters
 
     @staticmethod
@@ -1336,9 +1357,9 @@ class Simulator:
 
     @staticmethod
     def _get_component(
-        component: [str, Type[SimulationComponent], SimulationComponent]
+        component: Union[str, Type[SimulationComponent], SimulationComponent]
     ) -> Union[SimulationComponent, Type[SimulationComponent]]:
-        """Given an input component, normalize the output to be either a class or instance."""
+        """Normalize a component to be either a class or instance."""
         if np.issubclass_(component, SimulationComponent):
             return component
         elif isinstance(component, str):
@@ -1381,15 +1402,13 @@ class Simulator:
 
     @staticmethod
     def _get_model_name(model):
-        """
-        Find out the (lowercase) name of a provided model.
-        """
+        """Find out the (lowercase) name of a provided model."""
         if isinstance(model, str):
-            return model
+            return model.lower()
         elif np.issubclass_(model, SimulationComponent):
-            return model.__name__
+            return model.__name__.lower()
         elif isinstance(model, SimulationComponent):
-            return model.__class__.__name__
+            return model.__class__.__name__.lower()
         else:
             raise TypeError(
                 "You are trying to simulate an effect using a custom function. "
@@ -1456,9 +1475,7 @@ class Simulator:
             )
 
     def _update_history(self, model, **kwargs):
-        """
-        Record the component simulated and its parameters in the history.
-        """
+        """Record the component simulated and its parameters in the history."""
         component = self._get_model_name(model)
         vis_filter = kwargs.pop("vis_filter", None)
         msg = f"hera_sim v{__version__}: Added {component} using parameters:\n"

@@ -94,7 +94,7 @@ pygments_style = "sphinx"
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = "alabaster"
+html_theme = "sphinx_rtd_theme"
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
@@ -175,7 +175,13 @@ texinfo_documents = [
 # -- Options for intersphinx extension ---------------------------------------
 
 # Example configuration for intersphinx: refer to the Python standard library.
-intersphinx_mapping = {"https://docs.python.org/": None}
+intersphinx_mapping = {
+    "python": ("https://docs.python.org/3/", None),
+    "pyuvdata": ("https://pyuvdata.readthedocs.io/en/latest/", None),
+    "pyuvsim": ("https://pyuvsim.readthedocs.io/en/latest/", None),
+    "vis_cpu": ("https://vis-cpu.readthedocs.io/en/latest/", None),
+    "numpy": ("https://numpy.org/doc/stable/", None),
+}
 
 # -- Options for todo extension ----------------------------------------------
 
@@ -185,3 +191,5 @@ todo_include_todos = True
 napoleon_use_ivar = True
 napoleon_use_rtype = False
 napoleon_use_param = False
+
+autodoc_typehints = "signature"  # put typehints in the signature AND description.

@@ -1,33 +1,31 @@
+"""Module defining analytic polynomial beams."""
 import numpy as np
 from pyuvsim import AnalyticBeam
-from numpy.polynomial.chebyshev import chebval, chebfit
-from scipy.optimize import curve_fit
+from numpy.polynomial.chebyshev import chebval
 
 
 class PolyBeam(AnalyticBeam):
-    def __init__(self, beam_coeffs=[], spectral_index=0.0, ref_freq=1e8, **kwargs):
-        """
-        Analytic, azimuthally-symmetric beam model based on Chebyshev polynomials.
+    """
+    Analytic, azimuthally-symmetric beam model based on Chebyshev polynomials.
 
-        The frequency-dependence of the beam is implemented by scaling source zenith
-        angles when the beam is interpolated, using a power law.
+    The frequency-dependence of the beam is implemented by scaling source zenith
+    angles when the beam is interpolated, using a power law.
 
-        See HERA memo
-        http://reionization.org/wp-content/uploads/2013/03/Power_Spectrum_Normalizations_for_HERA.pdf.
+    See HERA memo
+    http://reionization.org/wp-content/uploads/2013/03/Power_Spectrum_Normalizations_for_HERA.pdf.
 
-        Parameters
-        ----------
-        beam_coeffs: array_like
-            Co-efficients of the Chebyshev polynomial.
+    Parameters
+    ----------
+    beam_coeffs : array_like
+        Co-efficients of the Chebyshev polynomial.
+    spectral_index : float, optional
+        Spectral index of the frequency-dependent power law scaling to
+        apply to the width of the beam.
+    ref_freq : float, optional
+        Reference frequency for the beam width scaling power law, in Hz.
+    """
 
-        spectral_index : float, optional
-            Spectral index of the frequency-dependent power law scaling to
-            apply to the width of the beam. Default: 0.0.
-
-        ref_freq : float, optional
-            Reference frequency for the beam width scaling power law, in Hz.
-            Default: 1e8.
-        """
+    def __init__(self, beam_coeffs, spectral_index=0.0, ref_freq=1e8):
         self.ref_freq = ref_freq
         self.spectral_index = spectral_index
         self.data_normalization = "peak"
@@ -36,6 +34,7 @@ class PolyBeam(AnalyticBeam):
         self.beam_coeffs = beam_coeffs
 
     def peak_normalize(self):
+        """Normalize the beam to have peak of unity."""
         # Not required
         pass
 
@@ -48,13 +47,10 @@ class PolyBeam(AnalyticBeam):
         az_array : array_like
             Azimuth values in radians (same length as za_array). The azimuth
             here has the UVBeam convention: North of East(East=0, North=pi/2)
-
         za_array : array_like
             Zenith angle values in radians (same length as az_array).
-
         freq_array : array_like
             Frequency values to evaluate at.
-
         reuse_spline : bool, optional
             Does nothing for analytic beams. Here for compatibility with UVBeam.
 
@@ -64,13 +60,11 @@ class PolyBeam(AnalyticBeam):
             Array of beam values, shape (Naxes_vec, Nspws, Nfeeds or Npols,
             Nfreqs or freq_array.size if freq_array is passed,
             Npixels/(Naxis1, Naxis2) or az_array.size if az/za_arrays are passed)
-
         interp_basis_vector : array_like
             Array of interpolated basis vectors (or self.basis_vector_array
             if az/za_arrays are not passed), shape: (Naxes_vec, Ncomponents_vec,
             Npixels/(Naxis1, Naxis2) or az_array.size if az/za_arrays are passed)
         """
-
         # Empty data array
         interp_data = np.zeros((2, 1, 2, freq_array.size, az_array.size), dtype=float)
 
@@ -103,15 +97,66 @@ class PolyBeam(AnalyticBeam):
         return interp_data, interp_basis_vector
 
     def __eq__(self, other):
+        """Evaluate equality with another object."""
         if not isinstance(other, self.__class__):
             return False
-        if self.beam_coeffs == other.beam_coeffs:
-            return True
-        else:
-            return False
+        return self.beam_coeffs == other.beam_coeffs
 
 
 class PerturbedPolyBeam(PolyBeam):
+    """
+    A PolyBeam in which the shape of the beam has been modified.
+
+    The perturbations can be applied to the mainlobe, sidelobes, or
+    the entire beam.
+
+    Mainlobe: A Gaussian of width FWHM is subtracted and then a new
+    Gaussian with width `mainlobe_width` is added back in. This perturbs
+    the width of the primary beam mainlobe, but leaves the sidelobes mostly
+    unchanged.
+
+    Sidelobes: The baseline primary beam model, PB, is moduled by a (sine)
+    Fourier series at angles beyond some zenith angle.
+
+    Entire beam: may be sheared, stretched, and rotated.
+
+    Parameters
+    ----------
+    perturb_coeffs : array_like, optional
+        Array of floats with the coefficients of a (sine-only) Fourier
+        series that will be used to modulate the base Chebyshev primary
+        beam model.
+    perturb_scale : float, optional
+        Overall scale of the primary beam modulation. Must be less than 1,
+        otherwise the primary beam can go negative.
+    mainlobe_width : float
+        Width of the mainlobe, in radians. This determines the width of the
+        Gaussian mainlobe model that is subtracted, as well as the location
+        of the transition between the mainlobe and sidelobe regimes.
+    mainlobe_scale : float, optional
+        Factor to apply to the FHWM of the Gaussian that is used to rescale
+        the mainlobe.
+    transition_width : float, optional
+        Width of the smooth transition between the range of angles
+        considered to be in the mainlobe vs in the sidelobes, in radians.
+    xstretch, ystretch : float, optional
+        Stretching factors to apply to the beam in the x and y directions,
+        which introduces beam ellipticity, as well as an overall
+        stretching/shrinking. Default: 1.0 (no ellipticity or stretching).
+    rotation : float, optional
+        Rotation of the beam in the x-y plane, in degrees. Only has an
+        effect if xstretch != ystretch.
+    beam_coeffs : array_like
+        Co-efficients of the baseline Chebyshev polynomial.
+    spectral_index : float, optional
+        Spectral index of the frequency-dependent power law scaling to
+        apply to the width of the beam.
+    ref_freq : float, optional
+        Reference frequency for the beam width scaling power law, in Hz.
+    **kwargs
+        Any other parameters are used to initialize superclass :class:`PolyBeam`.
+    """
+
     def __init__(
         self,
         perturb_coeffs=None,
@@ -124,71 +169,6 @@ class PerturbedPolyBeam(PolyBeam):
         rotation=0.0,
         **kwargs
     ):
-        """
-        A PolyBeam in which the shape of the beam has been modified.
-
-        The perturbations can be applied to the mainlobe, sidelobes, or
-        the entire beam.
-
-        Mainlobe: A Gaussian of width FWHM is subtracted and then a new
-        Gaussian with width `mainlobe_width` is added back in. This perturbs
-        the width of the primary beam mainlobe, but leaves the sidelobes mostly
-        unchanged.
-
-        Sidelobes: The baseline primary beam model, PB, is moduled by a (sine)
-        Fourier series at angles beyond some zenith angle.
-
-        Entire beam: may be sheared, stretched, and rotated.
-
-        Parameters
-        ----------
-        perturb_coeffs : array_like, optional
-            Array of floats with the coefficients of a (sine-only) Fourier
-            series that will be used to modulate the base Chebyshev primary
-            beam model. Default: None.
-
-        perturb_scale : float, optional
-            Overall scale of the primary beam modulation. Must be less than 1,
-            otherwise the primary beam can go negative. Default: 0.1.
-
-        mainlobe_width : float
-            Width of the mainlobe, in radians. This determines the width of the
-            Gaussian mainlobe model that is subtracted, as well as the location
-            of the transition between the mainlobe and sidelobe regimes.
-            Default: 0.3.
-
-        mainlobe_scale : float, optional
-            Factor to apply to the FHWM of the Gaussian that is used to rescale
-            the mainlobe. Default: 1.
-
-        transition_width : float, optional
-            Width of the smooth transition between the range of angles
-            considered to be in the mainlobe vs in the sidelobes, in radians.
-            Default: 0.05.
-
-        xstretch, ystretch : float, optional
-            Stretching factors to apply to the beam in the x and y directions,
-            which introduces beam ellipticity, as well as an overall
-            stretching/shrinking. Default: 1.0 (no ellipticity or stretching).
-
-        rotation : float, optional
-            Rotation of the beam in the x-y plane, in degrees. Only has an
-            effect if xstretch != ystretch. Default: 0.0.
-
-        beam_coeffs: array_like
-            Co-efficients of the baseline Chebyshev polynomial.
-
-        spectral_index : float, optional
-            Spectral index of the frequency-dependent power law scaling to
-            apply to the width of the beam. Default: 0.0.
-
-        ref_freq : float, optional
-            Reference frequency for the beam width scaling power law, in Hz.
-            Default: None.
-
-        Other Parameters:
-            Any other parameters are used to initialize superclass PolyBeam.
-        """
         # Initialize base class
         super().__init__(**kwargs)
 
@@ -214,10 +194,7 @@ class PerturbedPolyBeam(PolyBeam):
             )
 
     def interp(self, az_array, za_array, freq_array, reuse_spline=None):
-        """
-        Evaluate the primary beam, after applying, shearing, stretching, or rotation.
-        """
-
+        """Evaluate the primary beam, after shearing, stretching, or rotation."""
         # Apply shearing, stretching, or rotation
         if self.xstretch != 1.0 or self.ystretch != 1.0:
             # Convert sheared Cartesian coords to circular polar coords

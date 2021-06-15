@@ -1,11 +1,11 @@
-"""A module providing discoverability features for hera_sim.
-"""
+"""A module providing discoverability features for hera_sim."""
+
 from __future__ import annotations
 import re
 from abc import abstractmethod, ABCMeta
 from copy import deepcopy
 from .defaults import defaults
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional, Tuple, Type
 from types import new_class
 from collections import defaultdict
 
@@ -20,7 +20,7 @@ class SimulationComponent(metaclass=ABCMeta):
           component models (see :meth:`~list_discoverable_components`").
         - Ensure that each subclass can create abstract methods.
 
-    The :meth:`~registry`: class decorator provides a simple way of
+    The :meth:`~component`: class decorator provides a simple way of
     accomplishing the above, while also providing some useful extra
     features.
 
@@ -28,13 +28,15 @@ class SimulationComponent(metaclass=ABCMeta):
     ----------
     is_multiplicative
         Specifies whether the model ``cls`` is a multiplicative
-        effect. This parameter lets the :class:`~Simulator`:
+        effect. This parameter lets the :class:`~hera_sim.simulate.Simulator`:
         class determine how to apply the effect simulated by
         ``cls``. Default setting is False (i.e. the model is
         assumed to be additive unless specified otherwise).
     """
 
+    #: Whether this systematic multiplies existing visibilities
     is_multiplicative: bool = False
+
     _alias: Tuple[str] = tuple()
 
     def __init_subclass__(cls, is_abstract: bool = False):
@@ -77,24 +79,24 @@ class SimulationComponent(metaclass=ABCMeta):
 
     @classmethod
     def get_aliases(cls) -> Tuple[str]:
+        """Get all the aliases by which this model can be identified."""
         return (cls.__name__.lower(),) + cls._alias
 
     def _extract_kwarg_values(self, **kwargs):
         """Return the (optionally updated) model's optional parameters.
 
         Parameters
-        ----------
+        ----------------
         **kwargs
-            An unpacked dictionary of optional parameter values
-            appropriate for the model. These are received directly
-            from the subclass's ``__call__`` method.
+            Optional parameter values appropriate for the model. These are received
+            directly from the subclass's ``__call__`` method.
 
         Returns
         -------
         use_kwargs : dict values
             Potentially updated parameter values for the parameters
-            passed in ``**kwargs``. This allows for a very simple
-            interface with the :module:`~defaults`: module, which
+            passed in. This allows for a very simple
+            interface with the :mod:`~hera_sim.defaults`: module, which
             will automatically update parameter default values if
             active.
         """
@@ -114,7 +116,8 @@ class SimulationComponent(metaclass=ABCMeta):
         self.kwargs = kwargs
 
     @abstractmethod
-    def __call__(self, **kwargs):  # pragma: nocover
+    def __call__(self, **kwargs):
+        """Compute the component model."""
         pass
 
     def _check_kwargs(self, **kwargs):
@@ -157,6 +160,7 @@ class SimulationComponent(metaclass=ABCMeta):
 
     @classmethod
     def get_models(cls, with_aliases=False) -> Dict[str, SimulationComponent]:
+        """Get a dictionary of models associated with this component."""
         if with_aliases:
             return deepcopy(cls._models)
         else:
@@ -166,19 +170,20 @@ class SimulationComponent(metaclass=ABCMeta):
 
     @classmethod
     def get_model(cls, mdl: str) -> SimulationComponent:
+        """Get a model with a particular name (including aliases)."""
         return cls._models[mdl.lower()]
 
 
 # class decorator for tracking subclasses
 def component(cls):
-    """Decorator to create a new specific Component that tracks its models."""
+    """Decorator to create a new :class:`SimulationComponent` that tracks its models."""
     cls._models = {}
     # This function creates a new class dynamically.
     # The idea is to create a new class that is essentially the input cls, but has a
     # new superclass -- the SimulationComponent. We pass the "is_abstract" keyword into
-    # the __init_subclass__ so that any class directly decorated with "@component" is seen to
-    # be an abstract class, not an actual model. Finally, the exec_body just adds all
-    # the stuff from cls into the new class.
+    # the __init_subclass__ so that any class directly decorated with "@component" is
+    # seen to be an abstract class, not an actual model. Finally, the exec_body just
+    # adds all the stuff from cls into the new class.
     cls = new_class(
         name=cls.__name__,
         bases=(SimulationComponent,),
@@ -186,6 +191,26 @@ def component(cls):
         exec_body=lambda namespace: namespace.update(dict(cls.__dict__)),
     )
     _available_components[cls.__name__] = cls
+
+    # Add some common text to the docstring.
+    cls.__doc__ += """
+
+    This is an *abstract* class, and should not be directly instantiated. It represents
+    a "component" -- a modular part of a simulation for which several models may be
+    defined. Models for this component may be defined by subclassing this abstract base
+    class and implementing (at least) the :meth:`__call__` method. Some of these are
+    implemented within hera_sim already, but custom models may be implemented outside
+    of hera_sim, and used on equal footing with the the internal models (as long as
+    they subclass this abstract component).
+
+    As with all components, all parameters that define the behaviour of the model are
+    accepted at class instantiation. The :meth:`__call__` method actually computes the
+    simulated effect of the component (typically, but not always, a set of visibilities
+    or gains), by *default* using these parameters. However, these parameters can be
+    over-ridden at call-time. Inputs such as the frequencies, times or baselines at
+    which to compute the effect are specific to the call, and do not get passed at
+    instantiation.
+    """
     return cls
 
 
@@ -198,7 +223,7 @@ def get_all_components(with_aliases=False) -> Dict[str, Dict[str, SimulationComp
 
 
 def get_models(cmp: str, with_aliases: bool = False) -> Dict[str, SimulationComponent]:
-    """Get a dictionary of model names mapping to model classes for a particular component."""
+    """Get a dict of model names mapping to model classes for a particular component."""
     return get_all_components(with_aliases)[cmp.lower()]
 
 
@@ -210,15 +235,30 @@ def get_all_models(with_aliases: bool = False) -> Dict[str, SimulationComponent]
     :func:`get_models`
         Return a similar dictionary but filtered to a single kind of component.
     """
-    all = get_all_components(with_aliases)
+    all_cmps = get_all_components(with_aliases)
     out = {}
-    for models in all.values():
+    for models in all_cmps.values():
         # models here is a dictionary of all models of a particular component.
         out.update(models)
     return out
 
 
-def get_model(mdl: str, cmp: Optional[str] = None) -> SimulationComponent:
+def get_model(mdl: str, cmp: Optional[str] = None) -> Type[SimulationComponent]:
+    """Get a particular model, based on its name.
+
+    Parameters
+    ----------
+    mdl
+        The name (or alias) of the model to get.
+    cmp
+        If desired, limit the search to a specific component name. This helps if there
+        are name clashes between models.
+
+    Returns
+    -------
+    cmp
+        The :class:`SimulationComponent` corresponding to the desired model.
+    """
     if cmp:
         return get_models(cmp, with_aliases=True)[mdl.lower()]
     else:
@@ -226,6 +266,18 @@ def get_model(mdl: str, cmp: Optional[str] = None) -> SimulationComponent:
 
 
 def list_all_components(with_aliases: bool = True) -> str:
+    """Lists all discoverable components.
+
+    Parameters
+    ----------
+    with_aliases
+        If True, also include model aliases in the output.
+
+    Returns
+    -------
+    str
+        A string summary of the available models.
+    """
     cmps = get_all_components(with_aliases)
 
     out = ""
@@ -236,6 +288,6 @@ def list_all_components(with_aliases: bool = True) -> str:
         for name, model in models.items():
             model_to_name[model].append(name)
 
-        for model, names in model_to_name.items():
+        for names in model_to_name.values():
             out += "  " + " | ".join(names) + "\n"
     return out

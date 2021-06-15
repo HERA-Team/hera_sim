@@ -1,13 +1,11 @@
+"""Wrapper for vis_cpu visibility simulator."""
 from __future__ import division
-from builtins import range
 import numpy as np
-from scipy.interpolate import RectBivariateSpline
 import astropy_healpix as aph
 
 from . import conversions
 from .simulators import VisibilitySimulator
 
-from astropy.constants import c
 from astropy.units import rad
 
 from vis_cpu import vis_cpu, vis_gpu, HAVE_GPU
@@ -18,10 +16,31 @@ class VisCPU(VisibilitySimulator):
     vis_cpu visibility simulator.
 
     This is a fast, simple visibility simulator that is intended to be
-    replaced by vis_gpu. It extends :class:`VisibilitySimulator`.
+    replaced by vis_gpu. It extends :class:`~.simulators.VisibilitySimulator`.
 
     Note that that output of `simulate()` in this class always has ordering
     in which the baselines are in increasing order of antenna number.
+
+    Parameters
+    ----------
+    bm_pix : int, optional
+        The number of pixels along a side in the beam map when
+        converted to (l, m) coordinates. Defaults to 100.
+    use_pixel_beams : bool, optional
+        Whether to use primary beams that have been pixelated onto a 2D
+        grid, or directly evaluate the primary beams using the available
+        UVBeam objects. Default: True.
+    precision : int, optional
+        Which precision level to use for floats and complex numbers.
+        Allowed values:
+        - 1: float32, complex64
+        - 2: float64, complex128
+    use_gpu : bool, optional
+        Whether to use the GPU version of vis_cpu or not. Default: False.
+    mpi_comm : MPI communicator
+        MPI communicator, for parallelization.
+    **kwargs
+        Passed through to :class:`~.simulators.VisibilitySimulator`.
     """
 
     def __init__(
@@ -33,29 +52,6 @@ class VisCPU(VisibilitySimulator):
         mpi_comm=None,
         **kwargs
     ):
-        """
-        Parameters
-        ----------
-        bm_pix : int, optional
-            The number of pixels along a side in the beam map when
-            converted to (l, m) coordinates. Defaults to 100.
-        use_pixel_beams : bool, optional
-            Whether to use primary beams that have been pixelated onto a 2D
-            grid, or directly evaluate the primary beams using the available
-            UVBeam objects. Default: True.
-        precision : int, optional
-            Which precision level to use for floats and complex numbers.
-            Allowed values:
-                - 1: float32, complex64
-                - 2: float64, complex128
-            Default: 1.
-        use_gpu : bool, optional
-            Whether to use the GPU version of vis_cpu or not. Default: False.
-        mpi_comm : MPI communicator
-            MPI communicator, for parallelization.
-        **kwargs
-            Arguments of :class:`VisibilitySimulator`.
-        """
 
         assert precision in (1, 2)
         self._precision = precision
@@ -180,7 +176,7 @@ class VisCPU(VisibilitySimulator):
 
         Notes
         -----
-            Due to using the verbatim :func:`vis_cpu` function, the beam
+            Due to using the verbatim :func:`vis_cpu.vis_cpu` function, the beam
             cube must have an entry for each antenna, which is a bit of
             a waste of memory in some cases. If this is changed in the
             future, this method can be modified to only return one
@@ -236,7 +232,6 @@ class VisCPU(VisibilitySimulator):
             to topocenteric co-ordinates at each LST.
             Shape=(NTIMES, 3, 3).
         """
-
         sid_time = self.lsts
         eq2tops = np.empty((len(sid_time), 3, 3), dtype=self._real_dtype)
 
@@ -277,32 +272,19 @@ class VisCPU(VisibilitySimulator):
         for i, freq in enumerate(self.freqs):
 
             # Divide tasks between MPI workers if needed
-            if self.mpi_comm is not None:
-                if i % nproc != myid:
-                    continue
+            if self.mpi_comm is not None and i % nproc != myid:
+                continue
 
-            if self.use_pixel_beams:
-                # Use pixelized primary beams
-                vis = self._vis_cpu(
-                    antpos=self.antpos,
-                    freq=freq,
-                    eq2tops=eq2tops,
-                    crd_eq=crd_eq,
-                    I_sky=I_sky[i],
-                    bm_cube=beam_lm[:, i],
-                    precision=self._precision,
-                )
-            else:
-                # Use UVBeam objects directly
-                vis = self._vis_cpu(
-                    antpos=self.antpos,
-                    freq=freq,
-                    eq2tops=eq2tops,
-                    crd_eq=crd_eq,
-                    I_sky=I_sky[i],
-                    beam_list=beam_list,
-                    precision=self._precision,
-                )
+            vis = self._vis_cpu(
+                antpos=self.antpos,
+                freq=freq,
+                eq2tops=eq2tops,
+                crd_eq=crd_eq,
+                I_sky=I_sky[i],
+                beam_list=beam_list if not self.use_pixel_beams else None,
+                bm_cube=beam_lm[:, i] if self.use_pixel_beams else None,
+                precision=self._precision,
+            )
 
             indices = np.triu_indices(vis.shape[1])
             vis_upper_tri = vis[:, indices[0], indices[1]]

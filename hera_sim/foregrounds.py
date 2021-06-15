@@ -1,4 +1,7 @@
-"""Reimagining of the foregrounds module, using an object-oriented approach."""
+"""Visibility-space foreground models.
+
+This module defines several cheap foreground models evaluated in visibility space.
+"""
 
 import numpy as np
 from astropy import constants
@@ -10,12 +13,56 @@ from .components import component
 
 @component
 class Foreground:
+    """Base class for foreground models."""
+
     pass
 
 
-# TODO: choose at which level we'll be documenting classes.
 class DiffuseForeground(Foreground):
-    """"""
+    """
+    Produce a rough simulation of diffuse foreground-like structure.
+
+    Parameters
+    ----------
+    Tsky_mdl : interpolation object
+        Sky temperature model, in units of Kelvin. Must be callable
+        with signature Tsky_mdl(lsts, freqs), formatted so that lsts
+        are in radians and freqs are in GHz.
+    omega_p : interpolation object or array-like of float
+        Beam size model, in units of steradian. If passing an array,
+        then it must be the same shape as the frequency array passed
+        to the ``freqs`` parameter.
+    delay_filter_kwargs : dict, optional
+        Keyword arguments and associated values to be passed to
+        :func:`~hera_sim.utils.rough_delay_filter`. Default is to use the
+        following settings: ``standoff : 0.0``, ``delay_filter_type : tophat``.
+    fringe_filter_kwargs : dict, optional
+        Keyword arguments and associated values to be passed to
+        :func:`~hera_sim.utils.rough_fringe_filter`. Default is to use the
+        following settings: ``fringe_filter_type : tophat``.
+
+    Notes
+    -----
+    This algorithm provides a rough simulation of visibilities from
+    diffuse foregrounds by using a sky temperature model. The sky
+    temperature models provided in this package are appropriate for
+    the HERA H1C observing season, and are only valid for frequencies
+    between 100 MHz and 200 MHz; anything beyond this range is just a
+    copy of the value at the nearest edge. Simulated autocorrelations
+    (i.e. zero magnitude ``bl_vec``) are returned as complex arrays,
+    but have zero imaginary component everywhere. For cross-correlations,
+    the sky model is convolved with white noise (in delay/fringe-rate
+    space), and rough delay and fringe filters are applied to the
+    visibility. As a standalone component model, this is does not
+    produce consistent simulated visibilities for baselines within a
+    redundant group (except for autocorrelations); however, the
+    :class:`~hera_sim.simulate.Simulator` class provides the functionality to ensure
+    that redundant baselines see the same sky. Additionally, visibilities
+    simulated with this model are not invariant under complex conjugation
+    and baseline conjugation, since the delay filter applied is symmetric;
+    however, the :class:`~.simulate.Simulator`  class is aware of this and ensures
+    invariance under complex conjugation and baseline conjugation.
+    """
 
     _alias = ("diffuse_foreground",)
 
@@ -26,34 +73,6 @@ class DiffuseForeground(Foreground):
         delay_filter_kwargs=None,
         fringe_filter_kwargs=None,
     ):
-        """
-
-        Parameters
-        ----------
-
-        Tsky_mdl : interpolation object
-            Sky temperature model, in units of Kelvin. Must be callable
-            with signature Tsky_mdl(lsts, freqs), formatted so that lsts
-            are in radians and freqs are in GHz.
-
-        omega_p : interpolation object or array-like of float
-            Beam size model, in units of steradian. If passing an array,
-            then it must be the same shape as the frequency array passed
-            to the ``freqs`` parameter.
-
-        delay_filter_kwargs : dict, optional
-            Keyword arguments and associated values to be passed to
-            .. func:: utils.rough_delay_filter. Default is to use the
-            following settings:
-                standoff : 0.0
-                delay_filter_type : tophat
-
-        fringe_filter_kwargs : dict, optional
-            Keyword arguments and associated values to be passed to
-            .. func:: utils.rough_fringe_filter. Default is to use the
-            following settings:
-                fringe_filter_type : tophat
-        """
         if delay_filter_kwargs is None:
             delay_filter_kwargs = {
                 "standoff": 0.0,
@@ -71,11 +90,10 @@ class DiffuseForeground(Foreground):
         )
 
     def __call__(self, lsts, freqs, bl_vec, **kwargs):
-        """
+        """Compute the foregrounds.
 
         Parameters
         ----------
-
         lsts : array-like of float
             Array of LST values in units of radians.
         freqs : array-like of float
@@ -85,36 +103,12 @@ class DiffuseForeground(Foreground):
 
         Returns
         -------
-
         vis : ndarray of complex
             Array of visibilities at each LST and frequency appropriate
             for the given sky temperature model, beam size model, and
             baseline vector. Returned in units of Jy with shape
             (lsts.size, freqs.size).
-
-        Notes
-        -----
-        This function provides a rough simulation of visibilities from
-        diffuse foregrounds by using a sky temperature model. The sky
-        temperature models provided in this package are appropriate for
-        the HERA H1C observing season, and are only valid for frequencies
-        between 100 MHz and 200 MHz; anything beyond this range is just a
-        copy of the value at the nearest edge. Simulated autocorrelations
-        (i.e. zero magnitude ``bl_vec``) are returned as complex arrays,
-        but have zero imaginary component everywhere. For cross-correlations,
-        the sky model is convolved with white noise (in delay/fringe-rate
-        space), and rough delay and fringe filters are applied to the
-        visibility. As a standalone component model, this is does not
-        produce consistent simulated visibilities for baselines within a
-        redundant group (except for autocorrelations); however, the
-        .. class:: Simulator class provides the functionality to ensure
-        that redundant baselines see the same sky. Additionally, visibilities
-        simulated with this model are not invariant under complex conjugation
-        and baseline conjugation, since the delay filter applied is symmetric;
-        however, the .. class:Simulator: class is aware of this and ensures
-        invariance under complex conjugation and baseline conjugation.
         """
-
         # validate the kwargs
         self._check_kwargs(**kwargs)
 
@@ -163,8 +157,38 @@ class DiffuseForeground(Foreground):
 
 
 class PointSourceForeground(Foreground):
-    # TODO: fill in docstring
-    """"""
+    """
+    Produce a uniformly-random point-source sky observed with a truncated Gaussian beam.
+
+    Parameters
+    ----------
+    nsrcs : int, optional
+        Number of sources to place on the sky. Point sources are
+        simulated to have a flux-density drawn from a power-law
+        distribution specified by the ``Smin``, ``Smax``, and
+        ``beta`` parameters. Additionally, each source has a chromatic
+        flux-density given by a power law; the spectral index is drawn
+        from a normal distribution with mean ``spectral_index_mean`` and
+        standard deviation ``spectral_index_std``.
+    Smin : float, optional
+        Lower bound of the power-law distribution to draw flux-densities
+        from, in units of Jy.
+    Smax : float, optional
+        Upper bound of the power-law distribution to draw flux-densities
+        from, in units of Jy.
+    beta : float, optional
+        Power law index for the source counts versus flux-density.
+    spectral_index_mean : float, optional
+        The mean of the normal distribution to draw source spectral indices
+        from.
+    spectral_index_std : float, optional
+        The standard deviation of the normal distribution to draw source
+        spectral indices from.
+    reference_freq : float, optional
+        Reference frequency used to make the point source flux densities
+        chromatic, in units of GHz.
+    """
+
     _alias = ("pntsrc_foreground",)
 
     def __init__(
@@ -177,44 +201,7 @@ class PointSourceForeground(Foreground):
         spectral_index_std=0.5,
         reference_freq=0.15,
     ):
-        """
-        Parameters
-        ----------
 
-        nsrcs : int, optional
-            Number of sources to place on the sky. Point sources are
-            simulated to have a flux-density drawn from a power-law
-            distribution specified by the ``Smin``, ``Smax``, and
-            ``beta`` parameters. Additionally, each source has a chromatic
-            flux-density given by a power law; the spectral index is drawn
-            from a normal distribution with mean ``spectral_index_mean`` and
-            standard deviation ``spectral_index_std``. The default behavior
-            is to use 1000 sources.
-
-        Smin : float, optional
-            Lower bound of the power-law distribution to draw flux-densities
-            from, in units of Jy. Default is 0.3 Jy.
-
-        Smax : float, optional
-            Upper bound of the power-law distribution to draw flux-densities
-            from, in units of Jy. Default is 300 Jy.
-
-        beta : float, optional
-            Power law index for the source counts versus flux-density. Default
-            is -1.5.
-
-        spectral_index_mean : float, optional
-            The mean of the normal distribution to draw source spectral indices
-            from. Default is -1.
-
-        spectral_index_std : float, optional
-            The standard deviation of the normal distribution to draw source
-            spectral indices from. Default is 0.5.
-
-        reference_freq : float, optional
-            Reference frequency used to make the point source flux densities
-            chromatic, in units of GHz. Default is 0.15 GHz.
-        """
         super().__init__(
             nsrcs=nsrcs,
             Smin=Smin,
@@ -226,18 +213,15 @@ class PointSourceForeground(Foreground):
         )
 
     def __call__(self, lsts, freqs, bl_vec, **kwargs):
-        # TODO: fill in docstring
-        """
+        """Compute the point source foregrounds.
+
         Parameters
         ----------
-
         lsts : array-like of float
             Local Sidereal Times for the simulated observation, in units
             of radians.
-
         freqs : array-like of float
             Frequency array for the simulated observation, in units of GHz.
-
         bl_vec : array-like of float
             Baseline vector for the simulated observation, given in
             East-North-Up coordinates in units of nanoseconds. Must have
@@ -251,8 +235,10 @@ class PointSourceForeground(Foreground):
 
         Notes
         -----
-        # TODO: add a note about hard-coded beam size and briefly describe the
-        routine used to mock up visibilities.
+        The beam used here is a Gaussian with width hard-coded to HERA's width,
+        and truncated at the horizon.
+
+        This is a *very* rough simulator, use at your own risk.
         """
         # validate the kwargs
         self._check_kwargs(**kwargs)

@@ -1,12 +1,8 @@
-"""
-This module is designed to allow for easy interfacing with simulation default
-parameters in an interactive environment.
-"""
+"""Module for interfacing with package-wide default parameters."""
 
 import yaml
 import inspect
 import functools
-import sys
 import warnings
 
 from os import path
@@ -19,7 +15,16 @@ SEASON_CONFIGS = {
 }
 
 
-class Defaults:
+class _Singleton(type):
+    _instances = {}
+
+    def __call__(cls, *args, **kwargs):
+        if cls not in cls._instances:
+            cls._instances[cls] = super(_Singleton, cls).__call__(*args, **kwargs)
+        return cls._instances[cls]
+
+
+class Defaults(metaclass=_Singleton):
     """Class for dynamically changing hera_sim parameter defaults.
 
     This class handles the retreival of simulation default parameters from
@@ -32,30 +37,30 @@ class Defaults:
     Examples
     --------
     To set the default parameters to those appropriate for the H2C
-    observing season (and activate the use of those defaults):
+    observing season (and activate the use of those defaults)::
 
-    hera_sim.defaults.set('h2c')
+        hera_sim.defaults.set('h2c')
 
     To set the defaults to a custom set of defaults, you must first
     create a configuration YAML. Assuming the path to the YAML is
     stored in the variable `config_path`, these defaults would be set
-    via the following line:
+    via the following line::
 
-    hera_sim.defaults.set(config_path)
+        hera_sim.defaults.set(config_path)
 
-    To revert back to using defaults defined in function signatures:
+    To revert back to using defaults defined in function signatures::
 
-    hera_sim.defaults.deactivate()
+        hera_sim.defaults.deactivate()
 
-    To view what the default value is for a particular parameter, do:
+    To view what the default value is for a particular parameter, do::
 
-    hera_sim.defaults(parameter),
+        hera_sim.defaults(parameter),
 
     where `parameter` is a string with the name of the parameter as
     listed in the configuration file. To view the entire set of default
-    parameters, use:
+    parameters, use::
 
-    hera_sim.defaults()
+        hera_sim.defaults()
     """
 
     def __init__(self, config=None):
@@ -63,7 +68,6 @@ class Defaults:
 
         Parameters
         ----------
-
         config : str or dict, optional (default 'h1c')
             May either be an absolute path to a configuration YAML, one of
             the observing season keywords ('h1c', 'h2c'), or a dictionary
@@ -71,7 +75,6 @@ class Defaults:
 
         Notes
         -----
-
         The configuration file may be formatted in practically any way,
         as long as it is parsable by `pyyaml`. That said, the resulting
         configuration will *always* take the form {param : value} for
@@ -83,59 +86,58 @@ class Defaults:
 
         Examples
         --------
+        Consider the following contents of a configuration file::
 
-        Consider the following contents of a configuration file:
-
-        foregrounds:
-            Tsky_mdl: !Tsky
-                datafile: HERA_Tsky_Reformatted.npz
-            seed_redundantly: True
-            nsrcs: 500
-        gains:
-            gain_spread: 0.1
-            dly_rng: [-10, 10]
-            bp_poly: HERA_H1C_BANDPASS.npy
-
-        This would result in the following set of defaults:
-
-        {Tsky_mdl: <hera_sim.interpolators.Tsky instance>,
-         seed_redundantly: True,
-         nsrcs: 500,
-         gain_spread: 0.1,
-         dly_rng: [-10,10]
-         bp_poly: HERA_H1C_BANDPASS.npy
-         }
-
-        Now consider a different configuration file:
-
-        sky:
-            eor:
-                eor_amp: 0.001
-        systematics:
-            rfi:
-                rfi_stations:
-                    stations: !!null
-                rfi_impulse:
-                    chance: 0.01
-                rfi_scatter:
-                    chance: 0.35
-            crosstalk:
-                amplitude: 1.25
+            foregrounds:
+                Tsky_mdl: !Tsky
+                    datafile: HERA_Tsky_Reformatted.npz
+                seed_redundantly: True
+                nsrcs: 500
             gains:
-                gain_spread: 0.2
-            noise:
-                Trx: 150
+                gain_spread: 0.1
+                dly_rng: [-10, 10]
+                bp_poly: HERA_H1C_BANDPASS.npy
+
+        This would result in the following set of defaults::
+
+            {Tsky_mdl: <hera_sim.interpolators.Tsky instance>,
+            seed_redundantly: True,
+            nsrcs: 500,
+            gain_spread: 0.1,
+            dly_rng: [-10,10]
+            bp_poly: HERA_H1C_BANDPASS.npy
+            }
+
+        Now consider a different configuration file::
+
+            sky:
+                eor:
+                    eor_amp: 0.001
+            systematics:
+                rfi:
+                    rfi_stations:
+                        stations: !!null
+                    rfi_impulse:
+                        chance: 0.01
+                    rfi_scatter:
+                        chance: 0.35
+                crosstalk:
+                    amplitude: 1.25
+                gains:
+                    gain_spread: 0.2
+                noise:
+                    Trx: 150
 
         Since the parser recursively unpacks the raw configuration
-        dictionary until no entry is nested, the resulting config is:
+        dictionary until no entry is nested, the resulting config is::
 
-        {eor_amp: 0.001,
-         stations: None,
-         chance: 0.35,
-         amplitude: 1.25,
-         gain_spread: 0.2,
-         Trx: 150
-         }
+            {eor_amp: 0.001,
+            stations: None,
+            chance: 0.35,
+            amplitude: 1.25,
+            gain_spread: 0.2,
+            Trx: 150
+            }
         """
         self._raw_config = {}
         self._config = {}
@@ -150,12 +152,14 @@ class Defaults:
             try:
                 return self._config[component]
             except KeyError:
-                raise KeyError("{} not found in configuration.".format(component))
+                raise KeyError(f"{component} not found in configuration.")
         else:
             return self._config
 
     def set(self, new_config, refresh=False):
         """Set the defaults to those specified in `new_config`.
+
+        Also activates those defaults.
 
         Parameters
         ----------
@@ -163,14 +167,9 @@ class Defaults:
             Absolute path to configuration file or dictionary of
             configuration parameters formatted in the same way a
             configuration would be loaded.
-
         refresh : bool, optional
             Choose whether to completely overwrite the old config or
             just add new values to it.
-
-        Notes
-        -----
-        Calling this method also activates the defaults.
         """
         if refresh:
             self._config = {}
@@ -219,7 +218,8 @@ class Defaults:
         # check if any items are repeated
         self._check_config()
 
-    def _unpack_dict(self, nested_dict, new_dict=None):
+    @staticmethod
+    def _unpack_dict(nested_dict, new_dict=None):
         """Extract individual components from a (partially) nested dictionary.
 
         Parameters
@@ -227,7 +227,6 @@ class Defaults:
         nested_dict : dict
             A dictionary that may either be fully, partially, or not
             nested. May have any degree of nesting.
-
         new_dict : dict
             A dictionary, empty or not, to fill with the (key, value)
             pairs in `nested_dict` such that `value` is not a dict.
@@ -241,19 +240,23 @@ class Defaults:
 
         Examples
         --------
-        Input: nested_dict = {key1 : {k1 : v1, k2 : v2}, key2 : val2}
-               new_dict = {}
-        Output: new_dict = {k1 : v1, k2 : v2, key2 : val2}
+        >>> Defaults._unpack_dict(
+        >>>     nested_dict = {key1 : {k1 : v1, k2 : v2}, key2 : val2}
+        >>>     new_dict = {}
+        >>> )
+        {k1 : v1, k2 : v2, key2 : val2}
 
-        Input: nested_dict = {key1 : val1, key2 : val2}
-               new_dict = {key0 : val0}
-        Output: new_dict = {key0 : val0, key1 : val1, key2 : val2}
+        >>> Defaults._unpack_dict(
+        >>>     nested_dict = {key1 : val1, key2 : val2}
+        >>>     new_dict = {key0 : val0}
+        >>> )
+        {key0 : val0, key1 : val1, key2 : val2}
         """
         if new_dict is None:
             new_dict = {}
         for key, value in nested_dict.items():
             if isinstance(value, dict) and key != "array_layout":
-                self._unpack_dict(value, new_dict)
+                Defaults._unpack_dict(value, new_dict)
             else:
                 new_dict[key] = value
         return new_dict
@@ -344,7 +347,7 @@ class Defaults:
             final_args = {
                 arg: (
                     passed_args[arg]
-                    if arg in passed_args.keys()
+                    if arg in passed_args
                     else new_args[arg]
                     if self._override_defaults
                     else old_kwargs[arg]
@@ -358,7 +361,6 @@ class Defaults:
         return new_func
 
     def apply(self, func_kwargs, **kwargs):
-        # TODO: docstring
         """Just update the kwargs given the function kwargs."""
         # pull the defaults from the active defaults
         new_args = self()
@@ -371,12 +373,10 @@ class Defaults:
         # get the keys to iterate over
         keys = set(list(new_args.keys()) + list(kwargs.keys()))
 
-        new_kwargs = {
-            arg: (kwargs[arg] if arg in kwargs else new_args[arg]) for arg in keys
-        }
-
-        return new_kwargs
+        return {arg: (kwargs[arg] if arg in kwargs else new_args[arg]) for arg in keys}
 
 
+#: An object specifying the defaults to use throughout hera_sim, and methods to alter
+#: them.
 defaults = Defaults()
 _defaults = defaults._handler

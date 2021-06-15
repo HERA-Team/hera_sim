@@ -5,8 +5,6 @@ import yaml
 
 from astropy.units.quantity import Quantity
 
-import hera_sim.__yaml_constructors
-
 
 def test_astropy_units_constructor(tmp_path):
     tfile = tmp_path / "test_astro.yaml"

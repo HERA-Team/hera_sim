@@ -1,4 +1,3 @@
-import pytest
 from hera_sim import antpos
 import numpy as np
 

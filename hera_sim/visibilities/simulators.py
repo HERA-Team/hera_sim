@@ -1,3 +1,4 @@
+"""Module defining a high-level visibility simulator wrapper."""
 from __future__ import division
 import warnings
 
@@ -26,21 +27,70 @@ def _isnpixok(npix):
     return npix % 12 == 0 and _is_power_of_2(n)
 
 
-class VisibilitySimulator:
-    __metaclass__ = ABCMeta
+class VisibilitySimulator(metaclass=ABCMeta):
     """
     Base VisibilitySimulator class.
 
     Any actual visibility simulator should be sub-classed from this one.
     This class provides several convenience methods and defines the API.
+
+    Parameters
+    ----------
+    obsparams : dict or filepath, optional
+        Exactly the expected input to `pyuvsim`'s
+        :func:`pyuvsim.simsetup.initialize_uvdata_from_params`
+        function. By default `uvdata`, `beams`, and `beam_ids`
+        are used instead.
+    uvdata : UVData object, optional
+        A :class:`pyuvdata.UVData` object contain information about
+        the "observation". Initalized from `obsparams`, if included.
+    sky_freqs : array_like, optional
+        Frequencies at which the sky intensity and/or point sources
+        are defined in [Hz]. Defaults to the unique frequencies in
+        `uvdata` Shape=(NFREQS,).
+    beams : array_like of `pyuvsim.analyticbeam.AnalyticBeam`, optional
+        UVBeam models for as many antennae as have unique beams.
+        Initialized from `obsparams`, if included. Defaults to a
+        single uniform beam is applied for every antenna. Each beam
+        is the response of an individual antenna and NOT a
+        per-baseline response.
+        Shape=(N_BEAMS,).
+    beam_ids : array_like of int, optional
+        List of integers specifying which beam model each antenna
+        uses (i.e. the index of `beams` which it should refer to).
+        Initialized from `obsparams`, if included. By default, all
+        antennas use the same beam (beam 0).
+        Shape=(N_ANTS,).
+    sky_intensity : array_like, optional
+        A healpix model for the intensity of the sky emission, in
+        [Jy/sr]. Shape=(NFREQS, N_PIX_SKY).
+    point_source_pos : array_like, optional
+        An array of point sources. For each source, the entries are
+        (ra, dec) [rad] (assumed to be in J2000).
+        Shape=(N_SOURCES, 2).
+    point_source_flux : array_like, optional
+        An array of fluxes of the given point sources, per
+        frequency. Fluxes in [Jy]. Shape=(NFREQS, N_SOURCES).
+    nside : int, optional
+        Only used if sky_intensity is *not* given but the simulator
+        is incapable of directly dealing with point sources. In this
+        case, it sets the resolution of the healpix map to which the
+        sources will be allocated.
+
+    Notes
+    -----
+        Input beam models represent the responses of individual
+        antennas and are NOT the same as per-baseline "primary
+        beams". This interpretation of a "primary beam" would be the
+        product of the responses of two input antenna beams.
     """
 
-    # Whether this particular simulator has the ability to simulate point
-    # sources directly.
+    #: Whether this particular simulator has the ability to simulate point
+    #: sources directly.
     point_source_ability = True
 
-    # Whether this particular simulator has the ability to simulate diffuse
-    # maps directly.
+    #: Whether this particular simulator has the ability to simulate diffuse
+    #: maps directly.
     diffuse_ability = True
 
     def __init__(
@@ -56,60 +106,6 @@ class VisibilitySimulator:
         nside=2 ** 5,
         validate=True,
     ):
-        """
-        Parameters
-        ----------
-        obsparams : dict or filepath, optional
-            Exactly the expected input to `pyuvsim`'s
-            :func:`pyuvsim.simsetup.initialize_uvdata_from_params`
-            function. By default `uvdata`, `beams`, and `beam_ids`
-            are used instead.
-        uvdata : UVData object, optional
-            A :class:`pyuvdata.UVData` object contain information about
-            the "observation". Initalized from `obsparams`, if included.
-        sky_freqs : array_like, optional
-            Frequencies at which the sky intensity and/or point sources
-            are defined in [Hz]. Defaults to the unique frequencies in
-            `uvdata` Shape=(NFREQS,).
-        beams : array_like of `pyuvsim.analyticbeam.AnalyticBeam`,
-                optional
-            UVBeam models for as many antennae as have unique beams.
-            Initialized from `obsparams`, if included. Defaults to a
-            single uniform beam is applied for every antenna. Each beam
-            is the response of an individual antenna and NOT a
-            per-baseline response.
-            Shape=(N_BEAMS,).
-        beam_ids : array_like of int, optional
-            List of integers specifying which beam model each antenna
-            uses (i.e. the index of `beams` which it should refer to).
-            Initialized from `obsparams`, if included. By default, all
-            antennas use the same beam (beam 0).
-            Shape=(N_ANTS,).
-        sky_intensity : array_like, optional
-            A healpix model for the intensity of the sky emission, in
-            [Jy/sr]. Shape=(NFREQS, N_PIX_SKY).
-        point_source_pos : array_like, optional
-            An array of point sources. For each source, the entries are
-            (ra, dec) [rad] (assumed to be in J2000).
-            Shape=(N_SOURCES, 2).
-        point_source_flux : array_like, optional
-            An array of fluxes of the given point sources, per
-            frequency. Fluxes in [Jy]. Shape=(NFREQS, N_SOURCES).
-        nside : int, optional
-            Only used if sky_intensity is *not* given but the simulator
-            is incapable of directly dealing with point sources. In this
-            case, it sets the resolution of the healpix map to which the
-            sources will be allocated.
-        validate : bool, optional
-            Whether to run the validation method on construction. Default: True.
-
-        Notes
-        -----
-            Input beam models represent the responses of individual
-            antennas and are NOT the same as per-baseline "primary
-            beams". This interpretation of a "primary beam" would be the
-            product of the responses of two input antenna beams.
-        """
         if obsparams:
             (self.uvdata, self.beams, self.beam_ids) = initialize_uvdata_from_params(
                 obsparams
@@ -146,7 +142,8 @@ class VisibilitySimulator:
                     # If the catalog is healpix, get the 'I' component as sky intensity.
                     sky_intensity = np.atleast_2d(catalog.stokes[0].to("K").value)
                 else:
-                    # At the moment, only 'point' and 'healpix' are available as component types
+                    # At the moment, only 'point' and 'healpix' are available as
+                    # component types
                     raise AttributeError(
                         "catalog.component_type is neither 'point' nor 'healpix'. "
                         "Something is wrong here."
@@ -159,8 +156,8 @@ class VisibilitySimulator:
             # convert the beam_ids dict to an array of ints
             nms = list(self.uvdata.antenna_names)
             tmp_ids = np.zeros(len(self.beam_ids), dtype=int)
-            for name, id in self.beam_ids.items():
-                tmp_ids[nms.index(name)] = id
+            for name, beam_id in self.beam_ids.items():
+                tmp_ids[nms.index(name)] = beam_id
             self.beam_ids = tmp_ids
             self.beams.set_obj_mode()
             _complete_uvdata(self.uvdata, inplace=True)
@@ -216,9 +213,10 @@ class VisibilitySimulator:
                 ).reshape((self.sky_freqs.shape[0], -1))
             else:
                 raise ValueError(
-                    f"point_source_flux must have the same number of freqs as sky_freqs. "
-                    f"point_source_flux.shape = {self.point_source_flux.shape}."
-                    f"sky_freq.shape = {self.sky_freqs.shape}"
+                    f"point_source_flux must have the same number of freqs as "
+                    f"sky_freqs. point_source_flux.shape = "
+                    f"{self.point_source_flux.shape}. sky_freq.shape = "
+                    f"{self.sky_freqs.shape}"
                 )
 
         if self.point_source_flux is not None:
@@ -300,7 +298,6 @@ class VisibilitySimulator:
         array_like
             The HEALPix diffuse model. Shape=(NFREQ, NPIX).
         """
-
         hmap = np.zeros((len(point_source_flux), aph.nside_to_npix(nside)))
 
         # Get which pixel every point source lies in.

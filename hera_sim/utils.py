@@ -1,14 +1,14 @@
-""" Utility module """
+"""Utility module."""
 import numpy as np
 import astropy.constants as const
 import astropy.units as u
 from scipy.interpolate import RectBivariateSpline
-from typing import Sequence, Optional, Tuple
+from typing import Sequence, Optional, Tuple, Union
 import warnings
 from .interpolators import Beam
 
 
-def _get_bl_len_vec(bl_len_ns: [float, np.ndarray]) -> np.ndarray:
+def _get_bl_len_vec(bl_len_ns: Union[float, np.ndarray]) -> np.ndarray:
     """
     Convert a baseline length in a variety of formats to a standard length-3 vector.
 
@@ -33,7 +33,7 @@ def _get_bl_len_vec(bl_len_ns: [float, np.ndarray]) -> np.ndarray:
     return bl_len_ns
 
 
-def get_bl_len_magnitude(bl_len_ns: [float, np.ndarray, Sequence]) -> float:
+def get_bl_len_magnitude(bl_len_ns: Union[float, np.ndarray, Sequence]) -> float:
     """
     Get the magnitude of the length of the given baseline.
 
@@ -55,7 +55,7 @@ def get_bl_len_magnitude(bl_len_ns: [float, np.ndarray, Sequence]) -> float:
 
 def gen_delay_filter(
     freqs: np.ndarray,
-    bl_len_ns: [float, np.ndarray, Sequence],
+    bl_len_ns: Union[float, np.ndarray, Sequence],
     standoff: float = 0.0,
     delay_filter_type: Optional[str] = "gauss",
     min_delay: Optional[float] = None,
@@ -151,10 +151,8 @@ def rough_delay_filter(
     delay_filter
         The pre-computed filter to use. A filter can be created on-the-fly by
         passing kwargs.
-
-    Other Parameters
-    ----------------
-    All other parameters passed to :func:`gen_delay_filter`.
+    **kwargs
+        Passed to :func:`gen_delay_filter`.
 
     Returns
     -------
@@ -168,11 +166,13 @@ def rough_delay_filter(
     if delay_filter is None:
         if freqs is None:
             raise ValueError(
-                "If you don't provide a pre-computed delay filter, you must provide freqs"
+                "If you don't provide a pre-computed delay filter, you must "
+                "provide freqs"
             )
         if bl_len_ns is None:
             raise ValueError(
-                "If you don't provide a pre-computed delay filter, you must provide bl_len_ns"
+                "If you don't provide a pre-computed delay filter, you must provide "
+                "bl_len_ns"
             )
 
         delay_filter = gen_delay_filter(freqs=freqs, bl_len_ns=bl_len_ns, **kwargs)
@@ -203,22 +203,20 @@ def gen_fringe_filter(
         Projected East-West baseline length [nanosec]
     fringe_filter_type
         Options ``['tophat', 'gauss', 'custom', 'none']``
+    **filter_kwargs
+        These are specific to each ``fringe_filter_type``.
 
-    Other Parameters
-    ----------------
-    Other parameters are specific to each ``filter_type``.
+        For ``filter_type == 'gauss'``:
 
-    For ``filter_type == 'gauss'``
+            * **fr_width** (float or array): Sets gaussian width in fringe-rate [Hz]
 
-        * fr_width (float or array): Sets gaussian width in fringe-rate [Hz]
+        For ``filter_type == 'custom'``:
 
-    For ``filter_type == 'custom'``
-
-        * ``FR_filter`` (ndarray): shape (Nfrates, Nfreqs) with custom filter (must be
-          fftshifted, see below)
-        * ``FR_frates`` (ndarray): array of FR_filter fringe rates [Hz] (must be monotonically
-          increasing)
-        * ``FR_freqs`` (ndarray): array of FR_filter freqs [GHz]
+            * **FR_filter** (ndarray): shape (Nfrates, Nfreqs) with custom filter (must
+              be fftshifted, see below)
+            * **FR_frates** (ndarray): array of FR_filter fringe rates [Hz] (must be
+              monotonically increasing)
+            * **FR_freqs** (ndarray): array of FR_filter freqs [GHz]
 
     Returns
     -------
@@ -311,12 +309,10 @@ def rough_fringe_filter(
         data to filter along zeroth axis
     fringe_filter
         A pre-computed fringe-filter to use. Computed on the fly if not given.
-
-    Other Parameters
-    ----------------
-    All other parameters passed to :func:`gen_fringe_filter` to compute the fringe
-    filter on the fly (if necessary). If so, at least ``lsts``, ``freqs``, and
-    ``ew_bl_len_ns`` are required.
+    **kwargs
+        Passed to :func:`gen_fringe_filter` to compute the fringe
+        filter on the fly (if necessary). If so, at least ``lsts``, ``freqs``, and
+        ``ew_bl_len_ns`` are required.
 
     Returns
     -------
@@ -331,7 +327,8 @@ def rough_fringe_filter(
     if fringe_filter is None:
         if any(k is None for k in [lsts, freqs, ew_bl_len_ns]):
             raise ValueError(
-                "Must provide 'lsts', 'freqs' and 'ew_bl_len_ns' if fringe_filter not given."
+                "Must provide 'lsts', 'freqs' and 'ew_bl_len_ns' if fringe_filter not "
+                "given."
             )
 
         fringe_filter = gen_fringe_filter(
@@ -372,7 +369,8 @@ def compute_ha(lsts: np.ndarray, ra: float) -> np.ndarray:
     Parameters
     ----------
     lsts
-        Local sidereal times of the observation to be generated [radians]. Shape=(NTIMES,)
+        Local sidereal times of the observation to be generated [radians].
+        Shape=(NTIMES,)
     ra
         The right ascension of a point source [radians].
 
@@ -387,7 +385,7 @@ def compute_ha(lsts: np.ndarray, ra: float) -> np.ndarray:
     return ha
 
 
-def gen_white_noise(size: [int, Tuple[int]] = 1) -> np.ndarray:
+def gen_white_noise(size: Union[int, Tuple[int]] = 1) -> np.ndarray:
     """Produce complex Gaussian noise with unity variance.
 
     Parameters
@@ -407,7 +405,7 @@ def gen_white_noise(size: [int, Tuple[int]] = 1) -> np.ndarray:
     )
 
 
-def jansky_to_kelvin(freqs: np.ndarray, omega_p: [Beam, np.ndarray]) -> np.ndarray:
+def jansky_to_kelvin(freqs: np.ndarray, omega_p: Union[Beam, np.ndarray]) -> np.ndarray:
     """Return Kelvin -> Jy conversion as a function of frequency.
 
     Parameters
@@ -434,8 +432,13 @@ def jansky_to_kelvin(freqs: np.ndarray, omega_p: [Beam, np.ndarray]) -> np.ndarr
 
 
 def Jy2T(freqs, omega_p):
+    """Convert Janskys to Kelvin.
+
+    Deprecated in v1.0.0. Will be removed in v1.1.0
+    """
     warnings.warn(
-        "The function Jy2T has been renamed 'jansky_to_kelvin'. It will be removed in v1.1."
+        "The function Jy2T has been renamed 'jansky_to_kelvin'. It will be removed in "
+        "v1.1."
     )
     return jansky_to_kelvin(freqs, omega_p)
 

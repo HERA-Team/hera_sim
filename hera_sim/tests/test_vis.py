@@ -1,34 +1,29 @@
 import unittest
 
 import astropy_healpix as aph
-
 import healvis
 import numpy as np
 import pytest
 from astropy.units import sday, rad
 from pyuvsim.analyticbeam import AnalyticBeam
+from vis_cpu import HAVE_GPU
 from hera_sim.defaults import defaults
-
 from hera_sim import io
 from hera_sim import vis
 from hera_sim.antpos import linear_array
-from hera_sim.visibilities import VisCPU, HealVis, VisibilitySimulator
+from hera_sim.visibilities import VisCPU, HealVis
 
-# temporarily restrict simulators to just VisCPU
 SIMULATORS = (HealVis, VisCPU)
 
-try:
-    import hera_gpu
+if HAVE_GPU:
 
     class VisGPU(VisCPU):
         """Simple mock class to make testing VisCPU with use_gpu=True easier"""
 
         def __init__(self, *args, **kwargs):
-            self.__init__(*args, use_gpu=True, **kwargs)
+            super().__init__(*args, use_gpu=True, **kwargs)
 
     SIMULATORS = SIMULATORS + (VisGPU,)
-except ImportError:
-    pass
 
 
 np.random.seed(0)
@@ -65,42 +60,6 @@ def uvdataJD():
         },
         start_time=2456659,
     )
-
-
-def test_simulators_single_freq_input(uvdata):
-    """Test the case when point source flux is input with one frequency."""
-    freqs = np.unique(uvdata.freq_array)
-    # just anything
-    point_source_pos = np.array([[0, uvdata.telescope_location_lat_lon_alt[0]]])
-    point_source_flux = np.array([[1.0]])
-
-    hv = HealVis(
-        uvdata=uvdata,
-        sky_freqs=freqs,
-        point_source_flux=point_source_flux,
-        point_source_pos=point_source_pos,
-        nside=2 ** 4,
-    )
-
-    assert hv.point_source_flux.shape == (len(freqs), len(point_source_pos))
-    assert np.all(hv.point_source_flux == 1.0)
-
-
-def test_simulators_wrong_freq_input(uvdata):
-    """Test the case when point source flux is input with different number of frequencies than sky_freqs."""
-    freqs = np.unique(uvdata.freq_array)
-    # just anything
-    point_source_pos = np.array([[0, uvdata.telescope_location_lat_lon_alt[0]]])
-    point_source_flux = np.array([[1.0]] * (len(freqs) - 2))
-
-    with pytest.raises(ValueError):
-        HealVis(
-            uvdata=uvdata,
-            sky_freqs=freqs,
-            point_source_flux=point_source_flux,
-            point_source_pos=point_source_pos,
-            nside=2 ** 4,
-        )
 
 
 def test_healvis_beam(uvdata):
@@ -230,17 +189,6 @@ def create_uniform_sky(nbase=4, scale=1, nfreq=NFREQ):
     return np.ones((nfreq, npix)) * scale / (4 * np.pi)
 
 
-def test_healpix_to_pntsrc():
-    """Test that when going from one resolution to another, the total 'point source' flux density is the same."""
-    sky1 = create_uniform_sky(nbase=3)
-    sky2 = create_uniform_sky(nbase=4)
-
-    sky1_ps = VisibilitySimulator.convert_healpix_to_point_sources(sky1)[1]
-    sky2_ps = VisibilitySimulator.convert_healpix_to_point_sources(sky2)[1]
-
-    assert np.isclose(np.sum(sky1_ps), np.sum(sky2_ps))
-
-
 @pytest.mark.parametrize("simulator", SIMULATORS)
 def test_shapes(uvdata, simulator):
     I_sky = create_uniform_sky()
@@ -282,8 +230,7 @@ def test_zero_sky(uvdata, simulator):
 
 @pytest.mark.parametrize("simulator", SIMULATORS)
 def test_autocorr_flat_beam(uvdata, simulator):
-    I_sky = create_uniform_sky(nbase=4)
-    print("DATA SHAPE: ", uvdata.data_array.shape)
+    I_sky = create_uniform_sky(nbase=6)
 
     sim = simulator(
         uvdata=uvdata,
@@ -353,7 +300,7 @@ def align_src_to_healpix(point_source_pos, point_source_flux, nside=2 ** 4):
     point_source_flux : ndarray
         Corresponding fluxes of point sources at each frequency.
     nside : int
-        Healpy nside parameter.
+        Healpix nside parameter.
 
 
     Returns
@@ -368,16 +315,16 @@ def align_src_to_healpix(point_source_pos, point_source_flux, nside=2 ** 4):
 
     # Get which pixel every point source lies in.
     pix = aph.lonlat_to_healpix(
-        lon=point_source_pos[:, 0] * rad, lat=point_source_pos[:, 1] * rad, nside=nside
+        point_source_pos[:, 0] * rad,
+        point_source_pos[:, 1] * rad,
+        nside,
     )
 
-    hmap[:, pix] += (
-        point_source_flux / aph.nside_to_pixel_area(nside).to(rad ** 2).value
-    )
-    nside = aph.npix_to_nside(len(hmap[0]))
+    hmap[:, pix] += point_source_flux / aph.nside_to_pixel_area(nside).value
+    nside = aph.npix_to_nside(hmap.shape[1])
     ra, dec = aph.healpix_to_lonlat(np.arange(len(hmap[0])), nside)
-    flux = hmap * aph.nside_to_pixel_area(nside).to(rad ** 2).value
-    return np.array([ra.to(rad).value, dec.to(rad).value]).T, flux
+    flux = hmap * aph.nside_to_pixel_area(nside).value
+    return np.array([ra.to("rad").value, dec.to("rad").value]).T, flux
 
 
 def test_comparison_zenith(uvdata2):
@@ -409,7 +356,7 @@ def test_comparison_zenith(uvdata2):
     ).simulate()
 
     assert viscpu.shape == healvis.shape
-    assert np.allclose(viscpu, healvis, atol=0.05, rtol=0)
+    np.testing.assert_allclose(viscpu, healvis, rtol=0.05)
 
 
 def test_comparision_horizon(uvdata2):
@@ -491,11 +438,9 @@ def test_comparison_half(uvdata2):
     I_sky = create_uniform_sky(nbase=nbase)
 
     # Zero out values within pi/2 of (theta=pi/2, phi=0)
-    H = aph.HEALPix(nside=nside)
-
-    ipix_disc = H.cone_search_lonlat(
-        lat=np.pi / 2 * rad, lon=0 * rad, radius=np.pi / 2 * rad
-    )
+    hp = aph.HEALPix(nside=nside, order="ring")
+    ipix_disc = hp.cone_search_lonlat(0 * rad, np.pi / 2 * rad, radius=np.pi / 2 * rad)
+    print(I_sky.shape, freqs.shape)
     for i in range(len(freqs)):
         I_sky[i][ipix_disc] = 0
 
@@ -519,10 +464,8 @@ def test_comparision_airy(uvdata2):
     I_sky = create_uniform_sky(nbase=nbase)
 
     # Zero out values within pi/2 of (theta=pi/2, phi=0)
-    H = aph.HEALPix(nside=nside)
-    ipix_disc = H.cone_search_lonlat(
-        lat=np.pi / 2 * rad, lon=0 * rad, radius=np.pi / 2 * rad
-    )
+    hp = aph.HEALPix(nside=nside, order="ring")
+    ipix_disc = hp.cone_search_lonlat(0 * rad, np.pi / 2 * rad, radius=np.pi / 2 * rad)
     for i in range(len(freqs)):
         I_sky[i][ipix_disc] = 0
 
@@ -662,8 +605,8 @@ class TestSimRedData(unittest.TestCase):
                 np.testing.assert_almost_equal(ans0yx, ans_yx, decimal=7)
                 np.testing.assert_almost_equal(ans0yy, ans_yy, decimal=7)
 
-        # Test that redundant baselines are redundant up to the gains in 4-pol minV mode (where
-        # Vxy = Vyx)
+        # Test that redundant baselines are redundant up to the gains in 4-pol minV mode
+        # (where Vxy = Vyx)
         reds = om.get_reds(antpos, pols=["xx", "yy", "xy", "yX"], pol_mode="4pol_minV")
         gains, true_vis, data = vis.sim_red_data(reds)
         assert len(gains) == 2 * (5)

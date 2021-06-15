@@ -349,20 +349,7 @@ def test_get_bl_len_vec(baseline):
     assert len(utils._get_bl_len_vec(baseline)) == 3
 
 
-@pytest.mark.parametrize(
-    "baseline",
-    [
-        1,
-        [
-            1 / np.sqrt(2),
-        ]
-        * 2,
-        [
-            1 / np.sqrt(3),
-        ]
-        * 3,
-    ],
-)
+@pytest.mark.parametrize("baseline", [1, [1 / np.sqrt(2)] * 2, [1 / np.sqrt(3)] * 3])
 def test_get_bl_len_magnitude(baseline):
     assert np.isclose(utils.get_bl_len_magnitude(baseline), 1)
 

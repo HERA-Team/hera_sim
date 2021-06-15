@@ -48,9 +48,9 @@ def beams(rotation, nants):
     cfg_beam = dict(
         ref_freq=1.0e8,
         spectral_index=-0.6975,
-        perturb=True,
+        # perturb=True,
         mainlobe_width=0.3,
-        nmodes=8,
+        # nmodes=8,
         beam_coeffs=[
             0.29778665,
             -0.44821433,
@@ -74,18 +74,6 @@ def beams(rotation, nants):
     )
     beams = [
         PerturbedPolyBeam(
-            perturb_coeff=np.array(
-                [
-                    -0.20437532,
-                    -0.4864951,
-                    -0.18577532,
-                    -0.38053642,
-                    0.08897764,
-                    0.06367166,
-                    0.29634711,
-                    1.40277112,
-                ]
-            ),
             mainlobe_scale=1.0,
             xstretch=1.1,
             ystretch=0.8,
@@ -171,14 +159,10 @@ class TestPerturbedPolyBeam:
             pix_results[r] = pix_result
             calc_results[r] = calc_result
 
-        max_percent_diff = np.max(
-            np.abs(pix_results - calc_results) / calc_results * 100
-        )
-
         # Check that the maximum difference between pixel beams/direct calculation
         # cases is no more than 5%. This shows the direct calculation of the beam
         # tracks the pixel beam interpolation. They won't be exactly the same.
-        assert max_percent_diff < 5
+        np.testing.assert_allclose(pix_results, calc_results, rtol=0.05)
 
         # Check that rotations 0 and 180 produce the same values.
         assert pix_results[0] == pytest.approx(pix_results[180], abs=1e-8)

@@ -1,8 +1,12 @@
-"""Object-oriented approach to signal chain systematics."""
+"""Models of signal-chain systematics.
 
-import os
+This module defines several models of systematics that arise in the signal chain, for
+example bandpass gains, reflections and cross-talk.
+"""
+
 import numpy as np
 import warnings
+from typing import Dict, Tuple, Union
 
 from scipy import stats
 from scipy.signal import blackmanharris
@@ -16,21 +20,48 @@ from .defaults import _defaults
 
 @component
 class Gain:
-    # TODO: docstring
-    is_multiplicative = True
+    """Base class for systematic gains."""
+
+    pass
 
 
 class Bandpass(Gain):
+    """Generate bandpass gains.
+
+    Parameters
+    ----------
+    gain_spread : float, optional
+        Standard deviation of random gains.
+    dly_rng : tuple, optional
+        Lower and upper range of delays which are uniformly sampled.
+    bp_poly : callable or array_like, optional
+        If an array, polynomial coefficients to evaluate. Otherwise, a function
+        of frequency that can be evaluated to generate real numbers giving
+        the bandpass gain.
+    """
+
+    is_multiplicative = True
     _alias = ("gains", "bandpass_gain")
 
     def __init__(self, gain_spread=0.1, dly_rng=(-20, 20), bp_poly=None):
-        # TODO: docstring
-        """"""
         super().__init__(gain_spread=gain_spread, dly_rng=dly_rng, bp_poly=bp_poly)
 
     def __call__(self, freqs, ants, **kwargs):
-        # TODO: docstring
-        """"""
+        """Generate the bandpass.
+
+        Parameters
+        ----------
+        freqs : array_like of float
+            Frequencies in GHz.
+        ants : array_like of int
+            Antenna numbers for which to produce gains.
+
+        Returns
+        -------
+        dict
+            Keys are antenna numbers and values are arrays of bandpass
+            gains as a function of frequency.
+        """
         # validate kwargs
         self._check_kwargs(**kwargs)
 
@@ -77,20 +108,52 @@ class Bandpass(Gain):
 
 
 class Reflections(Gain):
+    """Produce multiplicative reflection gains.
+
+    Parameters
+    ----------
+    amp : float, optional
+        Mean Amplitude of the reflection gains.
+    dly : float, optional
+        Mean delay of the reflection gains.
+    phs : float, optional
+        Phase of the reflection gains.
+    conj : bool, optional
+        Whether to conjugate the gain.
+    amp_jitter : float, optional
+        Final amplitudes are multiplied by a normal variable with mean one, and
+        with standard deviation of ``amp_jitter``.
+    dly_jitter : float, optional
+        Final delays are offset by a normal variable with mean
+        zero and standard deviation ``dly_jitter``.
+    """
+
+    is_multiplicative = True
     _alias = ("reflection_gains", "sigchain_reflections")
 
     def __init__(
         self, amp=None, dly=None, phs=None, conj=False, amp_jitter=0, dly_jitter=0
     ):
-        # TODO: docstring
-        """"""
         super().__init__(
             amp=amp, dly=dly, phs=phs, conj=conj, amp_jitter=0, dly_jitter=0
         )
 
     def __call__(self, freqs, ants, **kwargs):
-        # TODO: docstring
-        """"""
+        """Generate the bandpass.
+
+        Parameters
+        ----------
+        freqs : array_like of float
+            Frequencies in units inverse to :attr:`dly`.
+        ants : array_like of int
+            Antenna numbers for which to produce gains.
+
+        Returns
+        -------
+        dict
+            Keys are antenna numbers and values are arrays of bandpass
+            gains.
+        """
         # check the kwargs
         self._check_kwargs(**kwargs)
 
@@ -117,8 +180,29 @@ class Reflections(Gain):
 
     @staticmethod
     def gen_reflection_coefficient(freqs, amp, dly, phs, conj=False):
-        # TODO: docstring
-        """"""
+        """Randomly generate reflection coefficients.
+
+        Parameters
+        ----------
+        freqs : array_like of float
+            Frequencies, units are arbitrary but must be the inverse of ``dly``.
+        amp : array_like of float
+            Either a scalar amplitude, or 1D with size Nfreqs, or 2D
+            with shape (Ntimes, Nfreqs).
+        dly : [type]
+            Either a scalar delay, or 1D with size Nfreqs, or 2D
+            with shape (Ntimes, Nfreqs). Units are inverse of ``freqs``.
+        phs : [type]
+            Either a scalar phase, or 1D with size Nfreqs, or 2D
+            with shape (Ntimes, Nfreqs). Units radians.
+        conj : bool, optional
+            Whether to conjugate the gain.
+
+        Returns
+        -------
+        array_like
+            The reflection gains as a 2D array of (Ntimes, Nfreqs).
+        """
         # this is copied directly from the old sigchain module
         # TODO: make this cleaner
 
@@ -224,25 +308,58 @@ class Reflections(Gain):
 
 @component
 class Crosstalk:
+    """Base class for cross-talk models."""
+
     pass
 
 
 class CrossCouplingCrosstalk(Crosstalk, Reflections):
+    """Generate cross-coupling xtalk.
+
+    Parameters
+    ----------
+    amp : float, optional
+        Mean Amplitude of the reflection gains.
+    dly : float, optional
+        Mean delay of the reflection gains.
+    phs : float, optional
+        Phase of the reflection gains.
+    conj : bool, optional
+        Whether to conjugate the gain.
+    amp_jitter : float, optional
+        Final amplitudes are multiplied by a normal variable with mean one, and
+        with standard deviation of ``amp_jitter``.
+    dly_jitter : float, optional
+        Final delays are offset by a normal variable with mean
+        zero and standard deviation ``dly_jitter``.
+    """
+
     _alias = ("cross_coupling_xtalk",)
     is_multiplicative = False
 
     def __init__(
         self, amp=None, dly=None, phs=None, conj=False, amp_jitter=0, dly_jitter=0
     ):
-        # TODO: docstring
-        """"""
         super().__init__(
             amp=amp, dly=dly, phs=phs, conj=conj, amp_jitter=0, dly_jitter=0
         )
 
     def __call__(self, freqs, autovis, **kwargs):
-        # TODO: docstring
-        """"""
+        """Copute the cross-correlations.
+
+        Parameters
+        ----------
+        freqs : array_like of float
+            Frequencies in units inverse to :attr:`dly`.
+        autovis : array_like of float
+            The autocorrelations as a function of frequency.
+
+        Return
+        ------
+        array
+            The cross-coupling contribution to the visibility,
+            same shape as ``freqs``.
+        """
         # check the kwargs
         self._check_kwargs(**kwargs)
 
@@ -268,6 +385,35 @@ class CrossCouplingCrosstalk(Crosstalk, Reflections):
 
 
 class CrossCouplingSpectrum(Crosstalk):
+    """Generate a cross-coupling spectrum.
+
+    This generates multiple copies of :class:`CrossCouplingCrosstalk`
+    into the visibilities.
+
+    Parameters
+    ----------
+    Ncopies : int, optional
+        Number of random cross-talk models to add.
+    amp_range : tuple, optional
+        Two-tuple of floats specifying the range of amplitudes
+        to be sampled regularly in log-space.
+    dly_range : tuple, optional
+        Two-tuple of floats specifying the range of delays to be
+        sampled at regular intervals.
+    phs_range : tuple, optional
+        Range of uniformly random phases.
+    amp_jitter : int, optional
+        Standard deviation of random jitter to be applied to the
+        regular amplitudes.
+    dly_jitter : int, optional
+        Standard deviation of the random jitter to be applied to
+        the regular delays.
+    symmetrize : bool, optional
+        Whether to also produce statistically equivalent cross-talk at
+        negative delays. Note that while the statistics are equivalent,
+        both amplitudes and delays will be different random realizations.
+    """
+
     _alias = ("cross_coupling_spectrum", "xtalk_spectrum")
 
     def __init__(
@@ -291,8 +437,21 @@ class CrossCouplingSpectrum(Crosstalk):
         )
 
     def __call__(self, freqs, autovis, **kwargs):
-        # TODO: docstring
-        """"""
+        """Copute the cross-correlations.
+
+        Parameters
+        ----------
+        freqs : array_like of float
+            Frequencies in units inverse to :attr:`dly`.
+        autovis : array_like of float
+            The autocorrelations as a function of frequency.
+
+        Return
+        ------
+        array
+            The cross-coupling contribution to the visibility,
+            same shape as ``freqs``.
+        """
         self._check_kwargs(**kwargs)
 
         (
@@ -330,19 +489,36 @@ class CrossCouplingSpectrum(Crosstalk):
 
 
 class WhiteNoiseCrosstalk(Crosstalk):
+    """Generate cross-talk that is simply white noise.
+
+    Parameters
+    ----------
+    amplitude : float, optional
+        The amplitude of the white noise spectrum (i.e. its standard deviation).
+    """
+
     _alias = (
         "whitenoise_xtalk",
         "white_noise_xtalk",
     )
 
     def __init__(self, amplitude=3.0):
-        # TODO: docstring
-        """"""
         super().__init__(amplitude=amplitude)
 
     def __call__(self, freqs, **kwargs):
-        # TODO: docstring
-        """"""
+        """Compute the cross-correlations.
+
+        Parameters
+        ----------
+        freqs : array_like of float
+            Frequencies in units inverse to :attr:`dly`.
+
+        Return
+        ------
+        array
+            The cross-coupling contribution to the visibility,
+            same shape as ``freqs``.
+        """
         # check the kwargs
         self._check_kwargs(**kwargs)
 
@@ -359,9 +535,29 @@ class WhiteNoiseCrosstalk(Crosstalk):
         return amplitude * xtalk
 
 
-def apply_gains(vis, gains, bl):
-    # TODO: docstring
-    """"""
+def apply_gains(
+    vis: Union[float, np.ndarray],
+    gains: Dict[int, Union[float, np.ndarray]],
+    bl: Tuple[int, int],
+) -> np.ndarray:
+    """Apply antenna-based gains to a visibility.
+
+    Parameters
+    ----------
+    vis
+        The visibilities of the given baseline as a function of frequency.
+    gains
+        Dictionary where keys are antenna numbers and values are arrays of
+        gains as a function of frequency.
+    bl
+        2-tuple of integers specifying the antenna numbers in the particular
+        baseline.
+
+    Returns
+    -------
+    vis
+        The visibilities with gains applied.
+    """
     # get the gains for each antenna in the baseline
     # don't apply a gain if the antenna isn't found
     gi = 1.0 if bl[0] not in gains else gains[bl[0]]
@@ -392,16 +588,18 @@ def vary_gains_in_time(
     variation_amp=0.05,
     variation_mode="linear",
 ):
-    """
+    r"""
     Vary gain amplitudes, phases, or delays in time.
 
+    Notes
+    -----
     If the gains initially have the form
 
-    :math:`g(\\nu) = g_0(\\nu)\\exp(i2\\pi\\nu\\tau + i\\phi),`
+    .. math:: g(\nu) = g_0(\nu)\exp(i 2\pi\nu\tau + i\phi)
 
     then the output gains have the form
 
-    :math:`g(\\nu,t) = g_0(\\nu,t)\\exp\\bigl(i2\\pi\\nu\\tau(t) + i\\phi(t)\\bigr).`
+    .. math:: g(\nu,t) = g_0(\nu,t)\exp \bigl( i2\pi\nu\tau(t) + i\phi(t)\bigr).
 
 
     Parameters
@@ -458,7 +656,7 @@ def vary_gains_in_time(
 
     times = np.array(times)
     gain_shapes = [np.array(gain).shape for gain in gains.values()]
-    if not all(gain_shape == gain_shapes[0] for gain_shape in gain_shapes):
+    if any(gain_shape != gain_shapes[0] for gain_shape in gain_shapes):
         raise ValueError("Gains must all have the same shape.")
     gain_shape = gain_shapes[0]
 

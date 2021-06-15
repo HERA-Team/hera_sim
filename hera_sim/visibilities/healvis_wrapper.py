@@ -31,10 +31,8 @@ class HealVis(VisibilitySimulator):
         Number of concurrent processes. Defaults to 1.
     sky_ref_chan : float
         Frequency reference channel. Defaults to 0.
-
-    Other Parameters
-    ----------------
-    Passed through to :class:`VisibilitySimulator`.
+    **kwargs
+        Passed through to :class:`~.simulators.VisibilitySimulator`.
     """
 
     point_source_ability = False

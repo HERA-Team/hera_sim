@@ -1,6 +1,4 @@
-"""
-A number of mappings which may be useful for visibility simulators.
-"""
+"""A number of mappings which may be useful for visibility simulators."""
 import astropy_healpix as aph
 from astropy_healpix import healpy
 import numpy as np
@@ -8,7 +6,7 @@ import numpy as np
 
 def uvbeam_to_lm(uvbeam, freqs, n_pix_lm=63, **kwargs):
     """
-    Convert a UVbeam to a uniform (l,m) grid
+    Convert a UVbeam to a uniform (l,m) grid.
 
     Parameters
     ----------
@@ -24,7 +22,6 @@ def uvbeam_to_lm(uvbeam, freqs, n_pix_lm=63, **kwargs):
     ndarray
         The beam map cube. Shape=(NFREQS, BEAM_PIX, BEAM_PIX).
     """
-
     L = np.linspace(-1, 1, n_pix_lm, dtype=np.float32)
     L, m = np.meshgrid(L, L)
     L = L.flatten()
@@ -51,8 +48,7 @@ def uvbeam_to_lm(uvbeam, freqs, n_pix_lm=63, **kwargs):
 
 
 def eq2top_m(ha, dec):
-    """
-    Calculates the equatorial to topocentric conversion matrix.
+    """Calculate the equatorial to topocentric conversion matrix.
 
     Conversion at a given hour angle (ha) and declination (dec). Ripped
     straight from aipy.
@@ -63,6 +59,7 @@ def eq2top_m(ha, dec):
         Hour angle [rad].
     dec : float
         Declination [rad].
+
     Returns
     -------
     ndarray
@@ -73,7 +70,7 @@ def eq2top_m(ha, dec):
     sin_d, cos_d = np.sin(dec), np.cos(dec)
     zero = np.zeros_like(ha)
 
-    map = np.array(
+    rot_matrix = np.array(
         [
             [sin_H, cos_H, zero],
             [-sin_d * cos_H, sin_d * sin_H, cos_d],
@@ -81,10 +78,10 @@ def eq2top_m(ha, dec):
         ]
     )
 
-    if len(map.shape) == 3:
-        map = map.transpose([2, 0, 1])
+    if len(rot_matrix.shape) == 3:
+        rot_matrix = rot_matrix.transpose([2, 0, 1])
 
-    return map
+    return rot_matrix
 
 
 def healpix_to_crd_eq(h, nest=False):
@@ -97,6 +94,7 @@ def healpix_to_crd_eq(h, nest=False):
         The HEALPix array. Shape=(12*N^2,) for integer N.
     nest : bool, optional
         Whether to use the NEST configuration for the HEALPix array.
+
     Returns
     -------
     ndarray

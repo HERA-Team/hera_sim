@@ -6,12 +6,10 @@ elsewhere.
 
 import copy
 import itertools
-import shutil
 import tempfile
-import sys
 import os
 import yaml
-
+from deprecation import fail_if_not_removed
 import numpy as np
 import pytest
 
@@ -19,7 +17,7 @@ from hera_sim.foregrounds import DiffuseForeground, diffuse_foreground
 from hera_sim.noise import HERA_Tsky_mdl
 from hera_sim.simulate import Simulator
 from hera_sim.antpos import hex_array
-from hera_sim import SimulationComponent, DATA_PATH, CONFIG_PATH
+from hera_sim import DATA_PATH, CONFIG_PATH
 from hera_sim.defaults import defaults
 from hera_sim.interpolators import Beam
 from pyuvdata import UVData
@@ -440,6 +438,21 @@ def test_run_sim_bad_param_value(base_sim):
     with pytest.raises(TypeError) as err:
         base_sim.run_sim(**bad_value)
     assert "The parameters for diffuse_foreground are not" in err.value.args[0]
+
+
+@fail_if_not_removed
+def test_add_eor(base_sim):
+    base_sim.add_eor("noiselike_eor")
+
+
+@fail_if_not_removed
+def test_add_fg(base_sim):
+    base_sim.add_foregrounds("pntsrc_foreground")
+
+
+@fail_if_not_removed
+def test_add_rfi(base_sim):
+    base_sim.add_rfi("dtv")
 
 
 def test_plot_array(base_sim):

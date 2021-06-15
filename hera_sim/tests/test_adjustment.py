@@ -737,7 +737,7 @@ def test_interpolate_partial_frequency_match(base_config, base_sim):
         axis="both",
     )
     overlapping_channels = np.unique(
-        list(np.argmin(np.abs(base_sim.freqs - freq)) for freq in ref_sim.freqs)
+        [np.argmin(np.abs(base_sim.freqs - freq)) for freq in ref_sim.freqs]
     )
     assert np.allclose(interpolated_sim.freqs, base_sim.freqs[overlapping_channels])
 
@@ -765,7 +765,7 @@ def test_interpolate_partial_lst_match(base_config, base_sim):
         axis="both",
     )
     overlapping_integrations = np.unique(
-        list(np.argmin(np.abs(base_sim.lsts - lst)) for lst in ref_sim.lsts)
+        [np.argmin(np.abs(base_sim.lsts - lst)) for lst in ref_sim.lsts]
     )
     assert np.allclose(interpolated_sim.lsts, base_sim.lsts[overlapping_integrations])
 

@@ -1,4 +1,3 @@
-import os
 import pytest
 from hera_sim import sigchain, noise, foregrounds
 from hera_sim.interpolators import Bandpass, Beam

@@ -1,5 +1,4 @@
-"""
-"""
+"""Methods for input/output of data."""
 import os
 import warnings
 import numpy as np
@@ -8,6 +7,7 @@ from pyuvsim.simsetup import initialize_uvdata_from_keywords
 from .defaults import _defaults
 from . import DATA_PATH
 import re
+from typing import Dict, Sequence
 
 HERA_LAT_LON_ALT = np.load(DATA_PATH / "HERA_LAT_LON_ALT.npy")
 
@@ -19,7 +19,7 @@ def empty_uvdata(
     Ntimes=None,
     start_time=2456658.5,  # Jan 1 2014
     integration_time=None,
-    array_layout=None,
+    array_layout: Dict[int, Sequence[float]] = None,
     Nfreqs=None,
     start_freq=None,
     channel_width=None,
@@ -29,10 +29,39 @@ def empty_uvdata(
     conjugation=None,
     **kwargs,
 ):
-    # TODO: docstring
-    """"""
+    """Create an empty UVData object with given specifications.
+
+    Parameters
+    ----------
+    Ntimes : int, optional
+        NUmber of unique times in the data object.
+    start_time : float, optional
+        Starting time (Julian date) by default 2456658.5
+    array_layout : dict, optional
+        Specify an array layout. Keys should be integers specifying antenna numbers,
+        and values should be length-3 sequences of floats specifying ENU positions.
+    Nfreqs : int, optional
+        Number of frequency channels in the data object
+    start_freq : float, optional
+        Lowest frequency channel, by default None
+    channel_width : float, optional
+        Channel width, by default None
+    n_freq : int, optional
+        Alias for ``Nfreqs``
+    n_times : int, optional
+        Alias for ``Ntimes``.
+    antennas : dict, optional
+        Alias for array_layout for backwards compatibility.
+    **kwargs
+        Passed to :func:`pyuvsim.simsetup.initialize_uvdata_from_keywords`
+
+    Returns
+    -------
+    UVData
+        An empty UVData object with given specifications.
+    """
     # issue a deprecation warning if any old parameters are used
-    if any([param is not None for param in (n_freq, n_times, antennas)]):
+    if any(param is not None for param in (n_freq, n_times, antennas)):
         warnings.warn(
             "The n_freq, n_times, and antennas parameters are being "
             "deprecated and will be removed in the future. Please "
@@ -93,7 +122,7 @@ def chunk_sim_and_save(
     Chunk the simulation data to match the reference file and write to disk.
 
     Chunked files have the following naming convention:
-    save_dir/[{prefix}.]{jd_major}.{jd_minor}[.{sky_cmp}][.{state}].{filetype}
+    ``save_dir/[{prefix}.]{jd_major}.{jd_minor}[.{sky_cmp}][.{state}].{filetype}``.
     The entires in brackets are optional and may be omitted.
 
     Parameters
@@ -175,4 +204,3 @@ def chunk_sim_and_save(
 
         # Delete the temporary UVData object to speed things up a bit.
         del this_uvd
-    return

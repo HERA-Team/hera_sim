@@ -1,6 +1,7 @@
 """
-A module for generating new YAML tags for the various `hera_sim` interpolator
-objects. This may need to be updated if the `interpolators` module is updated.
+A module for generating new YAML tags for the various ``hera_sim`` interpolator objects.
+
+This may need to be updated if the :mod:`.interpolators` module is updated.
 """
 import yaml
 import inspect
@@ -13,7 +14,7 @@ from . import antpos
 
 
 def make_interp_constructor(tag, interpolator):
-    """Wrapper for yaml.add_constructor to easily make new YAML tags."""
+    """Wrap :func:`yaml.add_constructor` to easily make new YAML tags."""
 
     def constructor(loader, node):
         params = loader.construct_mapping(node, deep=True)
@@ -25,7 +26,7 @@ def make_interp_constructor(tag, interpolator):
 
 
 def predicate(obj):
-    """Checks if the passed object `obj` is an interpolator."""
+    """Check if the passed object `obj` is an interpolator."""
     return hasattr(obj, "_interpolator")
 
 
@@ -35,6 +36,7 @@ for tag, interp in interps.items():
 
 
 def astropy_unit_constructor(loader, node):
+    """Construct an astropy unit."""
     params = loader.construct_mapping(node, deep=True)
     value = params.get("value", None)
     units = params.get("units", None)
@@ -57,6 +59,7 @@ yaml.add_constructor("!dimensionful", astropy_unit_constructor, yaml.FullLoader)
 
 
 def antpos_constructor(loader, node):
+    """Construct an antenna position."""
     params = loader.construct_mapping(node, deep=True)
     array_type = params.pop("array_type") + "_array"
     antpos_func = getattr(antpos, array_type)
