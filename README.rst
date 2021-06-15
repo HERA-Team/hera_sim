@@ -1,17 +1,16 @@
-``hera_sim``: Simple visibility and instrumental systematics simulator for the HERA array
-=========================================================================================
+``hera_sim``
+============
 
 |Build Status| |Coverage Status| |RTD|
 
-Basic simulation package for HERA-like redundant interferometric arrays.
-
+**Basic simulation package for HERA-like redundant interferometric arrays.**
 
 Documentation
 -------------
+
 At `ReadTheDocs <https://hera-sim.readthedocs.io/en/latest/>`_.
 In particular, for a tutorial and overview of available features, check out the
-`tour <https://hera-sim.readthedocs.io/en/latest/tutorials/hera_sim_tour.html>`_
-
+`tour <https://hera-sim.readthedocs.io/en/latest/tutorials/hera_sim_tour.html>`_.
 
 Installation
 ------------
