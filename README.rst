@@ -8,18 +8,19 @@ hera_sim
 Features
 --------
 
-* Many models of instrumental systematics in various forms, eg. thermal noise, RFI,
-  bandpass gains, cross-talk, cable reflections and foregrounds.
-* All models have defaults tuned to HERA, with various default "sets" available (eg.
-  H1C, H3C)
-* Interoperability with ``pyuvdata`` datasets.
-* High-level interface for adding multiple systematics to existing visibilities in a
-  self-consistent way.
-* A high-level interface for visbility simulation that is compatible with the
-  configuration definition from ``pyuvsim`` but is able to call multiple simulator
-  implementations.
-* Methods for adjusting simulated data to match the times/baselines of a reference
-  dataset.
+* **Systematic Models:** Many models of instrumental systematics in various forms,
+  eg. thermal noise, RFI, bandpass gains, cross-talk, cable reflections and foregrounds.
+* **HERA-tuned:** All models have defaults tuned to HERA, with various default "sets"
+  available (eg.H1C, H2C)
+* **Interoperability:** Interoperability with ``pyuvdata`` datasets and ``pyuvsim``
+  configurations.
+* **Ease-of-use:** High-level interface for adding multiple systematics to existing
+  visibilities in a self-consistent way.
+* **Visibility Simulation:** A high-level interface for visbility simulation that is
+  compatible with the configuration definition from ``pyuvsim`` but is able to call
+  multiple simulator implementations.
+* **Convenience:** Methods for adjusting simulated data to match the times/baselines of
+  a reference dataset.
 
 Documentation
 -------------

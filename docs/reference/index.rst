@@ -23,6 +23,8 @@ Modules
     hera_sim.sigchain
     hera_sim.simulate
     hera_sim.utils
+    hera_sim.cli_utils
+    hera_sim.components
 
 Visibility Simulators
 ---------------------
