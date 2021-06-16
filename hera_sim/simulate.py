@@ -254,9 +254,11 @@ class Simulator:
             model = model(**kwargs)
         self._sanity_check(model)  # Check for component ordering issues.
         self._antpairpol_cache[model_key] = []  # Initialize this model's cache.
-        if seed is None:
-            # Ensure we can recover the data later via ``get``
-            seed = int(np.random.get_state()[1][0])
+        if seed is None and add_vis:
+            warnings.warn(
+                "You have not specified how to seed the random state."
+                "This effect might not be exactly recoverable."
+            )
 
         # Simulate the effect by iterating over baselines and polarizations.
         data = self._iteratively_apply(
@@ -276,10 +278,9 @@ class Simulator:
                     if param not in kwargs and param in defaults():
                         kwargs[param] = defaults(param)
             self._update_history(model, **kwargs)
-            # Record the random state in case no seed was specified.
-            # This ensures that the component can be recovered later.
-            kwargs["seed"] = seed
-            self._update_seeds(model_key)
+            if seed:
+                kwargs["seed"] = seed
+                self._update_seeds(model_key)
             if vis_filter is not None:
                 kwargs["vis_filter"] = vis_filter
             self._components[model_key] = kwargs
