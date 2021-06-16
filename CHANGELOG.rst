@@ -2,38 +2,116 @@
 Changelog
 =========
 
-v1.0.0 [???]
-============
+v1.0.0 [2021.06.16]
+===================
 
 Added
 -----
+- :module:`~.adjustment` module from HERA Phase 1 Validation work
+   - :func:`~.adjustment.adjust_to_reference`
+      - High-level interface for making one set of data comply with another set of data.
+        This may involve rephasing or interpolating in time and/or interpolating in
+        frequency. In the case of a mismatch between the two array layouts, this algorithm
+        will select a subset of antennas to provide the greatest number of unique baselines
+        that remain in the downselected array.
+  - All other functions in this module exist only to modularize the above function.
+- :module:`~.cli_utils` module providing utility functions for the CLI simulation script.
+- :module:`~.components` module providing an abstract base class for simulation components.
+   - Any new simulation components should be subclassed from the
+     :class:`~.components.SimulationComponent` ABC. New simulation components subclassed
+     appropriately are automatically discoverable by the :class:`~.Simulator` class. A MWE
+     for subclassing new components is as follows::
+
+        @component
+        class Component:
+            pass
+
+        class Model(Component):
+            ...
+
+     The ``Component`` base class tracks any models subclassed from it and makes it
+     discoverable to the :class:`~.Simulator`.
+- New "season" configuration (called ``"debug"``), intended to be used for debugging
+  the :class:`~.Simulator` when making changes that might not be easily tested.
+- :func:`~.io.chunk_sim_and_save` function from HERA Phase 1 Validation work
+   - This function allows the user to write a :class:`pyuvdata.UVData` object to disk
+     in chunks of some set number of integrations per file (either specified directly,
+     or specified implicitly by providing a list of reference files). This is very
+     useful for taking a large simulation and writing it to disk in a way that mimics
+     how the correlator writes files to disk.
+- Ability to generate noise visibilities based on autocorrelations from the data.
+  This is achieved by providing a value for the ``autovis`` parameter in
+  :func:`~.noise.thermal_noise` or :class:`~.noise.ThermalNoise`.
+- The :func:`~.sigchain.vary_gains_in_time` provides an interface for taking a gain
+  spectrum and applying time variation (linear, sinusoidal, or noiselike) to any of
+  the reflection coefficient parameters (amplitude, phase, or delay).
+- The :class:`~.sigchain.CrossCouplingSpectrum` provides an interface for generating
+  multiple realizations of the cross-coupling systematic spaced logarithmically in
+  amplitude and linearly in delay. This is ported over from the Validation work.
 
 Fixed
 -----
+- The reionization signal produced by :func:`~.eor.noiselike_eor` is now guaranteed to
+  be real-valued for autocorrelations (although the statistics of the EoR signal for
+  the autocorrelations still need to be investigated for correctness).
 
 Changed
 -------
 
-- All functions that take frequencies and LSTs as arguments have had their signatures
-  changed to ``func(lsts, freqs, \*args, \*\*kwargs)``.
-- Changes to handling of functions which employ a fringe or delay filtering step with
-  variable keywords for the filters used. Filter keywords are now specified with
-  individual dictionaries called ``delay_filter_kwargs`` or ``fringe_filter_kwargs``,
-  depending on the filter used. Functions affected by this change are
-  ``diffuse_foreground`` and ``noiselike_eor``.
-- Changes to parameters that shared the same name but represented conceptually different
-  objects in various functions. Functions affected by this are:
-  ``utils.rough_delay_filter``, ``utils.rough_fringe_filter`` and most RFI functions.
-- The :func:`~hera_sim.io.empty_uvdata` function had its default keyword values
-  set to ``None``. The keywords accepted by this function have also been changed to
-  match their names in ``pyuvsim.simsetup.initialize_uvdata_from_keywords``.
-- Changes to parameters in most RFI models. Optional parameters that are common to many
-  models (but should not share the same name), such as ``std`` or ``chance``, have been
-  prefixed with the model name and an underscore (e.g. ``dtv_chance``). Various other
-  parameters have been renamed for consistency/clarity. Note that the ``freq_min`` and
-  ``freq_max`` parameters for ``rfi_dtv`` have been replaced by the single parameter
-  ``dtv_band``, which is a tuple denoting the edges of the DTV band in GHz.
-- Functions in ``utils`` now use ``freqs`` instead of ``fqs``.
+- **API BREAKING CHANGES**
+   - All functions that take frequencies and LSTs as arguments have had their signatures
+     changed to ``func(lsts, freqs, \*args, \*\*kwargs)``.
+   - Functions that employ ``utils.rough_fringe_filter`` or ``utils.rough_delay_filter``
+     as part of the visibility calculation now have parameters ``delay_filter_kwargs``
+     and/or ``fringe_filter_kwargs``, which are dictionaries that are ultimately passed
+     to the filtering functions. ``foregrounds.diffuse_foreground`` and ``eor.noiselike_eor``
+     are both affected by this change.
+   - Some parameters have been renamed to enable simpler handling of package-wide defaults.
+     Parameters that have been changed are:
+      - ``filter_type`` -> ``delay_filter_type`` in :func:`~.utils.gen_delay_filter`
+      - ``filter_type`` -> ``fringe_filter_type`` in :func:`~.utils.gen_fringe_filter`
+      - ``chance`` -> ``impulse_chance`` in :func:`~.rfi.rfi_impulse`
+      - ``strength`` -> ``impulse_strength`` in :func:`~.rfi.rfi_impulse`
+      - (Similar changes were made in :func:`~.rfi.rfi_dtv`` and :func:`~.rfi.rfi_scatter`)
+   - Any occurrence of the parameter ``fqs`` has been replaced with ``freqs``.
+   - The ``noise.jy2T`` function was moved to :module:`~.utils` and renamed. See
+     :func:`~.utils.jansky_to_kelvin`.
+   - The parameter ``fq0`` has been renamed to ``f0`` in :class:`~.rfi.RfiStation`.
+   - The utility function :func:`~.rfi._listify` has been moved to the utility module.
+   - ``sigchain.HERA_NRAO_BANDPASS`` no longer exists in the code, but may be loaded from
+     the file ``HERA_H1C_BANDPASS.npy`` in the ``data`` directory.
+- Other Changes
+   - The :class:`~.Simulator` has undergone many changes that make the class much easier
+     to use, while also providing a handful of extra features. The new :class:`~.Simulator`
+     provides the following features:
+      - A universal :meth:`~.Simulator.add` method for applying any of the effects
+        implemented in ``hera_sim``, as well as any custom effects defined by the user.
+      - A :meth:`~.Simulator.get` method that retrieves any previously simulated effect.
+      - The option to apply a simulated effect to only a subset of antennas, baselines,
+        and/or polarizations, accessed through using the ``vis_filter`` parameter.
+      - Multiple modes of seeding the random state to achieve a higher degree of realism
+        than previously available.
+      - The :meth:`~.Simulator.calculate_filters` method pre-calculates the fringe-rate
+        and delay filters for the entire array and caches the result. This provides a
+        marginal-to-modest speedup for small arrays, but can provide a significant
+        speedup for very large arrays. Benchmarking results TBD.
+      - An instance of the :class:`~.Simulator` may be generated with an empty call to
+        the class if any of the season defaults are active (or if the user has provided
+        some other sufficiently complete set of default settings).
+      - Some of the methods for interacting with the underlying :class:`pyuvdata.UVData`
+        object have been exposed to the :class:`~.Simulator` (e.g. ``get_data``).
+      - An easy reference to the :func:`~.io.chunk_sim_and_save` function.
+   - :module:`~.foregrounds`, :module:`~.eor`, :module:`~.noise`, :module:`~.rfi`,
+     :module:`~.antpos`, and :module:`~.sigchain` have been modified to implement the
+     features using callable classes. The old functions still exist for
+     backwards-compatibility, but moving forward any additions to visibility or
+     systematics simulators should be implemented using callable classes and be
+     appropriately subclassed from :class:`~.components.SimulationComponent`.
+   - :func:`~.io.empty_uvdata` has had almost all of its parameter values set to default as
+     ``None``. Additionally, the ``n_freq``, ``n_times``, ``antennas`` parameters are being
+     deprecated and will be removed in a future release.
+   - :func:`~.noise.white_noise` is being deprecated. This function has been moved to the
+     utility module and can be found at :func:`~.utils.gen_white_noise`.
 
 v0.4.0 [2021.05.01]
 ===================
