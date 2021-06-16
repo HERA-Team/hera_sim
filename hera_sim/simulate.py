@@ -256,7 +256,7 @@ class Simulator:
         self._antpairpol_cache[model_key] = []  # Initialize this model's cache.
         if seed is None and add_vis:
             warnings.warn(
-                "You have not specified how to seed the random state."
+                "You have not specified how to seed the random state. "
                 "This effect might not be exactly recoverable."
             )
 
