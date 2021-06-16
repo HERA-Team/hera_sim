@@ -16,7 +16,7 @@ class VisCPU(VisibilitySimulator):
     vis_cpu visibility simulator.
 
     This is a fast, simple visibility simulator that is intended to be
-    replaced by vis_gpu. It extends :class:`VisibilitySimulator`.
+    replaced by vis_gpu. It extends :class:`~.simulators.VisibilitySimulator`.
 
     Note that that output of `simulate()` in this class always has ordering
     in which the baselines are in increasing order of antenna number.
@@ -40,7 +40,7 @@ class VisCPU(VisibilitySimulator):
     mpi_comm : MPI communicator
         MPI communicator, for parallelization.
     **kwargs
-        Passed through to :class:`VisibilitySimulator`.
+        Passed through to :class:`~.simulators.VisibilitySimulator`.
     """
 
     def __init__(
@@ -176,7 +176,7 @@ class VisCPU(VisibilitySimulator):
 
         Notes
         -----
-            Due to using the verbatim :func:`vis_cpu` function, the beam
+            Due to using the verbatim :func:`vis_cpu.vis_cpu` function, the beam
             cube must have an entry for each antenna, which is a bit of
             a waste of memory in some cases. If this is changed in the
             future, this method can be modified to only return one

@@ -32,7 +32,7 @@ class HealVis(VisibilitySimulator):
     sky_ref_chan : float
         Frequency reference channel. Defaults to 0.
     **kwargs
-        Passed through to :class:`VisibilitySimulator`.
+        Passed through to :class:`~.simulators.VisibilitySimulator`.
     """
 
     point_source_ability = False

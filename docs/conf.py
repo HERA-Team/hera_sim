@@ -175,7 +175,13 @@ texinfo_documents = [
 # -- Options for intersphinx extension ---------------------------------------
 
 # Example configuration for intersphinx: refer to the Python standard library.
-intersphinx_mapping = {"https://docs.python.org/": None}
+intersphinx_mapping = {
+    "python": ("https://docs.python.org/3/", None),
+    "pyuvdata": ("https://pyuvdata.readthedocs.io/en/latest/", None),
+    "pyuvsim": ("https://pyuvsim.readthedocs.io/en/latest/", None),
+    "vis_cpu": ("https://vis-cpu.readthedocs.io/en/latest/", None),
+    "numpy": ("https://numpy.org/doc/stable/", None),
+}
 
 # -- Options for todo extension ----------------------------------------------
 

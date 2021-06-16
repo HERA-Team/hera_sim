@@ -1,4 +1,4 @@
-"""v1 implementation of RFI. Consult w/ Steven for new RFI module."""
+"""Models of radio frequency interference."""
 import warnings
 import numpy as np
 import astropy.units as u

@@ -1,4 +1,7 @@
-"""Reimagining of the foregrounds module, using an object-oriented approach."""
+"""Visibility-space foreground models.
+
+This module defines several cheap foreground models evaluated in visibility space.
+"""
 
 import numpy as np
 from astropy import constants
@@ -31,11 +34,11 @@ class DiffuseForeground(Foreground):
         to the ``freqs`` parameter.
     delay_filter_kwargs : dict, optional
         Keyword arguments and associated values to be passed to
-        :func:`~utils.rough_delay_filter`. Default is to use the
+        :func:`~hera_sim.utils.rough_delay_filter`. Default is to use the
         following settings: ``standoff : 0.0``, ``delay_filter_type : tophat``.
     fringe_filter_kwargs : dict, optional
         Keyword arguments and associated values to be passed to
-        :func:`~utils.rough_fringe_filter`. Default is to use the
+        :func:`~hera_sim.utils.rough_fringe_filter`. Default is to use the
         following settings: ``fringe_filter_type : tophat``.
 
     Notes
@@ -53,7 +56,7 @@ class DiffuseForeground(Foreground):
     visibility. As a standalone component model, this is does not
     produce consistent simulated visibilities for baselines within a
     redundant group (except for autocorrelations); however, the
-    :class:`~.simulate.Simulator` class provides the functionality to ensure
+    :class:`~hera_sim.simulate.Simulator` class provides the functionality to ensure
     that redundant baselines see the same sky. Additionally, visibilities
     simulated with this model are not invariant under complex conjugation
     and baseline conjugation, since the delay filter applied is symmetric;

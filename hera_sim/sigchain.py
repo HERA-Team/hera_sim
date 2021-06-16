@@ -1,4 +1,8 @@
-"""Object-oriented approach to signal chain systematics."""
+"""Models of signal-chain systematics.
+
+This module defines several models of systematics that arise in the signal chain, for
+example bandpass gains, reflections and cross-talk.
+"""
 
 import numpy as np
 import warnings
@@ -591,11 +595,11 @@ def vary_gains_in_time(
     -----
     If the gains initially have the form
 
-    :math:`g(\\nu) = g_0(\\nu)\\exp(i2\\pi\\nu\\tau + i\\phi),`
+    .. math:: g(\nu) = g_0(\nu)\exp(i 2\pi\nu\tau + i\phi)
 
     then the output gains have the form
 
-    :math:`g(\\nu,t) = g_0(\\nu,t)\\exp\\bigl(i2\\pi\\nu\\tau(t) + i\\phi(t)\\bigr).`
+    .. math:: g(\nu,t) = g_0(\nu,t)\exp \bigl( i2\pi\nu\tau(t) + i\phi(t)\bigr).
 
 
     Parameters

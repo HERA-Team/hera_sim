@@ -1,7 +1,7 @@
 """
-A module for generating new YAML tags for the various `hera_sim` interpolator objects.
+A module for generating new YAML tags for the various ``hera_sim`` interpolator objects.
 
-This may need to be updated if the `interpolators` module is updated.
+This may need to be updated if the :mod:`.interpolators` module is updated.
 """
 import yaml
 import inspect

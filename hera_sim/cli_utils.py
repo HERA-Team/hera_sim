@@ -101,7 +101,7 @@ def write_calfits(
         may either be spectra or waterfalls.
     filename: str
         Name of file, including desired extension.
-    sim: :class:`pyuvdata.UVData` instance or :class:`Simulator` instance
+    sim: :class:`pyuvdata.UVData` instance or :class:`~.simulate.Simulator` instance
         Object containing metadata pertaining to the gains to be saved. Does not
         need to be provided if both ``freqs`` and ``times`` are provided.
     freqs: array-like of float

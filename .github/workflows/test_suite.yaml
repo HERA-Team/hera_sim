@@ -33,7 +33,6 @@ jobs:
       - name: set PY
         run: echo "PY=$(python -c 'import hashlib, sys;print(hashlib.sha256(sys.version.encode()+sys.executable.encode()).hexdigest())')" >> $GITHUB_ENV
 
-
       # NOTE that numpy, astropy, pyuvdata and six can be removed once aipy and bda
       # are updated to be able to install without pre-installed deps.
       - name: Setup Environment
@@ -43,28 +42,12 @@ jobs:
           pip install astropy pyuvdata six
           pip install .[tests]
 
-#      - name: Setup Miniconda
-#        uses: conda-incubator/setup-miniconda@v2.0.0
-#        with:
-#          auto-update-conda: true
-#          miniconda-version: "latest"
-#          python-version: ${{ matrix.python-version }}
-#          environment-file: ci/tests.yaml
-#          activate-environment: tests
-#
-#      - name: Conda Info
-#        run: |
-#          conda info -a
-#          conda list
-#          PYVER=`python -c "import sys; print('{:d}.{:d}'.format(sys.version_info.major, sys.version_info.minor))"`
-
       - name: Run Tests
         run: |
           python -m pytest
 
-      - name: Upload Coverage
-        uses: codecov/codecov-action@master
-        if: matrix.os == 'ubuntu-latest' && success()
+      - name: "Upload coverage to Codecov"
+        uses: codecov/codecov-action@v1
         with:
-          token: ${{ secrets.CODECOV_TOKEN }} #required
-          file: ./coverage.xml #optional
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: true

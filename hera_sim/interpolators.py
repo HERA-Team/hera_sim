@@ -59,7 +59,7 @@ class Interpolator:
         Path to the file to be used to generate the interpolation object.
         Must be either a .npy or .npz file, depending on which type of
         interpolation object is desired. If path is not absolute, then the
-        file is assumed to exist in the `data` directory of `hera_sim` and
+        file is assumed to exist in the `data` directory of ``hera_sim`` and
         is modified to reflect this assumption.
     interp_kwargs : unpacked dict, optional
         Passed to the interpolation method used to make the interpolator.
