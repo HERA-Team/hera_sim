@@ -61,11 +61,11 @@ Changed
 - **API BREAKING CHANGES**
    - All functions that take frequencies and LSTs as arguments have had their signatures
      changed to ``func(lsts, freqs, *args, **kwargs)``.
-   - Functions that employ ``utils.rough_fringe_filter`` or ``utils.rough_delay_filter``
-     as part of the visibility calculation now have parameters ``delay_filter_kwargs``
-     and/or ``fringe_filter_kwargs``, which are dictionaries that are ultimately passed
-     to the filtering functions. ``foregrounds.diffuse_foreground`` and ``eor.noiselike_eor``
-     are both affected by this change.
+   - Functions that employ :func:`~.utils.rough_fringe_filter` or
+     :func:`~.utils.rough_delay_filter` as part of the visibility calculation now have
+     parameters ``delay_filter_kwargs`` and/or ``fringe_filter_kwargs``, which are
+     dictionaries that are ultimately passed to the filtering functions.
+     ``foregrounds.diffuse_foreground`` and ``eor.noiselike_eor`` are both affected by this.
    - Some parameters have been renamed to enable simpler handling of package-wide defaults.
      Parameters that have been changed are:
       - ``filter_type`` -> ``delay_filter_type`` in :func:`~.utils.gen_delay_filter`
