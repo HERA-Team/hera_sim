@@ -78,7 +78,7 @@ Changed
    - The ``noise.jy2T`` function was moved to :mod:`~.utils` and renamed. See
      :func:`~.utils.jansky_to_kelvin`.
    - The parameter ``fq0`` has been renamed to ``f0`` in :class:`~.rfi.RfiStation`.
-   - The utility function ``rfi._listify`` has been moved to the utility module.
+   - The ``_listify`` function has been moved from :mod:`~.rfi` to :mod:`~.utils`.
    - ``sigchain.HERA_NRAO_BANDPASS`` no longer exists in the code, but may be loaded from
      the file ``HERA_H1C_BANDPASS.npy`` in the ``data`` directory.
 - Other Changes
