@@ -7,7 +7,7 @@ v1.0.0 [2021.06.16]
 
 Added
 -----
-- :module:`~.adjustment` module from HERA Phase 1 Validation work
+- :mod:`~.adjustment` module from HERA Phase 1 Validation work
    - :func:`~.adjustment.adjust_to_reference`
       - High-level interface for making one set of data comply with another set of data.
         This may involve rephasing or interpolating in time and/or interpolating in
@@ -15,8 +15,8 @@ Added
         will select a subset of antennas to provide the greatest number of unique baselines
         that remain in the downselected array.
   - All other functions in this module exist only to modularize the above function.
-- :module:`~.cli_utils` module providing utility functions for the CLI simulation script.
-- :module:`~.components` module providing an abstract base class for simulation components.
+- :mod:`~.cli_utils` module providing utility functions for the CLI simulation script.
+- :mod:`~.components` module providing an abstract base class for simulation components.
    - Any new simulation components should be subclassed from the
      :class:`~.components.SimulationComponent` ABC. New simulation components subclassed
      appropriately are automatically discoverable by the :class:`~.Simulator` class. A MWE
@@ -41,7 +41,7 @@ Added
      how the correlator writes files to disk.
 - Ability to generate noise visibilities based on autocorrelations from the data.
   This is achieved by providing a value for the ``autovis`` parameter in
-  :func:`~.noise.thermal_noise` or :class:`~.noise.ThermalNoise`.
+  the ``thermal_noise`` function (see :class:`~.noise.ThermalNoise`).
 - The :func:`~.sigchain.vary_gains_in_time` provides an interface for taking a gain
   spectrum and applying time variation (linear, sinusoidal, or noiselike) to any of
   the reflection coefficient parameters (amplitude, phase, or delay).
@@ -51,7 +51,7 @@ Added
 
 Fixed
 -----
-- The reionization signal produced by :func:`~.eor.noiselike_eor` is now guaranteed to
+- The reionization signal produced by ``eor.noiselike_eor`` is now guaranteed to
   be real-valued for autocorrelations (although the statistics of the EoR signal for
   the autocorrelations still need to be investigated for correctness).
 
@@ -60,7 +60,7 @@ Changed
 
 - **API BREAKING CHANGES**
    - All functions that take frequencies and LSTs as arguments have had their signatures
-     changed to ``func(lsts, freqs, \*args, \*\*kwargs)``.
+     changed to ``func(lsts, freqs, *args, **kwargs)``.
    - Functions that employ ``utils.rough_fringe_filter`` or ``utils.rough_delay_filter``
      as part of the visibility calculation now have parameters ``delay_filter_kwargs``
      and/or ``fringe_filter_kwargs``, which are dictionaries that are ultimately passed
@@ -70,14 +70,15 @@ Changed
      Parameters that have been changed are:
       - ``filter_type`` -> ``delay_filter_type`` in :func:`~.utils.gen_delay_filter`
       - ``filter_type`` -> ``fringe_filter_type`` in :func:`~.utils.gen_fringe_filter`
-      - ``chance`` -> ``impulse_chance`` in :func:`~.rfi.rfi_impulse`
-      - ``strength`` -> ``impulse_strength`` in :func:`~.rfi.rfi_impulse`
-      - (Similar changes were made in :func:`~.rfi.rfi_dtv`` and :func:`~.rfi.rfi_scatter`)
+      - ``chance`` -> ``impulse_chance`` in ``rfi_impulse`` (see :class:`~.rfi.Impulse`)
+      - ``strength`` -> ``impulse_strength`` in ``rfi_impulse`` (see :class:`~.rfi.Impulse`)
+      - Similar changes were made in ``rfi_dtv`` (:class:`~.rfi.DTV`) and ``rfi_scatter``
+        (:class:`~.rfi.Scatter`).
    - Any occurrence of the parameter ``fqs`` has been replaced with ``freqs``.
-   - The ``noise.jy2T`` function was moved to :module:`~.utils` and renamed. See
+   - The ``noise.jy2T`` function was moved to :mod:`~.utils` and renamed. See
      :func:`~.utils.jansky_to_kelvin`.
    - The parameter ``fq0`` has been renamed to ``f0`` in :class:`~.rfi.RfiStation`.
-   - The utility function :func:`~.rfi._listify` has been moved to the utility module.
+   - The utility function ``rfi._listify`` has been moved to the utility module.
    - ``sigchain.HERA_NRAO_BANDPASS`` no longer exists in the code, but may be loaded from
      the file ``HERA_H1C_BANDPASS.npy`` in the ``data`` directory.
 - Other Changes
@@ -101,8 +102,8 @@ Changed
       - Some of the methods for interacting with the underlying :class:`pyuvdata.UVData`
         object have been exposed to the :class:`~.Simulator` (e.g. ``get_data``).
       - An easy reference to the :func:`~.io.chunk_sim_and_save` function.
-   - :module:`~.foregrounds`, :module:`~.eor`, :module:`~.noise`, :module:`~.rfi`,
-     :module:`~.antpos`, and :module:`~.sigchain` have been modified to implement the
+   - :mod:`~.foregrounds`, :mod:`~.eor`, :mod:`~.noise`, :mod:`~.rfi`,
+     :mod:`~.antpos`, and :mod:`~.sigchain` have been modified to implement the
      features using callable classes. The old functions still exist for
      backwards-compatibility, but moving forward any additions to visibility or
      systematics simulators should be implemented using callable classes and be
