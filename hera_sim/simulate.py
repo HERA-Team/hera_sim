@@ -698,7 +698,8 @@ class Simulator:
         elif len(vis_filter) == 3:
             # Assume it's a proper antpairpol.
             return not (
-                vis_filter == [ant1, ant2, pol] or vis_filter == [ant2, ant1, pol]
+                utils._listify(vis_filter) == [ant1, ant2, pol]
+                or utils._listify(vis_filter) == [ant2, ant1, pol]
             )
         else:
             # Assume it's some list of antennas/polarizations.
