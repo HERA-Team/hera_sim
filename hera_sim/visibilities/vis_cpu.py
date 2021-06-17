@@ -216,7 +216,7 @@ class VisCPU(VisibilitySimulator):
         )
 
         # Apply correction to point source positions
-        shape = self.point_source_pos
+        shape = self.point_source_pos.shape
         ra, dec = self.point_source_pos.T
         new_ra, new_dec = convs.equatorial_to_eci_coords(
             ra, dec, obstime, location, unit="rad", frame=frame

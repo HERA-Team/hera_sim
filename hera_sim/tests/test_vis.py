@@ -298,6 +298,27 @@ def test_single_source_autocorr_past_horizon(uvdata, simulator):
     assert np.abs(np.mean(v)) == 0
 
 
+def test_viscpu_coordinate_correction(uvdata2):
+    freqs = np.unique(uvdata2.freq_array)
+
+    # put a point source in
+    point_source_pos = np.array([[0, uvdata2.telescope_location_lat_lon_alt[0]]])
+    point_source_flux = np.array([[1.0]] * len(freqs))
+
+    viscpu = VisCPU(
+        uvdata=uvdata2,
+        sky_freqs=freqs,
+        point_source_flux=point_source_flux,
+        point_source_pos=point_source_pos,
+        nside=2 ** 4,
+    )
+
+    # Apply correction
+    viscpu.correct_point_source_pos(obstime="2018-08-31T04:02:30.11", frame="icrs")
+    v = viscpu.simulate()
+    assert np.all(~np.isnan(v))
+
+
 def align_src_to_healpix(point_source_pos, point_source_flux, nside=2 ** 4):
     """Where the point sources will be placed when converted to healpix model
 
