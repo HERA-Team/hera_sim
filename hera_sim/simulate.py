@@ -1477,8 +1477,8 @@ class Simulator:
         has_data = not np.all(self.data.data_array == 0)
         is_multiplicative = getattr(model, "is_multiplicative", False)
         contains_multiplicative_effect = any(
-            self._get_component(component).is_multiplicative
-            for component in self._components
+            self._get_component(component["alias"]).is_multiplicative
+            for component in self._components.values()
         )
 
         if is_multiplicative and not has_data:
