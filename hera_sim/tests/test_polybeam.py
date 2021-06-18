@@ -48,7 +48,6 @@ def beams(rotation, nants):
     cfg_beam = dict(
         ref_freq=1.0e8,
         spectral_index=-0.6975,
-        # perturb=True,
         mainlobe_width=0.3,
         # nmodes=8,
         beam_coeffs=[
@@ -170,8 +169,8 @@ class TestPerturbedPolyBeam:
 
         # Check that the values are not all the same. Shouldn't be, due to
         # elliptic beam.
-        assert np.min(pix_results) != pytest.approx(np.max(pix_results), abs=0.8)
-        assert np.min(calc_results) != pytest.approx(np.max(calc_results), abs=0.8)
+        assert np.min(pix_results) != pytest.approx(np.max(pix_results), abs=0.1)
+        assert np.min(calc_results) != pytest.approx(np.max(calc_results), abs=0.1)
 
         # Check that attempting to use GPU with Polybeam raises an error.
         with pytest.raises(RuntimeError if HAVE_GPU else ImportError):
