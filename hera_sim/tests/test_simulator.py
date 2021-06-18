@@ -121,8 +121,10 @@ def test_add_with_custom_class(base_sim, multiplicative):
 
     class Test(TestBase):
         is_multiplicative = multiplicative
+
         def __init__(self):
             pass
+
         def __call__(self, lsts, freqs):
             return np.ones((lsts.size, freqs.size), dtype=complex)
 
