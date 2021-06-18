@@ -1,0 +1,13 @@
+channels:
+  - defaults
+  - conda-forge
+
+dependencies:
+  - pip
+  - ipython
+  - nbsphinx
+  - numpydoc
+  - sphinx>=1.3
+  - pip:
+    - sphinx-rtd-theme
+    - sphinx_autorun

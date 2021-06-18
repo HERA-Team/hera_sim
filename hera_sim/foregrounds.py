@@ -1,142 +1,319 @@
-"""
-A module with functions for generating foregrounds signals.
+"""Visibility-space foreground models.
 
-Each function may take arbitrary parameters, but should return a 2D array of visibilities for the requested baseline
-at the requested lsts and frequencies.
+This module defines several cheap foreground models evaluated in visibility space.
 """
-from __future__ import division
-from __future__ import unicode_literals
-from __future__ import print_function
-from __future__ import absolute_import
 
-from future import standard_library
-standard_library.install_aliases()
-# from builtins import *
-from builtins import zip
 import numpy as np
-from aipy.const import sidereal_day
-from builtins import range
+from astropy import constants
+from astropy import units
 
-from . import noise
 from . import utils
-from .defaults import _defaults
+from .components import component
 
-@_defaults
-def diffuse_foreground(lsts, fqs, bl_vec, Tsky_mdl=None, omega_p=None,
-                       standoff=0.0, delay_filter_type='tophat', delay_filter_normalize=None,
-                       fringe_filter_type='tophat', **fringe_filter_kwargs):
+
+@component
+class Foreground:
+    """Base class for foreground models."""
+
+    pass
+
+
+class DiffuseForeground(Foreground):
     """
-    Produce a (NTIMES,NFREQS) mock-up of what diffuse foregrounds could look
-    like on a baseline of a provided geometric length.
+    Produce a rough simulation of diffuse foreground-like structure.
 
-    Args:
-        lsts (array-like): shape=(NTIMES,), radians
-            local sidereal times of the observation to be generated.
-        fqs (array-like): shape=(NFREQS,), GHz
-            the spectral frequencies of the observation to be generated.
-        bl_vec (array-like): shape=(3,), nanosec
-            East-North-Up (i.e. Topocentric) baseline vector [East, North, Up]
-        Tsky_mdl (callable): interpolation object
-            an interpolation object that returns the sky temperature as a
-            function of (lst, freqs).  Called as Tsky_mdl(lsts, fqs).
-        omega_p (array-like): shape=(NFREQS,) steradians
-            Sky-integral of beam power. Default is to use noise.HERA_BEAM_POLY polynomial fit.
-        standoff (float): baseline horizon buffer [ns] for modeling suprahorizon emission
-        delay_filter_type (str): type of delay filter to use, see utils.gen_delay_filter
-        delay_filter_normalize (float): delay filter normalization, see utils.gen_delay_filter
-        fringe_filter_type (str): type of fringe-rate filter, see utils.gen_fringe_filter
-        fringe_filter_kwargs: kwargs given fringe_filter_type, see utils.gen_fringe_filter
+    Parameters
+    ----------
+    Tsky_mdl : interpolation object
+        Sky temperature model, in units of Kelvin. Must be callable
+        with signature Tsky_mdl(lsts, freqs), formatted so that lsts
+        are in radians and freqs are in GHz.
+    omega_p : interpolation object or array-like of float
+        Beam size model, in units of steradian. If passing an array,
+        then it must be the same shape as the frequency array passed
+        to the ``freqs`` parameter.
+    delay_filter_kwargs : dict, optional
+        Keyword arguments and associated values to be passed to
+        :func:`~hera_sim.utils.rough_delay_filter`. Default is to use the
+        following settings: ``standoff : 0.0``, ``delay_filter_type : tophat``.
+    fringe_filter_kwargs : dict, optional
+        Keyword arguments and associated values to be passed to
+        :func:`~hera_sim.utils.rough_fringe_filter`. Default is to use the
+        following settings: ``fringe_filter_type : tophat``.
 
-    Returns:
-        mdl (array-like): shape=(NTIMES,NFREQS)
-            mock diffuse foreground visibility spectra vs. time
+    Notes
+    -----
+    This algorithm provides a rough simulation of visibilities from
+    diffuse foregrounds by using a sky temperature model. The sky
+    temperature models provided in this package are appropriate for
+    the HERA H1C observing season, and are only valid for frequencies
+    between 100 MHz and 200 MHz; anything beyond this range is just a
+    copy of the value at the nearest edge. Simulated autocorrelations
+    (i.e. zero magnitude ``bl_vec``) are returned as complex arrays,
+    but have zero imaginary component everywhere. For cross-correlations,
+    the sky model is convolved with white noise (in delay/fringe-rate
+    space), and rough delay and fringe filters are applied to the
+    visibility. As a standalone component model, this is does not
+    produce consistent simulated visibilities for baselines within a
+    redundant group (except for autocorrelations); however, the
+    :class:`~hera_sim.simulate.Simulator` class provides the functionality to ensure
+    that redundant baselines see the same sky. Additionally, visibilities
+    simulated with this model are not invariant under complex conjugation
+    and baseline conjugation, since the delay filter applied is symmetric;
+    however, the :class:`~.simulate.Simulator`  class is aware of this and ensures
+    invariance under complex conjugation and baseline conjugation.
     """
-    if Tsky_mdl is None:
-        raise TypeError("Tsky_mdl is a required parameter of diffuse_foreground")
-    if omega_p is None:
-        omega_p = noise.bm_poly_to_omega_p(fqs)
-    elif callable(omega_p):
-        omega_p = omega_p(fqs)
 
-    # generate a Tsky visibility in time and freq space, convert from K to Jy
-    Tsky = Tsky_mdl(lsts, fqs)
-    mdl = np.asarray(Tsky * 1e3 / noise.jy2T(fqs, omega_p), np.complex)
+    _alias = ("diffuse_foreground",)
+    is_smooth_in_freq = True
 
-    # If an auto-correlation, return the beam-weighted integrated sky.
-    if np.isclose(np.linalg.norm(bl_vec), 0):
-        return mdl
+    def __init__(
+        self,
+        Tsky_mdl=None,
+        omega_p=None,
+        delay_filter_kwargs=None,
+        fringe_filter_kwargs=None,
+    ):
+        if delay_filter_kwargs is None:
+            delay_filter_kwargs = {
+                "standoff": 0.0,
+                "delay_filter_type": "tophat",
+                "normalize": None,
+            }
+        if fringe_filter_kwargs is None:
+            fringe_filter_kwargs = {"fringe_filter_type": "tophat"}
 
-    # multiply by white noise
-    mdl *= noise.white_noise((len(lsts), len(fqs)))
+        super().__init__(
+            Tsky_mdl=Tsky_mdl,
+            omega_p=omega_p,
+            delay_filter_kwargs=delay_filter_kwargs,
+            fringe_filter_kwargs=fringe_filter_kwargs,
+        )
 
-    # fringe rate filter across time using projected East-West distance
-    mdl = utils.rough_fringe_filter(mdl, lsts, fqs, bl_vec[0], filter_type=fringe_filter_type, **fringe_filter_kwargs)
+    def __call__(self, lsts, freqs, bl_vec, **kwargs):
+        """Compute the foregrounds.
 
-    # delay filter across freq
-    mdl = utils.rough_delay_filter(mdl, fqs, np.linalg.norm(bl_vec), standoff=standoff, filter_type=delay_filter_type, normalize=delay_filter_normalize)
+        Parameters
+        ----------
+        lsts : array-like of float
+            Array of LST values in units of radians.
+        freqs : array-like of float
+            Array of frequency values in units of GHz.
+        bl_vec : array-like of float
+            Length-3 array specifying the baseline vector in units of ns.
 
-    return mdl
+        Returns
+        -------
+        vis : ndarray of complex
+            Array of visibilities at each LST and frequency appropriate
+            for the given sky temperature model, beam size model, and
+            baseline vector. Returned in units of Jy with shape
+            (lsts.size, freqs.size).
+        """
+        # validate the kwargs
+        self._check_kwargs(**kwargs)
 
-def pntsrc_foreground(lsts, fqs, bl_vec, nsrcs=1000, Smin=0.3, Smax=300,
-                      beta=-1.5, spectral_index_mean=-1, spectral_index_std=0.5,
-                      reference_freq=0.15):
+        # unpack the kwargs
+        (
+            Tsky_mdl,
+            omega_p,
+            delay_filter_kwargs,
+            fringe_filter_kwargs,
+        ) = self._extract_kwarg_values(**kwargs)
+
+        if Tsky_mdl is None:
+            raise ValueError(
+                "A sky temperature model must be specified in "
+                "order to use this function."
+            )
+
+        if omega_p is None:
+            raise ValueError(
+                "A beam area array or interpolation object is "
+                "required to use this function."
+            )
+
+        # support passing beam as an interpolator
+        if callable(omega_p):
+            omega_p = omega_p(freqs)
+
+        # resample the sky temperature model
+        Tsky = Tsky_mdl(lsts=lsts, freqs=freqs)  # K
+        vis = np.asarray(Tsky / utils.jansky_to_kelvin(freqs, omega_p), complex)
+
+        if np.isclose(np.linalg.norm(bl_vec), 0):
+            return vis
+
+        vis *= utils.gen_white_noise(vis.shape)
+
+        vis = utils.rough_fringe_filter(
+            vis, lsts, freqs, bl_vec[0], **fringe_filter_kwargs
+        )
+
+        vis = utils.rough_delay_filter(
+            vis, freqs, np.linalg.norm(bl_vec), **delay_filter_kwargs
+        )
+
+        return vis
+
+
+class PointSourceForeground(Foreground):
     """
-    Produce a (NTIMES,NFREQS) mock-up of what point-source foregrounds
-    could look like on a baseline of a provided geometric length.  Results
-    have phase coherence within an observation but not between repeated
-    calls of this function (i.e. no phase coherence between baselines).
-    Beam width is currently hardcoded for HERA.
+    Produce a uniformly-random point-source sky observed with a truncated Gaussian beam.
 
-    Args:
-        lsts (array-like): shape=(NTIMES,), radians
-            local sidereal times of the observation to be generated.
-        fqs (array-like): shape=(NFREQS,), GHz
-            the spectral frequencies of the observation to be generated.
-        bl_vec (array-like): shape=(3,), nanosec
-            East-North-Up (i.e. Topocentric) baseline vector [East, North, Up]
-        nsrcs (float): default=1000.
-            the number of mock sources to put on the sky, drawn from a power-law
-            of flux-densities with an index of beta. between Smin and Smax
-        Smin (float): [Jy], default=0.3
-            the minimum flux density to sample
-        Smax (float): [Jy], default=300
-            the maximum flux density to sample
-        beta (float): default=-1.5
-            the power-law index of point-source counts versus flux density
-        spectral_index_mean (float): default=-1
-            the mean spectral index of point sources drawn
-        spectral_index_std (float): default=0.5
-            the standard deviation of the spectral index of point sources drawn
-        reference_freq (float): [GHz], default=0.15
-            the frequency from which spectral indices extrapolate
-
-    Returns:
-        vis (array-like): shape=(NTIMES,NFREQS)
-            mock point-source foreground visibility spectra vs. time
+    Parameters
+    ----------
+    nsrcs : int, optional
+        Number of sources to place on the sky. Point sources are
+        simulated to have a flux-density drawn from a power-law
+        distribution specified by the ``Smin``, ``Smax``, and
+        ``beta`` parameters. Additionally, each source has a chromatic
+        flux-density given by a power law; the spectral index is drawn
+        from a normal distribution with mean ``spectral_index_mean`` and
+        standard deviation ``spectral_index_std``.
+    Smin : float, optional
+        Lower bound of the power-law distribution to draw flux-densities
+        from, in units of Jy.
+    Smax : float, optional
+        Upper bound of the power-law distribution to draw flux-densities
+        from, in units of Jy.
+    beta : float, optional
+        Power law index for the source counts versus flux-density.
+    spectral_index_mean : float, optional
+        The mean of the normal distribution to draw source spectral indices
+        from.
+    spectral_index_std : float, optional
+        The standard deviation of the normal distribution to draw source
+        spectral indices from.
+    reference_freq : float, optional
+        Reference frequency used to make the point source flux densities
+        chromatic, in units of GHz.
     """
-    bl_len_ns = np.linalg.norm(bl_vec)
-    ras = np.random.uniform(0, 2 * np.pi, nsrcs)
-    indices = np.random.normal(spectral_index_mean, spectral_index_std, size=nsrcs)
-    mfreq = reference_freq
-    beam_width = ((40 * 60.) * (mfreq / fqs)) / (sidereal_day * 2 * np.pi)  # XXX hardcoded HERA
 
-    # Draw flux densities from a power law between Smin and Smax with a slope of beta.
-    flux_densities = ((Smax ** (beta + 1) - Smin ** (beta + 1)) * np.random.uniform(size=nsrcs) + Smin ** (
-                beta + 1)) ** (1. / (beta + 1))
+    _alias = ("pntsrc_foreground",)
 
-    vis = np.zeros((lsts.size, fqs.size), dtype=np.complex)
-    for ra, flux, index in zip(ras, flux_densities, indices):
-        t = np.argmin(np.abs(utils.compute_ha(lsts, ra)))
-        dtau = np.random.uniform(-.1 * bl_len_ns, .1 * bl_len_ns)  # XXX adds a bit to total delay, increasing bl_len_ns
-        vis[t, :] += flux * (fqs / mfreq) ** index * np.exp(2j * np.pi * fqs * dtau)
-    ha = utils.compute_ha(lsts, 0)
-    for fi in range(fqs.size):
-        bm = np.exp(-ha ** 2 / (2 * beam_width[fi] ** 2))
-        bm = np.where(np.abs(ha) > np.pi / 2 , 0, bm)
-        w = .9 * bl_len_ns * np.sin(ha) * fqs[fi]  # XXX .9 to offset increase from dtau above
+    def __init__(
+        self,
+        nsrcs=1000,
+        Smin=0.3,
+        Smax=300,
+        beta=-1.5,
+        spectral_index_mean=-1,
+        spectral_index_std=0.5,
+        reference_freq=0.15,
+    ):
 
-        phs = np.exp(2j * np.pi * w)
-        kernel = bm * phs
-        vis[:, fi] = np.fft.ifft(np.fft.fft(kernel) * np.fft.fft(vis[:, fi]))
+        super().__init__(
+            nsrcs=nsrcs,
+            Smin=Smin,
+            Smax=Smax,
+            beta=beta,
+            spectral_index_mean=spectral_index_mean,
+            spectral_index_std=spectral_index_std,
+            reference_freq=reference_freq,
+        )
 
-    return vis
+    def __call__(self, lsts, freqs, bl_vec, **kwargs):
+        """Compute the point source foregrounds.
+
+        Parameters
+        ----------
+        lsts : array-like of float
+            Local Sidereal Times for the simulated observation, in units
+            of radians.
+        freqs : array-like of float
+            Frequency array for the simulated observation, in units of GHz.
+        bl_vec : array-like of float
+            Baseline vector for the simulated observation, given in
+            East-North-Up coordinates in units of nanoseconds. Must have
+            length 3.
+
+        Returns
+        -------
+        vis : np.ndarray of complex
+            Simulated observed visibilities for the specified LSTs, frequencies,
+            and baseline. Complex-valued with shape (lsts.size, freqs.size).
+
+        Notes
+        -----
+        The beam used here is a Gaussian with width hard-coded to HERA's width,
+        and truncated at the horizon.
+
+        This is a *very* rough simulator, use at your own risk.
+        """
+        # validate the kwargs
+        self._check_kwargs(**kwargs)
+
+        # unpack the kwargs
+        (
+            nsrcs,
+            Smin,
+            Smax,
+            beta,
+            spectral_index_mean,
+            spectral_index_std,
+            f0,
+        ) = self._extract_kwarg_values(**kwargs)
+
+        # get baseline length in nanoseconds
+        bl_len_ns = np.linalg.norm(bl_vec) / constants.c.value * units.s.to("ns")
+
+        # randomly generate source RAs
+        ras = np.random.uniform(0, 2 * np.pi, nsrcs)
+
+        # draw spectral indices from normal distribution
+        spec_indices = np.random.normal(
+            spectral_index_mean, spectral_index_std, size=nsrcs
+        )
+
+        # calculate beam width, hardcoded for HERA
+        beam_width = (40 * 60) * (f0 / freqs) / units.sday.to("s") * 2 * np.pi
+
+        # draw flux densities from a power law
+        alpha = beta + 1
+        flux_densities = (
+            Smax ** alpha + Smin ** alpha * (1 - np.random.uniform(size=nsrcs))
+        ) ** (1 / alpha)
+
+        # initialize the visibility array
+        vis = np.zeros((lsts.size, freqs.size), dtype=complex)
+
+        # iterate over ra, flux, spectral indices
+        for ra, flux, index in zip(ras, flux_densities, spec_indices):
+            # find which lst index to use?
+            lst_ind = np.argmin(np.abs(utils.compute_ha(lsts, ra)))
+
+            # slight offset in delay? why??
+            dtau = np.random.uniform(-1, 1) * 0.1 * bl_len_ns
+
+            # fill in the corresponding region of the visibility array
+            vis[lst_ind, :] += flux * (freqs / f0) ** index
+
+            # now multiply in the phase
+            vis[lst_ind, :] *= np.exp(2j * np.pi * freqs * dtau)
+
+        # get hour angles for lsts at 0 RA (why?)
+        has = utils.compute_ha(lsts, 0)
+
+        # convolve vis with beam at each frequency
+        for j, freq in enumerate(freqs):
+            # first calculate the beam, using truncated Gaussian model
+            beam = np.exp(-(has ** 2) / (2 * beam_width[j] ** 2))
+            beam = np.where(np.abs(has) > np.pi / 2, 0, beam)
+
+            # who the hell knows what this does
+            w = 0.9 * bl_len_ns * np.sin(has) * freq
+
+            phase = np.exp(2j * np.pi * w)
+
+            # define the convolving kernel
+            kernel = beam * phase
+
+            # now actually convolve the kernel and the raw vis
+            vis[:, j] = np.fft.ifft(np.fft.fft(kernel) * np.fft.fft(vis[:, j]))
+
+        return vis
+
+
+diffuse_foreground = DiffuseForeground()
+pntsrc_foreground = PointSourceForeground()
