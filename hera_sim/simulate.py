@@ -123,8 +123,12 @@ class Simulator:
         for param in ("Ntimes", "Nfreqs", "Nblts", "Npols", "Nbls"):
             setattr(self, param, getattr(self.data, param))
         self.Nants = len(self.antpos)
-        self.get_data = self.data.get_data
-        self.get_flags = self.data.get_flags
+        for attr in ("data", "flags", "antpairs", "antpairpols"):
+            setattr(
+                self,
+                f"get_{attr}",
+                getattr(self.data, f"get_{attr}"),
+            )
 
     @cached_property
     def antpos(self):
@@ -254,9 +258,11 @@ class Simulator:
             model = model(**kwargs)
         self._sanity_check(model)  # Check for component ordering issues.
         self._antpairpol_cache[model_key] = []  # Initialize this model's cache.
-        if seed is None:
-            # Ensure we can recover the data later via ``get``
-            seed = int(np.random.get_state()[1][0])
+        if seed is None and add_vis:
+            warnings.warn(
+                "You have not specified how to seed the random state. "
+                "This effect might not be exactly recoverable."
+            )
 
         # Simulate the effect by iterating over baselines and polarizations.
         data = self._iteratively_apply(
@@ -276,10 +282,9 @@ class Simulator:
                     if param not in kwargs and param in defaults():
                         kwargs[param] = defaults(param)
             self._update_history(model, **kwargs)
-            # Record the random state in case no seed was specified.
-            # This ensures that the component can be recovered later.
-            kwargs["seed"] = seed
-            self._update_seeds(model_key)
+            if seed:
+                kwargs["seed"] = seed
+                self._update_seeds(model_key)
             if vis_filter is not None:
                 kwargs["vis_filter"] = vis_filter
             self._components[model_key] = kwargs
@@ -468,6 +473,7 @@ class Simulator:
         self._components.clear()
         self._antpairpol_cache.clear()
         self._seeds.clear()
+        self._filter_cache = {"delay": {}, "fringe": {}}
         self.extras.clear()
 
     def write(self, filename, save_format="uvh5", **kwargs):
@@ -691,13 +697,20 @@ class Simulator:
             # If it's two polarizations, then make sure this pol is one of them.
             if all(isinstance(key, str) for key in vis_filter):
                 return pol not in vis_filter
-            # Otherwise this is straightforward.
-            else:
+            # If it's an ant+pol, make sure both the antenna and pol are present.
+            elif any(isinstance(key, str) for key in vis_filter):
                 return not all(key in (ant1, ant2, pol) for key in vis_filter)
+            # Otherwise, make sure the baseline is correct.
+            else:
+                return not (
+                    utils._listify(vis_filter) == [ant1, ant2]
+                    or utils._listify(vis_filter) == [ant2, ant1]
+                )
         elif len(vis_filter) == 3:
             # Assume it's a proper antpairpol.
             return not (
-                vis_filter == [ant1, ant2, pol] or vis_filter == [ant2, ant1, pol]
+                utils._listify(vis_filter) == [ant1, ant2, pol]
+                or utils._listify(vis_filter) == [ant2, ant1, pol]
             )
         else:
             # Assume it's some list of antennas/polarizations.
@@ -998,10 +1011,17 @@ class Simulator:
         # Determine whether to use cached filters, and which ones to use if so.
         model_kwargs = getattr(model, "kwargs", {})
         use_cached_filters = any("filter" in key for key in model_kwargs)
-        get_delay_filter = is_smooth_in_freq and "delay_filter_kwargs" not in kwargs
-        get_delay_filter &= bool(self._filter_cache["delay"])
-        get_fringe_filter = "fringe_filter_kwargs" not in kwargs
-        get_fringe_filter &= bool(self._filter_cache["fringe"])
+        get_delay_filter = (
+            is_smooth_in_freq
+            and "delay_filter_kwargs" not in kwargs
+            and "delay_filter_kwargs" in model_kwargs
+            and bool(self._filter_cache["delay"])
+        )
+        get_fringe_filter = (
+            "fringe_filter_kwargs" not in kwargs
+            and "fringe_filter_kwargs" in model_kwargs
+            and bool(self._filter_cache["fringe"])
+        )
         use_cached_filters &= get_delay_filter or get_fringe_filter
 
         # Iterate over the array and simulate the effect as-needed.
@@ -1457,8 +1477,8 @@ class Simulator:
         has_data = not np.all(self.data.data_array == 0)
         is_multiplicative = getattr(model, "is_multiplicative", False)
         contains_multiplicative_effect = any(
-            self._get_component(component).is_multiplicative
-            for component in self._components
+            self._get_component(component["alias"]).is_multiplicative
+            for component in self._components.values()
         )
 
         if is_multiplicative and not has_data:

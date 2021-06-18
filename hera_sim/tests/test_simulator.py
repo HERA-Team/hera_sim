@@ -15,11 +15,11 @@ import pytest
 
 from hera_sim.foregrounds import DiffuseForeground, diffuse_foreground
 from hera_sim.noise import HERA_Tsky_mdl
-from hera_sim.simulate import Simulator
 from hera_sim.antpos import hex_array
 from hera_sim import DATA_PATH, CONFIG_PATH
 from hera_sim.defaults import defaults
 from hera_sim.interpolators import Beam
+from hera_sim import Simulator, component
 from pyuvdata import UVData
 
 
@@ -111,6 +111,29 @@ def test_add_with_builtin_class(base_sim):
 def test_add_with_class_instance(base_sim):
     base_sim.add(diffuse_foreground, Tsky_mdl=Tsky_mdl, omega_p=omega_p)
     assert not np.all(np.isclose(base_sim.data.data_array, 0))
+
+
+@pytest.mark.parametrize("multiplicative", [False, None])
+def test_add_with_custom_class(base_sim, multiplicative):
+    @component
+    class TestBase:
+        pass
+
+    class Test(TestBase):
+        is_multiplicative = multiplicative
+
+        def __init__(self):
+            pass
+
+        def __call__(self, lsts, freqs):
+            return np.ones((lsts.size, freqs.size), dtype=complex)
+
+    if multiplicative is None:
+        with pytest.warns(UserWarning, match="have not specified"):
+            base_sim.add(Test)
+    else:
+        base_sim.add(Test)
+        assert np.all(base_sim.data.data_array == 1)
 
 
 def test_refresh(base_sim):
@@ -563,9 +586,10 @@ def test_none_seed(base_sim):
 
 
 def test_none_seed_state_recovery(base_sim):
-    base_sim.add("noiselike_eor", seed=None)
-    vis = base_sim.get("noiselike_eor")
-    assert np.allclose(base_sim.data.data_array, vis)
+    with pytest.warns(UserWarning, match="seed the random state"):
+        base_sim.add("noiselike_eor", seed=None)
+        vis = base_sim.get("noiselike_eor")
+    assert not np.allclose(base_sim.data.data_array, vis)
 
 
 @pytest.mark.parametrize("seed", [3.14, "redundant", "unsupported"])

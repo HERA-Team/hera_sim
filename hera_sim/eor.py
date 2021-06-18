@@ -47,6 +47,7 @@ class NoiselikeEoR(EoR):
     """
 
     _alias = ("noiselike_eor",)
+    is_smooth_in_freq = False
 
     def __init__(
         self,
