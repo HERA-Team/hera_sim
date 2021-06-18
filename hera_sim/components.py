@@ -192,6 +192,10 @@ def component(cls):
     )
     _available_components[cls.__name__] = cls
 
+    # Don't require users to write a class docstring (even if they should)
+    if cls.__doc__ is None:
+        cls.__doc__ = """"""
+
     # Add some common text to the docstring.
     cls.__doc__ += """
 

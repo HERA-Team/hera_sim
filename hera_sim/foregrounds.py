@@ -65,6 +65,7 @@ class DiffuseForeground(Foreground):
     """
 
     _alias = ("diffuse_foreground",)
+    is_smooth_in_freq = True
 
     def __init__(
         self,
