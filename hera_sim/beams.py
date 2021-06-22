@@ -35,10 +35,10 @@ def modulate_with_dipole(az, beam_vals):
     # beam_vals: (Nfreq, Naz)
     dipole_mod = (1. - 1.j) * np.array([[-np.sin(az), np.cos(az)], 
                                         [ np.cos(az), np.sin(az)]])
-    pol_beam = dipole_mod[:,np.newaxis,:,np.newaxis,:] \
+    pol_efield_beam = dipole_mod[:,np.newaxis,:,np.newaxis,:] \
              * beam_vals[np.newaxis,np.newaxis,np.newaxis,:,:]
 
-    return pol_beam
+    return pol_efield_beam
 
 
 
@@ -129,7 +129,7 @@ class PolyBeam(AnalyticBeam):
         """
         # Empty data array
         interp_data = np.zeros((2, 1, 2, freq_array.size, az_array.size),
-                               dtype=np.float)
+                               dtype=np.complex128)
         
         # Frequency scaling
         fscale = (freq_array / self.ref_freq)**self.spectral_index
