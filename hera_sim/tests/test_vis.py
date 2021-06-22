@@ -239,6 +239,10 @@ def test_autocorr_flat_beam(uvdata, simulator):
     )
     v = sim.simulate()
 
+    # Account for factor of 2 between Stokes I and 'xx' pol for vis_cpu
+    if simulator == VisCPU:
+        v *= 2.0
+
     np.testing.assert_allclose(np.abs(v), np.mean(v), rtol=1e-5)
     np.testing.assert_almost_equal(np.abs(v), 0.5, 2)
 
@@ -258,6 +262,10 @@ def test_single_source_autocorr(uvdata, simulator):
         point_source_pos=point_source_pos,
         nside=2 ** 4,
     ).simulate()
+
+    # Account for factor of 2 between Stokes I and 'xx' pol for vis_cpu
+    if simulator == VisCPU:
+        v *= 2.0
 
     # Make sure the source is over the horizon half the time
     # (+/- 1 because of the discreteness of the times)
@@ -288,6 +296,27 @@ def test_single_source_autocorr_past_horizon(uvdata, simulator):
     ).simulate()
 
     assert np.abs(np.mean(v)) == 0
+
+
+def test_viscpu_coordinate_correction(uvdata2):
+    freqs = np.unique(uvdata2.freq_array)
+
+    # put a point source in
+    point_source_pos = np.array([[0, uvdata2.telescope_location_lat_lon_alt[0]]])
+    point_source_flux = np.array([[1.0]] * len(freqs))
+
+    viscpu = VisCPU(
+        uvdata=uvdata2,
+        sky_freqs=freqs,
+        point_source_flux=point_source_flux,
+        point_source_pos=point_source_pos,
+        nside=2 ** 4,
+    )
+
+    # Apply correction
+    viscpu.correct_point_source_pos(obstime="2018-08-31T04:02:30.11", frame="icrs")
+    v = viscpu.simulate()
+    assert np.all(~np.isnan(v))
 
 
 def align_src_to_healpix(point_source_pos, point_source_flux, nside=2 ** 4):
@@ -346,6 +375,7 @@ def test_comparison_zenith(uvdata2):
         point_source_pos=point_source_pos,
         nside=2 ** 4,
     ).simulate()
+    viscpu *= 2.0  # account for factor of 2 between Stokes I and 'xx' pol.
 
     healvis = HealVis(
         uvdata=uvdata2,
@@ -380,6 +410,7 @@ def test_comparision_horizon(uvdata2):
         point_source_pos=point_source_pos,
         nside=2 ** 4,
     ).simulate()
+    viscpu *= 2.0  # account for factor of 2 between Stokes I and 'xx' pol.
 
     healvis = HealVis(
         uvdata=uvdata2,
@@ -417,6 +448,7 @@ def test_comparison_multiple(uvdata2):
         point_source_pos=point_source_pos,
         nside=2 ** 4,
     ).simulate()
+    viscpu *= 2.0  # account for factor of 2 between Stokes I and 'xx' pol.
 
     healvis = HealVis(
         uvdata=uvdata2,
@@ -447,6 +479,7 @@ def test_comparison_half(uvdata2):
     viscpu = VisCPU(
         uvdata=uvdata2, sky_freqs=freqs, sky_intensity=I_sky, nside=nside
     ).simulate()
+    viscpu *= 2.0  # account for factor of 2 between Stokes I and 'xx' pol.
 
     healvis = HealVis(
         uvdata=uvdata2, sky_freqs=freqs, sky_intensity=I_sky, nside=nside
@@ -476,6 +509,7 @@ def test_comparision_airy(uvdata2):
         beams=[AnalyticBeam("airy", diameter=1.75)],
         nside=nside,
     ).simulate()
+    viscpu *= 2.0  # account for factor of 2 between Stokes I and 'xx' pol.
 
     healvis = HealVis(
         uvdata=uvdata2,
