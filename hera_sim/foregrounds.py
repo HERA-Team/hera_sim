@@ -4,7 +4,6 @@ This module defines several cheap foreground models evaluated in visibility spac
 """
 
 import numpy as np
-from astropy import constants
 from astropy import units
 
 from . import utils
