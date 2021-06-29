@@ -70,7 +70,7 @@ As the repository is becoming quite large, you may also wish to perform
 a shallow clone to retrieve only the recent commits and history. This makes
 the clone faster and avoid bottleneck in CI pipelines.
 
-Provide an argument `--depth 1` to the `git clone` command to copy only
+Provide an argument ``--depth 1`` to the ``git clone`` command to copy only
 the latest revision of the repository.
 
 ``git clone -–depth [depth] git@github.com:HERA-Team/hera_sim.git``
