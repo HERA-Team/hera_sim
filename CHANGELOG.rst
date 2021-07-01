@@ -15,9 +15,9 @@ Fixed
 
 Changed
 -------
-- :class:`~.Simulator` tutorial has been changed slightly to account for the bugfix.
-   - The time parameters used for generating an example ``Simulator`` instance have been
-     updated to match their description.
+- The time parameters used for generating an example ``Simulator`` instance in the tutorial
+  have been updated to match their description.
+- :class:`~.Simulator` tutorial has been changed slightly to account for the foreground fix.
 
 v1.0.0 [2021.06.16]
 ===================
