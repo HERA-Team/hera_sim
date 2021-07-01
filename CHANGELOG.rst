@@ -2,6 +2,23 @@
 Changelog
 =========
 
+v1.0.1 [2021.06.30]
+===================
+
+Added
+-----
+
+Fixed
+-----
+- Discrepancy in :class:`~.foregrounds.PointSourceForeground` documentation and actual
+  implementation has been resolved. Simulated foregrounds now look reasonable.
+
+Changed
+-------
+- :class:`~.Simulator` tutorial has been changed slightly to account for the bugfix.
+   - The time parameters used for generating an example ``Simulator`` instance have been
+     updated to match their description.
+
 v1.0.0 [2021.06.16]
 ===================
 
