@@ -4,7 +4,6 @@ This module defines several cheap foreground models evaluated in visibility spac
 """
 
 import numpy as np
-from astropy import constants
 from astropy import units
 
 from . import utils
@@ -255,8 +254,8 @@ class PointSourceForeground(Foreground):
             f0,
         ) = self._extract_kwarg_values(**kwargs)
 
-        # get baseline length in nanoseconds
-        bl_len_ns = np.linalg.norm(bl_vec) / constants.c.value * units.s.to("ns")
+        # get baseline length (it should already be in ns)
+        bl_len_ns = np.linalg.norm(bl_vec)
 
         # randomly generate source RAs
         ras = np.random.uniform(0, 2 * np.pi, nsrcs)
