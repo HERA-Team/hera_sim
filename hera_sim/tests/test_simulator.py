@@ -100,7 +100,12 @@ def test_phase_wrapped_lsts():
 
 def test_nondefault_blt_order_lsts():
     array_layout = hex_array(2, split_core=False, outriggers=0)
-    sim = create_sim(Ntimes=100, array_layout=array_layout)
+    sim = create_sim(
+        Ntimes=100,
+        integration_time=10.7,
+        start_time=2458120.15,
+        array_layout=array_layout,
+    )
     sim.data.reorder_blts("baseline", "time")
     iswrapped = sim.lsts < sim.lsts[0]
     lsts = sim.lsts + np.where(iswrapped, 2 * np.pi, 0)
