@@ -140,10 +140,8 @@ class Simulator:
     def lsts(self):
         """Observed Local Sidereal Times in radians."""
         # This process retrieves the unique LSTs while respecting phase wraps.
-        unique_lsts, inverse_inds, counts = np.unique(
-            self.data.lst_array, return_inverse=True, return_counts=True
-        )
-        return unique_lsts[inverse_inds[:: counts[0]]]
+        _, unique_inds = np.unique(self.data.time_array, return_index=True)
+        return self.data.lst_array[unique_inds]
 
     @cached_property
     def freqs(self):
