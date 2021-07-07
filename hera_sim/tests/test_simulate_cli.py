@@ -76,6 +76,7 @@ def config_file(tmp_path_factory):
     return cfg_file
 
 
+@pytest.mark.xfail(reason="change in pyuvdata broke bda.apply_bda")
 def test_cli(config_file):
     os.system(f"hera-sim-simulate.py {str(config_file)} --save_all --verbose")
     outdir = config_file.parent

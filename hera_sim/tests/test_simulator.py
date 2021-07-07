@@ -98,6 +98,20 @@ def test_phase_wrapped_lsts():
     assert sim.lsts[0] > sim.lsts[-1]
 
 
+def test_nondefault_blt_order_lsts():
+    array_layout = hex_array(2, split_core=False, outriggers=0)
+    sim = create_sim(
+        Ntimes=100,
+        integration_time=10.7,
+        start_time=2458120.15,
+        array_layout=array_layout,
+    )
+    sim.data.reorder_blts("baseline", "time")
+    iswrapped = sim.lsts < sim.lsts[0]
+    lsts = sim.lsts + np.where(iswrapped, 2 * np.pi, 0)
+    assert np.all(lsts[1:] > lsts[:-1])
+
+
 def test_add_with_str(base_sim):
     base_sim.add("noiselike_eor")
     assert not np.all(base_sim.data.data_array == 0)
