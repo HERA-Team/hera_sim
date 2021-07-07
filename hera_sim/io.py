@@ -100,6 +100,7 @@ def empty_uvdata(
         complete=True,
         **kwargs,
     )
+    uvd.set_drift()
 
     if conjugation is not None:
         uvd.conjugate_bls(convention=conjugation)

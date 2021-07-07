@@ -5,16 +5,11 @@ Changelog
 v1.0.2 [2021.07.01]
 ===================
 
-Added
------
-
 Fixed
 -----
 - Bug in retrieval of unique LSTs by :class:`~.Simulator` when a blt-order other than
   time-baseline is used has been fixed. LSTs should now be correctly retrieved.
-
-Changed
--------
+- :func:`~.io.empty_uvdata` now sets the ``phase_type`` attribute to "drift".
 
 v1.0.1 [2021.06.30]
 ===================
