@@ -2,6 +2,7 @@
 import os
 import warnings
 import numpy as np
+import pyuvdata
 from pyuvdata import UVData
 from pyuvsim.simsetup import initialize_uvdata_from_keywords
 from .defaults import _defaults
@@ -100,7 +101,11 @@ def empty_uvdata(
         complete=True,
         **kwargs,
     )
-    uvd.phase_type = "drift"
+    # This is a bit of a hack, but this seems like the only way?
+    if pyuvdata.__version__ < "2.2.0":
+        uvd.set_drift()
+    else:
+        uvd.fix_phase()
 
     if conjugation is not None:
         uvd.conjugate_bls(convention=conjugation)
