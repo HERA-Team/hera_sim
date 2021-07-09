@@ -18,7 +18,7 @@ dependencies:
   - psutil
   - astropy-healpix>=0.5
   - basemap
-  - pyuvdata>=2.1.4
+  - pyuvdata>=2.1.4<2.2.0
   - blas<2.0
   - git
   - pip:
