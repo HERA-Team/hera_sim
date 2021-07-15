@@ -18,6 +18,7 @@ from typing import List, Dict
 from pyradiosky import SkyModel
 from pathlib import Path
 from dataclasses import dataclass
+import astropy_healpix as aph
 
 
 def _is_power_of_2(n):
@@ -28,6 +29,9 @@ def _is_power_of_2(n):
 def _isnpixok(npix):
     n = npix // 12
     return npix % 12 == 0 and _is_power_of_2(n)
+
+
+BeamListType = BeamList | List[ab.AnalyticBeam | UVBeam]
 
 
 class ModelData:
@@ -69,7 +73,7 @@ class ModelData:
         uvdata: UVData,
         sky_model: SkyModel,
         beam_ids: Dict[str, int] | None = None,
-        beams: BeamList | List[ab.AnalyticBeam | UVBeam] | None = None,
+        beams: BeamListType | None = None,
     ):
 
         self.uvdata = uvdata
@@ -126,6 +130,16 @@ class ModelData:
         )
 
     @cached_property
+    def lsts(self):
+        """The LSTs at which data is defined."""
+        return self.uvdata.lst_array[:: self.uvdata.Nbls]
+
+    @cached_property
+    def freqs(self) -> np.ndarray:
+        """Frequnecies at which data is defined."""
+        return self.uvdata.freq_array[0]
+
+    @cached_property
     def n_beams(self) -> int:
         """Number of beam models used."""
         return len(self.beams)
@@ -165,6 +179,26 @@ class ModelData:
             path_out=direc,
         )
 
+    @cached_property
+    def ant_list(self) -> np.ndarray:
+        """An orderd list of active antennas."""
+        # Get antpos for active antennas only
+        # self.antpos = self.uvdata.get_ENU_antpos()[0].astype(self._real_dtype)
+        return self.uvdata.get_ants()  # ordered list of active ants
+
+    @cached_property
+    def active_antpos(self) -> np.ndarray:
+        """Positions of active antennas."""
+        antpos = []
+        _antpos = self.uvdata.get_ENU_antpos()[0]
+        for ant in self.ant_list:
+            # uvdata.get_ENU_antpos() and uvdata.antenna_numbers have entries
+            # for all telescope antennas, even ones that aren't included in the
+            # data_array. This extracts only the data antennas.
+            idx = np.where(ant == self.uvdata.antenna_numbers)
+            antpos.append(_antpos[idx].flatten())
+        return np.array(antpos)
+
 
 @dataclass
 class VisibilitySimulation:
@@ -172,6 +206,24 @@ class VisibilitySimulation:
 
     data_model: ModelData
     simulator: VisibilitySimulator
+    n_side: int = 2 ** 5
+
+    def __post_init__(self):
+        """Perform simple validation on combined attributes."""
+        self.simulator.validate(self.data_model)
+
+        # Convert the sky model to either point source or healpix depending on the
+        # simulator's capabilities.
+        sky_model = self.data_model.sky_model
+        if not self.simulator.diffuse_ability and sky_model.component_type == "healpix":
+            sky_model.healpix_to_point()
+        if (
+            not self.simulator.point_source_ability
+            and self.data_model.component_type == "point"
+        ):
+            sky_model.n_side = self.n_side
+            sky_model.hpx_inds = np.arange(aph.nside_to_npix, dtype=int)
+            sky_model.point_to_healpix()
 
     def _write_history(self):
         """Write pertinent details of simulation to the UVData's history."""
@@ -203,9 +255,13 @@ class VisibilitySimulator(meta=ABCMeta):
 
     #: Whether this particular simulator has the ability to simulate diffuse
     #: maps directly.
-    diffuse_ability = True
+    diffuse_ability = False
 
     @abstractmethod
     def simulate(self, data_model: ModelData) -> np.ndarray:
         """Simulate the visibilities."""
+        pass
+
+    def validate(self, data_model: ModelData):
+        """Check that the data model complies with the assumptions of the simulator."""
         pass
