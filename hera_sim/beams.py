@@ -202,7 +202,8 @@ def modulate_with_dipole(az, za, freqs, ref_freq, beam_vals, fscale):
 
 def p(za):
     """
-    Models the general behavior of the phase of the 'Fagnoni beam', and its first ring.
+    Models the general behavior of the phase of the 'Fagnoni beam', and its first ring,
+    that is the θ < π/11 region.
 
     Parameters
     ----------
@@ -224,7 +225,8 @@ def p(za):
 
 def q(za):
     """
-    Models the 'second ring' of the phase of the 'Fagnoni beam'.
+    Models the 'second ring' of the phase of the 'Fagnoni beam', that is the 
+    π/6 < θ < π/11 region.
 
     Parameters
     ----------
