@@ -104,6 +104,7 @@ class ModelData:
         assert len(self.beam_ids) == self.n_ant
 
         self.sky_model = sky_model
+        self.sky_model.at_frequencies(self.freqs * units.Hz)
         assert isinstance(self.sky_model, SkyModel)
 
     @classmethod

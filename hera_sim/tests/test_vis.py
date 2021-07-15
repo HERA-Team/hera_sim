@@ -11,7 +11,8 @@ from hera_sim.defaults import defaults
 from hera_sim import io
 from hera_sim import vis
 from hera_sim.antpos import linear_array
-from hera_sim.visibilities import VisCPU, HealVis
+from hera_sim.visibilities import VisCPU, HealVis, VisibilitySimulation, ModelData
+from pyradiosky import SkyModel
 
 SIMULATORS = (HealVis, VisCPU)
 
@@ -62,23 +63,52 @@ def uvdataJD():
     )
 
 
-def test_healvis_beam(uvdata):
+@pytest.fixture
+def sky_model(uvdata):
     freqs = np.unique(uvdata.freq_array)
-
-    # just anything
-    point_source_pos = np.array([[0, uvdata.telescope_location_lat_lon_alt[0]]])
-    point_source_flux = np.array([[1.0]] * len(freqs))
-
-    hv = HealVis(
-        uvdata=uvdata,
-        sky_freqs=np.unique(uvdata.freq_array),
-        point_source_flux=point_source_flux,
-        point_source_pos=point_source_pos,
-        nside=2 ** 4,
+    return SkyModel(
+        ra=np.array([0.0]),
+        dec=np.array(uvdata.telescope_location_lat_lon_alt[0]),
+        stokes=np.array(
+            [
+                np.ones((len(freqs), 1)),
+                np.zeros((len(freqs), 1)),
+                np.zeros((len(freqs), 1)),
+                np.zeros((len(freqs), 1)),
+            ]
+        ),
     )
 
-    assert len(hv.beams) == 1
-    assert isinstance(hv.beams[0], healvis.beam_model.AnalyticBeam)
+
+@pytest.fixture
+def sky_modelJD(uvdataJD):
+    freqs = np.unique(uvdataJD.freq_array)
+    return SkyModel(
+        ra=np.array([0.0]),
+        dec=np.array(uvdataJD.telescope_location_lat_lon_alt[0]),
+        stokes=np.array(
+            [
+                np.ones((len(freqs), 1)),
+                np.zeros((len(freqs), 1)),
+                np.zeros((len(freqs), 1)),
+                np.zeros((len(freqs), 1)),
+            ]
+        ),
+    )
+
+
+def test_healvis_beam(uvdata, sky_model):
+    sim = VisibilitySimulation(
+        simulator=HealVis(),
+        data_model=ModelData(
+            uvdata=uvdata,
+            sky_model=sky_model,
+        ),
+        n_side=2 ** 4,
+    )
+
+    assert len(sim.data_model.beams) == 1
+    assert isinstance(sim.data_model.beams[0], healvis.beam_model.AnalyticBeam)
 
 
 def test_healvis_beam_obsparams(tmpdir):
@@ -134,39 +164,30 @@ def test_healvis_beam_obsparams(tmpdir):
             )
         )
 
-    hv = HealVis(obsparams=direc.join("obsparams.yml").strpath)
-    beam = hv.beams[0]
+    sim = VisibilitySimulation(
+        data_model=ModelData.from_config(direc.join("obsparams.yml").strpath),
+        simulator=HealVis(),
+    )
+    beam = sim.data_model.beams[0]
     print(beam)
     print(type(beam))
     print(beam.__class__)
     assert isinstance(beam, healvis.beam_model.AnalyticBeam)
 
 
-def test_JD(uvdata, uvdataJD):
-    freqs = np.unique(uvdata.freq_array)
+def test_JD(uvdata, uvdataJD, sky_model):
+    model_data = ModelData(sky_model=sky_model, uvdata=uvdata)
 
-    # put a point source in
-    point_source_pos = np.array([[0, uvdata.telescope_location_lat_lon_alt[0]]])
-    point_source_flux = np.array([[1.0]] * len(freqs))
+    vis = VisCPU()
 
-    viscpu1 = VisCPU(
-        uvdata=uvdata,
-        sky_freqs=np.unique(uvdata.freq_array),
-        point_source_flux=point_source_flux,
-        point_source_pos=point_source_pos,
-        nside=2 ** 4,
-    ).simulate()
+    sim1 = VisibilitySimulation(data_model=model_data, simulator=vis).simulate()
 
-    viscpu2 = VisCPU(
-        uvdata=uvdataJD,
-        sky_freqs=np.unique(uvdataJD.freq_array),
-        point_source_flux=point_source_flux,
-        point_source_pos=point_source_pos,
-        nside=2 ** 4,
-    ).simulate()
+    model_data2 = ModelData(sky_model=sky_model, uvdata=uvdataJD)
 
-    assert viscpu1.shape == viscpu2.shape
-    assert not np.allclose(viscpu1, viscpu2, atol=0.1)
+    sim2 = VisibilitySimulation(data_model=model_data2, simulator=vis).simulate()
+
+    assert sim1.shape == sim2.shape
+    assert not np.allclose(sim1, sim2, atol=0.1)
 
 
 @pytest.fixture
@@ -182,35 +203,42 @@ def uvdata2():
     )
 
 
-def create_uniform_sky(nbase=4, scale=1, nfreq=NFREQ):
+def create_uniform_sky(nbase=4, scale=1, nfreq=NFREQ) -> SkyModel:
     """Create a uniform sky with total (integrated) flux density of `scale`"""
     nside = 2 ** nbase
     npix = 12 * nside ** 2
-    return np.ones((nfreq, npix)) * scale / (4 * np.pi)
+    return SkyModel(
+        n_side=nside,
+        hpx_inds=np.arange(npix),
+        stokes=np.array(
+            [
+                np.ones((nfreq, npix)) * scale / (4 * np.pi),
+                np.zeros((nfreq, npix)),
+                np.zeros((nfreq, npix)),
+                np.zeros((nfreq, npix)),
+            ]
+        ),
+    )
 
 
 @pytest.mark.parametrize("simulator", SIMULATORS)
 def test_shapes(uvdata, simulator):
-    I_sky = create_uniform_sky()
+    sky = create_uniform_sky()
 
-    v = simulator(
-        uvdata=uvdata,
-        sky_freqs=np.unique(uvdata.freq_array),
-        sky_intensity=I_sky,
+    sim = VisibilitySimulation(
+        data_model=ModelData(uvdata=uvdata, sky_model=sky), simulator=simulator()
     )
 
-    assert v.simulate().shape == (uvdata.Nblts, 1, NFREQ, 1)
+    assert sim.simulate().shape == (uvdata.Nblts, 1, NFREQ, 1)
 
 
 @pytest.mark.parametrize("precision, cdtype", [(1, np.complex64), (2, complex)])
 def test_dtypes(uvdata, precision, cdtype):
-    I_sky = create_uniform_sky()
+    sky = create_uniform_sky()
+    vis = VisCPU(precision=precision)
 
-    sim = VisCPU(
-        uvdata=uvdata,
-        sky_freqs=np.unique(uvdata.freq_array),
-        sky_intensity=I_sky,
-        precision=precision,
+    sim = VisibilitySimulation(
+        data_model=ModelData(uvdata=uvdata, sky_model=sky), simulator=vis
     )
 
     v = sim.simulate()
@@ -219,10 +247,10 @@ def test_dtypes(uvdata, precision, cdtype):
 
 @pytest.mark.parametrize("simulator", SIMULATORS)
 def test_zero_sky(uvdata, simulator):
-    I_sky = create_uniform_sky(scale=0)
+    sky = create_uniform_sky(scale=0)
 
-    sim = simulator(
-        uvdata=uvdata, sky_freqs=np.unique(uvdata.freq_array), sky_intensity=I_sky
+    sim = VisibilitySimulation(
+        data_model=ModelData(uvdata=uvdata, sky_model=sky), simulator=simulator()
     )
     v = sim.simulate()
     np.testing.assert_equal(v, 0)
@@ -230,12 +258,10 @@ def test_zero_sky(uvdata, simulator):
 
 @pytest.mark.parametrize("simulator", SIMULATORS)
 def test_autocorr_flat_beam(uvdata, simulator):
-    I_sky = create_uniform_sky(nbase=6)
+    sky = create_uniform_sky(nbase=6)
 
-    sim = simulator(
-        uvdata=uvdata,
-        sky_freqs=np.unique(uvdata.freq_array),
-        sky_intensity=I_sky,
+    sim = VisibilitySimulation(
+        data_model=ModelData(uvdata=uvdata, sky_model=sky), simulator=vis
     )
     v = sim.simulate()
 
@@ -248,20 +274,16 @@ def test_autocorr_flat_beam(uvdata, simulator):
 
 
 @pytest.mark.parametrize("simulator", SIMULATORS)
-def test_single_source_autocorr(uvdata, simulator):
-    freqs = np.unique(uvdata.freq_array)
-
-    # put a point source in that will go through zenith.
-    point_source_pos = np.array([[0, uvdata.telescope_location_lat_lon_alt[0]]])
-    point_source_flux = np.array([[1.0]] * len(freqs))
-
-    v = simulator(
-        uvdata=uvdata,
-        sky_freqs=np.unique(uvdata.freq_array),
-        point_source_flux=point_source_flux,
-        point_source_pos=point_source_pos,
-        nside=2 ** 4,
-    ).simulate()
+def test_single_source_autocorr(uvdata, simulator, sky_model):
+    sim = VisibilitySimulation(
+        data_model=ModelData(
+            uvdata=uvdata,
+            sky_model=sky_model,
+        ),
+        simulator=simulator(),
+        n_side=2 ** 4,
+    )
+    v = sim.simulate()
 
     # Account for factor of 2 between Stokes I and 'xx' pol for vis_cpu
     if simulator == VisCPU:
@@ -280,20 +302,28 @@ def test_single_source_autocorr(uvdata, simulator):
 @pytest.mark.parametrize("simulator", SIMULATORS)
 def test_single_source_autocorr_past_horizon(uvdata, simulator):
     freqs = np.unique(uvdata.freq_array)
-
-    # put a point source in that will never be up
-    point_source_pos = np.array(
-        [[0, uvdata.telescope_location_lat_lon_alt[0] + 1.1 * np.pi / 2]]
+    sky_model = SkyModel(
+        ra=np.array([0.0]),
+        dec=np.array(uvdata.telescope_location_lat_lon_alt[0] + +1.1 * np.pi / 2),
+        stokes=np.array(
+            [
+                np.ones((len(freqs), 1)),
+                np.zeros((len(freqs), 1)),
+                np.zeros((len(freqs), 1)),
+                np.zeros((len(freqs), 1)),
+            ]
+        ),
     )
-    point_source_flux = np.array([[1.0]] * len(freqs))
 
-    v = simulator(
-        uvdata=uvdata,
-        sky_freqs=np.unique(uvdata.freq_array),
-        point_source_flux=point_source_flux,
-        point_source_pos=point_source_pos,
-        nside=2 ** 4,
-    ).simulate()
+    sim = VisibilitySimulation(
+        data_model=ModelData(
+            uvdata=uvdata,
+            sky_model=sky_model,
+        ),
+        simulator=simulator(),
+        n_side=2 ** 4,
+    )
+    v = sim.simulate()
 
     assert np.abs(np.mean(v)) == 0
 

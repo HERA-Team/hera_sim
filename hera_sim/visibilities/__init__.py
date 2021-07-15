@@ -8,7 +8,7 @@ temperature fields, rectilinear co-ordinates, spherical co-ordinates, healpix
 maps etc. This package intends to unify the interfaces of these various kinds
 of simulators.
 """
-from .simulators import VisibilitySimulator
+from .simulators import VisibilitySimulator, VisibilitySimulation, ModelData
 from .conversions import (
     uvbeam_to_lm,
     eq2top_m,
