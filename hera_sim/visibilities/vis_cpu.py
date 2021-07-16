@@ -3,7 +3,7 @@ from __future__ import division
 import numpy as np
 
 from .simulators import VisibilitySimulator, ModelData
-from typing import Tuple
+from typing import Tuple, Union, Optional
 
 import astropy.units as u
 from astropy.time import Time
@@ -58,6 +58,8 @@ class VisCPU(VisibilitySimulator):
         precision: int = 1,
         use_gpu: bool = False,
         mpi_comm=None,
+        ref_time: Optional[Union[str, Time]] = None,
+        correct_source_positions: bool = False,
     ):
 
         assert precision in {1, 2}
@@ -93,6 +95,8 @@ class VisCPU(VisibilitySimulator):
         self.use_pixel_beams = use_pixel_beams
         self.polarized = polarized
         self.mpi_comm = mpi_comm
+        self.ref_time = ref_time
+        self.correct_source_positions = correct_source_positions
 
     def validate(self, data_model: ModelData):
         """Checks for correct input format."""
@@ -114,7 +118,10 @@ class VisCPU(VisibilitySimulator):
             )
 
     def correct_point_source_pos(
-        self, data_model: ModelData, obstime: str | Time, frame: str = "icrs"
+        self,
+        data_model: ModelData,
+        obstime: Optional[Union[str, Time]] = None,
+        frame: str = "icrs",
     ) -> Tuple[np.ndarray, np.ndarray]:
         """Apply correction to source RA and Dec positions to improve accuracy.
 
@@ -138,11 +145,10 @@ class VisCPU(VisibilitySimulator):
         ra, dec
             The updated source positions.
         """
-        # Check whether correction has already been applied
-        if self._point_source_pos_correction_applied:
-            raise ValueError("`correct_point_source_pos()` has already been applied.")
-
         # Check input reference time
+        if self.ref_time is not None:
+            obstime = self.ref_time
+
         if isinstance(obstime, str):
             obstime = Time(obstime, format="isot", scale="utc")
         elif not isinstance(obstime, Time):
@@ -181,16 +187,16 @@ class VisCPU(VisibilitySimulator):
         return np.asarray(
             [
                 convs.uvbeam_to_lm(
-                    data_model.beams[np.where(self.beam_ids == ant)[0][0]],
+                    data_model.beams[data_model.beam_ids[ant]],
                     data_model.freqs,
                     n_pix_lm=self.bm_pix,
                     polarized=self.polarized,
                 )
-                for ant in self.ant_list
+                for ant in data_model.ant_list
             ]
         )
 
-    def get_eq2tops(self, uvdata: UVData):
+    def get_eq2tops(self, uvdata: UVData, lsts: np.ndarray):
         """
         Calculate transformations from equatorial to topocentric coords.
 
@@ -203,7 +209,7 @@ class VisCPU(VisibilitySimulator):
         """
         latitude = uvdata.telescope_location_lat_lon_alt[0]  # rad
         return np.array(
-            [convs.eci_to_enu_matrix(lst, latitude) for lst in self.lsts],
+            [convs.eci_to_enu_matrix(lst, latitude) for lst in lsts],
             dtype=self._real_dtype,
         )
 
@@ -221,22 +227,26 @@ class VisCPU(VisibilitySimulator):
             myid = self.mpi_comm.Get_rank()
             nproc = self.mpi_comm.Get_size()
 
-        # TODO: check if this is the right time to be using...
-        ra, dec = self.correct_point_source_pos(
-            data_model, obstime=data_model.uvdata.time_array[0]
-        )
+        if self.correct_source_positions:
+            # TODO: check if this is the right time to be using...
+            ra, dec = self.correct_point_source_pos(
+                data_model, obstime=data_model.uvdata.time_array[0]
+            )
+        else:
+            ra, dec = data_model.sky_model.ra, data_model.sky_model.dec
+
         crd_eq = convs.point_source_crd_eq(ra, dec)
 
         # Convert equatorial to topocentric coords
-        eq2tops = self.get_eq2tops(data_model.uvdata)
+        eq2tops = self.get_eq2tops(data_model.uvdata, data_model.lsts)
 
         # Get pixelized beams if required
         if self.use_pixel_beams:
             beam_lm = self.get_beam_lm(data_model)
         else:
             beam_list = [
-                self.beams[np.where(self.beam_ids == ant)[0][0]]
-                for ant in self.ant_list
+                data_model.beams[np.where(data_model.beam_ids == ant)[0][0]]
+                for ant in data_model.ant_list
             ]
 
         visfull = np.zeros_like(data_model.uvdata.data_array, dtype=self._complex_dtype)
@@ -249,17 +259,16 @@ class VisCPU(VisibilitySimulator):
 
             # TODO: check that polarization is being done correctly.
             vis = self._vis_cpu(
-                antpos=data_model.antpos,
+                antpos=data_model.active_antpos,
                 freq=freq,
                 eq2tops=eq2tops,
                 crd_eq=crd_eq,
-                I_sky=data_model.sky_model[0, i],
+                I_sky=data_model.sky_model.stokes[0, i].to("Jy").value,
                 beam_list=beam_list if not self.use_pixel_beams else None,
                 bm_cube=beam_lm[:, i] if self.use_pixel_beams else None,
                 precision=self._precision,
                 polarized=self.polarized,
             )
-
             indices = np.triu_indices(vis.shape[1])
             vis_upper_tri = vis[:, indices[0], indices[1]]
 

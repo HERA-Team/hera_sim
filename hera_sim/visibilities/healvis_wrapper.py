@@ -95,20 +95,23 @@ class HealVis(VisibilitySimulator):
             model.
         """
         sky = hvsm.SkyModel()
-        sky.Nside = sky_model.n_side
-        sky.freqs = sky_model.freq_array
+        sky.Nside = sky_model.nside
+        sky.freqs = sky_model.freq_array.to("Hz").value
         sky.Nskies = 1
         sky.ref_chan = self._sky_ref_chan
 
         # convert from Jy/sr to K
         if sky_model.stokes.unit == units.Jy / units.sr:
-            intensity = 10 ** -26 * sky_model.stokes[0].T
-            intensity *= (cnst.c.to("m/s").value / self.sky_freqs) ** 2 / (
-                2 * cnst.k_B.value
-            )
+            intensity = 10 ** -26 * sky_model.stokes[0].T.value
+            intensity *= (
+                cnst.c.to("m/s").value / sky_model.freq_array.to("Hz").value
+            ) ** 2 / (2 * cnst.k_B.value)
         elif sky_model.stokes.unit == units.K:
-            intensity = sky_model.stokes[0].value
-
+            intensity = sky_model.stokes[0].T.value
+        else:
+            raise ValueError(
+                f"Units of {sky_model.stokes.unit} are not compatible with healvis"
+            )
         sky.data = intensity[np.newaxis, :, :]
         sky._update()
 
@@ -140,10 +143,9 @@ class HealVis(VisibilitySimulator):
             Shape=self.uvdata.data_array.shape.
         """
         obs = self.get_observatory(data_model)
+        sky = self.get_sky_model(data_model.sky_model)
         visibility = [
-            obs.make_visibilities(
-                data_model.sky_model, Nprocs=self._nprocs, beam_pol=pol
-            )[0]
+            obs.make_visibilities(sky, Nprocs=self._nprocs, beam_pol=pol)[0]
             for pol in data_model.uvdata.get_pols()
         ]
         visibility = np.moveaxis(visibility, 0, -1)

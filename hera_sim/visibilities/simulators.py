@@ -14,7 +14,7 @@ from os import path
 from abc import ABCMeta, abstractmethod
 from astropy import units
 from pyuvdata import UVData, UVBeam
-from typing import List, Dict
+from typing import List, Dict, Union
 from pyradiosky import SkyModel
 from pathlib import Path
 from dataclasses import dataclass
@@ -31,7 +31,7 @@ def _isnpixok(npix):
     return npix % 12 == 0 and _is_power_of_2(n)
 
 
-BeamListType = BeamList | List[ab.AnalyticBeam | UVBeam]
+BeamListType = Union[BeamList, List[Union[ab.AnalyticBeam, UVBeam]]]
 
 
 class ModelData:
@@ -83,7 +83,8 @@ class ModelData:
         )  # NOT Nants because we only want ants with data
 
         assert isinstance(self.uvdata, UVData)
-        assert isinstance(self.beams, (list, BeamList))
+        if not isinstance(self.beams, BeamList):
+            self.beams = BeamList(self.beams)
 
         # Set the beam_ids.
         if beam_ids is None:
@@ -100,7 +101,7 @@ class ModelData:
 
         assert isinstance(self.beam_ids, np.ndarray)
         assert self.beam_ids.dtype == int
-        assert self.beam_ids.max < (self.n_beams - 1)
+        assert self.beam_ids.max() < self.n_beams
         assert len(self.beam_ids) == self.n_ant
 
         self.sky_model = sky_model
@@ -182,23 +183,13 @@ class ModelData:
 
     @cached_property
     def ant_list(self) -> np.ndarray:
-        """An orderd list of active antennas."""
-        # Get antpos for active antennas only
-        # self.antpos = self.uvdata.get_ENU_antpos()[0].astype(self._real_dtype)
-        return self.uvdata.get_ants()  # ordered list of active ants
+        """An orderd list of active antenna numbers."""
+        return self.uvdata.get_ants()
 
     @cached_property
     def active_antpos(self) -> np.ndarray:
         """Positions of active antennas."""
-        antpos = []
-        _antpos = self.uvdata.get_ENU_antpos()[0]
-        for ant in self.ant_list:
-            # uvdata.get_ENU_antpos() and uvdata.antenna_numbers have entries
-            # for all telescope antennas, even ones that aren't included in the
-            # data_array. This extracts only the data antennas.
-            idx = np.where(ant == self.uvdata.antenna_numbers)
-            antpos.append(_antpos[idx].flatten())
-        return np.array(antpos)
+        return self.uvdata.get_ENU_antpos()[0][self.ant_list]
 
 
 @dataclass
@@ -220,11 +211,43 @@ class VisibilitySimulation:
             sky_model.healpix_to_point()
         if (
             not self.simulator.point_source_ability
-            and self.data_model.component_type == "point"
+            and sky_model.component_type == "point"
         ):
-            sky_model.n_side = self.n_side
-            sky_model.hpx_inds = np.arange(aph.nside_to_npix, dtype=int)
-            sky_model.point_to_healpix()
+            self.data_model.sky_model = self._convert_point_to_healpix(sky_model)
+
+    def _convert_point_to_healpix(self, sky_model) -> SkyModel:
+        # TODO: update this to just use SkyModel native functionality when available
+        npix = aph.nside_to_npix(self.n_side)
+        hmap = np.zeros((len(sky_model.freq_array), npix)) * units.Jy / units.sr
+
+        # Get which pixel every point source lies in.
+        pix = aph.lonlat_to_healpix(
+            lon=sky_model.ra,
+            lat=sky_model.dec,
+            nside=self.n_side,
+        )
+
+        hmap[:, pix] += sky_model.stokes[0].to("Jy") / aph.nside_to_pixel_area(
+            self.n_side
+        )
+
+        return SkyModel(
+            stokes=np.array(
+                [
+                    hmap.value,
+                    np.zeros_like(hmap),
+                    np.zeros_like(hmap),
+                    np.zeros_like(hmap),
+                ]
+            )
+            * units.Jy
+            / units.sr,
+            component_type="healpix",
+            nside=self.n_side,
+            hpx_inds=np.arange(npix),
+            spectral_type="full",
+            freq_array=sky_model.freq_array,
+        )
 
     def _write_history(self):
         """Write pertinent details of simulation to the UVData's history."""
@@ -247,7 +270,7 @@ class VisibilitySimulation:
         return self.data_model.uvdata
 
 
-class VisibilitySimulator(meta=ABCMeta):
+class VisibilitySimulator(metaclass=ABCMeta):
     """Base class for all hera_sim compatible visibility simulators."""
 
     #: Whether this particular simulator has the ability to simulate point

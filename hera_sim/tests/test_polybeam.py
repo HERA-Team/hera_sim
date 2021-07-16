@@ -1,10 +1,13 @@
 import pytest
 import numpy as np
-from hera_sim.visibilities import VisCPU
+from hera_sim.visibilities import VisCPU, ModelData, VisibilitySimulation
 from hera_sim import io
 from hera_sim.beams import PerturbedPolyBeam
 from vis_cpu import HAVE_GPU
 from hera_sim.defaults import defaults
+from pyradiosky import SkyModel
+from astropy import units
+from astropy.coordinates import Longitude, Latitude
 
 np.seterr(invalid="ignore")
 
@@ -121,21 +124,36 @@ def run_sim(beam_rotation, use_pixel_beams=True, use_gpu=False, use_mpi=False):
     flux = (freqs[:, np.newaxis] / freqs[0]) ** spectral_index * flux
 
     simulator = VisCPU(
-        uvdata=uvdata,
-        beams=beams(beam_rotation, len(ants.keys())),
-        beam_ids=list(ants.keys()),
-        sky_freqs=freqs,
-        point_source_pos=ra_dec,
-        point_source_flux=flux,
         use_pixel_beams=use_pixel_beams,
         use_gpu=use_gpu,
         mpi_comm=DummyMPIComm() if use_mpi else None,
         bm_pix=200,
         precision=2,
     )
-    simulator.simulate()
 
-    auto = np.abs(simulator.uvdata.get_data(0, 0, "XX")[0][0])
+    data_model = ModelData(
+        uvdata=uvdata,
+        beams=beams(beam_rotation, len(ants.keys())),
+        beam_ids=list(ants.keys()),
+        sky_model=SkyModel(
+            freq_array=freqs,
+            ra=Longitude(ra_dec[:, 0] * units.rad),
+            dec=Latitude(ra_dec[:, 1] * units.rad),
+            spectral_type="full",
+            stokes=np.array(
+                [flux, np.zeros_like(flux), np.zeros_like(flux), np.zeros_like(flux)]
+            )
+            * units.Jy,
+            name=["derp"] * flux.shape[1],
+        ),
+    )
+    simulation = VisibilitySimulation(
+        data_model=data_model,
+        simulator=simulator,
+    )
+    simulation.simulate()
+
+    auto = np.abs(simulation.uvdata.get_data(0, 0, "XX")[0][0])
 
     return auto
 

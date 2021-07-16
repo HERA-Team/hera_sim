@@ -1,18 +1,16 @@
-import unittest
-
 import astropy_healpix as aph
 import healvis
 import numpy as np
 import pytest
 from astropy.units import sday, rad
+from astropy import units
 from pyuvsim.analyticbeam import AnalyticBeam
 from vis_cpu import HAVE_GPU
 from hera_sim.defaults import defaults
 from hera_sim import io
-from hera_sim import vis
-from hera_sim.antpos import linear_array
 from hera_sim.visibilities import VisCPU, HealVis, VisibilitySimulation, ModelData
 from pyradiosky import SkyModel
+from astropy.coordinates.angles import Latitude, Longitude
 
 SIMULATORS = (HealVis, VisCPU)
 
@@ -65,35 +63,21 @@ def uvdataJD():
 
 @pytest.fixture
 def sky_model(uvdata):
-    freqs = np.unique(uvdata.freq_array)
-    return SkyModel(
-        ra=np.array([0.0]),
-        dec=np.array(uvdata.telescope_location_lat_lon_alt[0]),
-        stokes=np.array(
-            [
-                np.ones((len(freqs), 1)),
-                np.zeros((len(freqs), 1)),
-                np.zeros((len(freqs), 1)),
-                np.zeros((len(freqs), 1)),
-            ]
-        ),
+    return make_point_sky(
+        uvdata,
+        ra=np.array([0.0]) * rad,
+        dec=np.array(uvdata.telescope_location_lat_lon_alt[0]) * rad,
+        align=False,
     )
 
 
 @pytest.fixture
 def sky_modelJD(uvdataJD):
-    freqs = np.unique(uvdataJD.freq_array)
-    return SkyModel(
-        ra=np.array([0.0]),
-        dec=np.array(uvdataJD.telescope_location_lat_lon_alt[0]),
-        stokes=np.array(
-            [
-                np.ones((len(freqs), 1)),
-                np.zeros((len(freqs), 1)),
-                np.zeros((len(freqs), 1)),
-                np.zeros((len(freqs), 1)),
-            ]
-        ),
+    return make_point_sky(
+        uvdataJD,
+        ra=np.array([0.0]) * rad,
+        dec=np.array(uvdata.telescope_location_lat_lon_alt[0]) * rad,
+        align=False,
     )
 
 
@@ -169,9 +153,6 @@ def test_healvis_beam_obsparams(tmpdir):
         simulator=HealVis(),
     )
     beam = sim.data_model.beams[0]
-    print(beam)
-    print(type(beam))
-    print(beam.__class__)
     assert isinstance(beam, healvis.beam_model.AnalyticBeam)
 
 
@@ -203,12 +184,89 @@ def uvdata2():
     )
 
 
-def create_uniform_sky(nbase=4, scale=1, nfreq=NFREQ) -> SkyModel:
+def make_point_sky(uvdata, ra: np.ndarray, dec: np.ndarray, align=True):
+    freqs = np.unique(uvdata.freq_array)
+
+    # put a point source in
+    point_source_flux = np.ones((len(ra), len(freqs)))
+
+    # align to healpix center for direct comparision
+    if align:
+        ra, dec = align_src_to_healpix(ra * rad, dec * rad)
+
+    return SkyModel(
+        ra=Longitude(ra),
+        dec=Latitude(dec),
+        stokes=np.array(
+            [
+                point_source_flux.T,
+                np.zeros((len(freqs), len(ra))),
+                np.zeros((len(freqs), len(ra))),
+                np.zeros((len(freqs), len(ra))),
+            ]
+        ),
+        name=["derp"] * len(ra),
+        spectral_type="full",
+        freq_array=freqs,
+    )
+
+
+def zenith_sky_model(uvdata2):
+    return make_point_sky(
+        uvdata2,
+        ra=np.array([0.0]),
+        dec=np.array([uvdata2.telescope_location_lat_lon_alt[0]]),
+        align=True,
+    )
+
+
+def horizon_sky_model(uvdata2):
+    return make_point_sky(
+        uvdata2,
+        ra=np.array([0.0]),
+        dec=np.array([uvdata2.telescope_location_lat_lon_alt[0] + np.pi / 2]),
+        align=True,
+    )
+
+
+def twin_sky_model(uvdata2):
+    return make_point_sky(
+        uvdata2,
+        ra=np.array([0.0, 0.0]),
+        dec=np.array(
+            [
+                uvdata2.telescope_location_lat_lon_alt[0] + np.pi / 4,
+                uvdata2.telescope_location_lat_lon_alt[0],
+            ]
+        ),
+        align=True,
+    )
+
+
+def half_sky_model(uvdata2):
+    nbase = 4
+    nside = 2 ** nbase
+
+    sky = create_uniform_sky(
+        np.unique(uvdata2.freq_array),
+        nbase=nbase,
+    )
+
+    # Zero out values within pi/2 of (theta=pi/2, phi=0)
+    hp = aph.HEALPix(nside=nside, order="ring")
+    ipix_disc = hp.cone_search_lonlat(0 * rad, np.pi / 2 * rad, radius=np.pi / 2 * rad)
+    sky.stokes[0, :, ipix_disc] = 0
+    print(sky.stokes.unit)
+    return sky
+
+
+def create_uniform_sky(freq, nbase=4, scale=1) -> SkyModel:
     """Create a uniform sky with total (integrated) flux density of `scale`"""
+    nfreq = len(freq)
     nside = 2 ** nbase
     npix = 12 * nside ** 2
     return SkyModel(
-        n_side=nside,
+        nside=nside,
         hpx_inds=np.arange(npix),
         stokes=np.array(
             [
@@ -217,16 +275,22 @@ def create_uniform_sky(nbase=4, scale=1, nfreq=NFREQ) -> SkyModel:
                 np.zeros((nfreq, npix)),
                 np.zeros((nfreq, npix)),
             ]
-        ),
+        )
+        * units.Jy
+        / units.sr,
+        spectral_type="full",
+        freq_array=freq,
     )
 
 
 @pytest.mark.parametrize("simulator", SIMULATORS)
 def test_shapes(uvdata, simulator):
-    sky = create_uniform_sky()
+    sky = create_uniform_sky(np.unique(uvdata.freq_array))
 
     sim = VisibilitySimulation(
-        data_model=ModelData(uvdata=uvdata, sky_model=sky), simulator=simulator()
+        data_model=ModelData(uvdata=uvdata, sky_model=sky),
+        simulator=simulator(),
+        n_side=2 ** 4,
     )
 
     assert sim.simulate().shape == (uvdata.Nblts, 1, NFREQ, 1)
@@ -234,7 +298,7 @@ def test_shapes(uvdata, simulator):
 
 @pytest.mark.parametrize("precision, cdtype", [(1, np.complex64), (2, complex)])
 def test_dtypes(uvdata, precision, cdtype):
-    sky = create_uniform_sky()
+    sky = create_uniform_sky(np.unique(uvdata.freq_array))
     vis = VisCPU(precision=precision)
 
     sim = VisibilitySimulation(
@@ -247,7 +311,7 @@ def test_dtypes(uvdata, precision, cdtype):
 
 @pytest.mark.parametrize("simulator", SIMULATORS)
 def test_zero_sky(uvdata, simulator):
-    sky = create_uniform_sky(scale=0)
+    sky = create_uniform_sky(np.unique(uvdata.freq_array), scale=0)
 
     sim = VisibilitySimulation(
         data_model=ModelData(uvdata=uvdata, sky_model=sky), simulator=simulator()
@@ -258,10 +322,10 @@ def test_zero_sky(uvdata, simulator):
 
 @pytest.mark.parametrize("simulator", SIMULATORS)
 def test_autocorr_flat_beam(uvdata, simulator):
-    sky = create_uniform_sky(nbase=6)
+    sky = create_uniform_sky(np.unique(uvdata.freq_array), nbase=6)
 
     sim = VisibilitySimulation(
-        data_model=ModelData(uvdata=uvdata, sky_model=sky), simulator=vis
+        data_model=ModelData(uvdata=uvdata, sky_model=sky), simulator=simulator()
     )
     v = sim.simulate()
 
@@ -301,18 +365,11 @@ def test_single_source_autocorr(uvdata, simulator, sky_model):
 
 @pytest.mark.parametrize("simulator", SIMULATORS)
 def test_single_source_autocorr_past_horizon(uvdata, simulator):
-    freqs = np.unique(uvdata.freq_array)
-    sky_model = SkyModel(
-        ra=np.array([0.0]),
-        dec=np.array(uvdata.telescope_location_lat_lon_alt[0] + +1.1 * np.pi / 2),
-        stokes=np.array(
-            [
-                np.ones((len(freqs), 1)),
-                np.zeros((len(freqs), 1)),
-                np.zeros((len(freqs), 1)),
-                np.zeros((len(freqs), 1)),
-            ]
-        ),
+    sky_model = make_point_sky(
+        uvdata,
+        ra=np.array([0]) * rad,
+        dec=np.array(uvdata.telescope_location_lat_lon_alt[0] + 1.1 * np.pi / 2) * rad,
+        align=False,
     )
 
     sim = VisibilitySimulation(
@@ -328,28 +385,24 @@ def test_single_source_autocorr_past_horizon(uvdata, simulator):
     assert np.abs(np.mean(v)) == 0
 
 
-def test_viscpu_coordinate_correction(uvdata2):
-    freqs = np.unique(uvdata2.freq_array)
-
-    # put a point source in
-    point_source_pos = np.array([[0, uvdata2.telescope_location_lat_lon_alt[0]]])
-    point_source_flux = np.array([[1.0]] * len(freqs))
-
-    viscpu = VisCPU(
-        uvdata=uvdata2,
-        sky_freqs=freqs,
-        point_source_flux=point_source_flux,
-        point_source_pos=point_source_pos,
-        nside=2 ** 4,
+def test_viscpu_coordinate_correction(uvdata2, zenith_sky_model):
+    sim = VisibilitySimulation(
+        data_model=ModelData(
+            uvdata=uvdata,
+            sky_model=zenith_sky_model,
+        ),
+        simulator=VisCPU(
+            correct_source_positions=True, ref_time="2018-08-31T04:02:30.11"
+        ),
     )
 
     # Apply correction
-    viscpu.correct_point_source_pos(obstime="2018-08-31T04:02:30.11", frame="icrs")
-    v = viscpu.simulate()
+    # viscpu.correct_point_source_pos(obstime="2018-08-31T04:02:30.11", frame="icrs")
+    v = sim.simulate()
     assert np.all(~np.isnan(v))
 
 
-def align_src_to_healpix(point_source_pos, point_source_flux, nside=2 ** 4):
+def align_src_to_healpix(ra, dec, nside=2 ** 4):
     """Where the point sources will be placed when converted to healpix model
 
     Parameters
@@ -369,404 +422,36 @@ def align_src_to_healpix(point_source_pos, point_source_flux, nside=2 ** 4):
     new_flux: ndarray
         Corresponding new flux values.
     """
-
-    hmap = np.zeros((len(point_source_flux), aph.nside_to_npix(nside)))
-
     # Get which pixel every point source lies in.
-    pix = aph.lonlat_to_healpix(
-        point_source_pos[:, 0] * rad,
-        point_source_pos[:, 1] * rad,
-        nside,
+    pix = aph.lonlat_to_healpix(ra, dec, nside)
+    ra, dec = aph.healpix_to_lonlat(pix, nside)
+    return ra, dec
+
+
+@pytest.mark.parametrize(
+    "sky_model, beam_model",
+    [
+        (zenith_sky_model, None),
+        (horizon_sky_model, None),
+        (twin_sky_model, None),
+        (half_sky_model, None),
+        (half_sky_model, [AnalyticBeam("airy", diameter=1.75)]),
+    ],
+)
+def test_comparison(uvdata2, sky_model, beam_model):
+    cpu = VisCPU()
+    healvis = HealVis()
+
+    model_data = ModelData(
+        uvdata=uvdata2, sky_model=sky_model(uvdata2), beams=beam_model
     )
 
-    hmap[:, pix] += point_source_flux / aph.nside_to_pixel_area(nside).value
-    nside = aph.npix_to_nside(hmap.shape[1])
-    ra, dec = aph.healpix_to_lonlat(np.arange(len(hmap[0])), nside)
-    flux = hmap * aph.nside_to_pixel_area(nside).value
-    return np.array([ra.to("rad").value, dec.to("rad").value]).T, flux
-
-
-def test_comparison_zenith(uvdata2):
-    freqs = np.unique(uvdata2.freq_array)
-
-    # put a point source in
-    point_source_pos = np.array([[0, uvdata2.telescope_location_lat_lon_alt[0]]])
-    point_source_flux = np.array([[1.0]] * len(freqs))
-
-    # align to healpix center for direct comparision
-    point_source_pos, point_source_flux = align_src_to_healpix(
-        point_source_pos, point_source_flux
-    )
-
-    viscpu = VisCPU(
-        uvdata=uvdata2,
-        sky_freqs=freqs,
-        point_source_flux=point_source_flux,
-        point_source_pos=point_source_pos,
-        nside=2 ** 4,
-    ).simulate()
+    viscpu = VisibilitySimulation(data_model=model_data, simulator=cpu).simulate()
     viscpu *= 2.0  # account for factor of 2 between Stokes I and 'xx' pol.
 
-    healvis = HealVis(
-        uvdata=uvdata2,
-        sky_freqs=freqs,
-        point_source_flux=point_source_flux,
-        point_source_pos=point_source_pos,
-        nside=2 ** 4,
+    healvis = VisibilitySimulation(
+        data_model=model_data, simulator=healvis, n_side=2 ** 4
     ).simulate()
 
     assert viscpu.shape == healvis.shape
     np.testing.assert_allclose(viscpu, healvis, rtol=0.05)
-
-
-def test_comparision_horizon(uvdata2):
-    freqs = np.unique(uvdata2.freq_array)
-
-    # put a point source in
-    point_source_pos = np.array(
-        [[0, uvdata2.telescope_location_lat_lon_alt[0] + np.pi / 2]]
-    )
-    point_source_flux = np.array([[1.0]] * len(freqs))
-
-    # align to healpix center for direct comparision
-    point_source_pos, point_source_flux = align_src_to_healpix(
-        point_source_pos, point_source_flux
-    )
-
-    viscpu = VisCPU(
-        uvdata=uvdata2,
-        sky_freqs=freqs,
-        point_source_flux=point_source_flux,
-        point_source_pos=point_source_pos,
-        nside=2 ** 4,
-    ).simulate()
-    viscpu *= 2.0  # account for factor of 2 between Stokes I and 'xx' pol.
-
-    healvis = HealVis(
-        uvdata=uvdata2,
-        sky_freqs=freqs,
-        point_source_flux=point_source_flux,
-        point_source_pos=point_source_pos,
-        nside=2 ** 4,
-    ).simulate()
-
-    assert viscpu.shape == healvis.shape
-    np.testing.assert_allclose(viscpu, healvis, rtol=0.05)
-
-
-def test_comparison_multiple(uvdata2):
-    freqs = np.unique(uvdata2.freq_array)
-
-    # put a point source in
-    point_source_pos = np.array(
-        [
-            [0, uvdata2.telescope_location_lat_lon_alt[0] + np.pi / 4],
-            [0, uvdata2.telescope_location_lat_lon_alt[0]],
-        ]
-    )
-    point_source_flux = np.array([[1.0, 1.0]] * len(freqs))
-
-    # align to healpix center for direct comparision
-    point_source_pos, point_source_flux = align_src_to_healpix(
-        point_source_pos, point_source_flux
-    )
-
-    viscpu = VisCPU(
-        uvdata=uvdata2,
-        sky_freqs=freqs,
-        point_source_flux=point_source_flux,
-        point_source_pos=point_source_pos,
-        nside=2 ** 4,
-    ).simulate()
-    viscpu *= 2.0  # account for factor of 2 between Stokes I and 'xx' pol.
-
-    healvis = HealVis(
-        uvdata=uvdata2,
-        sky_freqs=freqs,
-        point_source_flux=point_source_flux,
-        point_source_pos=point_source_pos,
-        nside=2 ** 4,
-    ).simulate()
-
-    assert viscpu.shape == healvis.shape
-    np.testing.assert_allclose(viscpu, healvis, rtol=0.05)
-
-
-def test_comparison_half(uvdata2):
-    freqs = np.unique(uvdata2.freq_array)
-    nbase = 4
-    nside = 2 ** nbase
-
-    I_sky = create_uniform_sky(nbase=nbase)
-
-    # Zero out values within pi/2 of (theta=pi/2, phi=0)
-    hp = aph.HEALPix(nside=nside, order="ring")
-    ipix_disc = hp.cone_search_lonlat(0 * rad, np.pi / 2 * rad, radius=np.pi / 2 * rad)
-    print(I_sky.shape, freqs.shape)
-    for i in range(len(freqs)):
-        I_sky[i][ipix_disc] = 0
-
-    viscpu = VisCPU(
-        uvdata=uvdata2, sky_freqs=freqs, sky_intensity=I_sky, nside=nside
-    ).simulate()
-    viscpu *= 2.0  # account for factor of 2 between Stokes I and 'xx' pol.
-
-    healvis = HealVis(
-        uvdata=uvdata2, sky_freqs=freqs, sky_intensity=I_sky, nside=nside
-    ).simulate()
-
-    assert viscpu.shape == healvis.shape
-    np.testing.assert_allclose(viscpu, healvis, rtol=0.05)
-
-
-def test_comparision_airy(uvdata2):
-    freqs = np.unique(uvdata2.freq_array)
-    nbase = 4
-    nside = 2 ** nbase
-
-    I_sky = create_uniform_sky(nbase=nbase)
-
-    # Zero out values within pi/2 of (theta=pi/2, phi=0)
-    hp = aph.HEALPix(nside=nside, order="ring")
-    ipix_disc = hp.cone_search_lonlat(0 * rad, np.pi / 2 * rad, radius=np.pi / 2 * rad)
-    for i in range(len(freqs)):
-        I_sky[i][ipix_disc] = 0
-
-    viscpu = VisCPU(
-        uvdata=uvdata2,
-        sky_freqs=freqs,
-        sky_intensity=I_sky,
-        beams=[AnalyticBeam("airy", diameter=1.75)],
-        nside=nside,
-    ).simulate()
-    viscpu *= 2.0  # account for factor of 2 between Stokes I and 'xx' pol.
-
-    healvis = HealVis(
-        uvdata=uvdata2,
-        sky_freqs=freqs,
-        sky_intensity=I_sky,
-        beams=[AnalyticBeam("airy", diameter=1.75)],
-        nside=nside,
-    ).simulate()
-
-    assert viscpu.shape == healvis.shape
-    np.testing.assert_allclose(viscpu, healvis, rtol=0.05)
-
-
-class TestSimRedData(unittest.TestCase):
-    def test_sim_red_data(self):
-        # Test that redundant baselines are redundant up to the gains in single pol mode
-        from hera_cal import redcal as om
-
-        antpos = linear_array(5)
-        reds = om.get_reds(antpos, pols=["nn"], pol_mode="1pol")
-        gains, true_vis, data = vis.sim_red_data(reds)
-        assert len(gains) == 5
-        assert len(data) == 10
-        for bls in reds:
-            bl0 = bls[0]
-            ai, aj, pol = bl0
-            ans0 = data[bl0] / (gains[(ai, "Jnn")] * gains[(aj, "Jnn")].conj())
-            for bl in bls[1:]:
-                ai, aj, pol = bl
-                ans = data[bl] / (gains[(ai, "Jnn")] * gains[(aj, "Jnn")].conj())
-                # compare calibrated visibilities knowing the input gains
-                np.testing.assert_almost_equal(ans0, ans, decimal=7)
-
-        # Test that redundant baselines are redundant up to the gains in 4-pol mode
-        reds = om.get_reds(antpos, pols=["xx", "yy", "xy", "yx"], pol_mode="4pol")
-        gains, true_vis, data = vis.sim_red_data(reds)
-        assert len(gains) == 2 * (5)
-        assert len(data) == 4 * (10)
-        for bls in reds:
-            bl0 = bls[0]
-            ai, aj, pol = bl0
-            ans0xx = (
-                data[
-                    (
-                        ai,
-                        aj,
-                        "xx",
-                    )
-                ]
-                / (gains[(ai, "Jxx")] * gains[(aj, "Jxx")].conj())
-            )
-            ans0xy = (
-                data[
-                    (
-                        ai,
-                        aj,
-                        "xy",
-                    )
-                ]
-                / (gains[(ai, "Jxx")] * gains[(aj, "Jyy")].conj())
-            )
-            ans0yx = (
-                data[
-                    (
-                        ai,
-                        aj,
-                        "yx",
-                    )
-                ]
-                / (gains[(ai, "Jyy")] * gains[(aj, "Jxx")].conj())
-            )
-            ans0yy = (
-                data[
-                    (
-                        ai,
-                        aj,
-                        "yy",
-                    )
-                ]
-                / (gains[(ai, "Jyy")] * gains[(aj, "Jyy")].conj())
-            )
-            for bl in bls[1:]:
-                ai, aj, pol = bl
-                ans_xx = (
-                    data[
-                        (
-                            ai,
-                            aj,
-                            "xx",
-                        )
-                    ]
-                    / (gains[(ai, "Jxx")] * gains[(aj, "Jxx")].conj())
-                )
-                ans_xy = (
-                    data[
-                        (
-                            ai,
-                            aj,
-                            "xy",
-                        )
-                    ]
-                    / (gains[(ai, "Jxx")] * gains[(aj, "Jyy")].conj())
-                )
-                ans_yx = (
-                    data[
-                        (
-                            ai,
-                            aj,
-                            "yx",
-                        )
-                    ]
-                    / (gains[(ai, "Jyy")] * gains[(aj, "Jxx")].conj())
-                )
-                ans_yy = (
-                    data[
-                        (
-                            ai,
-                            aj,
-                            "yy",
-                        )
-                    ]
-                    / (gains[(ai, "Jyy")] * gains[(aj, "Jyy")].conj())
-                )
-                # compare calibrated visibilities knowing the input gains
-                np.testing.assert_almost_equal(ans0xx, ans_xx, decimal=7)
-                np.testing.assert_almost_equal(ans0xy, ans_xy, decimal=7)
-                np.testing.assert_almost_equal(ans0yx, ans_yx, decimal=7)
-                np.testing.assert_almost_equal(ans0yy, ans_yy, decimal=7)
-
-        # Test that redundant baselines are redundant up to the gains in 4-pol minV mode
-        # (where Vxy = Vyx)
-        reds = om.get_reds(antpos, pols=["xx", "yy", "xy", "yX"], pol_mode="4pol_minV")
-        gains, true_vis, data = vis.sim_red_data(reds)
-        assert len(gains) == 2 * (5)
-        assert len(data) == 4 * (10)
-        for bls in reds:
-            bl0 = bls[0]
-            ai, aj, pol = bl0
-            ans0xx = (
-                data[
-                    (
-                        ai,
-                        aj,
-                        "xx",
-                    )
-                ]
-                / (gains[(ai, "Jxx")] * gains[(aj, "Jxx")].conj())
-            )
-            ans0xy = (
-                data[
-                    (
-                        ai,
-                        aj,
-                        "xy",
-                    )
-                ]
-                / (gains[(ai, "Jxx")] * gains[(aj, "Jyy")].conj())
-            )
-            ans0yx = (
-                data[
-                    (
-                        ai,
-                        aj,
-                        "yx",
-                    )
-                ]
-                / (gains[(ai, "Jyy")] * gains[(aj, "Jxx")].conj())
-            )
-            ans0yy = (
-                data[
-                    (
-                        ai,
-                        aj,
-                        "yy",
-                    )
-                ]
-                / (gains[(ai, "Jyy")] * gains[(aj, "Jyy")].conj())
-            )
-            np.testing.assert_almost_equal(ans0xy, ans0yx, decimal=7)
-            for bl in bls[1:]:
-                ai, aj, pol = bl
-                ans_xx = (
-                    data[
-                        (
-                            ai,
-                            aj,
-                            "xx",
-                        )
-                    ]
-                    / (gains[(ai, "Jxx")] * gains[(aj, "Jxx")].conj())
-                )
-                ans_xy = (
-                    data[
-                        (
-                            ai,
-                            aj,
-                            "xy",
-                        )
-                    ]
-                    / (gains[(ai, "Jxx")] * gains[(aj, "Jyy")].conj())
-                )
-                ans_yx = (
-                    data[
-                        (
-                            ai,
-                            aj,
-                            "yx",
-                        )
-                    ]
-                    / (gains[(ai, "Jyy")] * gains[(aj, "Jxx")].conj())
-                )
-                ans_yy = (
-                    data[
-                        (
-                            ai,
-                            aj,
-                            "yy",
-                        )
-                    ]
-                    / (gains[(ai, "Jyy")] * gains[(aj, "Jyy")].conj())
-                )
-                # compare calibrated visibilities knowing the input gains
-                np.testing.assert_almost_equal(ans0xx, ans_xx, decimal=7)
-                np.testing.assert_almost_equal(ans0xy, ans_xy, decimal=7)
-                np.testing.assert_almost_equal(ans0yx, ans_yx, decimal=7)
-                np.testing.assert_almost_equal(ans0yy, ans_yy, decimal=7)
-
-
-if __name__ == "__main__":
-    unittest.main()
