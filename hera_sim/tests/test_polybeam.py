@@ -2,7 +2,7 @@ import pytest
 import numpy as np
 from hera_sim.visibilities import VisCPU
 from hera_sim import io
-from hera_sim.beams import PerturbedPolyBeam
+from hera_sim.beams import PolyBeam, PerturbedPolyBeam
 from vis_cpu import HAVE_GPU
 from hera_sim.defaults import defaults
 
@@ -179,3 +179,8 @@ class TestPerturbedPolyBeam:
         # Check that attempting to use GPU with MPI raises an error.
         with pytest.raises(RuntimeError):
             run_sim(r, use_gpu=True, use_mpi=True)
+
+
+def test_polybeam():
+    # it will fail if **kwargs is not present in PolyBeam __int__() method
+    poly = PolyBeam(beam_coeffs = 0., rotation = 0.)

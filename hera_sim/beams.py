@@ -12,7 +12,7 @@ class PolyBeam(AnalyticBeam):
     angles when the beam is interpolated, using a power law.
 
     See HERA memo
-    http://reionization.org/wp-content/uploads/2013/03/Power_Spectrum_Normalizations_for_HERA.pdf.
+    http://reionization.org/wp-content/uploads/2013/03/HERA081_HERA_Primary_Beam_Chebyshev_Apr2020.pdf
 
     Parameters
     ----------
@@ -25,7 +25,7 @@ class PolyBeam(AnalyticBeam):
         Reference frequency for the beam width scaling power law, in Hz.
     """
 
-    def __init__(self, beam_coeffs, spectral_index=0.0, ref_freq=1e8):
+    def __init__(self, beam_coeffs, spectral_index=0.0, ref_freq=1e8, **kwargs):
         self.ref_freq = ref_freq
         self.spectral_index = spectral_index
         self.data_normalization = "peak"
