@@ -5,7 +5,7 @@ from scipy.optimize import curve_fit
 from . import utils
 
 
-def stokes_matrix(efield_beam, pol_index):
+def stokes_matrix(pol_index):
     """
     Calculate Pauli matrices for pseudo-Stokes conversion. Source code adapted from `pyuvdata`.
 
