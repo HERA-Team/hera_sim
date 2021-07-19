@@ -183,4 +183,4 @@ class TestPerturbedPolyBeam:
 
 def test_polybeam():
     # it will fail if **kwargs is not present in PolyBeam __int__() method
-    poly = PolyBeam(beam_coeffs = 0., rotation = 0.)
+    poly = PolyBeam(beam_coeffs=0.0, rotation=0.0)
