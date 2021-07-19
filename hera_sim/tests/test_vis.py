@@ -385,11 +385,11 @@ def test_single_source_autocorr_past_horizon(uvdata, simulator):
     assert np.abs(np.mean(v)) == 0
 
 
-def test_viscpu_coordinate_correction(uvdata2, zenith_sky_model):
+def test_viscpu_coordinate_correction(uvdata2):
     sim = VisibilitySimulation(
         data_model=ModelData(
-            uvdata=uvdata,
-            sky_model=zenith_sky_model,
+            uvdata=uvdata2,
+            sky_model=zenith_sky_model(uvdata2),
         ),
         simulator=VisCPU(
             correct_source_positions=True, ref_time="2018-08-31T04:02:30.11"
