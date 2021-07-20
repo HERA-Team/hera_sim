@@ -134,9 +134,7 @@ class VisibilitySimulator(metaclass=ABCMeta):
                 if catalog.component_type == "point":
                     # If the catalog is point source, gets the 'I' component
                     # of the flux density and the source positions.
-                    point_source_flux = np.atleast_2d(
-                        catalog.stokes[0].to("Jy").value
-                    ).T
+                    point_source_flux = np.atleast_2d(catalog.stokes[0].to("Jy").value)
                     point_source_pos = np.array([catalog.ra.rad, catalog.dec.rad]).T
                 elif catalog.component_type == "healpix":
                     # If the catalog is healpix, get the 'I' component as sky intensity.
