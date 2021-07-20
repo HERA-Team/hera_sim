@@ -2,7 +2,9 @@ import pytest
 import numpy as np
 from hera_sim.visibilities import VisCPU
 from hera_sim import io
-from hera_sim.beams import PerturbedPolyBeam
+from hera_sim.beams import PerturbedPolyBeam, PolyBeam, efield_to_pstokes
+import healpy as hp
+
 
 np.seterr(invalid="ignore")
 
@@ -26,7 +28,7 @@ def sources():
 
     return ra_dec, flux, spectral_index
 
-def beams(rotation, nants, polarized=False):
+def perturbed_beams(rotation, nants, polarized=False):
     """
     Elliptical PerturbedPolyBeam.
 
@@ -53,6 +55,7 @@ def beams(rotation, nants, polarized=False):
                 for i in range(nants)]
 
     return beams
+
 
 class DummyMPIComm:
     """
@@ -94,7 +97,7 @@ def run_sim(beam_rotation, use_pixel_beams=True, use_gpu=False, use_pol=False,
 
     simulator = VisCPU(
         uvdata = uvdata,
-        beams = beams(beam_rotation, len(ants.keys()), polarized=use_pol),
+        beams = perturbed_beams(beam_rotation, len(ants.keys()), polarized=use_pol),
         beam_ids = list(ants.keys()),
         sky_freqs = freqs,
         point_source_pos = ra_dec,
@@ -154,3 +157,103 @@ class TestPerturbedPolyBeam:
         with pytest.raises(RuntimeError):
             run_sim(r, use_gpu=True, use_mpi=True)
     
+
+class TestPolarizedPolyBeam:
+
+    def test_all_polarized_polybeam(self):
+        """
+        Wrapper for all polarized PolyBeam tests.
+        Instantiate and evaluate a beam (once).
+        """
+        pol_beam = create_polarized_polybeam()
+        eval_beam, az, za, Nfreq = evaluate_polybeam(pol_beam)
+        eval_beam_pStokes = convert_to_pStokes(eval_beam, az, za, Nfreq)
+
+        # Check that the beam is normalized between 1 and 0 (± 1e-2),
+        # at all polarizations and a range of selected frequencies.
+        for vec in [0, 1]:
+            for feed in [0, 1]:
+                for freq in [0, 5, 10, 15, 20, 25]:
+                    modulus = np.abs(eval_beam[vec, 0, feed, freq])
+                    M = np.max(modulus)
+                    m = np.min(modulus)
+                    assert M <= 1 and M == pytest.approx(1, rel=1e-2), "beam not properly normalized"
+                    assert m >= 0 and m == pytest.approx(0, abs=1e-3), "beam not properly normalized"
+        
+        # Check that neither NaNs nor Infs atre returned by the interp() method.
+        assert np.isnan(eval_beam).any() == False, "the beam contains NaN values"
+        assert np.isinf(eval_beam).any() == False, "the beam contains Inf values"
+
+        # Check that pStokes power beams are real
+        assert np.isreal(eval_beam_pStokes).all() == True, "the pseudo-Stokes beams are not real"
+
+
+def create_polarized_polybeam():
+    """
+    Create a polarized PolyBeam.
+
+    The parameters of the beam were copied from the HERA Memo n°81:
+    https://reionization.org/wp-content/uploads/2013/03/HERA081_HERA_Primary_Beam_Chebyshev_Apr2020.pdf.
+
+    """
+    # parameters
+    spectral_index = -0.6975 
+    beam_coeffs = [
+         2.35088101e-01, -4.20162599e-01,  2.99189140e-01,  
+        -1.54189057e-01,  3.38651457e-02,  3.46936067e-02,  
+        -4.98838130e-02,  3.23054464e-02, -7.56006552e-03, 
+        -7.24620596e-03,  7.99563166e-03, -2.78125602e-03,
+        -8.19945835e-04,  1.13791191e-03, -1.24301372e-04,
+        -3.74808752e-04,  1.93997376e-04, -1.72012040e-05]
+    ref_freq = 1e8
+    # instantiate the PolyBeam object
+    cfg_pol_beam = dict(ref_freq=ref_freq,
+                        spectral_index=spectral_index,
+                        beam_coeffs=beam_coeffs,
+                        polarized=True)
+    pol_PolyBeam = PolyBeam(**cfg_pol_beam)
+
+    return pol_PolyBeam
+
+
+def evaluate_polybeam(polybeam):
+    """
+    Evaluate a PolyBeam at hard-coded az and za angles, and frequencies.
+    """
+    n_pix_lm = 1001  
+    L = np.linspace(-1, 1, n_pix_lm, dtype=np.float64)
+    L, m = np.meshgrid(L, L)
+    L = L.flatten()
+    m = m.flatten()
+
+    lsqr = L**2 + m**2
+    n = np.where(lsqr < 1, np.sqrt(1 - lsqr), 0)
+
+    # Generate azimuth and zenith angle.
+    az = -np.arctan2(m, L)
+    za = np.pi / 2 - np.arcsin(n)
+
+    freqs = np.array([1.00e+08, 1.04e+08, 1.08e+08, 1.12e+08, 1.16e+08, 1.20e+08,
+                      1.24e+08, 1.28e+08, 1.32e+08, 1.36e+08, 1.40e+08, 1.44e+08,
+                      1.48e+08, 1.52e+08, 1.56e+08, 1.60e+08, 1.64e+08, 1.68e+08,
+                      1.72e+08, 1.76e+08, 1.80e+08, 1.84e+08, 1.88e+08, 1.92e+08,
+                      1.96e+08, 2.00e+08])
+                        
+    eval_beam = polybeam.interp(az, za, freqs)
+
+    return (eval_beam[0], az, za, freqs.size)
+
+
+def convert_to_pStokes(eval_beam, az, za, Nfreq):
+    """
+    Convert an E-field to its pseudo-Stokes power beam.
+    """
+    nside_test = 64
+    pixel_indices_test = hp.ang2pix(nside_test, za, az)
+    npix_test = hp.nside2npix(nside_test)
+    
+    pol_efield_beam_plot = np.zeros((2, 1, 2, Nfreq, npix_test), dtype=np.complex128)
+    pol_efield_beam_plot[:, :, :, :, pixel_indices_test] = eval_beam[:, :, :, :]
+    eval_beam_pStokes = efield_to_pstokes(pol_efield_beam_plot, npix_test, Nfreq) 
+
+    return eval_beam_pStokes
