@@ -23,6 +23,8 @@ class PolyBeam(AnalyticBeam):
         apply to the width of the beam.
     ref_freq : float, optional
         Reference frequency for the beam width scaling power law, in Hz.
+    **kwargs
+        Any other parameters are used in class:`PerturbedPolyBeam`.
     """
 
     def __init__(self, beam_coeffs, spectral_index=0.0, ref_freq=1e8, **kwargs):
