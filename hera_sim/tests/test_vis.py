@@ -11,6 +11,7 @@ from hera_sim import io
 from hera_sim.visibilities import VisCPU, HealVis, VisibilitySimulation, ModelData
 from pyradiosky import SkyModel
 from astropy.coordinates.angles import Latitude, Longitude
+from astropy import time as apt
 
 SIMULATORS = (HealVis, VisCPU)
 
@@ -401,6 +402,20 @@ def test_viscpu_coordinate_correction(uvdata2):
     v = sim.simulate()
     assert np.all(~np.isnan(v))
 
+    sim2 = VisibilitySimulation(
+        data_model=ModelData(
+            uvdata=uvdata2,
+            sky_model=zenith_sky_model(uvdata2),
+        ),
+        simulator=VisCPU(
+            correct_source_positions=True,
+            ref_time=apt.Time("2018-08-31T04:02:30.11", format="isot", scale="utc"),
+        ),
+    )
+
+    v2 = sim2.simulate()
+    assert np.allclose(v, v2)
+
 
 def align_src_to_healpix(ra, dec, nside=2 ** 4):
     """Where the point sources will be placed when converted to healpix model
@@ -455,3 +470,8 @@ def test_comparison(uvdata2, sky_model, beam_model):
 
     assert viscpu.shape == healvis.shape
     np.testing.assert_allclose(viscpu, healvis, rtol=0.05)
+
+
+def test_vis_cpu_pol_gpu():
+    with pytest.raises(RuntimeError):
+        VisCPU(use_gpu=True, polarized=True)
