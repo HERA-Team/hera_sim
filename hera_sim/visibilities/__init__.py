@@ -11,8 +11,8 @@ of simulators.
 from .simulators import VisibilitySimulator, VisibilitySimulation, ModelData
 
 # Registered Simulators
+from .pyuvsim_wrapper import UVSim
 from .vis_cpu import VisCPU
-
 
 try:
     from .healvis_wrapper import HealVis

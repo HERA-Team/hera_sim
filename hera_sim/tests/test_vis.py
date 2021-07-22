@@ -8,12 +8,18 @@ from pyuvsim.analyticbeam import AnalyticBeam
 from vis_cpu import HAVE_GPU
 from hera_sim.defaults import defaults
 from hera_sim import io
-from hera_sim.visibilities import VisCPU, HealVis, VisibilitySimulation, ModelData
+from hera_sim.visibilities import (
+    VisCPU,
+    HealVis,
+    VisibilitySimulation,
+    ModelData,
+    UVSim,
+)
 from pyradiosky import SkyModel
 from astropy.coordinates.angles import Latitude, Longitude
 from astropy import time as apt
 
-SIMULATORS = (HealVis, VisCPU)
+SIMULATORS = (HealVis, VisCPU, UVSim)
 
 if HAVE_GPU:
 
@@ -45,6 +51,7 @@ def uvdata():
         },
         start_time=2456658.5,
         conjugation="ant1<ant2",
+        polarization_array=["xx", "yy", "xy", "yx"],
     )
 
 
@@ -206,7 +213,7 @@ def make_point_sky(uvdata, ra: np.ndarray, dec: np.ndarray, align=True):
                 np.zeros((len(freqs), len(ra))),
             ]
         ),
-        name=["derp"] * len(ra),
+        name=np.array(["derp"] * len(ra)),
         spectral_type="full",
         freq_array=freqs,
     )
@@ -257,7 +264,6 @@ def half_sky_model(uvdata2):
     hp = aph.HEALPix(nside=nside, order="ring")
     ipix_disc = hp.cone_search_lonlat(0 * rad, np.pi / 2 * rad, radius=np.pi / 2 * rad)
     sky.stokes[0, :, ipix_disc] = 0
-    print(sky.stokes.unit)
     return sky
 
 
@@ -281,6 +287,7 @@ def create_uniform_sky(freq, nbase=4, scale=1) -> SkyModel:
         / units.sr,
         spectral_type="full",
         freq_array=freq,
+        name=np.array([str(i) for i in range(npix)]),
     )
 
 
