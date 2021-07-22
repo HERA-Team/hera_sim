@@ -167,7 +167,14 @@ class VisibilitySimulator(metaclass=ABCMeta):
 
             self.beams = [ab.AnalyticBeam("uniform")] if beams is None else beams
             if beam_ids is None:
-                self.beam_ids = np.arange(self.n_ant, dtype=int)
+                if len(self.beams) == 1:
+                    self.beam_ids = np.zeros(self.n_ant, dtype=int)
+                elif len(self.beams) == self.n_ant:
+                    self.beam_ids = np.arange(self.n_ant, dtype=int)
+                else:
+                    raise ValueError(
+                        "You must give beam_ids if giving more than one beam."
+                    )
             else:
                 self.beam_ids = beam_ids
 
