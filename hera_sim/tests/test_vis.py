@@ -8,7 +8,13 @@ from pyuvsim.analyticbeam import AnalyticBeam
 from vis_cpu import HAVE_GPU
 from hera_sim.defaults import defaults
 from hera_sim import io
-from hera_sim.visibilities import VisCPU, HealVis, VisibilitySimulation, ModelData
+from hera_sim.visibilities import (
+    VisCPU,
+    HealVis,
+    VisibilitySimulation,
+    ModelData,
+    vis_cpu,
+)
 from pyradiosky import SkyModel
 from astropy.coordinates.angles import Latitude, Longitude
 from astropy import time as apt
@@ -473,5 +479,9 @@ def test_comparison(uvdata2, sky_model, beam_model):
 
 
 def test_vis_cpu_pol_gpu():
+    old = vis_cpu.HAVE_GPU
+
+    vis_cpu.HAVE_GPU = True
     with pytest.raises(RuntimeError):
         VisCPU(use_gpu=True, polarized=True)
+    vis_cpu.HAVE_GPU = old
