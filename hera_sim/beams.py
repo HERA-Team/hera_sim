@@ -332,7 +332,7 @@ class PolyBeam(AnalyticBeam):
         # Check that coordinates have same length
         if az_array.size != za_array.size:
             raise ValueError(
-                "Azimuth and zenith angle coordinate arrays must have same lentgh.")
+                "Azimuth and zenith angle coordinate arrays must have same length.")
 
         # Empty data array
         interp_data = np.zeros((2, 1, 2, freq_array.size, az_array.size),
