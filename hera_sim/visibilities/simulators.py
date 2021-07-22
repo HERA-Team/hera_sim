@@ -20,17 +20,6 @@ from pathlib import Path
 from dataclasses import dataclass
 import astropy_healpix as aph
 
-
-def _is_power_of_2(n):
-    # checking if a power of 2 from https://stackoverflow.com/a/57025941/1467820
-    return (n & (n - 1) == 0) and n != 0
-
-
-def _isnpixok(npix):
-    n = npix // 12
-    return npix % 12 == 0 and _is_power_of_2(n)
-
-
 BeamListType = Union[BeamList, List[Union[ab.AnalyticBeam, UVBeam]]]
 
 

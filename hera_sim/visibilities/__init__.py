@@ -9,11 +9,6 @@ maps etc. This package intends to unify the interfaces of these various kinds
 of simulators.
 """
 from .simulators import VisibilitySimulator, VisibilitySimulation, ModelData
-from .conversions import (
-    uvbeam_to_lm,
-    eq2top_m,
-    healpix_to_crd_eq,
-)
 
 # Registered Simulators
 from .vis_cpu import VisCPU
