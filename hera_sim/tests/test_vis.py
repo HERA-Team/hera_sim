@@ -751,7 +751,7 @@ def test_nants_beams(uvdata2):
         uvdata=uvdata2, sky_freqs=freqs, sky_intensity=I_sky, nside=nside, beams=beams
     )
     assert viscpu.beam_ids[0] == 0
-    assert viscpu.beam_ids[0] == 1
+    assert viscpu.beam_ids[1] == 1
 
     with pytest.raises(ValueError):
         VisCPU(
