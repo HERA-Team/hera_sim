@@ -232,12 +232,12 @@ class VisCPU(VisibilitySimulator):
         return np.asarray(
             [
                 convs.uvbeam_to_lm(
-                    self.beams[self.beam_ids[ant]],
+                    self.beams[idx],
                     self.freqs,
                     n_pix_lm=self.bm_pix,
                     polarized=self.polarized,
                 )
-                for ant in self.ant_list
+                for idx in self.beam_ids
             ]
         )
 
