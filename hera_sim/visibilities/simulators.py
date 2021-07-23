@@ -37,15 +37,15 @@ class ModelData:
     beams
         UVBeam models for as many antennae as have unique beams.
         Initialized from `obsparams`, if included. Defaults to a
-        single uniform beam is applied for every antenna. Each beam
-        is the response of an individual antenna and NOT a
-        per-baseline response.
+        single uniform beam which is applied for every antenna. Each beam
+        is the response of an individual antenna and NOT a per-baseline response.
         Shape=(N_BEAMS,).
     beam_ids
-        List of integers specifying which beam model each antenna
-        uses (i.e. the index of `beams` which it should refer to).
-        Initialized from `obsparams`, if included. By default, all
-        antennas use the same beam (beam 0).
+        List of integers specifying which beam model each antenna uses (i.e. the index
+        of `beams` which it should refer to). Also accepts a dictionary in the format
+        used by pyuvsim (i.e. ``antenna_name: index``), which is converted to such a
+        list. By default, if one beam is given all antennas use the same beam, whereas
+        if a beam is given per antenna, they are used in their given order.
         Shape=(N_ANTS,).
 
     Notes
@@ -61,36 +61,20 @@ class ModelData:
         *,
         uvdata: UVData | str | Path,
         sky_model: SkyModel,
-        beam_ids: Dict[str, int] | None = None,
+        beam_ids: Dict[str, int] | np.typing.ArrayLike[int] | None = None,
         beams: BeamListType | None = None,
     ):
 
         self.uvdata = self._validate_uvdata(uvdata)
         self.beams = [ab.AnalyticBeam("uniform")] if beams is None else beams
-        self.n_ant = (
-            self.uvdata.Nants_data
-        )  # NOT Nants because we only want ants with data
+
+        # NOT Nants because we only want ants with data
+        self.n_ant = self.uvdata.Nants_data
 
         if not isinstance(self.beams, BeamList):
             self.beams = BeamList(self.beams)
 
-        # Set the beam_ids.
-        if beam_ids is None:
-            if len(self.beams) == 1:
-                self.beam_ids = np.zeros(self.n_ant, dtype=int)
-            elif len(self.beams) == self.n_ant:
-                self.beam_ids = np.arange(self.n_ant, dtype=int)
-            else:
-                raise ValueError(
-                    "Need to give beam_ids if beams is given and not one per ant."
-                )
-        else:
-            self.beam_ids = np.array(beam_ids, dtype=int)
-
-        assert isinstance(self.beam_ids, np.ndarray)
-        assert self.beam_ids.dtype == int
-        assert self.beam_ids.max() < self.n_beams
-        assert len(self.beam_ids) == self.n_ant
+        self.beam_ids = self._process_beam_ids(beam_ids, self.beams)
 
         self.sky_model = sky_model
         self.sky_model.at_frequencies(self.freqs * units.Hz)
@@ -107,6 +91,31 @@ class ModelData:
             raise TypeError(
                 "uvdata must be a UVData object or path to a compatible file."
             )
+
+    def _process_beam_ids(
+        self,
+        beam_ids: Dict[str, int] | np.typing.ArrayLike[int] | None,
+        beams: BeamList,
+    ):
+        # Set the beam_ids.
+        if beam_ids is None:
+            if len(beams) == 1:
+                beam_ids = np.zeros(self.n_ant, dtype=int)
+            elif len(beams) == self.n_ant:
+                beam_ids = np.arange(self.n_ant, dtype=int)
+            else:
+                raise ValueError(
+                    "Need to give beam_ids if beams is given and not one per ant."
+                )
+        elif isinstance(beam_ids, dict):
+            beam_ids = np.array(list(beam_ids.values()), dtype=int)
+        else:
+            beam_ids = np.array(beam_ids, dtype=int)
+
+        assert beam_ids.max() < len(beams)
+        assert len(beam_ids) == self.n_ant
+
+        return beam_ids
 
     @classmethod
     def from_config(cls, config_file: str | Path) -> ModelData:
