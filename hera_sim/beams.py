@@ -27,7 +27,7 @@ class PolyBeam(AnalyticBeam):
         Any other parameters are used in class:`PerturbedPolyBeam`.
     """
 
-    def __init__(self, beam_coeffs, spectral_index=0.0, ref_freq=1e8, **kwargs):
+    def __init__(self, beam_coeffs, spectral_index=0.0, ref_freq=1e8):
         self.ref_freq = ref_freq
         self.spectral_index = spectral_index
         self.data_normalization = "peak"

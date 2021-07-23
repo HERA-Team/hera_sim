@@ -179,8 +179,3 @@ class TestPerturbedPolyBeam:
         # Check that attempting to use GPU with MPI raises an error.
         with pytest.raises(RuntimeError):
             run_sim(r, use_gpu=True, use_mpi=True)
-
-
-def test_polybeam_kwargs():
-    # it will fail if **kwargs is not present in PolyBeam __int__() method
-    PolyBeam(beam_coeffs=0.0, rotation=0.0)
