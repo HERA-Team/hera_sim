@@ -31,7 +31,7 @@ class ModelData:
     ----------
     uvdata
         A :class:`pyuvdata.UVData` object contain information about
-        the "observation". Initalized from `obsparams`, if included.
+        the "observation". If a path, must point to a UVData-readable file.
     sky_model
         A model for the sky to simulate.
     beams
@@ -59,19 +59,18 @@ class ModelData:
     def __init__(
         self,
         *,
-        uvdata: UVData,
+        uvdata: UVData | str | Path,
         sky_model: SkyModel,
         beam_ids: Dict[str, int] | None = None,
         beams: BeamListType | None = None,
     ):
 
-        self.uvdata = uvdata
+        self.uvdata = self._validate_uvdata(uvdata)
         self.beams = [ab.AnalyticBeam("uniform")] if beams is None else beams
         self.n_ant = (
             self.uvdata.Nants_data
         )  # NOT Nants because we only want ants with data
 
-        assert isinstance(self.uvdata, UVData)
         if not isinstance(self.beams, BeamList):
             self.beams = BeamList(self.beams)
 
@@ -96,6 +95,18 @@ class ModelData:
         self.sky_model = sky_model
         self.sky_model.at_frequencies(self.freqs * units.Hz)
         assert isinstance(self.sky_model, SkyModel)
+
+    def _validate_uvdata(self, uvdata: UVData | str | Path):
+        if isinstance(uvdata, UVData):
+            return uvdata
+        elif isinstance(UVData, (str, Path)):
+            out = UVData()
+            out.read(uvdata)
+            return out
+        else:
+            raise TypeError(
+                "uvdata must be a UVData object or path to a compatible file."
+            )
 
     @classmethod
     def from_config(cls, config_file: str | Path) -> ModelData:
