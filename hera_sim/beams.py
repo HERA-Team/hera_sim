@@ -12,7 +12,7 @@ class PolyBeam(AnalyticBeam):
     angles when the beam is interpolated, using a power law.
 
     See HERA memo
-    http://reionization.org/wp-content/uploads/2013/03/Power_Spectrum_Normalizations_for_HERA.pdf.
+    http://reionization.org/wp-content/uploads/2013/03/HERA081_HERA_Primary_Beam_Chebyshev_Apr2020.pdf
 
     Parameters
     ----------
