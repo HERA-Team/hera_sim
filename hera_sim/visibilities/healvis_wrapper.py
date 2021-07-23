@@ -53,19 +53,15 @@ class HealVis(VisibilitySimulator):
         In addition to standard parameter restrictions, HealVis requires a single beam
         for all antennae.
         """
-        assert model_data.n_beams == 1
+        if model_data.n_beams > 1:
+            raise ValueError("healvis must use the same beam for all antennas.")
 
         # Check if pyuvsim.analyticbeam and switch to healvis.beam_model
         # TODO: we shouldn't silently modify model_data.beams...
         if isinstance(model_data.beams[0], pyuvsim.analyticbeam.AnalyticBeam):
             old_args = model_data.beams[0].__dict__
 
-            gauss_width = None
             if old_args["type"] == "gaussian":
-                if old_args["sigma"] is None:
-                    raise NotImplementedError(
-                        "Healvis does not permit gaussian beam with diameter."
-                    )
                 raise NotImplementedError(
                     "Healvis interprets gaussian beams "
                     "as per-baseline and not "
@@ -78,7 +74,7 @@ class HealVis(VisibilitySimulator):
             model_data.beams = [
                 AnalyticBeam(
                     beam_type=beam_type,
-                    gauss_width=gauss_width,
+                    gauss_width=None,
                     diameter=diameter,
                     spectral_index=spectral_index,
                 )

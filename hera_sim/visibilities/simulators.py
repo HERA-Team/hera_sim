@@ -209,7 +209,7 @@ class ModelData:
 
     @cached_property
     def ant_list(self) -> np.ndarray:
-        """An orderd list of active antenna numbers."""
+        """An ordered list of active antenna numbers."""
         return self.uvdata.get_ants()
 
     @cached_property
