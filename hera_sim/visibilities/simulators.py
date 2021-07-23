@@ -75,6 +75,7 @@ class ModelData:
             self.beams = BeamList(self.beams)
 
         self.beam_ids = self._process_beam_ids(beam_ids, self.beams)
+        self._validate_beam_ids(self.beam_ids, self.beams)
 
         self.sky_model = sky_model
         self.sky_model.at_frequencies(self.freqs * units.Hz)
@@ -96,7 +97,7 @@ class ModelData:
         self,
         beam_ids: Dict[str, int] | np.typing.ArrayLike[int] | None,
         beams: BeamList,
-    ):
+    ) -> np.array[int]:
         # Set the beam_ids.
         if beam_ids is None:
             if len(beams) == 1:
@@ -112,10 +113,21 @@ class ModelData:
         else:
             beam_ids = np.array(beam_ids, dtype=int)
 
-        assert beam_ids.max() < len(beams)
-        assert len(beam_ids) == self.n_ant
-
         return beam_ids
+
+    def _validate_beam_ids(self, beam_ids, beams):
+        if beam_ids.max() >= len(beams):
+            raise ValueError(
+                "There is at least one beam_id that points to a non-existent beam."
+                f"Number of given beams={len(beams)} but maximum"
+                f" beam_id={beam_ids.max()}."
+            )
+
+        if len(beam_ids) != self.n_ant:
+            raise ValueError(
+                f"Length of beam_ids ({len(beam_ids)}) must match the "
+                f"number of ants ({self.n_ant})."
+            )
 
     @classmethod
     def from_config(cls, config_file: str | Path) -> ModelData:
