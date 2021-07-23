@@ -2,7 +2,7 @@ import pytest
 import numpy as np
 from hera_sim.visibilities import VisCPU
 from hera_sim import io
-from hera_sim.beams import PolyBeam, PerturbedPolyBeam
+from hera_sim.beams import PerturbedPolyBeam
 from vis_cpu import HAVE_GPU
 from hera_sim.defaults import defaults
 
