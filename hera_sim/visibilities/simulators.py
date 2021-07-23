@@ -79,7 +79,8 @@ class ModelData:
 
         self.sky_model = sky_model
         self.sky_model.at_frequencies(self.freqs * units.Hz)
-        assert isinstance(self.sky_model, SkyModel)
+        if not isinstance(self.sky_model, SkyModel):
+            raise TypeError("sky_model must be a SkyModel instance.")
 
     def _validate_uvdata(self, uvdata: UVData | str | Path):
         if isinstance(uvdata, UVData):
