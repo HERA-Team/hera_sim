@@ -65,15 +65,12 @@ class ModelData:
         beams: BeamListType | None = None,
     ):
 
-        self.uvdata = self._validate_uvdata(uvdata)
-        self.beams = [ab.AnalyticBeam("uniform")] if beams is None else beams
+        self.uvdata = self._process_uvdata(uvdata)
 
         # NOT Nants because we only want ants with data
         self.n_ant = self.uvdata.Nants_data
 
-        if not isinstance(self.beams, BeamList):
-            self.beams = BeamList(self.beams)
-
+        self.beams = self._process_beams(beams)
         self.beam_ids = self._process_beam_ids(beam_ids, self.beams)
         self._validate_beam_ids(self.beam_ids, self.beams)
 
@@ -82,7 +79,7 @@ class ModelData:
         if not isinstance(self.sky_model, SkyModel):
             raise TypeError("sky_model must be a SkyModel instance.")
 
-    def _validate_uvdata(self, uvdata: UVData | str | Path):
+    def _process_uvdata(self, uvdata: UVData | str | Path):
         if isinstance(uvdata, UVData):
             return uvdata
         elif isinstance(UVData, (str, Path)):
@@ -93,6 +90,19 @@ class ModelData:
             raise TypeError(
                 "uvdata must be a UVData object or path to a compatible file."
             )
+
+    @classmethod
+    def _process_beams(cls, beams: BeamListType | None):
+        if beams is None:
+            beams = [ab.AnalyticBeam("uniform")]
+
+        if not isinstance(beams, BeamList):
+            beams = BeamList(beams)
+
+        if beams.string_mode:
+            beams.set_obj_mode()
+
+        return beams
 
     def _process_beam_ids(
         self,
@@ -110,7 +120,9 @@ class ModelData:
                     "Need to give beam_ids if beams is given and not one per ant."
                 )
         elif isinstance(beam_ids, dict):
-            beam_ids = np.array(list(beam_ids.values()), dtype=int)
+            beam_ids = np.array(
+                [beam_ids[nm] for nm in self.uvdata.antenna_names], dtype=int
+            )
         else:
             beam_ids = np.array(beam_ids, dtype=int)
 
@@ -135,15 +147,7 @@ class ModelData:
         """Initialize the :class:`ModelData` from a pyuvsim-compatible config."""
         uvdata, beams, beam_ids = initialize_uvdata_from_params(config_file)
         catalog = initialize_catalog_from_params(config_file, return_recarray=False)[0]
-        catalog.at_frequencies(np.unique(uvdata.freq_array) * units.Hz)
 
-        # convert the beam_ids dict to an array of ints
-        nms = list(uvdata.antenna_names)
-        tmp_ids = np.zeros(len(beam_ids), dtype=int)
-        for name, beam_id in beam_ids.items():
-            tmp_ids[nms.index(name)] = beam_id
-        beam_ids = tmp_ids
-        beams.set_obj_mode()
         _complete_uvdata(uvdata, inplace=True)
 
         return ModelData(
