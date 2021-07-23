@@ -97,17 +97,21 @@ class HealVis(VisibilitySimulator):
         sky.ref_chan = self._sky_ref_chan
 
         # convert from Jy/sr to K
-        if sky_model.stokes.unit == units.Jy / units.sr:
-            intensity = 10 ** -26 * sky_model.stokes[0].T.value
-            intensity *= (
-                cnst.c.to("m/s").value / sky_model.freq_array.to("Hz").value
-            ) ** 2 / (2 * cnst.k_B.value)
-        elif sky_model.stokes.unit == units.K:
-            intensity = sky_model.stokes[0].T.value
+        if sky_model.stokes.unit.is_equivalent(units.Jy / units.sr):
+            conversion = (
+                1e-26
+                * sky_model.stokes.unit.to(units.Jy / units.sr)
+                * (cnst.c.si.value / sky_model.freq_array.si.value) ** 2
+                / (2 * cnst.k_B.si.value)
+            )
+        elif sky_model.stokes.unit.is_equivalent(units.K):
+            conversion = sky_model.stokes.unit.to("K")
         else:
             raise ValueError(
                 f"Units of {sky_model.stokes.unit} are not compatible with healvis"
             )
+        intensity = conversion * sky_model.stokes[0].T.value
+
         sky.data = intensity[np.newaxis, :, :]
         sky._update()
 

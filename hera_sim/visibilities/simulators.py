@@ -1,5 +1,5 @@
 """Module defining a high-level visibility simulator wrapper."""
-from __future__ import division, annotations
+from __future__ import annotations
 
 import numpy as np
 from cached_property import cached_property
@@ -19,6 +19,7 @@ from pyradiosky import SkyModel
 from pathlib import Path
 from dataclasses import dataclass
 import astropy_healpix as aph
+from .. import __version__
 
 BeamListType = Union[BeamList, List[Union[ab.AnalyticBeam, UVBeam]]]
 
@@ -281,13 +282,14 @@ class VisibilitySimulation:
         self.uvdata.history += (
             f"Visibility Simulation performed with hera_sim's {class_name} simulator\n"
         )
-        self.uvdata.history += f"Class Repr: {repr(self.simulator)}"
+        self.uvdata.history += f"Class Repr: {repr(self.simulator)}\n"
+        self.uvdata.history += f"hera_sim version: {__version__}"
 
     def simulate(self):
         """Perform the visibility simulation."""
-        self._write_history()
         vis = self.simulator.simulate(self.data_model)
         self.uvdata.data_array += vis
+        self._write_history()
         return vis
 
     @property
