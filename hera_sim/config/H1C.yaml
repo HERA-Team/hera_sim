@@ -1,0 +1,31 @@
+setup:
+    frequency_array:
+        Nfreqs: 1024
+        channel_width: 97656.25
+        start_freq: 100000000
+    time_array:
+        Ntimes: 100
+        integration_time: 10.7
+        start_time: 2458119.5
+telescope:
+    array_layout: !antpos
+        array_type: hex
+        hex_num: 3
+        sep: 14.6
+        split_core: False
+        outriggers: 0
+    bp_poly: !Bandpass
+        datafile: HERA_H1C_BANDPASS.npy
+        interp_kwargs:
+            interpolator: poly1d
+    omega_p: !Beam
+        datafile: HERA_H1C_BEAM_POLY.npy
+        interp_kwargs:
+            interpolator: poly1d
+    delay_filter_type: tophat
+    fringe_filter_type: tophat
+sky:
+    Tsky_mdl: !Tsky
+        datafile: HERA_Tsky_Reformatted.npz
+        interp_kwargs:
+            pol: xx
