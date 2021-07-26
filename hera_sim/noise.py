@@ -1,198 +1,205 @@
-"""
-A module for generating realistic HERA noise.
-"""
+"""Models of thermal noise."""
 
-import numpy as np
-from scipy.interpolate import RectBivariateSpline
-import aipy
-import os
 import warnings
-from .data import DATA_PATH
-from .interpolators import Tsky, _read_npy
-from .defaults import _defaults
+import astropy.units as u
+import numpy as np
 
-HERA_TSKY_VS_LST_NPZ = os.path.join(DATA_PATH, 'HERA_Tsky_Reformatted.npz')
+from .components import component
+from . import DATA_PATH
+from .interpolators import Tsky
+from . import utils
 
-HERA_Tsky_mdl = {}
-HERA_Tsky_mdl['xx'] = Tsky(HERA_TSKY_VS_LST_NPZ, pol='xx')
-HERA_Tsky_mdl['yy'] = Tsky(HERA_TSKY_VS_LST_NPZ, pol='yy')
+# to minimize breaking changes
+HERA_Tsky_mdl = {
+    pol: Tsky(DATA_PATH / "HERA_Tsky_Reformatted.npz", pol=pol) for pol in ("xx", "yy")
+}
 
-@_defaults
-def _get_hera_bm_poly(bm_poly='HERA_H1C_BEAM_POLY.npy'):
+
+@component
+class Noise:
+    """Base class for thermal noise models."""
+
+    pass
+
+
+class ThermalNoise(Noise):
+    """Generate thermal noise based on a sky model.
+
+    Parameters
+    ----------
+    Tsky_mdl : callable, optional
+        A function of ``(lsts, freq)`` that returns the integrated
+        sky temperature at that time/frequency. If not provided, assumes
+        a power-law temperature with 180 K at 180 MHz and spectral index
+        of -2.5.
+    omega_p : array_like or callable, optional
+        If callable, a function of frequency giving the integrated beam
+        area. If an array, same length as given frequencies.
+    integration_time : float, optional
+        Integration time in seconds. By default, use the average difference
+        between given LSTs.
+    channel_width : float, optional
+        Channel width in Hz, by default the mean difference between frequencies.
+    Trx : float, optional
+        Receiver temperature in K
+    autovis : float, optional
+        Autocorrelation visibility amplitude. Used if provided instead of ``Tsky_mdl``.
     """
-    Method for getting HERA bandpass polynomial coefficients. This should be
-    replaced in the future.
+
+    _alias = ("thermal_noise",)
+
+    def __init__(
+        self,
+        Tsky_mdl=None,
+        omega_p=None,
+        integration_time=None,
+        channel_width=None,
+        Trx=0,
+        autovis=None,
+    ):
+        super().__init__(
+            Tsky_mdl=Tsky_mdl,
+            omega_p=omega_p,
+            integration_time=integration_time,
+            channel_width=channel_width,
+            Trx=Trx,
+            autovis=autovis,
+        )
+
+    def __call__(self, lsts: np.ndarray, freqs: np.ndarray, **kwargs):
+        """Compute the thermal noise.
+
+        Parameters
+        ----------
+        lsts
+            Local siderial times at which to compute the noise.
+        freqs
+            Frequencies at which to compute the noise.
+
+        Returns
+        -------
+        array
+            A 2D array shaped ``(lsts, freqs)`` with the thermal noise.
+        """
+        # validate the kwargs
+        self._check_kwargs(**kwargs)
+
+        # unpack the kwargs
+        (
+            Tsky_mdl,
+            omega_p,
+            integration_time,
+            channel_width,
+            Trx,
+            autovis,
+        ) = self._extract_kwarg_values(**kwargs)
+
+        # get the channel width in Hz if not specified
+        if channel_width is None:
+            channel_width = np.mean(np.diff(freqs)) * 1e9
+
+        # get the integration time if not specified
+        if integration_time is None:
+            integration_time = np.mean(np.diff(lsts)) / (2 * np.pi)
+            integration_time *= u.sday.to("s")
+
+        # default to H1C beam if not specified
+        # FIXME: these three lines currently not tested
+        if omega_p is None:
+            omega_p = np.load(DATA_PATH / "HERA_H1C_BEAM_POLY.npy")
+            omega_p = np.polyval(omega_p, freqs)
+
+        # support passing beam as an interpolator
+        if callable(omega_p):
+            omega_p = omega_p(freqs)
+
+        # get the sky temperature; use an autocorrelation if provided
+        if autovis is not None and not np.all(np.isclose(autovis, 0)):
+            Tsky = autovis * utils.jansky_to_kelvin(freqs, omega_p).reshape(1, -1)
+        else:
+            Tsky = self.resample_Tsky(lsts, freqs, Tsky_mdl=Tsky_mdl)
+
+        # add in the receiver temperature
+        Tsky += Trx
+
+        # calculate noise visibility in units of K, assuming Tsky
+        # is in units of K
+        vis = Tsky / np.sqrt(integration_time * channel_width)
+
+        # convert vis to Jy; reshape to allow for multiplication.
+        vis /= utils.jansky_to_kelvin(freqs, omega_p).reshape(1, -1)
+
+        # make it noisy
+        return utils.gen_white_noise(size=vis.shape) * vis
+
+    @staticmethod
+    def resample_Tsky(lsts, freqs, Tsky_mdl=None, Tsky=180.0, mfreq=0.18, index=-2.5):
+        """Evaluate an array of sky temperatures.
+
+        Parameters
+        ----------
+        lsts : array-like of float
+            LSTs at which to sample the sky tmeperature.
+        freqs : array_like of float
+            The frequencies at which to sample the temperature, in GHz.
+        Tsky_mdl : callable, optional
+            Callable function of ``(lsts, freqs)``. If not given, use a power-law
+            defined by the next three parameters.
+        Tsky : float, optional
+            Sky temperature at ``mfreq``. Only used if ``Tsky_mdl`` not given.
+        mfreq : float, optional
+            Reference freq for sky temperature. Only used if ``Tsky_mdl`` not given.
+        index : float, optional
+            Spectral index of sky temperature model. Only used if ``Tsky_mdl`` not
+            given.
+
+        Returns
+        -------
+        ndarray
+            The sky temperature as a 2D array, first axis LSTs and second axis freqs.
+        """
+        # maybe add a DeprecationWarning?
+
+        # actually resample the sky model if it's an interpolation object
+        if Tsky_mdl is not None:
+            tsky = Tsky_mdl(lsts, freqs)
+        else:
+            # use a power law if there's no sky model
+            tsky = Tsky * (freqs / mfreq) ** index
+            # reshape it appropriately
+            tsky = np.resize(tsky, (lsts.size, freqs.size))
+        return tsky
+
+
+# make the old functions discoverable
+resample_Tsky = ThermalNoise.resample_Tsky
+thermal_noise = ThermalNoise()
+
+
+def sky_noise_jy(lsts: np.ndarray, freqs: np.ndarray, **kwargs):
+    """Generate thermal noise at particular LSTs and frequencies.
+
+    Parameters
+    ----------
+    lsts : array_like
+        LSTs at which to compute the sky noise.
+    freqs : array_like
+        Frequencies at which to compute the sky noise.
+    **kwargs
+        Passed to :class:`ThermalNoise`.
+
+    Returns
+    -------
+    ndarray
+        2D array of white noise in LST/freq.
     """
-    return _read_npy(bm_poly)
+    return thermal_noise(lsts, freqs, Trx=0, **kwargs)
 
-# turns out that this will just return the H1C beam polynomial. See
-# HERA Memo #27 for info on how the polyfit was obtained.
-HERA_BEAM_POLY = _get_hera_bm_poly()
 
-def bm_poly_to_omega_p(fqs, bm_poly=None):
+def white_noise(*args, **kwargs):
+    """Generate white noise in an array.
+
+    Deprecated. Use ``utils.gen_white_noise`` instead.
     """
-    Convert polynomial coefficients to beam area.
-
-    Args:
-        fqs (array-like): shape=(NFREQS,), GHz
-            frequency array
-        bm_poly (polynomial): default=HERA_BEAM_POLY
-            a polynomial fit to sky-integral, solid-angle beam size of
-            observation as a function of frequency.
-
-    Returns:
-        omega_p : (array-like): shape=(NFREQS,), steradian
-            sky-integral of peak-normalized beam power
-    """
-    if bm_poly is None:
-        bm_poly = _get_hera_bm_poly()
-    return np.polyval(bm_poly, fqs)
-
-
-def jy2T(fqs, omega_p):
-    """
-    Return [mK] / [Jy] for a beam size vs. frequency.
-
-    Arg:
-        fqs (array-like): shape=(NFREQS,), GHz
-            the spectral frequencies of the observation to be generated.
-        omega_p (array-like): shape=(NFREQS,) steradians
-            Sky-integral of beam power.
-
-    Returns:
-        jy_to_mK (array-like): shape=(NFREQS,)
-            a frequency-dependent scalar converting Jy to mK for the provided
-            beam size.'''
-    """
-    lam = aipy.const.c / (fqs * 1e9)
-    return 1e-23 * lam ** 2 / (2 * aipy.const.k * omega_p) * 1e3 # XXX make Kelvin in future
-
-
-def white_noise(size=1):
-    """
-    Produce complex Gaussian white noise with a variance of unity.
-
-    Args:
-        size (int or tuple, optional):
-            shape of output samples.
-
-    Returns:
-        noise (ndarray): shape=size
-            random white noise realization
-    """
-    sig = 1.0 / np.sqrt(2)
-    return np.random.normal(scale=sig, size=size) + 1j * np.random.normal(
-        scale=sig, size=size
-    )
-
-
-# XXX reverse fqs and lsts in this function?
-def resample_Tsky(fqs, lsts, Tsky_mdl=None, Tsky=180.0, mfreq=0.18, index=-2.5):
-    """
-    Re-sample a model of the sky temperature at particular freqs and lsts.
-
-    Args:
-        fqs (array-like): shape=(NFREQS,), GHz
-            the spectral frequencies of the observation to be generated.
-        lsts (array-like): shape=(NTIMES,), radians
-            local sidereal times of the observation to be generated.
-        Tsky_mdl (callable): interpolation object, default=None
-            if provided, an interpolation object that returns the sky temperature as a
-            function of (lst, freqs).  Called as Tsky(lsts,fqs).
-        Tsky (float): Kelvin
-            if Tsky_mdl not provided, an isotropic sky temperature
-            corresponding to the provided mfreq.
-        mfreq (float): GHz
-            the spectral frequency, in GHz, at which Tsky is specified
-        index (float): default=-2.5
-            the spectral index used to extrapolate Tsky to other frequencies
-
-    Returns:
-        tsky (array-like): shape=(NTIMES,NFREQS)
-            sky temperature vs. time and frequency
-    """
-    if Tsky_mdl is not None:
-        tsky = Tsky_mdl(lsts, fqs)  # support an interpolation object
-
-        if tsky.shape != (len(lsts), len(fqs)):
-            msg = ("Tsky_mdl should be a callable that takes (lsts, fqs) and returns an"
-                    "array with shape (nlsts, nfqs). Note that interp2d objects do"
-                    "*not* return this shape! Transposing array...")
-
-            if tsky.shape == (len(fqs), len(lsts)):
-                warnings.warn(msg)
-                tsky = tsky.T
-            else:
-                raise ValueError(msg)
-
-    else:
-        tsky = Tsky * (fqs / mfreq) ** index  # default to a scalar
-        tsky = np.resize(tsky, (lsts.size, fqs.size))
-    return tsky
-
-
-# XXX make inttime default=None
-# XXX reorder fqs/lsts
-def sky_noise_jy(Tsky, fqs, lsts, omega_p, B=None, inttime=10.7):
-    """
-    Generate Gaussian noise (in Jy units) corresponding to a sky temperature
-    model integrated for the specified integration time and bandwidth.
-
-    Args:
-        Tsky (array-like): shape=(NTIMES,NFREQS), K
-            the sky temperature at each time/frequency observation
-        fqs (array-like): shape=(NFREQS,), GHz
-            the spectral frequencies of the observation
-        lsts (array-like): shape=(NTIMES,), radians
-            local sidereal times of the observation
-        omega_p (array-like): shape=(NFREQS,) steradians
-            Sky-integral of beam power.
-        B (float): default=None, GHz
-            the channel width used to integrate noise.  If not provided,
-            defaults to the delta between fqs,
-        inttime (float): default=10.7, seconds
-            the time used to integrate noise.  If not provided, defaults
-            to delta between lsts.
-
-    Returns:
-        noise (array-like): shape=(NTIMES,NFREQS)
-            complex Gaussian noise vs. time and frequency
-    """
-    if B is None:
-        B = np.average(fqs[1:] - fqs[:-1])
-    B_Hz = B * 1e9 # bandwidth in Hz
-    if inttime is None:
-        inttime = (lsts[1] - lsts[0]) / (2 * np.pi) * aipy.const.sidereal_day
-    # XXX fix below when jy2T changed to Jy/K
-    T2jy = 1e3 / jy2T(fqs, omega_p)  # K to Jy conversion
-    T2jy.shape = (1, -1)
-    Vnoise_jy = T2jy * Tsky / np.sqrt(inttime * B_Hz) # see noise_study.py for discussion of why no factor of 2 here
-    return white_noise(Vnoise_jy.shape) * Vnoise_jy
-
-@_defaults
-def thermal_noise(fqs, lsts, Tsky_mdl=None, Trx=0, omega_p=None, inttime=10.7, **kwargs):
-    """
-    Create thermal noise visibilities.
-
-    Args:
-        fqs (1d array): frequencies, in GHz.
-        lsts (1d array): times, in rad.
-        Tsky_mdl (callable, optional): a callable model, with signature ``Tsky_mdl(lsts, fqs)``, which returns a 2D
-            array of global beam-averaged sky temperatures (in K) as a function of LST and frequency.
-        Trx (float, optional): receiver temperature, in K.
-        omega_p (array-like): shape=(NFREQS,) steradians
-            Sky-integral of beam power. Default is to use noise.HERA_BEAM_POLY to create omega_p.
-        inttime (float, optional): the integration time, in sec.
-        **kwargs: passed to :func:`resample_Tsky`.
-
-    Returns:
-        2d array size(lsts, fqs): the thermal visibilities [Jy].
-    """
-    if omega_p is None:
-        omega_p = bm_poly_to_omega_p(fqs)
-    elif callable(omega_p):
-        omega_p = omega_p(fqs)
-    Tsky = resample_Tsky(fqs, lsts, Tsky_mdl=Tsky_mdl, **kwargs)
-    Tsky += Trx
-    return sky_noise_jy(Tsky, fqs, lsts, omega_p, inttime=inttime)
-
+    warnings.warn("white_noise is being deprecated. Use utils.gen_white_noise instead.")
+    return utils.gen_white_noise(*args, **kwargs)

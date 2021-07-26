@@ -1,0 +1,33 @@
+setup:
+    frequency_array:
+        # TODO: find out the appropriate number of channels
+        Nfreqs: 1638 # this is for 200 MHz of bandwidth
+        channel_width: 122070.3125
+        start_freq: 46920776.3671875
+    time_array:
+        Ntimes: 100
+        integration_time: 8.59
+        start_time: 2458119.5
+telescope:
+    array_layout: !antpos
+        array_type: hex
+        hex_num: 3
+        sep: 14.6
+        split_core: False
+        outriggers: 0
+    bp_poly: !Bandpass
+        datafile: HERA_H2C_BANDPASS.npy
+        interp_kwargs:
+            interpolator: poly1d
+    omega_p: !Beam
+        datafile: HERA_H2C_BEAM_MODEL.npz
+        interp_kwargs:
+            interpolator: interp1d
+            fill_value: extrapolate
+    delay_filter_type: tophat
+    fringe_filter_type: tophat
+sky:
+    Tsky_mdl: !Tsky
+        datafile: HERA_Tsky_Reformatted.npz
+        interp_kwargs:
+            pol: xx

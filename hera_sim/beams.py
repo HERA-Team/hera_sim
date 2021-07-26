@@ -1,3 +1,4 @@
+"""Module defining analytic polynomial beams."""
 import numpy as np
 from pyuvsim import AnalyticBeam
 from numpy.polynomial.chebyshev import chebval, chebfit
@@ -254,8 +255,8 @@ class PolyBeam(AnalyticBeam):
         Analytic, azimuthally-symmetric beam model based on Chebyshev 
         polynomials.
 
-        The frequency-dependence of the beam is implemented by scaling source 
-        zenith angles when the beam is interpolated, using a power law.
+    The frequency-dependence of the beam is implemented by scaling source zenith
+    angles when the beam is interpolated, using a power law.
 
         Parameters
         ----------
@@ -280,21 +281,22 @@ class PolyBeam(AnalyticBeam):
         self.ref_freq = ref_freq
         self.spectral_index = spectral_index
         self.polarized = polarized
-        self.data_normalization = 'peak'
+        self.data_normalization = "peak"
         self.freq_interp_kind = None
         self.Nspws = 1
 
         # Polarization conventions
-        self.beam_type = 'efield'
+        self.beam_type = "efield"
         self.Nfeeds = 2  # n and e feeds
-        self.pixel_coordinate_system = 'az_za'  # az runs from East to North
-        self.feed_array = ['N', 'E']
-        self.x_orientation = 'east'
+        self.pixel_coordinate_system = "az_za"  # az runs from East to North
+        self.feed_array = ["N", "E"]
+        self.x_orientation = "east"
 
         # Beam data
         self.beam_coeffs = beam_coeffs
 
     def peak_normalize(self):
+        """Normalize the beam to have peak of unity."""
         # Not required
         pass
 
@@ -305,7 +307,7 @@ class PolyBeam(AnalyticBeam):
         Parameters
         ----------
         az_array : array_like
-            Azimuth values in radians (same length as za_array). The azimuth 
+            Azimuth values in radians (same length as za_array). The azimuth
             here has the UVBeam convention: North of East(East=0, North=pi/2)
 
         za_array : array_like
@@ -335,18 +337,19 @@ class PolyBeam(AnalyticBeam):
                 "Azimuth and zenith angle coordinate arrays must have same length.")
 
         # Empty data array
-        interp_data = np.zeros((2, 1, 2, freq_array.size, az_array.size),
-                               dtype=np.complex128)
+        interp_data = np.zeros(
+            (2, 1, 2, freq_array.size, az_array.size), dtype=np.complex128
+        )
 
         # Frequency scaling
-        fscale = (freq_array / self.ref_freq)**self.spectral_index
+        fscale = (freq_array / self.ref_freq) ** self.spectral_index
 
         # Transformed zenith angle, also scaled with frequency
-        x = 2.*np.sin(za_array[np.newaxis, ...] / fscale[:, np.newaxis]) - 1.
+        x = 2.0 * np.sin(za_array[np.newaxis, ...] / fscale[:, np.newaxis]) - 1.0
 
         # Primary beam values from Chebyshev polynomial
         beam_values = chebval(x, self.beam_coeffs)
-        central_val = chebval(-1., self.beam_coeffs)
+        central_val = chebval(-1.0, self.beam_coeffs)
         beam_values /= central_val  # ensure normalized to 1 at za=0
 
         # Set beam Jones matrix values (see Eq. 5 of Kohn+ arXiv:1802.04151)
@@ -358,6 +361,7 @@ class PolyBeam(AnalyticBeam):
         else:
             interp_data[1, 0, 0, :, :] = beam_values  # (theta, n)
             interp_data[0, 0, 1, :, :] = beam_values  # (phi, e)
+
         interp_basis_vector = None
 
         if self.beam_type == 'power':
@@ -366,21 +370,18 @@ class PolyBeam(AnalyticBeam):
             power_data = np.zeros(
                 (1, 1, 4) + beam_values.shape, dtype=np.float)
             for pol_i, pair in enumerate(pairs):
-                power_data[:, :, pol_i] = ((interp_data[0, :, pair[0]]
-                                           * np.conj(interp_data[0, :, pair[1]]))
-                                           + (interp_data[1, :, pair[0]]
-                                           * np.conj(interp_data[1, :, pair[1]])))
+                power_data[:, :, pol_i] = (
+                    interp_data[0, :, pair[0]] * np.conj(interp_data[0, :, pair[1]])
+                ) + (interp_data[1, :, pair[0]] * np.conj(interp_data[1, :, pair[1]]))
             interp_data = power_data
 
         return interp_data, interp_basis_vector
 
     def __eq__(self, other):
+        """Evaluate equality with another object."""
         if not isinstance(other, self.__class__):
             return False
-        if self.beam_coeffs == other.beam_coeffs:
-            return True
-        else:
-            return False
+        return self.beam_coeffs == other.beam_coeffs
 
 
 class PerturbedPolyBeam(PolyBeam):
@@ -477,15 +478,13 @@ class PerturbedPolyBeam(PolyBeam):
                              "the beam can go negative.")
 
     def interp(self, az_array, za_array, freq_array, reuse_spline=None):
-        """
-        Evaluate the primary beam, after applying, shearing, stretching, or rotation.
-        """
+        """Evaluate the primary beam, after shearing, stretching, or rotation."""
         # Apply shearing, stretching, or rotation
-        if self.xstretch != 1. or self.ystretch != 1.:
+        if self.xstretch != 1.0 or self.ystretch != 1.0:
             # Convert sheared Cartesian coords to circular polar coords
             # mX stretches in x direction, mY in y direction, a is angle
             # Notation: phi = az, theta = za. Subscript 's' are transformed coords
-            a = self.rotation * np.pi / 180.
+            a = self.rotation * np.pi / 180.0
             X = za_array * np.cos(az_array)
             Y = za_array * np.sin(az_array)
             Xs = (X * np.cos(a) - Y * np.sin(a)) / self.xstretch
@@ -504,32 +503,33 @@ class PerturbedPolyBeam(PolyBeam):
             az_array, za_array = phi_s, theta_s
 
         # Call interp() method on parent class
-        interp_data, interp_basis_vector = super().interp(az_array, za_array,
-                                                          freq_array, reuse_spline)
+        interp_data, interp_basis_vector = super().interp(
+            az_array, za_array, freq_array, reuse_spline
+        )
 
         # Smooth step function
-        step = 0.5 * (1. + np.tanh((za_array - self.mainlobe_width)
-                                   / self.transition_width))
+        step = 0.5 * (
+            1.0 + np.tanh((za_array - self.mainlobe_width) / self.transition_width)
+        )
 
         # Add sidelobe perturbations
         if self.nmodes > 0:
             # Build Fourier series
             p = np.zeros(za_array.size)
-            f_fac = 2.*np.pi / (np.pi/2.)  # Fourier series with period pi/2
+            f_fac = 2.0 * np.pi / (np.pi / 2.0)  # Fourier series with period pi/2
             for n in range(self.nmodes):
                 p += self.perturb_coeffs[n] * np.sin(f_fac * n * za_array)
-            p /= (np.max(p) - np.min(p)) / 2.
+            p /= (np.max(p) - np.min(p)) / 2.0
 
             # Modulate primary beam by perturbation function
-            interp_data *= (1. + step * p * self.perturb_scale)
+            interp_data *= 1.0 + step * p * self.perturb_scale
 
         # Add mainlobe stretch factor
-        if self.mainlobe_scale != 1.:
+        if self.mainlobe_scale != 1.0:
             # Subtract and re-add Gaussian normalized to 1 at za = 0
-            w = self.mainlobe_width / 2.
-            mainlobe0 = np.exp(-0.5*(za_array / w)**2.)
-            mainlobe_pert = np.exp(-0.5 *
-                                   (za_array/(w * self.mainlobe_scale))**2.)
-            interp_data += (1. - step) * (mainlobe_pert - mainlobe0)
+            w = self.mainlobe_width / 2.0
+            mainlobe0 = np.exp(-0.5 * (za_array / w) ** 2.0)
+            mainlobe_pert = np.exp(-0.5 * (za_array / (w * self.mainlobe_scale)) ** 2.0)
+            interp_data += (1.0 - step) * (mainlobe_pert - mainlobe0)
 
         return interp_data, interp_basis_vector

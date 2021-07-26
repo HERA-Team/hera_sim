@@ -1,0 +1,37 @@
+[flake8]
+ignore =
+    E203  # No space before colon
+    W503
+    C408  # Ignore using dict() function.
+    D107  # Missing docstring in __init__ (we do it in the class)
+    D401  # "First line should be in imperative mood" -- this doesn't work for properties, see https://github.com/PyCQA/pydocstyle/issues/301
+    A003  # allow method names to be the same as python builtins
+    RST210  # inline strong start-string without end-string. This is OK in the case of **kwargs in parameters.
+max-line-length = 88
+# Should be 18.
+max-complexity = 35
+exclude =
+    development/*
+per-file-ignores =
+    hera_sim/tests/*:D,T001   # print statements allowed in tests
+    docs/conf.py:D,A
+    */__init__.py:F401
+    scripts/*:T001
+    hera_sim/components.py:T001
+rst-roles =
+    class
+    func
+    mod
+    data
+    const
+    meth
+    attr
+    exc
+    obj
+rst-directives =
+    note
+    warning
+    versionadded
+    versionchanged
+    deprecated
+    seealso
