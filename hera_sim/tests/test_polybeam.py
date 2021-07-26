@@ -21,16 +21,7 @@ def antennas():
 
 
 def sources():
-    sources = np.array(
-        [
-            [
-                128,
-                -29,
-                4,
-                0,
-            ]
-        ]
-    )
+    sources = np.array([[128, -29, 4, 0]])
     ra_dec = sources[:, :2]
     flux = sources[:, 2]
     spectral_index = sources[:, 3]
@@ -228,7 +219,7 @@ class TestPolarizedPolyBeam:
                     M = np.max(modulus)
                     m = np.min(modulus)
                     assert M <= 1 and M == pytest.approx(
-                        1, rel=1e-2), "beam not properly normalized"
+                        1, rel=3e-2), "beam not properly normalized"
                     assert m >= 0 and m == pytest.approx(
                         0, abs=1e-3), "beam not properly normalized"
 
@@ -273,7 +264,7 @@ def evaluate_polybeam(polybeam):
     """
     Evaluate a PolyBeam at hard-coded az and za angles, and frequencies.
     """
-    n_pix_lm = 1001
+    n_pix_lm = 500
     L = np.linspace(-1, 1, n_pix_lm, dtype=np.float64)
     L, m = np.meshgrid(L, L)
     L = L.flatten()
