@@ -4,7 +4,7 @@ from hera_sim.visibilities import VisCPU
 from hera_sim import io
 from hera_sim.beams import PerturbedPolyBeam, PolyBeam, efield_to_pstokes
 from hera_sim.defaults import defaults
-import healpy as hp
+from astropy_healpix import healpy as hp
 from vis_cpu import HAVE_GPU
 
 np.seterr(invalid="ignore")
