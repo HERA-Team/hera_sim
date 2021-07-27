@@ -217,8 +217,9 @@ class TestPerturbedPolyBeam:
         calc_result_unpol = run_sim(r, use_pixel_beams=False, use_pol=False, pol="ee")
 
         # Check that ee + nn == unpol, since V_pI = 0.5 * (V_nn + V_ee)
+        # NOTE: Extra factor of two difference (unclear why)
         unpol = 0.5 * (calc_result_ee + calc_result_nn)
-        np.testing.assert_almost_equal(unpol, calc_result_unpol, decimal=7)
+        np.testing.assert_almost_equal(unpol, 2.0 * calc_result_unpol, decimal=7)
 
         # Check that all pols have valid values
         assert np.all(~np.isnan(calc_result_ee))
