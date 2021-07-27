@@ -34,7 +34,7 @@ If you are proposing a feature:
 Development
 ===========
 
-To set up `hera_sim` for local development:
+To set up ``hera_sim`` for local development:
 
 1. If you are *not* on the HERA-Team collaboration, make a fork of
    `hera_sim <https://github.com/HERA-Team/hera_sim>`_ (look for the "Fork" button).
@@ -55,12 +55,9 @@ To set up `hera_sim` for local development:
 4. Make a development environment. We highly recommend using conda for this. With conda,
    just run::
 
-    conda env create -f travis-environment.yml
-
-4. When you're done making changes, run all the checks, doc builder and spell checker
-   with `tox <http://tox.readthedocs.io/en/latest/install.html>`_ one command::
-
-    tox
+    conda env create -n hera python=3
+    pip install -e .[dev]
+    pre-commit install
 
 5. Commit your changes and push your branch to GitHub::
 
@@ -77,12 +74,7 @@ If you need some code review or feedback while you're developing the code just m
 
 For merging, you should:
 
-1. Include passing tests (run ``tox``) [1]_.
+1. Include passing tests (run ``pytest``)
 2. Update documentation when there's new API, functionality etc.
 3. Add a note to ``CHANGELOG.rst`` about the changes.
 4. Add yourself to ``AUTHORS.rst``.
-
-.. [1] If you don't have all the necessary python versions available locally you can rely on Travis - it will
-       `run the tests <https://travis-ci.org/HERA-Team/hera_sim/pull_requests>`_ for each change you add in the pull request.
-
-       It will be slower though ...

@@ -1,6 +1,7 @@
+"""Wrapper for healvis so that it accepts pyuvsim configuration inputs."""
 from __future__ import division
 
-import healpy
+import astropy_healpix as aph
 import numpy as np
 from cached_property import cached_property
 
@@ -13,28 +14,33 @@ try:
     from healvis.beam_model import AnalyticBeam
     from healvis.simulator import setup_observatory_from_uvdata
     from healvis.sky_model import SkyModel
+
+    HAVE_HEALVIS = True
 except ImportError:
-    raise ImportError("to use the healvis wrapper, you must install healvis!")
+    HAVE_HEALVIS = False
 
 
 class HealVis(VisibilitySimulator):
-    """Wrapper for healvis to produce visibilities from HEALPix maps."""
+    """Wrapper for healvis to produce visibilities from HEALPix maps.
+
+    Parameters
+    ----------
+    fov : float
+        Field of view (diameter) in degrees. Defaults to 180.
+    nprocesses : int
+        Number of concurrent processes. Defaults to 1.
+    sky_ref_chan : float
+        Frequency reference channel. Defaults to 0.
+    **kwargs
+        Passed through to :class:`~.simulators.VisibilitySimulator`.
+    """
 
     point_source_ability = False
 
     def __init__(self, fov=180, nprocesses=1, sky_ref_chan=0, **kwargs):
-        """
-        Parameters
-        ----------
-        fov : float
-            Field of view (diameter) in degrees. Defaults to 180.
-        nprocesses : int
-            Number of concurrent processes. Defaults to 1.
-        sky_ref_chan : float
-            Frequency reference channel. Defaults to 0.
-        **kwargs
-            Arguments of :class:`VisibilitySimulator`.
-        """
+        if not HAVE_HEALVIS:
+            raise ImportError("to use the healvis wrapper, you must install healvis!")
+
         self.fov = fov
         self._nprocs = nprocesses
         self._sky_ref_chan = sky_ref_chan
@@ -43,7 +49,7 @@ class HealVis(VisibilitySimulator):
         # doesn't check if you are using pyuvsim's one. This should be fixed.
 
         if "beams" not in kwargs:
-            kwargs['beams'] = [AnalyticBeam("uniform")]
+            kwargs["beams"] = [AnalyticBeam("uniform")]
 
         super(HealVis, self).__init__(**kwargs)
 
@@ -52,30 +58,33 @@ class HealVis(VisibilitySimulator):
             old_args = self.beams[0].__dict__
 
             gauss_width = None
-            if old_args['type'] == "gaussian":
-                if old_args['sigma'] is None:
-                    raise NotImplementedError("Healvis does not permit "
-                                              "gaussian beam with diameter.")
-                raise NotImplementedError("Healvis interprets gaussian beams "
-                                          "as per-baseline and not "
-                                          "per-antenna as required here.")
+            if old_args["type"] == "gaussian":
+                if old_args["sigma"] is None:
+                    raise NotImplementedError(
+                        "Healvis does not permit " "gaussian beam with diameter."
+                    )
+                raise NotImplementedError(
+                    "Healvis interprets gaussian beams "
+                    "as per-baseline and not "
+                    "per-antenna as required here."
+                )
                 # Healvis expects degrees
-                gauss_width = old_args['sigma'] * 180 / np.pi
+                gauss_width = old_args["sigma"] * 180 / np.pi
 
-            beam_type = old_args['type']
-            ref_freq = old_args['ref_freq']
-            spectral_index = old_args['spectral_index']
-            diameter = old_args['diameter']
+            beam_type = old_args["type"]
+            spectral_index = old_args["spectral_index"]
+            diameter = old_args["diameter"]
             self.beams = [
                 AnalyticBeam(
-                    beam_type=beam_type, gauss_width=gauss_width,
-                    diameter=diameter, spectral_index=spectral_index
+                    beam_type=beam_type,
+                    gauss_width=gauss_width,
+                    diameter=diameter,
+                    spectral_index=spectral_index,
                 )
             ]
 
-
     def validate(self):
-        """Validates that all data is correct.
+        """Validate that all data is correct.
 
         In addition to standard parameter restrictions, HealVis requires a single beam
         for all antennae.
@@ -86,7 +95,7 @@ class HealVis(VisibilitySimulator):
     @cached_property
     def sky_model(self):
         """
-        A SkyModel compatible with healvis.
+        A ``SkyModel`` compatible with healvis.
 
         Returns
         -------
@@ -95,15 +104,16 @@ class HealVis(VisibilitySimulator):
             model.
         """
         sky = SkyModel()
-        sky.Nside = healpy.npix2nside(self.sky_intensity.shape[1])
+        sky.Nside = aph.npix_to_nside(self.sky_intensity.shape[1])
         sky.freqs = self.sky_freqs
         sky.Nskies = 1
         sky.ref_chan = self._sky_ref_chan
 
         # convert from Jy/sr to K
-        intensity = 10**-26 * self.sky_intensity.T
-        intensity *= ((cnst.c.to("m/s").value/self.sky_freqs)**2
-                      / (2 * cnst.k_B.value))
+        intensity = 10 ** -26 * self.sky_intensity.T
+        intensity *= (cnst.c.to("m/s").value / self.sky_freqs) ** 2 / (
+            2 * cnst.k_B.value
+        )
 
         sky.data = intensity[np.newaxis, :, :]
         sky._update()
@@ -122,7 +132,9 @@ class HealVis(VisibilitySimulator):
             parameters.
         """
         return setup_observatory_from_uvdata(
-            self.uvdata, fov=self.fov, beam=self.beams[0],
+            self.uvdata,
+            fov=self.fov,
+            beam=self.beams[0],
         )
 
     def _simulate(self):
@@ -138,9 +150,9 @@ class HealVis(VisibilitySimulator):
         for pol in self.uvdata.get_pols():
             # calculate visibility
             visibility.append(
-                self.observatory.make_visibilities(self.sky_model,
-                                                   Nprocs=self._nprocs,
-                                                   beam_pol=pol)[0]
+                self.observatory.make_visibilities(
+                    self.sky_model, Nprocs=self._nprocs, beam_pol=pol
+                )[0]
             )
 
         visibility = np.moveaxis(visibility, 0, -1)

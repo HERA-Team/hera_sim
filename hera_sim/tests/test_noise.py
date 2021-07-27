@@ -1,61 +1,103 @@
-import unittest
-from hera_sim import noise
+import pytest
+
 import numpy as np
-import aipy
+from astropy import units
 
-np.random.seed(0)
+from hera_sim import noise, utils
+from hera_sim import DATA_PATH
+from hera_sim.interpolators import Beam
+from hera_sim.defaults import defaults
+
+# Ensure that defaults aren't subtly overwritten.
+defaults.deactivate()
 
 
-class TestNoise(unittest.TestCase):
-    def test_white_noise(self):
-        n1 = noise.white_noise(100)
-        self.assertEqual(n1.size, 100)
-        self.assertEqual(n1.shape, (100,))
-        n2 = noise.white_noise((100, 100))
-        self.assertEqual(n2.shape, (100, 100))
-        n3 = noise.white_noise(100000)
-        self.assertAlmostEqual(np.average(n3), 0, 1)
-        self.assertAlmostEqual(np.std(n3), 1, 2)
+@pytest.fixture(scope="function")
+def freqs():
+    return np.linspace(0.1, 0.2, 100)
 
-    def test_resample_Tsky(self):
-        fqs = np.linspace(0.1, 0.2, 100)
-        lsts = np.linspace(0, 2 * np.pi, 200)
-        tsky = noise.resample_Tsky(fqs, lsts)
-        self.assertEqual(tsky.shape, (200, 100))
-        self.assertTrue(np.all(tsky[0] == tsky[1]))
-        self.assertFalse(np.all(tsky[:, 0] == tsky[:, 1]))
 
-        tsky = noise.resample_Tsky(fqs, lsts, Tsky_mdl=noise.HERA_Tsky_mdl["xx"])
-        self.assertEqual(tsky.shape, (200, 100))
-        self.assertFalse(np.all(tsky[0] == tsky[1]))
-        self.assertFalse(np.all(tsky[:, 0] == tsky[:, 1]))
+@pytest.fixture(scope="function")
+def lsts():
+    return np.linspace(0, 2 * np.pi, 200)
 
-    def test_sky_noise_jy(self):
-        fqs = np.linspace(0.1, 0.2, 100)
-        lsts = np.linspace(0, 2 * np.pi, 500)
-        omp = noise.bm_poly_to_omega_p(fqs)
-        tsky = noise.resample_Tsky(fqs, lsts)
-        jy2T = noise.jy2T(fqs, omega_p=omp) / 1e3
-        jy2T.shape = (1, -1)
-        nos_jy = noise.sky_noise_jy(tsky, fqs, lsts, inttime=10.7, omega_p=omp)
-        self.assertEqual(nos_jy.shape, (500, 100))
-        np.testing.assert_allclose(np.average(nos_jy, axis=0), 0, atol=0.7)
-        scaling = np.average(tsky, axis=0) / jy2T
-        np.testing.assert_allclose(
-            np.std(nos_jy, axis=0) / scaling * np.sqrt(1e6 * 10.7), 1.0, atol=0.1
+
+@pytest.fixture(scope="function")
+def omega_p(freqs):
+    return Beam(DATA_PATH / "HERA_H1C_BEAM_POLY.npy")(freqs)
+
+
+@pytest.fixture(scope="function")
+def Jy2T(freqs, omega_p):
+    return utils.Jy2T(freqs, omega_p).reshape(1, -1)
+
+
+@pytest.fixture(scope="function")
+def tsky_powerlaw(freqs, lsts):
+    return noise.resample_Tsky(
+        lsts, freqs, Tsky_mdl=None, Tsky=180.0, mfreq=0.18, index=-2.5
+    )
+
+
+@pytest.fixture(scope="function")
+def tsky_from_model(lsts, freqs):
+    return noise.resample_Tsky(lsts, freqs, noise.HERA_Tsky_mdl["xx"])
+
+
+@pytest.mark.parametrize("model", ["powerlaw", "HERA"])
+def test_resample_Tsky_shape(freqs, lsts, tsky_powerlaw, tsky_from_model, model):
+    tsky = tsky_powerlaw if model == "powerlaw" else tsky_from_model
+    assert tsky.shape == (lsts.size, freqs.size)
+
+
+@pytest.mark.parametrize("model", ["powerlaw", "HERA"])
+def test_resample_Tsky_time_behavior(tsky_powerlaw, tsky_from_model, model):
+    if model == "powerlaw":
+        assert all(
+            np.all(tsky_powerlaw[0] == tsky_powerlaw[i])
+            for i in range(1, tsky_powerlaw.shape[0])
         )
-        np.random.seed(0)
-        nos_jy = noise.sky_noise_jy(tsky, fqs, lsts, inttime=None, omega_p=omp)
-        np.testing.assert_allclose(
-            np.std(nos_jy, axis=0) / scaling * np.sqrt(1e6 * aipy.const.sidereal_day / 500), 1.0,
-            atol=0.1
-        )
-        np.random.seed(0)
-        nos_jy = noise.sky_noise_jy(tsky, fqs, lsts, B=.1, inttime=10.7, omega_p=omp)
-        np.testing.assert_allclose(
-            np.std(nos_jy, axis=0) / scaling * np.sqrt(1e8 * 10.7), 1.0, atol=0.1
+    else:
+        assert all(
+            np.all(tsky_from_model[0] != tsky_from_model[i])
+            for i in range(1, tsky_from_model.shape[0])
         )
 
 
-if __name__ == "__main__":
-    unittest.main()
+@pytest.mark.parametrize("model", ["powerlaw", "HERA"])
+def test_resample_Tsky_freq_behavior(tsky_powerlaw, tsky_from_model, model):
+    tsky = tsky_powerlaw if model == "powerlaw" else tsky_from_model
+    assert all(np.all(tsky[:, 0] != tsky[:, i]) for i in range(1, tsky.shape[1]))
+
+
+@pytest.mark.parametrize("channel_width", [None, 1e6, 1e8])
+@pytest.mark.parametrize("integration_time", [None, 10.7, 33.7])
+@pytest.mark.parametrize("aspect", ["mean", "std"])
+def test_sky_noise_jy(
+    freqs, lsts, tsky_powerlaw, Jy2T, omega_p, channel_width, integration_time, aspect
+):
+    np.random.seed(0)
+    noise_Jy = noise.sky_noise_jy(
+        lsts=lsts,
+        freqs=freqs,
+        Tsky_mdl=None,
+        omega_p=omega_p,
+        channel_width=channel_width,
+        integration_time=integration_time,
+    )
+
+    # Calculate expected noise level based on radiometer equation.
+    if aspect == "mean":
+        expected_noise_Jy = 0
+        atol = 0.7
+        rtol = 0
+    else:
+        channel_width = channel_width or np.mean(np.diff(freqs)) * units.GHz.to("Hz")
+        integration_time = integration_time or units.day.to("s") / lsts.size
+        expected_noise_Jy = np.mean(tsky_powerlaw, axis=0) / Jy2T
+        expected_noise_Jy /= np.sqrt(channel_width * integration_time)
+        atol = 0
+        rtol = 0.1
+    assert np.allclose(
+        getattr(np, aspect)(noise_Jy, axis=0), expected_noise_Jy, rtol=rtol, atol=atol
+    )
