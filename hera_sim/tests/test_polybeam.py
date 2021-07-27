@@ -220,7 +220,11 @@ class TestPerturbedPolyBeam:
         unpol = 0.5 * (calc_result_ee + calc_result_nn)
         np.testing.assert_almost_equal(unpol, calc_result_unpol, decimal=7)
 
-        # Check that ne and en have valid values
+        # Check that all pols have valid values
+        assert np.all(~np.isnan(calc_result_ee))
+        assert np.all(~np.isinf(calc_result_ee))
+        assert np.all(~np.isnan(calc_result_nn))
+        assert np.all(~np.isinf(calc_result_nn))
         assert np.all(~np.isnan(calc_result_en))
         assert np.all(~np.isinf(calc_result_en))
         assert np.all(~np.isnan(calc_result_ne))

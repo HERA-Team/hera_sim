@@ -273,7 +273,7 @@ class PerturbedPolyBeam(PolyBeam):
 
             # Updated polar coordinates
             theta_s = np.sqrt(Xs ** 2.0 + Ys ** 2.0)
-            phi_s = np.arccos(Xs / theta_s)
+            phi_s = np.where(theta_s == 0.0, 0.0, np.arccos(Xs / theta_s))
             phi_s[Ys < 0.0] *= -1.0
 
             # Fix coordinates below the horizon of the unstretched beam
