@@ -262,7 +262,6 @@ class PolyBeam(AnalyticBeam):
     See HERA memo:
     http://reionization.org/wp-content/uploads/2013/03/HERA081_HERA_Primary_Beam_Chebyshev_Apr2020.pdf
 
-
     Parameters
     ----------
     beam_coeffs: array_like
