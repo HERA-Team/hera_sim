@@ -40,9 +40,7 @@ def perturbed_beams(rotation, nants, polarized=False):
     cfg_beam = dict(
         ref_freq=1.0e8,
         spectral_index=-0.6975,
-        perturb=True,
         mainlobe_width=0.3,
-        nmodes=8,
         beam_coeffs=[
             0.29778665,
             -0.44821433,
@@ -66,7 +64,7 @@ def perturbed_beams(rotation, nants, polarized=False):
     )
     beams = [
         PerturbedPolyBeam(
-            perturb_coeff=np.array(
+            perturb_coeffs=np.array(
                 [
                     -0.20437532,
                     -0.4864951,
@@ -200,7 +198,6 @@ class TestPerturbedPolyBeam:
 
 
 class TestPolarizedPolyBeam:
-
     def test_all_polarized_polybeam(self):
         """
         Wrapper for all polarized PolyBeam tests.
@@ -219,17 +216,20 @@ class TestPolarizedPolyBeam:
                     M = np.max(modulus)
                     m = np.min(modulus)
                     assert M <= 1 and M == pytest.approx(
-                        1, rel=3e-2), "beam not properly normalized"
+                        1, rel=3e-2
+                    ), "beam not properly normalized"
                     assert m >= 0 and m == pytest.approx(
-                        0, abs=1e-3), "beam not properly normalized"
+                        0, abs=1e-3
+                    ), "beam not properly normalized"
 
         # Check that neither NaNs nor Infs atre returned by the interp() method.
-        assert np.isnan(eval_beam).any() == False, "the beam contains NaN values"
-        assert np.isinf(eval_beam).any() == False, "the beam contains Inf values"
+        assert not np.isnan(eval_beam).any(), "the beam contains NaN values"
+        assert not np.isinf(eval_beam).any(), "the beam contains Inf values"
 
         # Check that pStokes power beams are real
-        assert np.isreal(eval_beam_pStokes).all(
-        ) == True, "the pseudo-Stokes beams are not real"
+        assert np.isreal(
+            eval_beam_pStokes
+        ).all(), "the pseudo-Stokes beams are not real"
 
 
 def create_polarized_polybeam():
@@ -243,18 +243,33 @@ def create_polarized_polybeam():
     # parameters
     spectral_index = -0.6975
     beam_coeffs = [
-        2.35088101e-01, -4.20162599e-01, 2.99189140e-01,
-        -1.54189057e-01, 3.38651457e-02, 3.46936067e-02,
-        -4.98838130e-02, 3.23054464e-02, -7.56006552e-03,
-        -7.24620596e-03, 7.99563166e-03, -2.78125602e-03,
-        -8.19945835e-04, 1.13791191e-03, -1.24301372e-04,
-        -3.74808752e-04, 1.93997376e-04, -1.72012040e-05]
+        2.35088101e-01,
+        -4.20162599e-01,
+        2.99189140e-01,
+        -1.54189057e-01,
+        3.38651457e-02,
+        3.46936067e-02,
+        -4.98838130e-02,
+        3.23054464e-02,
+        -7.56006552e-03,
+        -7.24620596e-03,
+        7.99563166e-03,
+        -2.78125602e-03,
+        -8.19945835e-04,
+        1.13791191e-03,
+        -1.24301372e-04,
+        -3.74808752e-04,
+        1.93997376e-04,
+        -1.72012040e-05,
+    ]
     ref_freq = 1e8
     # instantiate the PolyBeam object
-    cfg_pol_beam = dict(ref_freq=ref_freq,
-                        spectral_index=spectral_index,
-                        beam_coeffs=beam_coeffs,
-                        polarized=True)
+    cfg_pol_beam = dict(
+        ref_freq=ref_freq,
+        spectral_index=spectral_index,
+        beam_coeffs=beam_coeffs,
+        polarized=True,
+    )
     pol_PolyBeam = PolyBeam(**cfg_pol_beam)
 
     return pol_PolyBeam
@@ -270,18 +285,43 @@ def evaluate_polybeam(polybeam):
     L = L.flatten()
     m = m.flatten()
 
-    lsqr = L**2 + m**2
+    lsqr = L ** 2 + m ** 2
     n = np.where(lsqr < 1, np.sqrt(1 - lsqr), 0)
 
     # Generate azimuth and zenith angle.
     az = -np.arctan2(m, L)
     za = np.pi / 2 - np.arcsin(n)
 
-    freqs = np.array([1.00e+08, 1.04e+08, 1.08e+08, 1.12e+08, 1.16e+08, 1.20e+08,
-                      1.24e+08, 1.28e+08, 1.32e+08, 1.36e+08, 1.40e+08, 1.44e+08,
-                      1.48e+08, 1.52e+08, 1.56e+08, 1.60e+08, 1.64e+08, 1.68e+08,
-                      1.72e+08, 1.76e+08, 1.80e+08, 1.84e+08, 1.88e+08, 1.92e+08,
-                      1.96e+08, 2.00e+08])
+    freqs = np.array(
+        [
+            1.00e08,
+            1.04e08,
+            1.08e08,
+            1.12e08,
+            1.16e08,
+            1.20e08,
+            1.24e08,
+            1.28e08,
+            1.32e08,
+            1.36e08,
+            1.40e08,
+            1.44e08,
+            1.48e08,
+            1.52e08,
+            1.56e08,
+            1.60e08,
+            1.64e08,
+            1.68e08,
+            1.72e08,
+            1.76e08,
+            1.80e08,
+            1.84e08,
+            1.88e08,
+            1.92e08,
+            1.96e08,
+            2.00e08,
+        ]
+    )
 
     eval_beam = polybeam.interp(az, za, freqs)
 

@@ -235,10 +235,10 @@ class VisCPU(VisibilitySimulator):
 
         Returns
         -------
-        array_like
+        bm_cube : array_like
             The beam pattern in (l,m) for each antenna. If `self.polarized=True`,
-            its shape is (NAXES, NFEEDS, NANT, BM_PIX, BM_PIX), otherwise
-            (NANT, BM_PIX, BM_PIX).
+            its shape is (NANT, NAXES, NFEEDS, NFREQS, BM_PIX, BM_PIX),
+            otherwise (NANT, NFREQS, BM_PIX, BM_PIX).
 
         Notes
         -----
@@ -338,8 +338,10 @@ class VisCPU(VisibilitySimulator):
         # Get pixelized beams if required
         if self.use_pixel_beams:
             beam_lm = self.get_beam_lm()
-            if not self.polarized:
-                beam_lm = beam_lm[np.newaxis, np.newaxis, :, :, :]
+            # polarized=True:  (NANT, NAXES, NFEEDS, NFREQS, BM_PIX, BM_PIX)
+            # polarized=False: (NANT, NFREQS, BM_PIX, BM_PIX)
+            # if not self.polarized:
+            #    beam_lm = beam_lm[np.newaxis, np.newaxis, :, :, :]
         else:
             beam_list = [
                 self.beams[np.where(self.beam_ids == ant)[0][0]]
@@ -387,6 +389,16 @@ class VisCPU(VisibilitySimulator):
             if self.mpi_comm is not None and i % nproc != myid:
                 continue
 
+            # Determine correct shape of beam cube if pixel beams are used
+            if self.use_pixel_beams:
+                if self.polarized:
+                    _beam_lm = beam_lm[:, :, :, i, :, :]
+                    # (NANT, NAXES, NFEEDS, NFREQS, BM_PIX, BM_PIX)
+                else:
+                    _beam_lm = beam_lm[:, i, :, :]
+                    # (NANT, NFREQS, BM_PIX, BM_PIX)
+
+            # Call vis_cpu function to simulate visibilities
             vis = self._vis_cpu(
                 antpos=self.antpos,
                 freq=freq,
@@ -394,7 +406,7 @@ class VisCPU(VisibilitySimulator):
                 crd_eq=crd_eq,
                 I_sky=I_sky[i],
                 beam_list=beam_list if not self.use_pixel_beams else None,
-                bm_cube=beam_lm[:, :, :, i] if self.use_pixel_beams else None,
+                bm_cube=_beam_lm if self.use_pixel_beams else None,
                 precision=self._precision,
                 polarized=self.polarized,
             )
