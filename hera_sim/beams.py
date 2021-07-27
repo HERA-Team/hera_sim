@@ -53,7 +53,7 @@ class PolyBeam(AnalyticBeam):
     angles when the beam is interpolated, using a power law.
 
     See HERA memo
-    http://reionization.org/wp-content/uploads/2013/03/Power_Spectrum_Normalizations_for_HERA.pdf.
+    http://reionization.org/wp-content/uploads/2013/03/HERA081_HERA_Primary_Beam_Chebyshev_Apr2020.pdf
 
     Parameters
     ----------
@@ -169,11 +169,14 @@ class PolyBeam(AnalyticBeam):
 
 
 class PerturbedPolyBeam(PolyBeam):
-    """
-    A PolyBeam in which the shape of the beam has been modified.
+    """A PolyBeam in which the shape of the beam has been modified.
+
+    Note that the PolyBeam `beam_coeffs` kwarg must be passed on instantiation.
 
     The perturbations can be applied to the mainlobe, sidelobes, or
-    the entire beam.
+    the entire beam. While the underlying PolyBeam depends on frequency via
+    the `spectral_index` kwarg, the perturbations themselves do not have a
+    frequency dependence unless explicitly stated.
 
     Mainlobe: A Gaussian of width FWHM is subtracted and then a new
     Gaussian with width `mainlobe_width` is added back in. This perturbs
@@ -181,9 +184,12 @@ class PerturbedPolyBeam(PolyBeam):
     unchanged.
 
     Sidelobes: The baseline primary beam model, PB, is moduled by a (sine)
-    Fourier series at angles beyond some zenith angle.
+    Fourier series at angles beyond some zenith angle. There is an angle-
+    only modulation (set by `perturb_coeffs` and `perturb_scale`), and a
+    frequency-only modulation (set by `freq_perturb_coeffs` and
+    `freq_perturb_scale`).
 
-    Entire beam: may be sheared, stretched, and rotated.
+    Entire beam: May be sheared, stretched, and rotated.
 
     Parameters
     ----------
@@ -211,6 +217,18 @@ class PerturbedPolyBeam(PolyBeam):
     rotation : float, optional
         Rotation of the beam in the x-y plane, in degrees. Only has an
         effect if xstretch != ystretch.
+    freq_perturb_coeffs : array_like, optional
+        Array of floats with the coefficients of a sine and cosine Fourier
+        series that will be used to modulate the base Chebyshev primary
+        beam model in the frequency direction. Default: None.
+    freq_perturb_scale : float, optional
+        Overall scale of the primary beam modulation in the frequency
+        direction. Must be less than 1, otherwise the primary beam can go
+        negative. Default: 0.
+    perturb_zeropoint : float, optional
+        If specified, override the automatical zero-point calculation for
+        the angle-dependent sidelobe perturbation. Default: None (use the
+        automatically-calculated zero-point).
     beam_coeffs : array_like
         Co-efficients of the baseline Chebyshev polynomial.
     spectral_index : float, optional
@@ -232,34 +250,135 @@ class PerturbedPolyBeam(PolyBeam):
         xstretch=1.0,
         ystretch=1.0,
         rotation=0.0,
+        freq_perturb_coeffs=None,
+        freq_perturb_scale=0.0,
+        perturb_zeropoint=None,
         **kwargs
     ):
         # Initialize base class
         super().__init__(**kwargs)
 
-        # Set parameters
-        if perturb_coeffs is not None:
-            self.perturb_coeffs = np.array(perturb_coeffs)
-            self.nmodes = self.perturb_coeffs.size
-        else:
-            self.perturb_coeffs = perturb_coeffs
-            self.nmodes = 0
+        # Check for valid input parameters
+        if mainlobe_width is None:
+            raise ValueError("Must specify a value for 'mainlobe_width' kwarg")
+
+        # Set sidelobe perturbation parameters
+        if perturb_coeffs is None:
+            perturb_coeffs = []
+        if freq_perturb_coeffs is None:
+            freq_perturb_coeffs = []
+        self.perturb_coeffs = np.array(perturb_coeffs)
+        self.freq_perturb_coeffs = np.array(freq_perturb_coeffs)
+
+        # Set all other parameters
         self.perturb_scale = perturb_scale
+        self.freq_perturb_scale = freq_perturb_scale
         self.mainlobe_width = mainlobe_width
         self.mainlobe_scale = mainlobe_scale
         self.transition_width = transition_width
         self.xstretch, self.ystretch = xstretch, ystretch
         self.rotation = rotation
 
+        # Calculate normalization of sidelobe perturbation functions on
+        # fixed grid (ensures rescaling is deterministic/independent of input
+        # to the interp() method)
+        za = np.linspace(0.0, np.pi / 2.0, 1000)  # rad
+        freqs = np.linspace(100.0, 200.0, 1000) * 1e6  # Hz
+        p_za = self._sidelobe_modulation_za(za, scale=1.0, zeropoint=0.0)
+        p_freq = self._sidelobe_modulation_freq(freqs, scale=1.0, zeropoint=0.0)
+
+        # Rescale p_za to the range [-0.5, +0.5]
+        self._scale_pza, self._zeropoint_pza = 0.0, 0.0
+        if self.perturb_coeffs.size > 0:
+            self._scale_pza = 2.0 / (np.max(p_za) - np.min(p_za))
+            self._zeropoint_pza = -0.5 - 2.0 * np.min(p_za) / (
+                np.max(p_za) - np.min(p_za)
+            )
+
+            # Override calculated zeropoint with user-specified value
+            if perturb_zeropoint is not None:
+                self._zeropoint_pza = perturb_zeropoint
+
+        # Rescale p_freq to the range [-0.5, +0.5]
+        self._scale_pfreq, self._zeropoint_pfreq = 0.0, 0.0
+        if self.freq_perturb_coeffs.size > 0:
+            self._scale_pfreq = 2.0 / (np.max(p_freq) - np.min(p_freq))
+            self._zeropoint_pfreq = -0.5 - 2.0 * np.min(p_freq) / (
+                np.max(p_freq) - np.min(p_freq)
+            )
+
         # Sanity checks
-        if perturb_scale >= 1.0:
+        if self.perturb_scale >= 1.0:
             raise ValueError(
                 "'perturb_scale' must be less than 1; otherwise "
                 "the beam can go negative."
             )
+        if self.freq_perturb_scale >= 1.0:
+            raise ValueError(
+                "'freq_perturb_scale' must be less than 1; "
+                "otherwise the beam can go negative."
+            )
+
+    def _sidelobe_modulation_za(self, za_array, scale=1.0, zeropoint=0.0):
+        """Calculate sidelobe modulation factor for a set of zenith angle values.
+
+        Parameters
+        ----------
+        za_array : array_like
+            Array of zenith angles, in radians.
+
+        scale : float, optional
+            Multiplicative rescaling factor to be applied to the modulation
+            function. Default: 1.
+
+        zeropoint : float, optional
+            Zero-point correction to be applied to the modulation function.
+            Default: 0.
+        """
+        # Construct sidelobe perturbations (angle-dependent)
+        p_za = 0
+        if self.perturb_coeffs.size > 0:
+            # Build Fourier (sine) series
+            f_fac = 2.0 * np.pi / (np.pi / 2.0)  # Fourier series with period pi/2
+            for n in range(self.perturb_coeffs.size):
+                p_za += self.perturb_coeffs[n] * np.sin(f_fac * n * za_array)
+
+        return p_za * scale + zeropoint
+
+    def _sidelobe_modulation_freq(self, freq_array, scale=1.0, zeropoint=0.0):
+        """Calculate sidelobe modulation factor for a set of frequency values.
+
+        Parameters
+        ----------
+        freq_array : array_like
+            Array of frequencies, in Hz.
+
+        scale : float, optional
+            Multiplicative rescaling factor to be applied to the modulation
+            function. Default: 1.
+
+        zeropoint : float, optional
+            Zero-point correction to be applied to the modulation function.
+            Default: 0.
+        """
+        # Construct sidelobe perturbations (frequency-dependent)
+        p_freq = 0
+        if self.freq_perturb_coeffs.size > 0:
+            # Build Fourier series (sine + cosine)
+            f_fac = 2.0 * np.pi / (100.0e6)  # Fourier series with period 100 MHz
+            for n in range(self.freq_perturb_coeffs.size):
+                if n == 0:
+                    fn = 1.0 + 0.0 * freq_array
+                elif n % 2 == 0:
+                    fn = np.sin(f_fac * ((n + 1) // 2) * freq_array)
+                else:
+                    fn = np.cos(f_fac * ((n + 1) // 2) * freq_array)
+                p_freq += self.freq_perturb_coeffs[n] * fn
+
+        return p_freq * scale + zeropoint
 
     def interp(self, az_array, za_array, freq_array, reuse_spline=None):
-        """Evaluate the primary beam, after shearing, stretching, or rotation."""
+        """Evaluate the primary beam after shearing/stretching/rotation."""
         # Apply shearing, stretching, or rotation
         if self.xstretch != 1.0 or self.ystretch != 1.0:
             # Convert sheared Cartesian coords to circular polar coords
@@ -285,7 +404,10 @@ class PerturbedPolyBeam(PolyBeam):
 
         # Call interp() method on parent class
         interp_data, interp_basis_vector = super().interp(
-            az_array, za_array, freq_array, reuse_spline
+            az_array=az_array,
+            za_array=za_array,
+            freq_array=freq_array,
+            reuse_spline=reuse_spline,
         )
 
         # Smooth step function
@@ -293,17 +415,20 @@ class PerturbedPolyBeam(PolyBeam):
             1.0 + np.tanh((za_array - self.mainlobe_width) / self.transition_width)
         )
 
-        # Add sidelobe perturbations
-        if self.nmodes > 0:
-            # Build Fourier series
-            p = np.zeros(za_array.size)
-            f_fac = 2.0 * np.pi / (np.pi / 2.0)  # Fourier series with period pi/2
-            for n in range(self.nmodes):
-                p += self.perturb_coeffs[n] * np.sin(f_fac * n * za_array)
-            p /= (np.max(p) - np.min(p)) / 2.0
+        # Construct sidelobe perturbations (angle- and frequency-dependent)
+        p_za = self._sidelobe_modulation_za(
+            za_array, scale=self._scale_pza, zeropoint=self._zeropoint_pza
+        )
+        p_freq = self._sidelobe_modulation_freq(
+            freq_array, scale=self._scale_pfreq, zeropoint=self._zeropoint_pfreq
+        )
+        p_za = np.atleast_1d(self.perturb_scale * p_za)
+        p_freq = np.atleast_1d(self.freq_perturb_scale * p_freq)
 
-            # Modulate primary beam by perturbation function
-            interp_data *= 1.0 + step * p * self.perturb_scale
+        # Modulate primary beam by sidelobe perturbation function
+        interp_data *= 1.0 + (step * p_za)[np.newaxis, :] * (
+            1.0 + p_freq[:, np.newaxis]
+        )
 
         # Add mainlobe stretch factor
         if self.mainlobe_scale != 1.0:
