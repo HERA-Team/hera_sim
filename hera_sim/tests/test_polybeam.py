@@ -48,9 +48,7 @@ def beams(rotation, nants, polarized=False):
     cfg_beam = dict(
         ref_freq=1.0e8,
         spectral_index=-0.6975,
-        perturb=True,
         mainlobe_width=0.3,
-        nmodes=8,
         beam_coeffs=[
             0.29778665,
             -0.44821433,
@@ -74,7 +72,7 @@ def beams(rotation, nants, polarized=False):
     )
     beams = [
         PerturbedPolyBeam(
-            perturb_coeff=np.array(
+            perturb_coeffs=np.array(
                 [
                     -0.20437532,
                     -0.4864951,
