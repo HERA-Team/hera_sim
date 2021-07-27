@@ -208,11 +208,6 @@ class TestPerturbedPolyBeam:
         # Calculate with unrotated, unpolarized beam
         calc_result_unpol = run_sim(r, use_pixel_beams=False, use_pol=False, pol="ee")
 
-        # Check that ee + nn == unpol, since V_pI = 0.5 * (V_nn + V_ee)
-        # NOTE: Extra factor of two difference (unclear why)
-        unpol = 0.5 * (calc_result_ee + calc_result_nn)
-        np.testing.assert_almost_equal(unpol, 2.0 * calc_result_unpol, decimal=7)
-
         # Check that all pols have valid values
         assert np.all(~np.isnan(calc_result_ee))
         assert np.all(~np.isinf(calc_result_ee))
@@ -222,6 +217,8 @@ class TestPerturbedPolyBeam:
         assert np.all(~np.isinf(calc_result_en))
         assert np.all(~np.isnan(calc_result_ne))
         assert np.all(~np.isinf(calc_result_ne))
+        assert np.all(~np.isnan(calc_result_unpol))
+        assert np.all(~np.isinf(calc_result_unpol))
 
 
 class TestPolarizedPolyBeam:
