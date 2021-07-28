@@ -95,22 +95,6 @@ class VisCPU(VisibilitySimulator):
 
         super(VisCPU, self).__init__(validate=False, **kwargs)
 
-        # If beam ids and beam lists are mis-matched, expand the beam list
-        # or raise an error
-        if len(self.beams) != len(self.beam_ids):
-
-            # If N_beams > 1 and N_beams != N_ants, raise an error
-            if len(self.beams) > 1:
-                raise ValueError(
-                    "Specified %d beams for %d antennas"
-                    % (len(self.beams), len(self.beam_ids))
-                )
-
-            # # If there is only one beam, assume it's the same for all ants
-            if len(self.beams) == 1:
-                beam = self.beams[0]
-                self.beams = [beam for b in self.beam_ids]
-
         # Convert some arguments to simpler forms for vis_cpu.
         self.freqs = self.uvdata.freq_array[0]
 
@@ -248,12 +232,12 @@ class VisCPU(VisibilitySimulator):
         return np.asarray(
             [
                 convs.uvbeam_to_lm(
-                    self.beams[np.where(self.beam_ids == ant)[0][0]],
+                    self.beams[idx],
                     self.freqs,
                     n_pix_lm=self.bm_pix,
                     polarized=self.polarized,
                 )
-                for ant in self.ant_list
+                for idx in self.beam_ids
             ]
         )
 
