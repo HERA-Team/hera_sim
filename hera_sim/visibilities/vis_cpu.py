@@ -101,10 +101,7 @@ class VisCPU(VisibilitySimulator):
     def validate(self, data_model: ModelData):
         """Checks for correct input format."""
         # N(N-1)/2 unique cross-correlations + N autocorrelations.
-        if (
-            len(data_model.uvdata.get_antpairs())
-            != data_model.n_ant * (data_model.n_ant + 1) / 2
-        ):
+        if data_model.Nbls != data_model.n_ant * (data_model.n_ant + 1) / 2:
             raise ValueError(
                 "VisCPU requires using every pair of antennas, "
                 "but the UVData object does not comply."
@@ -113,9 +110,7 @@ class VisCPU(VisibilitySimulator):
         if len(data_model.uvdata.data_array) != len(
             data_model.uvdata.get_antpairs()
         ) * len(data_model.lsts):
-            raise ValueError(
-                "VisCPU requires that every baseline uses the " "same LSTS."
-            )
+            raise ValueError("VisCPU requires that every baseline uses the same LSTS.")
 
     def correct_point_source_pos(
         self,
