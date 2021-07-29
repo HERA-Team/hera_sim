@@ -349,6 +349,11 @@ def evaluate_polybeam(polybeam):
 
     eval_beam = polybeam.interp(az, za, freqs)
 
+    # Check that calling the interp() method with wrongly sized
+    # coordinates results in an error
+    with pytest.raises(ValueError):
+        _ = polybeam.interp(az, za[:-1], freqs)
+
     return (eval_beam[0], az, za, freqs.size)
 
 
