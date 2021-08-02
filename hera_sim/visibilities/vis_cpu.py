@@ -412,18 +412,21 @@ class VisCPU(VisibilitySimulator):
             )
 
             # Assign simulated visibilities to UVData data_array
+            # N.B. Note conjugation, to match pyuvsim convention
             if self.polarized:
                 indices = np.triu_indices(vis.shape[3])
                 for p, pidxs in enumerate(req_pols):
                     p1, p2 = pidxs
                     vis_upper_tri = vis[p1, p2, :, indices[0], indices[1]]
-                    visfull[:, 0, i, p] = vis_upper_tri.T.flatten()
+                    visfull[:, 0, i, p] = vis_upper_tri.conj().T.flatten()
                     # Shape: (Nblts, Nspws, Nfreqs, Npols)
+                    # Note that the transpose of vis_upper_tri is needed here
+                    # to get the correct bls/times ordering when flattening
             else:
                 # Only one polarization (vis is returned without first 2 dims)
                 indices = np.triu_indices(vis.shape[1])
                 vis_upper_tri = vis[:, indices[0], indices[1]]
-                visfull[:, 0, i, 0] = vis_upper_tri.flatten()
+                visfull[:, 0, i, 0] = vis_upper_tri.conj().flatten()
 
         # Reduce visfull array if in MPI mode
         if self.mpi_comm is not None:
