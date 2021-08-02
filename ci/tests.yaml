@@ -20,6 +20,7 @@ dependencies:
   - basemap
   - pyuvdata>=2.1.4,<2.2.0
   - blas<2.0
+  - mpi4py>=3.0,<4  # Required by pyuvsim
   - git
   - pip:
     - cached-property
