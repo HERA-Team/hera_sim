@@ -417,7 +417,7 @@ class VisCPU(VisibilitySimulator):
                 for p, pidxs in enumerate(req_pols):
                     p1, p2 = pidxs
                     vis_upper_tri = vis[p1, p2, :, indices[0], indices[1]]
-                    visfull[:, 0, i, p] = vis_upper_tri.flatten()
+                    visfull[:, 0, i, p] = vis_upper_tri.T.flatten()
                     # Shape: (Nblts, Nspws, Nfreqs, Npols)
             else:
                 # Only one polarization (vis is returned without first 2 dims)
