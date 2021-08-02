@@ -738,5 +738,30 @@ class TestSimRedData(unittest.TestCase):
                 np.testing.assert_almost_equal(ans0yy, ans_yy, decimal=7)
 
 
+def test_nants_beams(uvdata2):
+    beams = [AnalyticBeam("uniform"), AnalyticBeam("gaussian")]
+
+    freqs = np.unique(uvdata2.freq_array)
+    nbase = 4
+    nside = 2 ** nbase
+
+    I_sky = create_uniform_sky(nbase=nbase)
+
+    viscpu = VisCPU(
+        uvdata=uvdata2, sky_freqs=freqs, sky_intensity=I_sky, nside=nside, beams=beams
+    )
+    assert viscpu.beam_ids[0] == 0
+    assert viscpu.beam_ids[1] == 1
+
+    with pytest.raises(ValueError):
+        VisCPU(
+            uvdata=uvdata2,
+            sky_freqs=freqs,
+            sky_intensity=I_sky,
+            nside=nside,
+            beams=beams + [AnalyticBeam("gaussian")],
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
