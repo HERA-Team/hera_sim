@@ -33,12 +33,12 @@ jobs:
       - name: Cache conda
         uses: actions/cache@v2
         env:
-          # Increase this value to reset cache if ci/test-env.yml has not changed
+          # Increase this value to reset cache if ci/tests.yaml has not changed
           CACHE_NUMBER: 0
         with:
           path: ~/conda_pkgs_dir
           key:
-            ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}-${{ matrix.python-version }}-${{ hashFiles('ci/test-env.yml', 'setup.cfg') }}
+            ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}-${{ matrix.python-version }}-${{ hashFiles('ci/tests.yaml', 'setup.cfg') }}
 
       - name: Setup Miniconda
         uses: conda-incubator/setup-miniconda@v2.1.1
@@ -46,7 +46,7 @@ jobs:
           # auto-update-conda: true
           miniconda-version: "latest"
           python-version: ${{ matrix.python-version }}
-          environment-file: ci/test-env.yml
+          environment-file: ci/tests.yaml
           activate-environment: tests
           channels: conda-forge,defaults
           channel-priority: strict
