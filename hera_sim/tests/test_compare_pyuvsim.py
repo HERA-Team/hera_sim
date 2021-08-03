@@ -89,7 +89,7 @@ def get_beams(beam_type, nants):
     return beams
 
 
-@pytest.mark.parameterize(
+@pytest.mark.parametrize(
     "nsource,beam_type",
     [
         (1, "gaussian"),
