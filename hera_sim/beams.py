@@ -473,8 +473,9 @@ class PerturbedPolyBeam(PolyBeam):
         perturb_zeropoint=None,
         **kwargs
     ):
+
         # Initialize base class
-        super().__init__(**kwargs)
+        super().__init__(beam_coeffs=beam_coeffs, **kwargs)
 
         # Check for valid input parameters
         if mainlobe_width is None:

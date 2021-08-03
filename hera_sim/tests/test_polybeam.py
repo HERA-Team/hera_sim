@@ -98,6 +98,122 @@ class DummyMPIComm:
         return 2  # Pretend there are 2 processes
 
 
+def create_polarized_polybeam():
+    """
+    Create a polarized PolyBeam.
+
+    The parameters of the beam were copied from the HERA Memo n°81:
+    https://reionization.org/wp-content/uploads/2013/03/HERA081_HERA_Primary_Beam_Chebyshev_Apr2020.pdf.
+
+    """
+    # parameters
+    spectral_index = -0.6975
+    beam_coeffs = [
+        2.35088101e-01,
+        -4.20162599e-01,
+        2.99189140e-01,
+        -1.54189057e-01,
+        3.38651457e-02,
+        3.46936067e-02,
+        -4.98838130e-02,
+        3.23054464e-02,
+        -7.56006552e-03,
+        -7.24620596e-03,
+        7.99563166e-03,
+        -2.78125602e-03,
+        -8.19945835e-04,
+        1.13791191e-03,
+        -1.24301372e-04,
+        -3.74808752e-04,
+        1.93997376e-04,
+        -1.72012040e-05,
+    ]
+    ref_freq = 1e8
+    # instantiate the PolyBeam object
+    cfg_pol_beam = dict(
+        ref_freq=ref_freq,
+        spectral_index=spectral_index,
+        beam_coeffs=beam_coeffs,
+        polarized=True,
+    )
+    pol_PolyBeam = PolyBeam(**cfg_pol_beam)
+
+    return pol_PolyBeam
+
+
+def evaluate_polybeam(polybeam):
+    """
+    Evaluate a PolyBeam at hard-coded az and za angles, and frequencies.
+    """
+    n_pix_lm = 500
+    L = np.linspace(-1, 1, n_pix_lm, dtype=np.float64)
+    L, m = np.meshgrid(L, L)
+    L = L.flatten()
+    m = m.flatten()
+
+    lsqr = L ** 2 + m ** 2
+    n = np.where(lsqr < 1, np.sqrt(1 - lsqr), 0)
+
+    # Generate azimuth and zenith angle.
+    az = -np.arctan2(m, L)
+    za = np.pi / 2 - np.arcsin(n)
+
+    freqs = np.array(
+        [
+            1.00e08,
+            1.04e08,
+            1.08e08,
+            1.12e08,
+            1.16e08,
+            1.20e08,
+            1.24e08,
+            1.28e08,
+            1.32e08,
+            1.36e08,
+            1.40e08,
+            1.44e08,
+            1.48e08,
+            1.52e08,
+            1.56e08,
+            1.60e08,
+            1.64e08,
+            1.68e08,
+            1.72e08,
+            1.76e08,
+            1.80e08,
+            1.84e08,
+            1.88e08,
+            1.92e08,
+            1.96e08,
+            2.00e08,
+        ]
+    )
+
+    eval_beam = polybeam.interp(az, za, freqs)
+
+    # Check that calling the interp() method with wrongly sized
+    # coordinates results in an error
+    with pytest.raises(ValueError):
+        _ = polybeam.interp(az, za[:-1], freqs)
+
+    return (eval_beam[0], az, za, freqs.size)
+
+
+def convert_to_pStokes(eval_beam, az, za, Nfreq):
+    """
+    Convert an E-field to its pseudo-Stokes power beam.
+    """
+    nside_test = 64
+    pixel_indices_test = hp.ang2pix(nside_test, za, az)
+    npix_test = hp.nside2npix(nside_test)
+
+    pol_efield_beam_plot = np.zeros((2, 1, 2, Nfreq, npix_test), dtype=np.complex128)
+    pol_efield_beam_plot[:, :, :, :, pixel_indices_test] = eval_beam[:, :, :, :]
+    eval_beam_pStokes = efield_to_pstokes(pol_efield_beam_plot, npix_test, Nfreq)
+
+    return eval_beam_pStokes
+
+
 def run_sim(
     beam_rotation,
     use_pixel_beams=True,
@@ -251,119 +367,3 @@ def test_all_polarized_polybeam():
 
     # Check that pStokes power beams are real
     assert np.isreal(eval_beam_pStokes).all(), "the pseudo-Stokes beams are not real"
-
-
-def create_polarized_polybeam():
-    """
-    Create a polarized PolyBeam.
-
-    The parameters of the beam were copied from the HERA Memo n°81:
-    https://reionization.org/wp-content/uploads/2013/03/HERA081_HERA_Primary_Beam_Chebyshev_Apr2020.pdf.
-
-    """
-    # parameters
-    spectral_index = -0.6975
-    beam_coeffs = [
-        2.35088101e-01,
-        -4.20162599e-01,
-        2.99189140e-01,
-        -1.54189057e-01,
-        3.38651457e-02,
-        3.46936067e-02,
-        -4.98838130e-02,
-        3.23054464e-02,
-        -7.56006552e-03,
-        -7.24620596e-03,
-        7.99563166e-03,
-        -2.78125602e-03,
-        -8.19945835e-04,
-        1.13791191e-03,
-        -1.24301372e-04,
-        -3.74808752e-04,
-        1.93997376e-04,
-        -1.72012040e-05,
-    ]
-    ref_freq = 1e8
-    # instantiate the PolyBeam object
-    cfg_pol_beam = dict(
-        ref_freq=ref_freq,
-        spectral_index=spectral_index,
-        beam_coeffs=beam_coeffs,
-        polarized=True,
-    )
-    pol_PolyBeam = PolyBeam(**cfg_pol_beam)
-
-    return pol_PolyBeam
-
-
-def evaluate_polybeam(polybeam):
-    """
-    Evaluate a PolyBeam at hard-coded az and za angles, and frequencies.
-    """
-    n_pix_lm = 500
-    L = np.linspace(-1, 1, n_pix_lm, dtype=np.float64)
-    L, m = np.meshgrid(L, L)
-    L = L.flatten()
-    m = m.flatten()
-
-    lsqr = L ** 2 + m ** 2
-    n = np.where(lsqr < 1, np.sqrt(1 - lsqr), 0)
-
-    # Generate azimuth and zenith angle.
-    az = -np.arctan2(m, L)
-    za = np.pi / 2 - np.arcsin(n)
-
-    freqs = np.array(
-        [
-            1.00e08,
-            1.04e08,
-            1.08e08,
-            1.12e08,
-            1.16e08,
-            1.20e08,
-            1.24e08,
-            1.28e08,
-            1.32e08,
-            1.36e08,
-            1.40e08,
-            1.44e08,
-            1.48e08,
-            1.52e08,
-            1.56e08,
-            1.60e08,
-            1.64e08,
-            1.68e08,
-            1.72e08,
-            1.76e08,
-            1.80e08,
-            1.84e08,
-            1.88e08,
-            1.92e08,
-            1.96e08,
-            2.00e08,
-        ]
-    )
-
-    eval_beam = polybeam.interp(az, za, freqs)
-
-    # Check that calling the interp() method with wrongly sized
-    # coordinates results in an error
-    with pytest.raises(ValueError):
-        _ = polybeam.interp(az, za[:-1], freqs)
-
-    return (eval_beam[0], az, za, freqs.size)
-
-
-def convert_to_pStokes(eval_beam, az, za, Nfreq):
-    """
-    Convert an E-field to its pseudo-Stokes power beam.
-    """
-    nside_test = 64
-    pixel_indices_test = hp.ang2pix(nside_test, za, az)
-    npix_test = hp.nside2npix(nside_test)
-
-    pol_efield_beam_plot = np.zeros((2, 1, 2, Nfreq, npix_test), dtype=np.complex128)
-    pol_efield_beam_plot[:, :, :, :, pixel_indices_test] = eval_beam[:, :, :, :]
-    eval_beam_pStokes = efield_to_pstokes(pol_efield_beam_plot, npix_test, Nfreq)
-
-    return eval_beam_pStokes
