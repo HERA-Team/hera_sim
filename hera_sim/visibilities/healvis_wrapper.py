@@ -167,4 +167,4 @@ class HealVis(VisibilitySimulator):
 
             vis[indx] = vis_here
 
-        return visibility[:, 0][:, np.newaxis, :, :]
+        return vis[:, 0][:, np.newaxis, :, :]
