@@ -89,7 +89,18 @@ def get_beams(beam_type, nants):
     return beams
 
 
-def compare_viscpu_with_pyuvsim(nsource, beam_type):
+@pytest.mark.parameterize(
+    "nsource,beam_type",
+    [
+        (1, "gaussian"),
+        (1, "PolyBeam"),
+        (1, "PolyBeam polarized"),
+        (100, "gaussian"),
+        (100, "PolyBeam"),
+        (100, "PolyBeam polarized"),
+    ],
+)
+def test_compare_viscpu_with_pyuvsim(nsource, beam_type):
     """Compare vis_cpu and pyuvsim simulated visibilities."""
     hera_lat = -30.7215
     hera_lon = 21.4283
@@ -299,33 +310,3 @@ def compare_viscpu_with_pyuvsim(nsource, beam_type):
                 rtol=rtol,
                 atol=atol,
             ), "Max. difference (im): %10.10e" % (diff_im,)
-
-
-def test_compare_1src_gauss():
-    # Single source, Gaussian beam, unpolarized
-    compare_viscpu_with_pyuvsim(nsource=1, beam_type="gaussian")
-
-
-def test_compare_1src_polybeam():
-    # Single source, PolyBeam beam, unpolarized
-    compare_viscpu_with_pyuvsim(nsource=1, beam_type="PolyBeam")
-
-
-def test_compare_1src_polybeam_pol():
-    # Single source, PolyBeam beam, polarized
-    compare_viscpu_with_pyuvsim(nsource=1, beam_type="PolyBeam polarized")
-
-
-def test_compare_100src_gauss():
-    # Single source, Gaussian beam, unpolarized
-    compare_viscpu_with_pyuvsim(nsource=100, beam_type="gaussian")
-
-
-def test_compare_100src_polybeam():
-    # Single source, PolyBeam beam, unpolarized
-    compare_viscpu_with_pyuvsim(nsource=100, beam_type="PolyBeam")
-
-
-def test_compare_100src_polybeam_pol():
-    # Single source, PolyBeam beam, polarized
-    compare_viscpu_with_pyuvsim(nsource=100, beam_type="PolyBeam polarized")

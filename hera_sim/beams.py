@@ -264,7 +264,7 @@ class PolyBeam(AnalyticBeam):
 
     Parameters
     ----------
-    beam_coeffs: array_like
+    beam_coeffs : array_like
         Co-efficients of the Chebyshev polynomial.
     spectral_index : float, optional
         Spectral index of the frequency-dependent power law scaling to
@@ -388,14 +388,12 @@ class PolyBeam(AnalyticBeam):
 
 
 class PerturbedPolyBeam(PolyBeam):
-    """A PolyBeam in which the shape of the beam has been modified.
-
-    Note that the PolyBeam `beam_coeffs` kwarg must be passed on instantiation.
+    """A :class:`PolyBeam` in which the shape of the beam has been modified.
 
     The perturbations can be applied to the mainlobe, sidelobes, or
-    the entire beam. While the underlying PolyBeam depends on frequency via
-    the `spectral_index` kwarg, the perturbations themselves do not have a
-    frequency dependence unless explicitly stated.
+    the entire beam. While the underlying :class:`PolyBeam` depends on
+    frequency via the `spectral_index` kwarg, the perturbations themselves do
+    not have a frequency dependence unless explicitly stated.
 
     Mainlobe: A Gaussian of width FWHM is subtracted and then a new
     Gaussian with width `mainlobe_width` is added back in. This perturbs
@@ -412,6 +410,8 @@ class PerturbedPolyBeam(PolyBeam):
 
     Parameters
     ----------
+    beam_coeffs : array_like
+        Co-efficients of the baseline Chebyshev polynomial.
     perturb_coeffs : array_like, optional
         Array of floats with the coefficients of a (sine-only) Fourier
         series that will be used to modulate the base Chebyshev primary
@@ -448,8 +448,6 @@ class PerturbedPolyBeam(PolyBeam):
         If specified, override the automatical zero-point calculation for
         the angle-dependent sidelobe perturbation. Default: None (use the
         automatically-calculated zero-point).
-    beam_coeffs : array_like
-        Co-efficients of the baseline Chebyshev polynomial.
     spectral_index : float, optional
         Spectral index of the frequency-dependent power law scaling to
         apply to the width of the beam.
@@ -461,6 +459,7 @@ class PerturbedPolyBeam(PolyBeam):
 
     def __init__(
         self,
+        beam_coeffs=None,
         perturb_coeffs=None,
         perturb_scale=0.1,
         mainlobe_width=0.3,
@@ -611,7 +610,9 @@ class PerturbedPolyBeam(PolyBeam):
 
             # Updated polar coordinates
             theta_s = np.sqrt(Xs ** 2.0 + Ys ** 2.0)
-            phi_s = np.where(theta_s == 0.0, 0.0, np.arccos(Xs / theta_s))
+            phi_s = np.zeros_like(theta_s)
+            mask = theta_s == 0.0
+            phi_s[~mask] = np.arccos(Xs[~mask] / theta_s[~mask])
             phi_s[Ys < 0.0] *= -1.0
 
             # Fix coordinates below the horizon of the unstretched beam

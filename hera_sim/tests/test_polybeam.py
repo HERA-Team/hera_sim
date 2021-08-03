@@ -155,105 +155,102 @@ def run_sim(
     return auto
 
 
-class TestPerturbedPolyBeam:
-    def test_perturbed_polybeam(self):
+def test_perturbed_polybeam():
 
-        # Rotate the beam from 0 to 180 degrees, and check that autocorrelation
-        # of antenna 0 has approximately the same value when pixel beams are
-        # used, and when pixel beams not used (direct beam calculation).
-        rotations = np.zeros(180 + 1)
-        pix_results = np.zeros(180 + 1)
-        calc_results = np.zeros(180 + 1)
-        for r in range(180 + 1):
-            pix_result = run_sim(r, use_pixel_beams=True)
+    # Rotate the beam from 0 to 180 degrees, and check that autocorrelation
+    # of antenna 0 has approximately the same value when pixel beams are
+    # used, and when pixel beams not used (direct beam calculation).
+    rotations = np.zeros(180 + 1)
+    pix_results = np.zeros(180 + 1)
+    calc_results = np.zeros(180 + 1)
+    for r in range(180 + 1):
+        pix_result = run_sim(r, use_pixel_beams=True)
 
-            # Direct beam calculation - no pixel beams
-            calc_result = run_sim(r, use_pixel_beams=False)
+        # Direct beam calculation - no pixel beams
+        calc_result = run_sim(r, use_pixel_beams=False)
 
-            rotations[r] = r
-            pix_results[r] = pix_result
-            calc_results[r] = calc_result
+        rotations[r] = r
+        pix_results[r] = pix_result
+        calc_results[r] = calc_result
 
-        # Check that the maximum difference between pixel beams/direct calculation
-        # cases is no more than 5%. This shows the direct calculation of the beam
-        # tracks the pixel beam interpolation. They won't be exactly the same.
-        np.testing.assert_allclose(pix_results, calc_results, rtol=0.05)
+    # Check that the maximum difference between pixel beams/direct calculation
+    # cases is no more than 5%. This shows the direct calculation of the beam
+    # tracks the pixel beam interpolation. They won't be exactly the same.
+    np.testing.assert_allclose(pix_results, calc_results, rtol=0.05)
 
-        # Check that rotations 0 and 180 produce the same values.
-        assert pix_results[0] == pytest.approx(pix_results[180], abs=1e-8)
-        assert calc_results[0] == pytest.approx(calc_results[180], abs=1e-8)
+    # Check that rotations 0 and 180 produce the same values.
+    assert pix_results[0] == pytest.approx(pix_results[180], abs=1e-8)
+    assert calc_results[0] == pytest.approx(calc_results[180], abs=1e-8)
 
-        # Check that the values are not all the same. Shouldn't be, due to
-        # elliptic beam.
-        assert np.min(pix_results) != pytest.approx(np.max(pix_results), abs=0.1)
-        assert np.min(calc_results) != pytest.approx(np.max(calc_results), abs=0.1)
+    # Check that the values are not all the same. Shouldn't be, due to
+    # elliptic beam.
+    assert np.min(pix_results) != pytest.approx(np.max(pix_results), abs=0.1)
+    assert np.min(calc_results) != pytest.approx(np.max(calc_results), abs=0.1)
 
-        # Check that attempting to use GPU with Polybeam raises an error.
-        with pytest.raises(RuntimeError if HAVE_GPU else ImportError):
-            run_sim(r, use_pixel_beams=False, use_gpu=True)
+    # Check that attempting to use GPU with Polybeam raises an error.
+    with pytest.raises(RuntimeError if HAVE_GPU else ImportError):
+        run_sim(r, use_pixel_beams=False, use_gpu=True)
 
-        # Check that attempting to use GPU with MPI raises an error.
-        with pytest.raises(RuntimeError):
-            run_sim(r, use_gpu=True, use_mpi=True)
-
-    def test_perturbed_polybeam_polarized(self):
-
-        # Calculate all polarizations for a beam rotated by 12 degrees
-        r = 12.0  # degrees
-        calc_result_ee = run_sim(r, use_pixel_beams=False, use_pol=True, pol="ee")
-        calc_result_nn = run_sim(r, use_pixel_beams=False, use_pol=True, pol="nn")
-        calc_result_en = run_sim(r, use_pixel_beams=False, use_pol=True, pol="en")
-        calc_result_ne = run_sim(r, use_pixel_beams=False, use_pol=True, pol="ne")
-
-        # Calculate with unrotated, unpolarized beam
-        calc_result_unpol = run_sim(r, use_pixel_beams=False, use_pol=False, pol="ee")
-
-        # Check that all pols have valid values
-        assert np.all(~np.isnan(calc_result_ee))
-        assert np.all(~np.isinf(calc_result_ee))
-        assert np.all(~np.isnan(calc_result_nn))
-        assert np.all(~np.isinf(calc_result_nn))
-        assert np.all(~np.isnan(calc_result_en))
-        assert np.all(~np.isinf(calc_result_en))
-        assert np.all(~np.isnan(calc_result_ne))
-        assert np.all(~np.isinf(calc_result_ne))
-        assert np.all(~np.isnan(calc_result_unpol))
-        assert np.all(~np.isinf(calc_result_unpol))
+    # Check that attempting to use GPU with MPI raises an error.
+    with pytest.raises(RuntimeError):
+        run_sim(r, use_gpu=True, use_mpi=True)
 
 
-class TestPolarizedPolyBeam:
-    def test_all_polarized_polybeam(self):
-        """
-        Wrapper for all polarized PolyBeam tests.
-        Instantiate and evaluate a beam (once).
-        """
-        pol_beam = create_polarized_polybeam()
-        eval_beam, az, za, Nfreq = evaluate_polybeam(pol_beam)
-        eval_beam_pStokes = convert_to_pStokes(eval_beam, az, za, Nfreq)
+def test_perturbed_polybeam_polarized():
 
-        # Check that the beam is normalized between 1 and 0 (± 1e-2),
-        # at all polarizations and a range of selected frequencies.
-        for vec in [0, 1]:
-            for feed in [0, 1]:
-                for freq in [0, 5, 10, 15, 20, 25]:
-                    modulus = np.abs(eval_beam[vec, 0, feed, freq])
-                    M = np.max(modulus)
-                    m = np.min(modulus)
-                    assert M <= 1 and M == pytest.approx(
-                        1, rel=3e-2
-                    ), "beam not properly normalized"
-                    assert m >= 0 and m == pytest.approx(
-                        0, abs=1e-3
-                    ), "beam not properly normalized"
+    # Calculate all polarizations for a beam rotated by 12 degrees
+    r = 12.0  # degrees
+    calc_result_ee = run_sim(r, use_pixel_beams=False, use_pol=True, pol="ee")
+    calc_result_nn = run_sim(r, use_pixel_beams=False, use_pol=True, pol="nn")
+    calc_result_en = run_sim(r, use_pixel_beams=False, use_pol=True, pol="en")
+    calc_result_ne = run_sim(r, use_pixel_beams=False, use_pol=True, pol="ne")
 
-        # Check that neither NaNs nor Infs atre returned by the interp() method.
-        assert not np.isnan(eval_beam).any(), "the beam contains NaN values"
-        assert not np.isinf(eval_beam).any(), "the beam contains Inf values"
+    # Calculate with unrotated, unpolarized beam
+    calc_result_unpol = run_sim(r, use_pixel_beams=False, use_pol=False, pol="ee")
 
-        # Check that pStokes power beams are real
-        assert np.isreal(
-            eval_beam_pStokes
-        ).all(), "the pseudo-Stokes beams are not real"
+    # Check that all pols have valid values
+    assert np.all(~np.isnan(calc_result_ee))
+    assert np.all(~np.isinf(calc_result_ee))
+    assert np.all(~np.isnan(calc_result_nn))
+    assert np.all(~np.isinf(calc_result_nn))
+    assert np.all(~np.isnan(calc_result_en))
+    assert np.all(~np.isinf(calc_result_en))
+    assert np.all(~np.isnan(calc_result_ne))
+    assert np.all(~np.isinf(calc_result_ne))
+    assert np.all(~np.isnan(calc_result_unpol))
+    assert np.all(~np.isinf(calc_result_unpol))
+
+
+def test_all_polarized_polybeam():
+    """
+    Wrapper for all polarized PolyBeam tests.
+    Instantiate and evaluate a beam (once).
+    """
+    pol_beam = create_polarized_polybeam()
+    eval_beam, az, za, Nfreq = evaluate_polybeam(pol_beam)
+    eval_beam_pStokes = convert_to_pStokes(eval_beam, az, za, Nfreq)
+
+    # Check that the beam is normalized between 1 and 0 (± 1e-2),
+    # at all polarizations and a range of selected frequencies.
+    for vec in [0, 1]:
+        for feed in [0, 1]:
+            for freq in [0, 5, 10, 15, 20, 25]:
+                modulus = np.abs(eval_beam[vec, 0, feed, freq])
+                M = np.max(modulus)
+                m = np.min(modulus)
+                assert M <= 1 and M == pytest.approx(
+                    1, rel=3e-2
+                ), "beam not properly normalized"
+                assert m >= 0 and m == pytest.approx(
+                    0, abs=1e-3
+                ), "beam not properly normalized"
+
+    # Check that neither NaNs nor Infs atre returned by the interp() method.
+    assert not np.isnan(eval_beam).any(), "the beam contains NaN values"
+    assert not np.isinf(eval_beam).any(), "the beam contains Inf values"
+
+    # Check that pStokes power beams are real
+    assert np.isreal(eval_beam_pStokes).all(), "the pseudo-Stokes beams are not real"
 
 
 def create_polarized_polybeam():
