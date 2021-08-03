@@ -10,7 +10,6 @@ of simulators.
 """
 from .simulators import VisibilitySimulator
 from .conversions import (
-    uvbeam_to_lm,
     eq2top_m,
     healpix_to_crd_eq,
 )
