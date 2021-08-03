@@ -142,12 +142,29 @@ class HealVis(VisibilitySimulator):
         Visibility from all sources.
             Shape=self.uvdata.data_array.shape.
         """
+        data_model.uvdata.reorder_blts(order="time")
+
         obs = self.get_observatory(data_model)
         sky = self.get_sky_model(data_model.sky_model)
-        visibility = [
-            obs.make_visibilities(sky, Nprocs=self._nprocs, beam_pol=pol)[0]
-            for pol in data_model.uvdata.get_pols()
-        ]
-        visibility = np.moveaxis(visibility, 0, -1)
+        visibility = np.zeros_like(data_model.uvdata.data_array)
+
+        for i, pol in enumerate(data_model.uvdata.get_pols()):
+            visibility[:, :, :, i], times, baselines = obs.make_visibilities(
+                sky, Nprocs=self._nprocs, beam_pol=pol
+            )
+
+        unique_bls = np.unique(data_model.uvdata.baseline_array)
+
+        vis = np.zeros_like(visibility)
+        for bl, vis_here in zip(baselines, visibility):
+            ant1, ant2 = data_model.uvdata.baseline_to_antnums(unique_bls[bl])
+            indx = data_model.uvdata.antpair2ind(ant1, ant2)
+            if len(indx) == 0:
+                # maybe we chose the wrong ordering according to the data. Then
+                # we just conjugate.
+                indx = data_model.uvdata.antpair2ind(ant2, ant1)
+                vis_here = np.conj(vis_here)
+
+            vis[indx] = vis_here
 
         return visibility[:, 0][:, np.newaxis, :, :]
