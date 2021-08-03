@@ -1,5 +1,6 @@
 """Compare vis_cpu with pyuvsim visibilities."""
 import numpy as np
+import pytest
 
 from pyuvsim import uvsim, simsetup, AnalyticBeam
 from pyuvsim.telescope import BeamList
@@ -187,6 +188,27 @@ def compare_viscpu_with_pyuvsim(nsource, beam_type):
     # (1) Run vis_cpu
     # ---------------------------------------------------------------------------
     radec_new = np.column_stack((ra_new, dec_new))
+
+    # Check that error is raised if polarizations exist in the UVData object
+    # that cannot be calculated
+    if not polarized and beam_type == "gaussian":
+        _uvdata = copy.deepcopy(uvdata)
+
+        with pytest.raises(KeyError):
+            # Construct simulator object and run (expecting error)
+            sim1 = VisCPU(
+                uvdata=_uvdata,
+                beams=beams,
+                beam_ids=list(beam_dict.values()),
+                sky_freqs=freqs,
+                point_source_pos=radec_new,
+                point_source_flux=flux,
+                bm_pix=None,
+                use_gpu=False,
+                polarized=polarized,
+                use_pixel_beams=False,
+            )
+            sim1.simulate()
 
     # Trim unwanted polarizations
     uvdata_viscpu = copy.deepcopy(uvdata)
