@@ -62,7 +62,7 @@ class ModelData:
         *,
         uvdata: UVData | str | Path,
         sky_model: SkyModel,
-        beam_ids: Dict[str, int] | np.typing.ArrayLike[int] | None = None,
+        beam_ids: Dict[str, int] | None = None,
         beams: BeamListType | None = None,
     ):
 
@@ -110,27 +110,23 @@ class ModelData:
         beam_ids: Dict[str, int] | np.typing.ArrayLike[int] | None,
         beams: BeamList,
     ) -> np.array[int]:
+        # beam ids maps antenna name to INDEX of the beam in the beam list.
+
         # Set the beam_ids.
         if beam_ids is None:
             if len(beams) == 1:
-                beam_ids = np.zeros(self.n_ant, dtype=int)
+                beam_ids = {nm: 0 for nm in self.uvdata.antenna_names}
             elif len(beams) == self.n_ant:
-                beam_ids = np.arange(self.n_ant, dtype=int)
+                beam_ids = {nm: i for i, nm in enumerate(self.uvdata.antenna_names)}
             else:
                 raise ValueError(
                     "Need to give beam_ids if beams is given and not one per ant."
                 )
-        elif isinstance(beam_ids, dict):
-            beam_ids = np.array(
-                [beam_ids[nm] for nm in self.uvdata.antenna_names], dtype=int
-            )
-        else:
-            beam_ids = np.array(beam_ids, dtype=int)
 
         return beam_ids
 
     def _validate_beam_ids(self, beam_ids, beams):
-        if beam_ids.max() >= len(beams):
+        if max(beam_ids.values()) >= len(beams):
             raise ValueError(
                 "There is at least one beam_id that points to a non-existent beam."
                 f"Number of given beams={len(beams)} but maximum"
@@ -160,8 +156,10 @@ class ModelData:
 
     @cached_property
     def lsts(self):
-        """The LSTs at which data is defined."""
-        return self.uvdata.lst_array[:: self.uvdata.Nbls]
+        """Local Sidereal Times in radians."""
+        # This process retrieves the unique LSTs while respecting phase wraps.
+        _, unique_inds = np.unique(self.uvdata.time_array, return_index=True)
+        return self.uvdata.lst_array[unique_inds]
 
     @cached_property
     def freqs(self) -> np.ndarray:
@@ -207,16 +205,6 @@ class ModelData:
             return_names=False,
             path_out=direc,
         )
-
-    @cached_property
-    def ant_list(self) -> np.ndarray:
-        """An ordered list of active antenna numbers."""
-        return self.uvdata.get_ants()
-
-    @cached_property
-    def active_antpos(self) -> np.ndarray:
-        """Positions of active antennas."""
-        return self.uvdata.get_ENU_antpos()[0][self.ant_list]
 
 
 @dataclass
@@ -287,9 +275,12 @@ class VisibilitySimulation:
 
     def simulate(self):
         """Perform the visibility simulation."""
+        # Order the baselines/times in the order expected by the simulator.
         vis = self.simulator.simulate(self.data_model)
+
         self.uvdata.data_array += vis
         self._write_history()
+
         return vis
 
     @property

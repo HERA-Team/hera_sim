@@ -48,6 +48,9 @@ class VisCPU(VisibilitySimulator):
         Passed through to :class:`~.simulators.VisibilitySimulator`.
     """
 
+    conjugation_convention = "ant1<ant2"
+    time_ordering = "time"
+
     diffuse_ability = False
 
     def __init__(
@@ -101,7 +104,7 @@ class VisCPU(VisibilitySimulator):
     def validate(self, data_model: ModelData):
         """Checks for correct input format."""
         # N(N-1)/2 unique cross-correlations + N autocorrelations.
-        if data_model.Nbls != data_model.n_ant * (data_model.n_ant + 1) / 2:
+        if data_model.uvdata.Nbls != data_model.n_ant * (data_model.n_ant + 1) / 2:
             raise ValueError(
                 "VisCPU requires using every pair of antennas, "
                 "but the UVData object does not comply."
@@ -111,6 +114,17 @@ class VisCPU(VisibilitySimulator):
             data_model.uvdata.get_antpairs()
         ) * len(data_model.lsts):
             raise ValueError("VisCPU requires that every baseline uses the same LSTS.")
+
+        if any(
+            len(data_model.uvdata.antpair2ind(ai, aj)) > 0
+            and len(data_model.uvdata.antpair2ind(aj, ai)) > 0
+            for ai, aj in data_model.uvdata.get_antpairs()
+            if ai != aj
+        ):
+            raise ValueError(
+                "VisCPU requires that baselines be in a conjugation in which antenna "
+                "order doesn't change with time!"
+            )
 
     def correct_point_source_pos(
         self,
@@ -187,7 +201,10 @@ class VisCPU(VisibilitySimulator):
                     n_pix_lm=self.bm_pix,
                     polarized=self.polarized,
                 )
-                for ant in data_model.ant_list
+                for ant, num in zip(
+                    data_model.uvdata.antenna_names, data_model.uvdata.antenna_numbers
+                )
+                if num in data_model.uvdata.get_ants()
             ]
         )
 
@@ -235,13 +252,21 @@ class VisCPU(VisibilitySimulator):
         # Convert equatorial to topocentric coords
         eq2tops = self.get_eq2tops(data_model.uvdata, data_model.lsts)
 
+        # ant_list = data_model.uvdata.get_ants()
+        # The following are antenna positions in the order that they are
+        # in the uvdata.data_array
+        active_antpos, ant_list = data_model.uvdata.get_ENU_antpos(pick_data_ants=True)
+
         # Get pixelized beams if required
         if self.use_pixel_beams:
             beam_lm = self.get_beam_lm(data_model)
         else:
             beam_list = [
-                data_model.beams[np.where(data_model.beam_ids == ant)[0][0]]
-                for ant in data_model.ant_list
+                data_model.beams[data_model.beam_ids[name]]
+                for number, name in zip(
+                    data_model.uvdata.antenna_numbers, data_model.uvdata.antenna_names
+                )
+                if number in ant_list
             ]
 
         visfull = np.zeros_like(data_model.uvdata.data_array, dtype=self._complex_dtype)
@@ -254,7 +279,7 @@ class VisCPU(VisibilitySimulator):
 
             # TODO: check that polarization is being done correctly.
             vis = self._vis_cpu(
-                antpos=data_model.active_antpos,
+                antpos=active_antpos,
                 freq=freq,
                 eq2tops=eq2tops,
                 crd_eq=crd_eq,
@@ -265,9 +290,22 @@ class VisCPU(VisibilitySimulator):
                 polarized=self.polarized,
             )
             indices = np.triu_indices(vis.shape[1])
-            vis_upper_tri = vis[:, indices[0], indices[1]]
 
-            visfull[:, 0, i, 0] = vis_upper_tri.flatten()
+            # Order output correctly
+            for ant1, ant2 in zip(*indices):  # go through indices in output
+                vis_here = vis[:, ant1, ant2]
+                # get official "antenna numbers" corresponding to these indices
+                antnum1, antnum2 = ant_list[ant1], ant_list[ant2]
+
+                # get all blt indices corresponding to this antpair
+                indx = data_model.uvdata.antpair2ind(antnum1, antnum2)
+                if len(indx) == 0:
+                    # maybe we chose the wrong ordering according to the data. Then
+                    # we just conjugate.
+                    indx = data_model.uvdata.antpair2ind(antnum2, antnum1)
+                    vis_here = np.conj(vis_here)
+
+                visfull[indx, 0, i, 0] = vis_here
 
         # Reduce visfull array if in MPI mode
         if self.mpi_comm is not None:
