@@ -2,6 +2,15 @@
 Changelog
 =========
 
+v1.0.3 [2021.08.04]
+===================
+
+Added
+-----
+- Enable polarization support for ``vis_cpu`` (handles polarized primary beams, but
+  only Stokes I sky model so far)
+- Add a polarized version of the analytic PolyBeam model.
+
 v1.0.2 [2021.07.01]
 ===================
 
