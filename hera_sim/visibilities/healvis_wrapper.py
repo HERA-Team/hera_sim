@@ -153,16 +153,27 @@ class HealVis(VisibilitySimulator):
             )  # Shape (Nblts, Nskies, Nfreqs)
             visibilities.append(visibility[:, 0, :][:, np.newaxis, :])
 
-        # Make sure the visibilities have shape (Nblts, 1, Nfreqs, Npols).
+        # Transform from shape (Npols, Nblts, 1, Nfreqs) to  (Nblts, 1, Nfreqs, Npols).
         visibilities = np.moveaxis(visibilities, 0, -1)
 
-        # Now get the blt-order correct.
+        # Now get the blt-order correct. healvis constructs the observatory such
+        # that the baselines are sorted in order of increasing baseline integer. So
+        # to get the mapping right, we need to first get the unique baseline integers
+        # sorted in increasing order. This doesn't necessarily match the order of the
+        # data array, so we need to reorder the simulated data so it does match.
         vis = np.zeros_like(data_model.uvdata.data_array)
         unique_bls = list(np.unique(data_model.uvdata.baseline_array))
         for ai, aj in data_model.uvdata.get_antpairs():
+            # First, retrieve the integer for the current baseline.
             baseline = data_model.uvdata.antnums_to_baseline(ai, aj)
-            sim_indx = np.argwhere(baselines == unique_bls.index(baseline)).flatten()
+            # Then, find out where the baseline sits in the ordered list.
+            baseline_indx = unique_bls.index(baseline)
+            # ``baselines`` is sorted the same way as the visibilities, so this gives
+            # the visibilities simulated for this baseline in the simulation data.
+            sim_indx = np.argwhere(baselines == baseline_indx).flatten()
+            # This gives us the slice of the data array where this baseline lives.
             data_indx = data_model.uvdata.antpair2ind(ai, aj)
+            # Finally, put the simulated data into the data array in the right order.
             vis[data_indx, ...] = visibilities[sim_indx, ...]
 
         return vis
