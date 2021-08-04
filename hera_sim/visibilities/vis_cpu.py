@@ -1,6 +1,7 @@
 """Wrapper for vis_cpu visibility simulator."""
 from __future__ import division
 import numpy as np
+import pyuvdata
 import astropy_healpix as aph
 
 from . import conversions
@@ -85,6 +86,7 @@ class VisCPU(VisibilitySimulator):
                 "GPU support is currently only available when polarized=False"
             )
 
+        self.polarized = polarized
         self._vis_cpu = vis_gpu if use_gpu else vis_cpu
         self.bm_pix = bm_pix
 
@@ -217,9 +219,10 @@ class VisCPU(VisibilitySimulator):
 
         Returns
         -------
-        array_like
-            The beam pattern in (l,m) for each antenna.
-            Shape=(NANT, BM_PIX, BM_PIX).
+        bm_cube : array_like
+            The beam pattern in (l,m) for each antenna. If `self.polarized=True`,
+            its shape is (NANT, NAXES, NFEEDS, NFREQS, BM_PIX, BM_PIX),
+            otherwise (NANT, NFREQS, BM_PIX, BM_PIX).
 
         Notes
         -----
@@ -289,11 +292,25 @@ class VisCPU(VisibilitySimulator):
         """
         Calls :func:vis_cpu to perform the visibility calculation.
 
+        Parameters
+        ----------
+        crd_eq : array_like
+            Rotation matrix to convert between source coords and equatorial
+            coords.
+
+        I : array_like
+            Flux for each source in each frequency channel.
+
         Returns
         -------
         array_like of self._complex_dtype
             Visibilities. Shape=self.uvdata.data_array.shape.
         """
+        if self.use_gpu and self.polarized:
+            raise NotImplementedError(
+                "use_gpu not currently supported if " "polarized=True"
+            )
+
         # Setup MPI info if enabled
         if self.mpi_comm is not None:
             myid = self.mpi_comm.Get_rank()
@@ -305,12 +322,49 @@ class VisCPU(VisibilitySimulator):
         # Get pixelized beams if required
         if self.use_pixel_beams:
             beam_lm = self.get_beam_lm()
+            # polarized=True:  (NANT, NAXES, NFEEDS, NFREQS, BM_PIX, BM_PIX)
+            # polarized=False: (NANT, NFREQS, BM_PIX, BM_PIX)
+            # if not self.polarized:
+            #    beam_lm = beam_lm[np.newaxis, np.newaxis, :, :, :]
         else:
             beam_list = [
                 self.beams[np.where(self.beam_ids == ant)[0][0]]
                 for ant in self.ant_list
             ]
 
+        # Get required pols and map them to the right output index
+        if self.polarized:
+            avail_pols = {"nn": (0, 0), "ne": (0, 1), "en": (1, 0), "ee": (1, 1)}
+        else:
+            avail_pols = {
+                "ee": (1, 1),
+            }  # only xx = ee
+
+        req_pols = []
+        for pol in self.uvdata.polarization_array:
+
+            # Get x_orientation
+            x_orient = self.uvdata.x_orientation
+            if x_orient is None:
+                self.uvdata.x_orientation = "e"  # set in UVData object
+                x_orient = "e"  # default to east
+
+            # Get polarization strings in terms of n/e feeds
+            polstr = pyuvdata.utils.polnum2str(pol, x_orientation=x_orient).lower()
+
+            # Check if polarization can be formed
+            if polstr not in avail_pols.keys():
+                raise KeyError(
+                    "Simulation UVData object expecting polarization"
+                    " '%s', but only polarizations %s can be formed."
+                    % (polstr, list(avail_pols.keys()))
+                )
+
+            # If polarization can be formed, specify which is which in the
+            # output polarization_array (ordered list)
+            req_pols.append(avail_pols[polstr])
+
+        # Empty visibility array
         visfull = np.zeros_like(self.uvdata.data_array, dtype=self._complex_dtype)
 
         for i, freq in enumerate(self.freqs):
@@ -319,6 +373,16 @@ class VisCPU(VisibilitySimulator):
             if self.mpi_comm is not None and i % nproc != myid:
                 continue
 
+            # Determine correct shape of beam cube if pixel beams are used
+            if self.use_pixel_beams:
+                if self.polarized:
+                    _beam_lm = beam_lm[:, :, :, i, :, :]
+                    # (NANT, NAXES, NFEEDS, NFREQS, BM_PIX, BM_PIX)
+                else:
+                    _beam_lm = beam_lm[:, i, :, :]
+                    # (NANT, NFREQS, BM_PIX, BM_PIX)
+
+            # Call vis_cpu function to simulate visibilities
             vis = self._vis_cpu(
                 antpos=self.antpos,
                 freq=freq,
@@ -326,15 +390,27 @@ class VisCPU(VisibilitySimulator):
                 crd_eq=crd_eq,
                 I_sky=I_sky[i],
                 beam_list=beam_list if not self.use_pixel_beams else None,
-                bm_cube=beam_lm[:, i] if self.use_pixel_beams else None,
+                bm_cube=_beam_lm if self.use_pixel_beams else None,
                 precision=self._precision,
                 polarized=self.polarized,
             )
 
-            indices = np.triu_indices(vis.shape[1])
-            vis_upper_tri = vis[:, indices[0], indices[1]]
-
-            visfull[:, 0, i, 0] = vis_upper_tri.flatten()
+            # Assign simulated visibilities to UVData data_array
+            # N.B. Note conjugation, to match pyuvsim convention
+            if self.polarized:
+                indices = np.triu_indices(vis.shape[3])
+                for p, pidxs in enumerate(req_pols):
+                    p1, p2 = pidxs
+                    vis_upper_tri = vis[p1, p2, :, indices[0], indices[1]]
+                    visfull[:, 0, i, p] = vis_upper_tri.conj().T.flatten()
+                    # Shape: (Nblts, Nspws, Nfreqs, Npols)
+                    # Note that the transpose of vis_upper_tri is needed here
+                    # to get the correct bls/times ordering when flattening
+            else:
+                # Only one polarization (vis is returned without first 2 dims)
+                indices = np.triu_indices(vis.shape[1])
+                vis_upper_tri = vis[:, indices[0], indices[1]]
+                visfull[:, 0, i, 0] = vis_upper_tri.conj().flatten()
 
         # Reduce visfull array if in MPI mode
         if self.mpi_comm is not None:
