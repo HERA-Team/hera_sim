@@ -142,29 +142,38 @@ class HealVis(VisibilitySimulator):
         Visibility from all sources.
             Shape=self.uvdata.data_array.shape.
         """
-        data_model.uvdata.reorder_blts(order="time")
-
         obs = self.get_observatory(data_model)
         sky = self.get_sky_model(data_model.sky_model)
-        visibility = np.zeros_like(data_model.uvdata.data_array)
+        visibilities = []
 
-        for i, pol in enumerate(data_model.uvdata.get_pols()):
-            visibility[:, :, :, i], times, baselines = obs.make_visibilities(
+        # Simulate the visibilities for each polarization.
+        for pol in data_model.uvdata.get_pols():
+            visibility, _, baselines = obs.make_visibilities(
                 sky, Nprocs=self._nprocs, beam_pol=pol
-            )
+            )  # Shape (Nblts, Nskies, Nfreqs)
+            visibilities.append(visibility[:, 0, :][:, np.newaxis, :])
 
-        unique_bls = np.unique(data_model.uvdata.baseline_array)
+        # Transform from shape (Npols, Nblts, 1, Nfreqs) to  (Nblts, 1, Nfreqs, Npols).
+        visibilities = np.moveaxis(visibilities, 0, -1)
 
-        vis = np.zeros_like(visibility)
-        for bl, vis_here in zip(baselines, visibility):
-            ant1, ant2 = data_model.uvdata.baseline_to_antnums(unique_bls[bl])
-            indx = data_model.uvdata.antpair2ind(ant1, ant2)
-            if len(indx) == 0:
-                # maybe we chose the wrong ordering according to the data. Then
-                # we just conjugate.
-                indx = data_model.uvdata.antpair2ind(ant2, ant1)
-                vis_here = np.conj(vis_here)
+        # Now get the blt-order correct. healvis constructs the observatory such
+        # that the baselines are sorted in order of increasing baseline integer. So
+        # to get the mapping right, we need to first get the unique baseline integers
+        # sorted in increasing order. This doesn't necessarily match the order of the
+        # data array, so we need to reorder the simulated data so it does match.
+        vis = np.zeros_like(data_model.uvdata.data_array)
+        unique_bls = list(np.unique(data_model.uvdata.baseline_array))
+        for ai, aj in data_model.uvdata.get_antpairs():
+            # First, retrieve the integer for the current baseline.
+            baseline = data_model.uvdata.antnums_to_baseline(ai, aj)
+            # Then, find out where the baseline sits in the ordered list.
+            baseline_indx = unique_bls.index(baseline)
+            # ``baselines`` is sorted the same way as the visibilities, so this gives
+            # the visibilities simulated for this baseline in the simulation data.
+            sim_indx = np.argwhere(baselines == baseline_indx).flatten()
+            # This gives us the slice of the data array where this baseline lives.
+            data_indx = data_model.uvdata.antpair2ind(ai, aj)
+            # Finally, put the simulated data into the data array in the right order.
+            vis[data_indx, ...] = visibilities[sim_indx, ...]
 
-            vis[indx] = vis_here
-
-        return visibility[:, 0][:, np.newaxis, :, :]
+        return vis
