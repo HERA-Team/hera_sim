@@ -31,7 +31,7 @@ def sources():
     return ra_dec, flux, spectral_index
 
 
-def perturbed_beams(rotation, nants, polarized=False):
+def perturbed_beams(rotation, nants, polarized=False, power_beam=False):
     """
     Elliptical PerturbedPolyBeam.
 
@@ -85,6 +85,11 @@ def perturbed_beams(rotation, nants, polarized=False):
         )
         for i in range(nants)
     ]
+
+    # Specify power beam if requested
+    if power_beam:
+        for i in range(len(beams)):
+            beams[i].beam_type = "power"
 
     return beams
 
@@ -221,6 +226,7 @@ def run_sim(
     use_pol=False,
     use_mpi=False,
     pol="xx",
+    power_beam=False,
 ):
     """
     Run a simple sim using a rotated elliptic polybeam.
@@ -253,7 +259,12 @@ def run_sim(
 
     simulator = VisCPU(
         uvdata=uvdata,
-        beams=perturbed_beams(beam_rotation, len(ants.keys()), polarized=use_pol),
+        beams=perturbed_beams(
+            beam_rotation,
+            len(ants.keys()),
+            polarized=use_pol,
+            power_beam=power_beam,
+        ),
         beam_ids=list(ants.keys()),
         sky_freqs=freqs,
         point_source_pos=ra_dec,
@@ -276,18 +287,20 @@ def test_perturbed_polybeam():
     # Rotate the beam from 0 to 180 degrees, and check that autocorrelation
     # of antenna 0 has approximately the same value when pixel beams are
     # used, and when pixel beams not used (direct beam calculation).
-    rotations = np.zeros(180 + 1)
-    pix_results = np.zeros(180 + 1)
-    calc_results = np.zeros(180 + 1)
-    for r in range(180 + 1):
+    rvals = np.linspace(0.0, 180.0, 31, dtype=int)
+
+    rotations = np.zeros(rvals.size)
+    pix_results = np.zeros(rvals.size)
+    calc_results = np.zeros(rvals.size)
+    for i, r in enumerate(rvals):
         pix_result = run_sim(r, use_pixel_beams=True)
 
         # Direct beam calculation - no pixel beams
         calc_result = run_sim(r, use_pixel_beams=False)
 
-        rotations[r] = r
-        pix_results[r] = pix_result
-        calc_results[r] = calc_result
+        rotations[i] = r
+        pix_results[i] = pix_result
+        calc_results[i] = calc_result
 
     # Check that the maximum difference between pixel beams/direct calculation
     # cases is no more than 5%. This shows the direct calculation of the beam
@@ -295,13 +308,17 @@ def test_perturbed_polybeam():
     np.testing.assert_allclose(pix_results, calc_results, rtol=0.05)
 
     # Check that rotations 0 and 180 produce the same values.
-    assert pix_results[0] == pytest.approx(pix_results[180], abs=1e-8)
-    assert calc_results[0] == pytest.approx(calc_results[180], abs=1e-8)
+    assert pix_results[0] == pytest.approx(pix_results[-1], abs=1e-8)
+    assert calc_results[0] == pytest.approx(calc_results[-1], abs=1e-8)
 
     # Check that the values are not all the same. Shouldn't be, due to
     # elliptic beam.
     assert np.min(pix_results) != pytest.approx(np.max(pix_results), abs=0.1)
     assert np.min(calc_results) != pytest.approx(np.max(calc_results), abs=0.1)
+
+    # Check that power beam calculation returns values
+    calc_result = run_sim(r, use_pixel_beams=False, power_beam=True)
+    assert np.all(np.isfinite(calc_result))
 
     # Check that attempting to use GPU with Polybeam raises an error.
     with pytest.raises(RuntimeError if HAVE_GPU else ImportError):
@@ -325,16 +342,11 @@ def test_perturbed_polybeam_polarized():
     calc_result_unpol = run_sim(r, use_pixel_beams=False, use_pol=False, pol="ee")
 
     # Check that all pols have valid values
-    assert np.all(~np.isnan(calc_result_ee))
-    assert np.all(~np.isinf(calc_result_ee))
-    assert np.all(~np.isnan(calc_result_nn))
-    assert np.all(~np.isinf(calc_result_nn))
-    assert np.all(~np.isnan(calc_result_en))
-    assert np.all(~np.isinf(calc_result_en))
-    assert np.all(~np.isnan(calc_result_ne))
-    assert np.all(~np.isinf(calc_result_ne))
-    assert np.all(~np.isnan(calc_result_unpol))
-    assert np.all(~np.isinf(calc_result_unpol))
+    assert np.all(np.isfinite(calc_result_ee))
+    assert np.all(np.isfinite(calc_result_nn))
+    assert np.all(np.isfinite(calc_result_en))
+    assert np.all(np.isfinite(calc_result_ne))
+    assert np.all(np.isfinite(calc_result_unpol))
 
 
 def test_all_polarized_polybeam():
@@ -367,3 +379,94 @@ def test_all_polarized_polybeam():
 
     # Check that pStokes power beams are real
     assert np.isreal(eval_beam_pStokes).all(), "the pseudo-Stokes beams are not real"
+
+    # Check equality method
+    pol_beam2 = create_polarized_polybeam()
+    assert pol_beam2 == pol_beam
+
+    # Check that error is raised if mainlobe_width not specified
+    with pytest.raises(ValueError):
+        PerturbedPolyBeam(
+            perturb_coeffs=np.array(
+                [
+                    -0.204,
+                    -0.486,
+                ]
+            ),
+            mainlobe_width=None,
+            beam_coeffs=[
+                2.35088101e-01,
+                -4.20162599e-01,
+                2.99189140e-01,
+            ],
+        )
+
+    # Check that perturb_scale > 1 raises ValueError
+    with pytest.raises(ValueError):
+        PerturbedPolyBeam(
+            perturb_coeffs=np.array(
+                [
+                    -0.204,
+                    -0.486,
+                ]
+            ),
+            mainlobe_width=None,
+            beam_coeffs=[
+                2.35088101e-01,
+                -4.20162599e-01,
+                2.99189140e-01,
+            ],
+            perturb_scale=1.1,
+        )
+
+    # Check that specifying no perturbation coeffs works
+    ppb2 = PerturbedPolyBeam(
+        perturb_coeffs=None,
+        mainlobe_width=1.0,
+        beam_coeffs=[
+            2.35088101e-01,
+            -4.20162599e-01,
+            2.99189140e-01,
+        ],
+    )
+    eval_beam, az, za, Nfreq = evaluate_polybeam(ppb2)
+    assert np.all(np.isfinite(eval_beam))
+
+    # Check that specifying freq_perturb_coeffs works
+    ppb3 = PerturbedPolyBeam(
+        perturb_coeffs=np.array(
+            [
+                -0.204,
+                -0.486,
+            ]
+        ),
+        mainlobe_width=1.0,
+        beam_coeffs=[
+            2.35088101e-01,
+            -4.20162599e-01,
+            2.99189140e-01,
+        ],
+        freq_perturb_coeffs=[0.0, 0.1],
+    )
+    eval_beam, az, za, Nfreq = evaluate_polybeam(ppb3)
+    assert np.all(np.isfinite(eval_beam))
+
+    # Check that specifying mainlobe_scale factor works
+    ppb4 = PerturbedPolyBeam(
+        perturb_coeffs=np.array(
+            [
+                -0.204,
+                -0.486,
+            ]
+        ),
+        mainlobe_width=1.0,
+        beam_coeffs=[
+            2.35088101e-01,
+            -4.20162599e-01,
+            2.99189140e-01,
+        ],
+        freq_perturb_coeffs=[0.0, 0.1],
+        mainlobe_scale=1.1,
+    )
+    eval_beam, az, za, Nfreq = evaluate_polybeam(ppb4)
+    assert np.all(np.isfinite(eval_beam))
