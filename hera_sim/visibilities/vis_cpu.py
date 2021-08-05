@@ -9,7 +9,7 @@ import astropy.units as u
 from astropy.time import Time
 from astropy.coordinates import EarthLocation
 
-from vis_cpu import vis_cpu, vis_gpu, HAVE_GPU
+from vis_cpu import vis_cpu, vis_gpu, HAVE_GPU, __version__
 from vis_cpu import conversions as convs
 from pyuvdata import UVData
 
@@ -52,6 +52,7 @@ class VisCPU(VisibilitySimulator):
     time_ordering = "time"
 
     diffuse_ability = False
+    __version__ = __version__
 
     def __init__(
         self,

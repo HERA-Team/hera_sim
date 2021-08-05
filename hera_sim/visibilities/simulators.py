@@ -272,6 +272,7 @@ class VisibilitySimulation:
         )
         self.uvdata.history += f"Class Repr: {repr(self.simulator)}\n"
         self.uvdata.history += f"hera_sim version: {__version__}"
+        self.uvdata.history += f"Simulator Version: {self.simulator.__version__}"
 
     def simulate(self):
         """Perform the visibility simulation."""
@@ -299,6 +300,8 @@ class VisibilitySimulator(metaclass=ABCMeta):
     #: Whether this particular simulator has the ability to simulate diffuse
     #: maps directly.
     diffuse_ability = False
+
+    __version__ = "unknown"
 
     @abstractmethod
     def simulate(self, data_model: ModelData) -> np.ndarray:

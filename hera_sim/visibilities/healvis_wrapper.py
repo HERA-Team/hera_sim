@@ -15,6 +15,7 @@ try:
     from healvis.simulator import setup_observatory_from_uvdata
     from healvis import sky_model as hvsm
     from healvis.observatory import Observatory
+    import healvis as hv
 
     HAVE_HEALVIS = True
 except ImportError:
@@ -38,6 +39,7 @@ class HealVis(VisibilitySimulator):
 
     point_source_ability = False
     diffuse_ability = True
+    __version__ = hv.__version__
 
     def __init__(self, fov=180, nprocesses=1, sky_ref_chan=0):
         if not HAVE_HEALVIS:
