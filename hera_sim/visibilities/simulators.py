@@ -14,7 +14,7 @@ from os import path
 from abc import ABCMeta, abstractmethod
 from astropy import units
 from pyuvdata import UVData, UVBeam
-from typing import List, Dict, Union
+from typing import List, Dict, Union, Sequence
 from pyradiosky import SkyModel
 from pathlib import Path
 from dataclasses import dataclass
@@ -62,7 +62,7 @@ class ModelData:
         *,
         uvdata: UVData | str | Path,
         sky_model: SkyModel,
-        beam_ids: Dict[str, int] | None = None,
+        beam_ids: Dict[str, int] | Sequence[int] | None = None,
         beams: BeamListType | None = None,
     ):
 
@@ -122,6 +122,15 @@ class ModelData:
                 raise ValueError(
                     "Need to give beam_ids if beams is given and not one per ant."
                 )
+        elif isinstance(beam_ids, (list, tuple, np.ndarray)):
+            if len(beam_ids) != self.n_ant:
+                raise ValueError("Number of beam_ids given must match n_ant")
+
+            beam_ids = {
+                nm: int(beam_ids[i]) for i, nm in enumerate(self.uvdata.antenna_names)
+            }
+        elif not isinstance(beam_ids, dict):
+            raise TypeError("beam_ids should be a dict or sequence of integers")
 
         return beam_ids
 
