@@ -386,7 +386,7 @@ def test_comparison_zenith(uvdata2):
     ).simulate()
 
     assert viscpu.shape == healvis.shape
-    np.testing.assert_allclose(viscpu, healvis, rtol=0.05)
+    np.testing.assert_allclose(viscpu.conj(), healvis, rtol=0.05)
 
 
 def test_comparision_horizon(uvdata2):
@@ -421,7 +421,7 @@ def test_comparision_horizon(uvdata2):
     ).simulate()
 
     assert viscpu.shape == healvis.shape
-    np.testing.assert_allclose(viscpu, healvis, rtol=0.05)
+    np.testing.assert_allclose(viscpu.conj(), healvis, rtol=0.05)
 
 
 def test_comparison_multiple(uvdata2):
@@ -459,7 +459,7 @@ def test_comparison_multiple(uvdata2):
     ).simulate()
 
     assert viscpu.shape == healvis.shape
-    np.testing.assert_allclose(viscpu, healvis, rtol=0.05)
+    np.testing.assert_allclose(viscpu.conj(), healvis, rtol=0.05)
 
 
 def test_comparison_half(uvdata2):
@@ -486,7 +486,7 @@ def test_comparison_half(uvdata2):
     ).simulate()
 
     assert viscpu.shape == healvis.shape
-    np.testing.assert_allclose(viscpu, healvis, rtol=0.05)
+    np.testing.assert_allclose(viscpu.conj(), healvis, rtol=0.05)
 
 
 def test_comparision_airy(uvdata2):
@@ -520,7 +520,7 @@ def test_comparision_airy(uvdata2):
     ).simulate()
 
     assert viscpu.shape == healvis.shape
-    np.testing.assert_allclose(viscpu, healvis, rtol=0.05)
+    np.testing.assert_allclose(viscpu.conj(), healvis, rtol=0.05)
 
 
 class TestSimRedData(unittest.TestCase):

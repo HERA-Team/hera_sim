@@ -385,6 +385,29 @@ def compute_ha(lsts: np.ndarray, ra: float) -> np.ndarray:
     return ha
 
 
+def wrap2pipi(a):
+    """
+    Wrap values of an array to [-π; +π] modulo 2π.
+
+    Parameters
+    ----------
+    a: array_like
+        Array of values to be wrapped to [-π; +π].
+
+    Returns
+    -------
+    res: array_like
+        Array of 'a' values wrapped to [-π; +π].
+    """
+    # np.fmod(~, 2π) outputs values in [0; 2π] or [-2π; 0]
+    res = np.fmod(a, 2 * np.pi)
+    # wrap [π; 2π] to [-π; 0]...
+    res[np.where(res > np.pi)] -= 2 * np.pi
+    # ... and [-2π; -π] to [0; π]
+    res[np.where(res < -np.pi)] += 2 * np.pi
+    return res
+
+
 def gen_white_noise(size: Union[int, Tuple[int]] = 1) -> np.ndarray:
     """Produce complex Gaussian noise with unity variance.
 
