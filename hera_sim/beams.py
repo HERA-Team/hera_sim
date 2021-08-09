@@ -727,11 +727,11 @@ class ZernikeBeam(AnalyticBeam):
 
         # Primary beam values from Zernike polynomial
         values = self.zernike(
-            self.beam_coeffs,
-            radial_coord * np.cos(axial_coord),
-            radial_coord * np.sin(axial_coord),
+            coeffs=self.beam_coeffs,
+            x=radial_coord * np.cos(axial_coord),
+            y=radial_coord * np.sin(axial_coord),
         )
-        central_val = self.zernike(self.beam_coeffs, 0.0, 0.0)
+        central_val = self.zernike(coeffs=self.beam_coeffs, x=0.0, y=0.0)
         values /= central_val  # ensure normalized to 1 at za=0
 
         # Set values
@@ -758,7 +758,7 @@ class ZernikeBeam(AnalyticBeam):
         return self.beam_coeffs == other.beam_coeffs
 
     @staticmethod
-    def zernike(self, coeffs, x, y):
+    def zernike(coeffs, x, y):
         """
         Zernike polynomials (up to degree 66) on the unit disc.
 
@@ -1374,4 +1374,4 @@ class ZernikeBeam(AnalyticBeam):
                 + y10
             ),  # m = 10   n = 10
         }
-        return np.sum(Z.values())
+        return sum(Z.values())

@@ -123,7 +123,7 @@ def run_sim(use_pixel_beams=True, use_gpu=False, use_mpi=False):
         use_pixel_beams=use_pixel_beams,
         use_gpu=use_gpu,
         mpi_comm=DummyMPIComm() if use_mpi else None,
-        bm_pix=1200,
+        bm_pix=300,
         precision=2,
     )
     simulator.simulate()
@@ -137,9 +137,7 @@ def test_zernike_beam():
 
     # Calculate visibilities using pixel and interpolated beams
     pix_result = run_sim(use_pixel_beams=True)
-    calc_result = run_sim(
-        use_pixel_beams=False
-    )  # Direct beam calculation - no pixel beams
+    calc_result = run_sim(use_pixel_beams=False)
 
     # Check that the maximum difference between pixel beams/direct calculation
     # cases is no more than 5%. This shows the direct calculation of the beam
