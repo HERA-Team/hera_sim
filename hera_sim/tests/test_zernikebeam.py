@@ -49,7 +49,7 @@ def beams(nants):
             0.2,
             0.3,
             -0.10030698,
-            -0.01195859,
+            -0.01195859,  # nofmt
             0.06063853,
             -0.04593295,
             0.0107879,
@@ -133,16 +133,15 @@ def run_sim(use_pixel_beams=True, use_gpu=False, use_mpi=False):
     return auto
 
 
-class TestZernikeBeam:
-    def test_zernike_beam(self):
+def test_zernike_beam():
 
-        # Calculate visibilities using pixel and interpolated beams
-        pix_result = run_sim(use_pixel_beams=True)
-        calc_result = run_sim(
-            use_pixel_beams=False
-        )  # Direct beam calculation - no pixel beams
+    # Calculate visibilities using pixel and interpolated beams
+    pix_result = run_sim(use_pixel_beams=True)
+    calc_result = run_sim(
+        use_pixel_beams=False
+    )  # Direct beam calculation - no pixel beams
 
-        # Check that the maximum difference between pixel beams/direct calculation
-        # cases is no more than 5%. This shows the direct calculation of the beam
-        # tracks the pixel beam interpolation. They won't be exactly the same.
-        np.testing.assert_allclose(pix_result, calc_result, rtol=0.05)
+    # Check that the maximum difference between pixel beams/direct calculation
+    # cases is no more than 5%. This shows the direct calculation of the beam
+    # tracks the pixel beam interpolation. They won't be exactly the same.
+    np.testing.assert_allclose(pix_result, calc_result, rtol=0.05)
