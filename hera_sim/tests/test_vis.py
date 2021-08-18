@@ -489,7 +489,7 @@ def test_comparison(uvdata2, sky_model, beam_model):
     ).simulate()
 
     assert viscpu.shape == healvis.shape
-    np.testing.assert_allclose(viscpu, healvis, rtol=0.05)
+    np.testing.assert_allclose(viscpu.conj(), healvis, rtol=0.05)
 
 
 def test_vis_cpu_pol_gpu():
