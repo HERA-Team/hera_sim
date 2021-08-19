@@ -1,5 +1,5 @@
 """Module defining a high-level visibility simulator wrapper."""
-from __future__ import division, annotations
+from __future__ import annotations
 
 import numpy as np
 from cached_property import cached_property
@@ -14,11 +14,12 @@ from os import path
 from abc import ABCMeta, abstractmethod
 from astropy import units
 from pyuvdata import UVData, UVBeam
-from typing import List, Dict, Union
+from typing import List, Dict, Union, Sequence
 from pyradiosky import SkyModel
 from pathlib import Path
 from dataclasses import dataclass
 import astropy_healpix as aph
+from .. import __version__
 
 BeamListType = Union[BeamList, List[Union[ab.AnalyticBeam, UVBeam]]]
 
@@ -31,21 +32,21 @@ class ModelData:
     ----------
     uvdata
         A :class:`pyuvdata.UVData` object contain information about
-        the "observation". Initalized from `obsparams`, if included.
+        the "observation". If a path, must point to a UVData-readable file.
     sky_model
         A model for the sky to simulate.
     beams
         UVBeam models for as many antennae as have unique beams.
         Initialized from `obsparams`, if included. Defaults to a
-        single uniform beam is applied for every antenna. Each beam
-        is the response of an individual antenna and NOT a
-        per-baseline response.
+        single uniform beam which is applied for every antenna. Each beam
+        is the response of an individual antenna and NOT a per-baseline response.
         Shape=(N_BEAMS,).
     beam_ids
-        List of integers specifying which beam model each antenna
-        uses (i.e. the index of `beams` which it should refer to).
-        Initialized from `obsparams`, if included. By default, all
-        antennas use the same beam (beam 0).
+        List of integers specifying which beam model each antenna uses (i.e. the index
+        of `beams` which it should refer to). Also accepts a dictionary in the format
+        used by pyuvsim (i.e. ``antenna_name: index``), which is converted to such a
+        list. By default, if one beam is given all antennas use the same beam, whereas
+        if a beam is given per antenna, they are used in their given order.
         Shape=(N_ANTS,).
 
     Notes
@@ -59,58 +60,100 @@ class ModelData:
     def __init__(
         self,
         *,
-        uvdata: UVData,
+        uvdata: UVData | str | Path,
         sky_model: SkyModel,
-        beam_ids: Dict[str, int] | None = None,
+        beam_ids: Dict[str, int] | Sequence[int] | None = None,
         beams: BeamListType | None = None,
     ):
 
-        self.uvdata = uvdata
-        self.beams = [ab.AnalyticBeam("uniform")] if beams is None else beams
-        self.n_ant = (
-            self.uvdata.Nants_data
-        )  # NOT Nants because we only want ants with data
+        self.uvdata = self._process_uvdata(uvdata)
 
-        assert isinstance(self.uvdata, UVData)
-        if not isinstance(self.beams, BeamList):
-            self.beams = BeamList(self.beams)
+        # NOT Nants because we only want ants with data
+        self.n_ant = self.uvdata.Nants_data
+
+        self.beams = self._process_beams(beams)
+        self.beam_ids = self._process_beam_ids(beam_ids, self.beams)
+        self._validate_beam_ids(self.beam_ids, self.beams)
+
+        self.sky_model = sky_model
+        self.sky_model.at_frequencies(self.freqs * units.Hz)
+        if not isinstance(self.sky_model, SkyModel):
+            raise TypeError("sky_model must be a SkyModel instance.")
+
+    def _process_uvdata(self, uvdata: UVData | str | Path):
+        if isinstance(uvdata, UVData):
+            return uvdata
+        elif isinstance(UVData, (str, Path)):
+            out = UVData()
+            out.read(uvdata)
+            return out
+        else:
+            raise TypeError(
+                "uvdata must be a UVData object or path to a compatible file."
+            )
+
+    @classmethod
+    def _process_beams(cls, beams: BeamListType | None):
+        if beams is None:
+            beams = [ab.AnalyticBeam("uniform")]
+
+        if not isinstance(beams, BeamList):
+            beams = BeamList(beams)
+
+        if beams.string_mode:
+            beams.set_obj_mode()
+
+        return beams
+
+    def _process_beam_ids(
+        self,
+        beam_ids: Dict[str, int] | np.typing.ArrayLike[int] | None,
+        beams: BeamList,
+    ) -> np.array[int]:
+        # beam ids maps antenna name to INDEX of the beam in the beam list.
 
         # Set the beam_ids.
         if beam_ids is None:
-            if len(self.beams) == 1:
-                self.beam_ids = np.zeros(self.n_ant, dtype=int)
-            elif len(self.beams) == self.n_ant:
-                self.beam_ids = np.arange(self.n_ant, dtype=int)
+            if len(beams) == 1:
+                beam_ids = {nm: 0 for nm in self.uvdata.antenna_names}
+            elif len(beams) == self.n_ant:
+                beam_ids = {nm: i for i, nm in enumerate(self.uvdata.antenna_names)}
             else:
                 raise ValueError(
                     "Need to give beam_ids if beams is given and not one per ant."
                 )
-        else:
-            self.beam_ids = np.array(beam_ids, dtype=int)
+        elif isinstance(beam_ids, (list, tuple, np.ndarray)):
+            if len(beam_ids) != self.n_ant:
+                raise ValueError("Number of beam_ids given must match n_ant")
 
-        assert isinstance(self.beam_ids, np.ndarray)
-        assert self.beam_ids.dtype == int
-        assert self.beam_ids.max() < self.n_beams
-        assert len(self.beam_ids) == self.n_ant
+            beam_ids = {
+                nm: int(beam_ids[i]) for i, nm in enumerate(self.uvdata.antenna_names)
+            }
+        elif not isinstance(beam_ids, dict):
+            raise TypeError("beam_ids should be a dict or sequence of integers")
 
-        self.sky_model = sky_model
-        self.sky_model.at_frequencies(self.freqs * units.Hz)
-        assert isinstance(self.sky_model, SkyModel)
+        return beam_ids
+
+    def _validate_beam_ids(self, beam_ids, beams):
+        if max(beam_ids.values()) >= len(beams):
+            raise ValueError(
+                "There is at least one beam_id that points to a non-existent beam."
+                f"Number of given beams={len(beams)} but maximum"
+                f" beam_id={beam_ids.max()}."
+            )
+
+        if len(beam_ids) != self.n_ant:
+            raise ValueError(
+                f"Length of beam_ids ({len(beam_ids)}) must match the "
+                f"number of ants ({self.n_ant})."
+            )
 
     @classmethod
     def from_config(cls, config_file: str | Path) -> ModelData:
         """Initialize the :class:`ModelData` from a pyuvsim-compatible config."""
         uvdata, beams, beam_ids = initialize_uvdata_from_params(config_file)
         catalog = initialize_catalog_from_params(config_file, return_recarray=False)[0]
-        catalog.at_frequencies(np.unique(uvdata.freq_array) * units.Hz)
 
-        # convert the beam_ids dict to an array of ints
-        nms = list(uvdata.antenna_names)
-        tmp_ids = np.zeros(len(beam_ids), dtype=int)
-        for name, beam_id in beam_ids.items():
-            tmp_ids[nms.index(name)] = beam_id
-        beam_ids = tmp_ids
-        beams.set_obj_mode()
         _complete_uvdata(uvdata, inplace=True)
 
         return ModelData(
@@ -122,8 +165,10 @@ class ModelData:
 
     @cached_property
     def lsts(self):
-        """The LSTs at which data is defined."""
-        return self.uvdata.lst_array[:: self.uvdata.Nbls]
+        """Local Sidereal Times in radians."""
+        # This process retrieves the unique LSTs while respecting phase wraps.
+        _, unique_inds = np.unique(self.uvdata.time_array, return_index=True)
+        return self.uvdata.lst_array[unique_inds]
 
     @cached_property
     def freqs(self) -> np.ndarray:
@@ -169,16 +214,6 @@ class ModelData:
             return_names=False,
             path_out=direc,
         )
-
-    @cached_property
-    def ant_list(self) -> np.ndarray:
-        """An orderd list of active antenna numbers."""
-        return self.uvdata.get_ants()
-
-    @cached_property
-    def active_antpos(self) -> np.ndarray:
-        """Positions of active antennas."""
-        return self.uvdata.get_ENU_antpos()[0][self.ant_list]
 
 
 @dataclass
@@ -244,13 +279,18 @@ class VisibilitySimulation:
         self.uvdata.history += (
             f"Visibility Simulation performed with hera_sim's {class_name} simulator\n"
         )
-        self.uvdata.history += f"Class Repr: {repr(self.simulator)}"
+        self.uvdata.history += f"Class Repr: {repr(self.simulator)}\n"
+        self.uvdata.history += f"hera_sim version: {__version__}"
+        self.uvdata.history += f"Simulator Version: {self.simulator.__version__}"
 
     def simulate(self):
         """Perform the visibility simulation."""
-        self._write_history()
+        # Order the baselines/times in the order expected by the simulator.
         vis = self.simulator.simulate(self.data_model)
+
         self.uvdata.data_array += vis
+        self._write_history()
+
         return vis
 
     @property
@@ -269,6 +309,8 @@ class VisibilitySimulator(metaclass=ABCMeta):
     #: Whether this particular simulator has the ability to simulate diffuse
     #: maps directly.
     diffuse_ability = False
+
+    __version__ = "unknown"
 
     @abstractmethod
     def simulate(self, data_model: ModelData) -> np.ndarray:

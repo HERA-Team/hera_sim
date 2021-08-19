@@ -14,10 +14,12 @@ from hera_sim.visibilities import (
     VisibilitySimulation,
     ModelData,
     UVSim,
+    vis_cpu,
 )
 from pyradiosky import SkyModel
 from astropy.coordinates.angles import Latitude, Longitude
 from astropy import time as apt
+from itertools import product
 
 SIMULATORS = (HealVis, VisCPU, UVSim)
 
@@ -52,6 +54,19 @@ def uvdata():
         start_time=2456658.5,
         conjugation="ant1<ant2",
         polarization_array=["xx", "yy", "xy", "yx"],
+    )
+
+
+@pytest.fixture(scope="function")
+def uvdata_linear():
+    defaults.set("h1c")
+    return io.empty_uvdata(
+        Nfreqs=1,
+        integration_time=sday.to("s") / NTIMES,
+        Ntimes=NTIMES,
+        array_layout={0: (0, 0, 0), 1: (10, 0, 0), 2: (20, 0, 0), 3: (0, 10, 0)},
+        start_time=2456658.5,
+        conjugation="ant1<ant2",
     )
 
 
@@ -476,9 +491,59 @@ def test_comparison(uvdata2, sky_model, beam_model):
     ).simulate()
 
     assert viscpu.shape == healvis.shape
-    np.testing.assert_allclose(viscpu, healvis, rtol=0.05)
+    np.testing.assert_allclose(viscpu.conj(), healvis, rtol=0.05)
 
 
 def test_vis_cpu_pol_gpu():
+    old = vis_cpu.HAVE_GPU
+
+    vis_cpu.HAVE_GPU = True
     with pytest.raises(RuntimeError):
         VisCPU(use_gpu=True, polarized=True)
+    vis_cpu.HAVE_GPU = old
+
+
+@pytest.mark.parametrize(
+    "simulator, order, conj",
+    product(
+        SIMULATORS, ["time", "baseline", "ant1", "ant2"], ["ant1<ant2", "ant2<ant1"]
+    ),
+)
+def test_ordering(uvdata_linear, simulator, order, conj):
+
+    uvdata_linear.reorder_blts(order=order, conj_convention=conj)
+
+    sky_model = make_point_sky(
+        uvdata_linear,
+        ra=np.linspace(0, 2 * np.pi, 8) * rad,
+        dec=uvdata_linear.telescope_location_lat_lon_alt[0] * np.ones(8) * rad,
+        align=False,
+    )
+
+    sim = VisibilitySimulation(
+        data_model=ModelData(
+            uvdata=uvdata_linear,
+            sky_model=sky_model,
+        ),
+        simulator=simulator(),
+        n_side=2 ** 4,
+    )
+    sim.simulate()
+
+    sim.uvdata.reorder_blts(order="time", conj_convention="ant1<ant2")
+
+    print(sim.uvdata.data_array[sim.uvdata.antpair2ind(0, 1)].shape)
+    assert np.allclose(
+        sim.uvdata.data_array[sim.uvdata.antpair2ind(0, 1), 0, 0, 0],
+        sim.uvdata.data_array[sim.uvdata.antpair2ind(1, 2), 0, 0, 0],
+    )
+
+    assert not np.allclose(
+        sim.uvdata.data_array[sim.uvdata.antpair2ind(0, 1), 0, 0, 0],
+        sim.uvdata.data_array[sim.uvdata.antpair2ind(0, 3), 0, 0, 0],
+    )
+
+    assert not np.allclose(
+        sim.uvdata.data_array[sim.uvdata.antpair2ind(0, 2), 0, 0, 0],
+        sim.uvdata.data_array[sim.uvdata.antpair2ind(0, 3), 0, 0, 0],
+    )

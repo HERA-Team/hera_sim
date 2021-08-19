@@ -15,6 +15,7 @@ try:
     from healvis.simulator import setup_observatory_from_uvdata
     from healvis import sky_model as hvsm
     from healvis.observatory import Observatory
+    import healvis as hv
 
     HAVE_HEALVIS = True
 except ImportError:
@@ -38,6 +39,7 @@ class HealVis(VisibilitySimulator):
 
     point_source_ability = False
     diffuse_ability = True
+    __version__ = hv.__version__
 
     def __init__(self, fov=180, nprocesses=1, sky_ref_chan=0):
         if not HAVE_HEALVIS:
@@ -53,19 +55,15 @@ class HealVis(VisibilitySimulator):
         In addition to standard parameter restrictions, HealVis requires a single beam
         for all antennae.
         """
-        assert model_data.n_beams == 1
+        if model_data.n_beams > 1:
+            raise ValueError("healvis must use the same beam for all antennas.")
 
         # Check if pyuvsim.analyticbeam and switch to healvis.beam_model
         # TODO: we shouldn't silently modify model_data.beams...
         if isinstance(model_data.beams[0], pyuvsim.analyticbeam.AnalyticBeam):
             old_args = model_data.beams[0].__dict__
 
-            gauss_width = None
             if old_args["type"] == "gaussian":
-                if old_args["sigma"] is None:
-                    raise NotImplementedError(
-                        "Healvis does not permit gaussian beam with diameter."
-                    )
                 raise NotImplementedError(
                     "Healvis interprets gaussian beams "
                     "as per-baseline and not "
@@ -78,7 +76,7 @@ class HealVis(VisibilitySimulator):
             model_data.beams = [
                 AnalyticBeam(
                     beam_type=beam_type,
-                    gauss_width=gauss_width,
+                    gauss_width=None,
                     diameter=diameter,
                     spectral_index=spectral_index,
                 )
@@ -101,17 +99,21 @@ class HealVis(VisibilitySimulator):
         sky.ref_chan = self._sky_ref_chan
 
         # convert from Jy/sr to K
-        if sky_model.stokes.unit == units.Jy / units.sr:
-            intensity = 10 ** -26 * sky_model.stokes[0].T.value
-            intensity *= (
-                cnst.c.to("m/s").value / sky_model.freq_array.to("Hz").value
-            ) ** 2 / (2 * cnst.k_B.value)
-        elif sky_model.stokes.unit == units.K:
-            intensity = sky_model.stokes[0].T.value
+        if sky_model.stokes.unit.is_equivalent(units.Jy / units.sr):
+            conversion = (
+                1e-26
+                * sky_model.stokes.unit.to(units.Jy / units.sr)
+                * (cnst.c.si.value / sky_model.freq_array.si.value) ** 2
+                / (2 * cnst.k_B.si.value)
+            )
+        elif sky_model.stokes.unit.is_equivalent(units.K):
+            conversion = sky_model.stokes.unit.to("K")
         else:
             raise ValueError(
                 f"Units of {sky_model.stokes.unit} are not compatible with healvis"
             )
+        intensity = conversion * sky_model.stokes[0].T.value
+
         sky.data = intensity[np.newaxis, :, :]
         sky._update()
 
@@ -144,10 +146,36 @@ class HealVis(VisibilitySimulator):
         """
         obs = self.get_observatory(data_model)
         sky = self.get_sky_model(data_model.sky_model)
-        visibility = [
-            obs.make_visibilities(sky, Nprocs=self._nprocs, beam_pol=pol)[0]
-            for pol in data_model.uvdata.get_pols()
-        ]
-        visibility = np.moveaxis(visibility, 0, -1)
+        visibilities = []
 
-        return visibility[:, 0][:, np.newaxis, :, :]
+        # Simulate the visibilities for each polarization.
+        for pol in data_model.uvdata.get_pols():
+            visibility, _, baselines = obs.make_visibilities(
+                sky, Nprocs=self._nprocs, beam_pol=pol
+            )  # Shape (Nblts, Nskies, Nfreqs)
+            visibilities.append(visibility[:, 0, :][:, np.newaxis, :])
+
+        # Transform from shape (Npols, Nblts, 1, Nfreqs) to  (Nblts, 1, Nfreqs, Npols).
+        visibilities = np.moveaxis(visibilities, 0, -1)
+
+        # Now get the blt-order correct. healvis constructs the observatory such
+        # that the baselines are sorted in order of increasing baseline integer. So
+        # to get the mapping right, we need to first get the unique baseline integers
+        # sorted in increasing order. This doesn't necessarily match the order of the
+        # data array, so we need to reorder the simulated data so it does match.
+        vis = np.zeros_like(data_model.uvdata.data_array)
+        unique_bls = list(np.unique(data_model.uvdata.baseline_array))
+        for ai, aj in data_model.uvdata.get_antpairs():
+            # First, retrieve the integer for the current baseline.
+            baseline = data_model.uvdata.antnums_to_baseline(ai, aj)
+            # Then, find out where the baseline sits in the ordered list.
+            baseline_indx = unique_bls.index(baseline)
+            # ``baselines`` is sorted the same way as the visibilities, so this gives
+            # the visibilities simulated for this baseline in the simulation data.
+            sim_indx = np.argwhere(baselines == baseline_indx).flatten()
+            # This gives us the slice of the data array where this baseline lives.
+            data_indx = data_model.uvdata.antpair2ind(ai, aj)
+            # Finally, put the simulated data into the data array in the right order.
+            vis[data_indx, ...] = visibilities[sim_indx, ...]
+
+        return vis
