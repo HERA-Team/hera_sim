@@ -143,3 +143,26 @@ def test_zernike_beam():
     # cases is no more than 5%. This shows the direct calculation of the beam
     # tracks the pixel beam interpolation. They won't be exactly the same.
     np.testing.assert_allclose(pix_result, calc_result, rtol=0.05)
+
+    # Check basic methods
+    beam1, beam2 = beams(2)  # get two beams
+    assert beam1 == beam2  # test __eq__ method
+
+    # Coords to evaluate at
+    za = np.linspace(0.0, 0.5 * np.pi, 40)
+    az = np.zeros(za.size)
+    freqs = np.array(
+        [
+            100.0e6,
+        ]
+    )
+
+    # Check peak normalize works (beams are peak normalized by default)
+    beam1.peak_normalized = False
+    y1 = beam1.interp(az_array=az, za_array=za, freq_array=freqs)[0]
+    y2 = beam2.interp(az_array=az, za_array=za, freq_array=freqs)[0]
+    beam1.peak_normalize()
+    y1a = beam1.interp(az_array=az, za_array=za, freq_array=freqs)[0]
+
+    assert ~np.allclose(y1, y2)  # Unnormalized vs peak normalized should be different
+    assert np.allclose(y1a, y2)  # Peak normalized beams should give same results

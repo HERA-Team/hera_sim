@@ -675,20 +675,24 @@ class ZernikeBeam(AnalyticBeam):
         apply to the width of the beam.
     ref_freq : float, optional
         Reference frequency for the beam width scaling power law, in Hz.
+    peak_normalized : bool, optional
+        Whether the beam should be normalized to 1 at beam center.
     """
 
-    def __init__(self, beam_coeffs, spectral_index=0.0, ref_freq=1e8):
+    def __init__(
+        self, beam_coeffs, spectral_index=0.0, ref_freq=1e8, peak_normalized=True
+    ):
         self.ref_freq = ref_freq
         self.spectral_index = spectral_index
         self.data_normalization = "peak"
+        self.peak_normalized = peak_normalized
         self.freq_interp_kind = None
         self.beam_type = "efield"
         self.beam_coeffs = beam_coeffs
 
     def peak_normalize(self):
         """Normalize the beam to have peak of unity."""
-        # Not required
-        pass
+        self.peak_normalized = True
 
     def interp(self, az_array, za_array, freq_array, reuse_spline=None):
         """
@@ -732,7 +736,8 @@ class ZernikeBeam(AnalyticBeam):
             y=radial_coord * np.sin(axial_coord),
         )
         central_val = self.zernike(coeffs=self.beam_coeffs, x=0.0, y=0.0)
-        values /= central_val  # ensure normalized to 1 at za=0
+        if self.peak_normalized:
+            values /= central_val  # ensure normalized to 1 at za=0
 
         # Set values
         interp_data[1, 0, 0, :, :] = values
