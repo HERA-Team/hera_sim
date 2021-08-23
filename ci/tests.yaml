@@ -25,6 +25,7 @@ dependencies:
   - pip:
     - cached-property
     - pyuvsim[sim]>=1.2,<1.4
+    - vis_cpu>=0.2.2
     - git+https://github.com/RadioAstronomySoftwareGroup/pyradiosky.git
     - git+https://github.com/HERA-Team/uvtools.git
     - git+https://github.com/rasg-affiliates/healvis
