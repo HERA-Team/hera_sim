@@ -147,6 +147,7 @@ def test_zernike_beam():
     # Check basic methods
     beam1, beam2 = beams(2)  # get two beams
     assert beam1 == beam2  # test __eq__ method
+    assert not beam1 == 1
 
     # Coords to evaluate at
     za = np.linspace(0.0, 0.5 * np.pi, 40)
@@ -166,3 +167,8 @@ def test_zernike_beam():
 
     assert ~np.allclose(y1, y2)  # Unnormalized vs peak normalized should be different
     assert np.allclose(y1a, y2)  # Peak normalized beams should give same results
+
+    # Check to make sure power beam gives finite results
+    beam1.beam_type = "power"
+    y1b = beam1.interp(az_array=az, za_array=za, freq_array=freqs)[0]
+    assert np.all(np.isfinite(y1b))
