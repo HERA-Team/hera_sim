@@ -545,3 +545,60 @@ def test_ordering(uvdata_linear, simulator, order, conj):
         sim.uvdata.data_array[sim.uvdata.antpair2ind(0, 2), 0, 0, 0],
         sim.uvdata.data_array[sim.uvdata.antpair2ind(0, 3), 0, 0, 0],
     )
+
+
+@pytest.mark.parametrize(
+    "polarization_array, polarized, xfail",
+    [
+        (["XX"], False, False),
+        (["XY"], False, True),
+        (
+            ["YY"],
+            False,
+            False,
+        ),  # TODO: do we treat YY equivalent to XX when unpolarized?
+        (["XX", "YX", "XY", "YY"], False, True),
+        (["XX"], True, False),
+        (["YX"], True, False),
+        (["XX", "YX", "XY", "YY"], True, False),
+    ],
+)
+def test_vis_cpu_pol(polarization_array, polarized, xfail):
+    """Test whether different combinations of input polarization array work."""
+
+    defaults.set("h1c")
+    uvdata = io.empty_uvdata(
+        Nfreqs=NFREQ,
+        integration_time=sday.to("s") / NTIMES,
+        Ntimes=NTIMES,
+        array_layout={
+            0: (0, 0, 0),
+        },
+        start_time=2456658.5,
+        conjugation="ant1<ant2",
+        polarization_array=polarization_array,
+    )
+
+    sky_model = make_point_sky(
+        uvdata,
+        ra=np.linspace(0, 2 * np.pi, 8) * rad,
+        dec=uvdata.telescope_location_lat_lon_alt[0] * np.ones(8) * rad,
+        align=False,
+    )
+
+    simulator = VisCPU(polarized=polarized)
+
+    sim = VisibilitySimulation(
+        data_model=ModelData(
+            uvdata=uvdata,
+            sky_model=sky_model,
+        ),
+        simulator=simulator,
+        n_side=2 ** 4,
+    )
+
+    if xfail:
+        with pytest.raises(KeyError):
+            sim.simulate()
+    else:
+        sim.simulate()
