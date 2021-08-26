@@ -129,6 +129,18 @@ class VisCPU(VisibilitySimulator):
                 "order doesn't change with time!"
             )
 
+        if self.polarized and len(data_model.uvdata.polarization_array) != 4:
+            raise ValueError(
+                "You are trying to do a polarized simulation but your input UVData"
+                "object has only a single polarization."
+            )
+
+        if not self.polarized and len(data_model.uvdata.polarization_array) > 1:
+            raise ValueError(
+                "Your UVData object has multiple polarizations, but you are not "
+                "including polarization in your simulation!"
+            )
+
     def correct_point_source_pos(
         self,
         data_model: ModelData,
@@ -289,23 +301,20 @@ class VisCPU(VisibilitySimulator):
                 if number in ant_list
             ]
 
+        # Get x_orientation
+        x_orient = data_model.uvdata.x_orientation
+        if x_orient is None:
+            data_model.uvdata.x_orientation = "e"  # set in UVData object
+            x_orient = "e"  # default to east
+
         # Get required pols and map them to the right output index
         if self.polarized:
             avail_pols = {"nn": (0, 0), "ne": (0, 1), "en": (1, 0), "ee": (1, 1)}
         else:
-            avail_pols = {
-                "ee": (1, 1),
-            }  # only xx = ee
+            avail_pols = {"ee": (1, 1)} if x_orient == "e" else {"nn": (0, 0)}
 
         req_pols = []
         for pol in data_model.uvdata.polarization_array:
-
-            # Get x_orientation
-            x_orient = data_model.uvdata.x_orientation
-            if x_orient is None:
-                data_model.uvdata.x_orientation = "e"  # set in UVData object
-                x_orient = "e"  # default to east
-
             # Get polarization strings in terms of n/e feeds
             polstr = pyuvdata.utils.polnum2str(pol, x_orientation=x_orient).lower()
 
@@ -313,8 +322,8 @@ class VisCPU(VisibilitySimulator):
             if polstr not in avail_pols.keys():
                 raise KeyError(
                     "Simulation UVData object expecting polarization"
-                    " '%s', but only polarizations %s can be formed."
-                    % (polstr, list(avail_pols.keys()))
+                    f" '{polstr}', but only polarizations {list(avail_pols.keys())} "
+                    "can be formed."
                 )
 
             # If polarization can be formed, specify which is which in the
