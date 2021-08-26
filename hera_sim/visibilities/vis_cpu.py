@@ -278,6 +278,8 @@ class VisCPU(VisibilitySimulator):
         # Get pixelized beams if required
         if self.use_pixel_beams:
             beam_lm = self.get_beam_lm(data_model)
+            if self.polarized:
+                beam_lm = np.transpose(beam_lm, (1, 2, 0, 3, 4))
         else:
             beam_list = [
                 data_model.beams[data_model.beam_ids[name]]
