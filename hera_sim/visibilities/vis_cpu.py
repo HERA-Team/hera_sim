@@ -129,17 +129,17 @@ class VisCPU(VisibilitySimulator):
                 "order doesn't change with time!"
             )
 
-        if self.polarized and len(data_model.uvdata.polarization_array) != 4:
-            raise ValueError(
-                "You are trying to do a polarized simulation but your input UVData"
-                "object has only a single polarization."
-            )
+        # if self.polarized and len(data_model.uvdata.polarization_array) != 4:
+        #     raise ValueError(
+        #         "You are trying to do a polarized simulation but your input UVData"
+        #         "object has only a single polarization."
+        #     )
 
-        if not self.polarized and len(data_model.uvdata.polarization_array) > 1:
-            raise ValueError(
-                "Your UVData object has multiple polarizations, but you are not "
-                "including polarization in your simulation!"
-            )
+        # if not self.polarized and len(data_model.uvdata.polarization_array) > 1:
+        #     raise ValueError(
+        #         "Your UVData object has multiple polarizations, but you are not "
+        #         "including polarization in your simulation!"
+        #     )
 
     def correct_point_source_pos(
         self,
