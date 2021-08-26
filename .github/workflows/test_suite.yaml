@@ -64,7 +64,7 @@ jobs:
       - name: Install
         run: |
           echo $(which pip)
-          pip install .[test]
+          pip install .[tests]
 
       - name: Run Tests
         run: |

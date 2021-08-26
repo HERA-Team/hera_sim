@@ -16,11 +16,7 @@ np.seterr(invalid="ignore")
 def antennas():
     locs = [[308, 253, 0.49], [8, 299, 0.22]]
 
-    ants = {}
-    for i in range(len(locs)):
-        ants[i] = (locs[i][0], locs[i][1], locs[i][2])
-
-    return ants
+    return {i: (locs[i][0], locs[i][1], locs[i][2]) for i in range(len(locs))}
 
 
 def sources():
