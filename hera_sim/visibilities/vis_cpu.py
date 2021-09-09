@@ -21,7 +21,7 @@ class VisCPU(VisibilitySimulator):
     vis_cpu visibility simulator.
 
     This is a fast, simple visibility simulator that is intended to be
-    replaced by vis_gpu. It extends :class:`~.simulators.VisibilitySimulator`.
+    replaced by vis_gpu.
 
     Parameters
     ----------
@@ -53,11 +53,22 @@ class VisCPU(VisibilitySimulator):
         Whether to use the GPU version of vis_cpu or not. Default: False.
     mpi_comm : MPI communicator
         MPI communicator, for parallelization.
-    allow_empty_pols
-        Whether to allow the simulation to proceed if it would leave some of the
-        polarizations in the UVData object unsimulated.
     **kwargs
         Passed through to :class:`~.simulators.VisibilitySimulator`.
+
+    Notes
+    -----
+    ``vis_cpu`` has a number of assumptions, conventions and limitations that the user
+    should be aware of. See the ``vis_cpu`` package documentation for more details, but
+    here we list a few of the important ones.
+
+    Firstly, vis_cpu for now does not support power beams; input beams must be efield.
+    This is not a fundamental limitation of ``vis_cpu``, it just hasn't been implemented
+    yet.
+
+    Furthermore, ``vis_cpu`` internally assumes that the x-orientation is **north**.
+    Again, this is not a fundamental limitation, and future versions of ``vis_cpu`` may
+    support other orientations, but for now this is enforced to ensure consistency.
     """
 
     conjugation_convention = "ant1<ant2"
@@ -70,13 +81,11 @@ class VisCPU(VisibilitySimulator):
         self,
         bm_pix: int = 100,
         use_pixel_beams: bool = True,
-        polarized: bool | None = None,
         precision: int = 1,
         use_gpu: bool = False,
         mpi_comm=None,
         ref_time: Optional[Union[str, Time]] = None,
-        correct_source_positions: bool = False,
-        allow_empty_pols: bool = False,
+        correct_source_positions: bool = True,
     ):
 
         assert precision in {1, 2}
@@ -100,22 +109,15 @@ class VisCPU(VisibilitySimulator):
             raise RuntimeError(
                 "GPU can only be used with pixel beams (use_pixel_beams=True)"
             )
-        if use_gpu and polarized:
-            raise RuntimeError(
-                "GPU support is currently only available when polarized=False"
-            )
 
-        self.polarized = polarized
         self._vis_cpu = vis_gpu if use_gpu else vis_cpu
         self.bm_pix = bm_pix
 
         self.use_gpu = use_gpu
         self.use_pixel_beams = use_pixel_beams
-        self.polarized = polarized
         self.mpi_comm = mpi_comm
         self.ref_time = ref_time
         self.correct_source_positions = correct_source_positions
-        self.allow_empty_pols = allow_empty_pols
 
     def validate(self, data_model: ModelData):
         """Checks for correct input format."""
@@ -140,6 +142,57 @@ class VisCPU(VisibilitySimulator):
             raise ValueError(
                 "VisCPU requires that baselines be in a conjugation in which antenna "
                 "order doesn't change with time!"
+            )
+
+        uvbeam = data_model.beams[0]  # Representative beam
+        uvdata = data_model.uvdata
+
+        # Check x-orientations
+        if uvbeam.x_orientation == "east":
+            raise NotImplementedError(
+                """
+                vis_cpu does not support x-orientation 'east' yet. Please configure
+                your uvbeam object appropriately.
+            """
+            )
+
+        if uvdata.x_orientation == "east":
+            raise NotImplementedError(
+                """
+                vis_cpu does not support x-orientation 'east' yet. Please configure
+                your uvdata object appropriately.
+            """
+            )
+
+        if uvbeam.x_orientation is None:
+            uvbeam.x_orientation = "north"
+            warnings.warn("Setting uvbeam x_orientation to 'north'.")
+        if uvdata.x_orientation is None:
+            uvdata.x_orientation = "north"
+            warnings.warn("Setting uvdata x_orientation to 'north'.")
+
+        # Now check that we only have linear polarizations (don't allow pseudo-stokes)
+        if any(pol not in [-5, -6, -7, -8] for pol in uvdata.polarization_array):
+            raise ValueError(
+                """
+                While UVData allows non-linear polarizations, they are not suitable
+                for generating simulations. Please convert your UVData object to use
+                linear polarizations before simulating (and convert back to
+                other polarizations afterwards if necessary).
+                """
+            )
+
+        # If we have a power-beam, then we can only do pols that are in the UVBeam.
+        if uvbeam.beam_type == "power":
+            raise NotImplementedError("vis_cpu does not yet support power beams.")
+
+        elif uvbeam.beam_type == "efield":
+            # Number of feeds (can't use .Nfeeds because AnalyticBeam doesn't have it)
+            assert uvbeam.data_array.shape[2] == 2
+
+        if self.use_gpu and self._check_if_polarized(data_model):
+            raise RuntimeError(
+                "GPU support is currently only available when polarized=False"
             )
 
     def correct_point_source_pos(
@@ -225,11 +278,20 @@ class VisCPU(VisibilitySimulator):
             ]
         )
 
-        if self.polarized:
+        if self._check_if_polarized(data_model):
             # shape FREQ, NAXES, NFEEDS, NANT, NPIX, NPIX
             return np.transpose(out, (3, 1, 2, 0, 4, 5))
         else:
             return np.transpose(out, (1, 0, 2, 3))
+
+    def _check_if_polarized(self, data_model: ModelData) -> bool:
+        p = data_model.uvdata.polarization_array
+        # If it is exactly YY (i.e. east-east) we can do unpolarized, otherwise need
+        # to do polarized. This is encoded in the vis_cpu function `beam_to_lm` which
+        # currently takes the YY component -- which it *assumes* to be east-east --
+        # when using polarized=False. This limitation can be lifted if that function
+        # is generalized.
+        return len(p) != 1 or p[0] != -8
 
     def get_eq2tops(self, uvdata: UVData, lsts: np.ndarray):
         """
@@ -257,15 +319,7 @@ class VisCPU(VisibilitySimulator):
         array_like of self._complex_dtype
             Visibilities. Shape=self.uvdata.data_array.shape.
         """
-        if self.polarized is None:
-            polarized = len(data_model.uvdata.polarization_array) > 1
-        else:
-            polarized = self.polarized
-
-        if self.use_gpu and polarized:
-            raise NotImplementedError(
-                "use_gpu not currently supported if " "polarized=True"
-            )
+        polarized = self._check_if_polarized(data_model)
 
         # Setup MPI info if enabled
         if self.mpi_comm is not None:
@@ -302,7 +356,7 @@ class VisCPU(VisibilitySimulator):
             ]
 
         # Get all the polarizations required to be simulated.
-        req_pols = self._get_req_pols(data_model.uvdata, polarized)
+        req_pols = self._get_req_pols(data_model.uvdata)
 
         # Empty visibility array
         visfull = np.zeros_like(data_model.uvdata.data_array, dtype=self._complex_dtype)
@@ -322,7 +376,7 @@ class VisCPU(VisibilitySimulator):
                 beam_list=beam_list if not self.use_pixel_beams else None,
                 bm_cube=beam_lm[i] if self.use_pixel_beams else None,
                 precision=self._precision,
-                polarized=self.polarized,
+                polarized=polarized,
             )
 
             self._reorder_vis(
@@ -360,42 +414,21 @@ class VisCPU(VisibilitySimulator):
 
                 visfull[indx, p] = vis_here
 
-    def _get_req_pols(self, uvdata, polarized) -> List[Tuple[int, int]]:
-        # Get x_orientation
-        x_orient = uvdata.x_orientation
-        if x_orient is None:
-            uvdata.x_orientation = "e"  # set in UVData object
-            x_orient = "e"  # default to east
+    def _get_req_pols(self, uvdata) -> List[Tuple[int, int]]:
+        # Only run this function for polarized output.
 
-        # Get available pols in the vis_cpu output,  and map them to the right output
+        # Get available pols in the vis_cpu output, and map them to the right output
         # index.
-        if polarized:
-            avail_pols = {"nn": (0, 0), "ne": (0, 1), "en": (1, 0), "ee": (1, 1)}
-        else:
-            avail_pols = {"ee": (1, 1)} if x_orient == "e" else {"nn": (0, 0)}
 
+        # TODO: this *assumes* that x_orientation is east, but that is also the
+        # assumption in the simulator itself, so it's fine that it's hard-coded here
+        # at least for now.
+        avail_pols = {"nn": (0, 0), "ne": (0, 1), "en": (1, 0), "ee": (1, 1)}
         req_pols = []
         for pol in uvdata.polarization_array:
             # Get polarization strings in terms of n/e feeds
-            polstr = pyuvdata.utils.polnum2str(pol, x_orientation=x_orient).lower()
-
-            # Check if polarization can be formed
-            if polstr in avail_pols:
-                # If polarization can be formed, specify which is which in the
-                # output polarization_array (ordered list)
-                req_pols.append(avail_pols[polstr])
-
-            else:
-                msg = (
-                    "Simulation UVData object expecting polarization"
-                    f" '{polstr}', but only polarizations {list(avail_pols)} "
-                    "can be formed."
-                )
-
-                if not self.allow_empty_pols:
-                    raise KeyError(msg)
-                else:
-                    warnings.warn(msg)
+            polstr = pyuvdata.utils.polnum2str(pol, x_orientation="north").lower()
+            req_pols.append(avail_pols[polstr])
 
         return req_pols
 
