@@ -9,11 +9,11 @@ from typing import Tuple, Union, Optional, List
 import astropy.units as u
 from astropy.time import Time
 from astropy.coordinates import EarthLocation
-import warnings
 
 from vis_cpu import vis_cpu, vis_gpu, HAVE_GPU, __version__
 from vis_cpu import conversions as convs
 from pyuvdata import UVData
+from pyuvdata import utils as uvutils
 
 
 class VisCPU(VisibilitySimulator):
@@ -147,30 +147,6 @@ class VisCPU(VisibilitySimulator):
         uvbeam = data_model.beams[0]  # Representative beam
         uvdata = data_model.uvdata
 
-        # Check x-orientations
-        if uvbeam.x_orientation == "east":
-            raise NotImplementedError(
-                """
-                vis_cpu does not support x-orientation 'east' yet. Please configure
-                your uvbeam object appropriately.
-            """
-            )
-
-        if uvdata.x_orientation == "east":
-            raise NotImplementedError(
-                """
-                vis_cpu does not support x-orientation 'east' yet. Please configure
-                your uvdata object appropriately.
-            """
-            )
-
-        if uvbeam.x_orientation is None:
-            uvbeam.x_orientation = "north"
-            warnings.warn("Setting uvbeam x_orientation to 'north'.")
-        if uvdata.x_orientation is None:
-            uvdata.x_orientation = "north"
-            warnings.warn("Setting uvdata x_orientation to 'north'.")
-
         # Now check that we only have linear polarizations (don't allow pseudo-stokes)
         if any(pol not in [-5, -6, -7, -8] for pol in uvdata.polarization_array):
             raise ValueError(
@@ -182,18 +158,15 @@ class VisCPU(VisibilitySimulator):
                 """
             )
 
-        # If we have a power-beam, then we can only do pols that are in the UVBeam.
-        if uvbeam.beam_type == "power":
-            raise NotImplementedError("vis_cpu does not yet support power beams.")
-
-        elif uvbeam.beam_type == "efield":
-            # Number of feeds (can't use .Nfeeds because AnalyticBeam doesn't have it)
+        do_pol = self._check_if_polarized(data_model)
+        if do_pol:
+            # Number of feeds must be two if doing polarized
             assert uvbeam.data_array.shape[2] == 2
 
-        if self.use_gpu and self._check_if_polarized(data_model):
-            raise RuntimeError(
-                "GPU support is currently only available when polarized=False"
-            )
+            if self.use_gpu:
+                raise RuntimeError(
+                    "GPU support is currently only available when polarized=False"
+                )
 
     def correct_point_source_pos(
         self,
@@ -269,7 +242,8 @@ class VisCPU(VisibilitySimulator):
                     data_model.beams[data_model.beam_ids[ant]],
                     data_model.freqs,
                     n_pix_lm=self.bm_pix,
-                    polarized=self.polarized,
+                    polarized=self._check_if_polarized(data_model),
+                    use_feed=self.get_feed(data_model.uvdata),
                 )
                 for ant, num in zip(
                     data_model.uvdata.antenna_names, data_model.uvdata.antenna_numbers
@@ -286,12 +260,8 @@ class VisCPU(VisibilitySimulator):
 
     def _check_if_polarized(self, data_model: ModelData) -> bool:
         p = data_model.uvdata.polarization_array
-        # If it is exactly YY (i.e. east-east) we can do unpolarized, otherwise need
-        # to do polarized. This is encoded in the vis_cpu function `beam_to_lm` which
-        # currently takes the YY component -- which it *assumes* to be east-east --
-        # when using polarized=False. This limitation can be lifted if that function
-        # is generalized.
-        return len(p) != 1 or p[0] != -8
+        # We only do a non-polarized simulation if UVData has only XX or YY polarization
+        return len(p) != 1 or uvutils.polnum2str(p[0]) not in ["xx", "yy"]
 
     def get_eq2tops(self, uvdata: UVData, lsts: np.ndarray):
         """
@@ -310,6 +280,10 @@ class VisCPU(VisibilitySimulator):
             dtype=self._real_dtype,
         )
 
+    def get_feed(self, uvdata) -> str:
+        """Get the feed to use from the beam, given the UVData object."""
+        return uvutils.polnum2str(uvdata.polarization_array[0])[0]
+
     def simulate(self, data_model):
         """
         Calls :func:vis_cpu to perform the visibility calculation.
@@ -320,6 +294,7 @@ class VisCPU(VisibilitySimulator):
             Visibilities. Shape=self.uvdata.data_array.shape.
         """
         polarized = self._check_if_polarized(data_model)
+        feed = self.get_feed(data_model.uvdata)
 
         # Setup MPI info if enabled
         if self.mpi_comm is not None:
@@ -348,7 +323,11 @@ class VisCPU(VisibilitySimulator):
             beam_lm = self.get_beam_lm(data_model)
         else:
             beam_list = [
-                data_model.beams[data_model.beam_ids[name]]
+                convs.prepare_beam(
+                    data_model.beams[data_model.beam_ids[name]],
+                    polarized=polarized,
+                    use_feed=feed,
+                )
                 for number, name in zip(
                     data_model.uvdata.antenna_numbers, data_model.uvdata.antenna_names
                 )
@@ -356,7 +335,7 @@ class VisCPU(VisibilitySimulator):
             ]
 
         # Get all the polarizations required to be simulated.
-        req_pols = self._get_req_pols(data_model.uvdata)
+        req_pols = self._get_req_pols(data_model.uvdata, polarized=polarized)
 
         # Empty visibility array
         visfull = np.zeros_like(data_model.uvdata.data_array, dtype=self._complex_dtype)
@@ -414,23 +393,21 @@ class VisCPU(VisibilitySimulator):
 
                 visfull[indx, p] = vis_here
 
-    def _get_req_pols(self, uvdata) -> List[Tuple[int, int]]:
-        # Only run this function for polarized output.
+    def _get_req_pols(self, uvdata, uvbeam, polarized: bool) -> List[Tuple[int, int]]:
+        if polarized:
+            x = uvbeam.feed_array.tolist().index("x")
+            y = uvbeam.feed_array.tolist().index("y")
 
-        # Get available pols in the vis_cpu output, and map them to the right output
-        # index.
+            avail_pols = {"xx": (x, x), "xy": (x, y), "yx": (y, x), "yy": (y, y)}
+            req_pols = []
+            for pol in uvdata.polarization_array:
+                # Get polarization strings in terms of n/e feeds
+                polstr = pyuvdata.utils.polnum2str(pol).lower()
+                req_pols.append(avail_pols[polstr])
 
-        # TODO: this *assumes* that x_orientation is east, but that is also the
-        # assumption in the simulator itself, so it's fine that it's hard-coded here
-        # at least for now.
-        avail_pols = {"nn": (0, 0), "ne": (0, 1), "en": (1, 0), "ee": (1, 1)}
-        req_pols = []
-        for pol in uvdata.polarization_array:
-            # Get polarization strings in terms of n/e feeds
-            polstr = pyuvdata.utils.polnum2str(pol, x_orientation="north").lower()
-            req_pols.append(avail_pols[polstr])
-
-        return req_pols
+            return req_pols
+        else:
+            return [(0, 0)]
 
     def _reduce_mpi(self, visfull, myid):
         from mpi4py.MPI import SUM
