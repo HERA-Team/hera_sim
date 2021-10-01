@@ -64,7 +64,10 @@ class VisCPU(VisibilitySimulator):
 
         warnings.warn(
             "Note that the VisCPU wrapper currently does not properly handle baseline"
-            "conjugation in some cases. This will be remedied in hera_sim v2."
+            "conjugation unless the input uvdata object has ant2<ant1 AND the blt order"
+            "is set to 'time' AND the minor order is set to 'ant2'. Please ensure that "
+            "this is true for your input uvdata object. This will be remedied in "
+            "hera_sim v2."
         )
         assert precision in (1, 2)
         self._precision = precision
