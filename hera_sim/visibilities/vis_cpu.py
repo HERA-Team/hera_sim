@@ -14,6 +14,8 @@ from astropy.coordinates import EarthLocation
 from vis_cpu import vis_cpu, vis_gpu, HAVE_GPU
 from vis_cpu import conversions as convs
 
+import warnings
+
 
 class VisCPU(VisibilitySimulator):
     """
@@ -60,6 +62,13 @@ class VisCPU(VisibilitySimulator):
         **kwargs
     ):
 
+        warnings.warn(
+            "Note that the VisCPU wrapper currently does not properly handle baseline"
+            "conjugation unless the input uvdata object has ant2<ant1 AND the blt order"
+            "is set to 'time' AND the minor order is set to 'ant2'. Please ensure that "
+            "this is true for your input uvdata object. This will be remedied in "
+            "hera_sim v2."
+        )
         assert precision in (1, 2)
         self._precision = precision
         if precision == 1:
