@@ -373,11 +373,7 @@ class VisCPU(VisibilitySimulator):
         return visfull
 
     def _reorder_vis(self, req_pols, uvdata, visfull, vis, ant_list, polarized):
-        indices = (
-            np.triu_indices(vis.shape[3])
-            if polarized
-            else np.triu_indices(vis.shape[1])
-        )
+        indices = np.triu_indices(vis.shape[-1])
 
         for p, (p1, p2) in enumerate(req_pols):
             for ant1, ant2 in zip(*indices):  # go through indices in output
