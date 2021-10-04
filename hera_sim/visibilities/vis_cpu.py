@@ -281,7 +281,11 @@ class VisCPU(VisibilitySimulator):
         )
 
     def get_feed(self, uvdata) -> str:
-        """Get the feed to use from the beam, given the UVData object."""
+        """Get the feed to use from the beam, given the UVData object.
+
+        Only applies for an *unpolarized* simulation (for a polarized sim, all feeds
+        are used).
+        """
         return uvutils.polnum2str(uvdata.polarization_array[0])[0]
 
     def simulate(self, data_model):
