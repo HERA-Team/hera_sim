@@ -1,7 +1,7 @@
 """Wrapper for vis_cpu visibility simulator."""
 from __future__ import division, annotations
 import numpy as np
-import pyuvdata
+import itertools
 
 from .simulators import VisibilitySimulator, ModelData
 from typing import Tuple, Union, Optional, List
@@ -394,20 +394,25 @@ class VisCPU(VisibilitySimulator):
                 visfull[indx, p] = vis_here
 
     def _get_req_pols(self, uvdata, uvbeam, polarized: bool) -> List[Tuple[int, int]]:
-        if polarized:
-            x = uvbeam.feed_array.tolist().index("x")
-            y = uvbeam.feed_array.tolist().index("y")
-
-            avail_pols = {"xx": (x, x), "xy": (x, y), "yx": (y, x), "yy": (y, y)}
-            req_pols = []
-            for pol in uvdata.polarization_array:
-                # Get polarization strings in terms of n/e feeds
-                polstr = pyuvdata.utils.polnum2str(pol).lower()
-                req_pols.append(avail_pols[polstr])
-
-            return req_pols
-        else:
+        if not polarized:
             return [(0, 0)]
+        else:
+            feeds = list(uvbeam.feed_array)
+            # In order to get all 4 visibility polarizations for a dual feed system
+            vispols = set()
+            for p1, p2 in itertools.combinations_with_replacement(feeds, 2):
+                vispols.add(p1 + p2)
+                vispols.add(p2 + p1)
+            avail_pols = {
+                vispol: (feeds.index(vispol[0]), feeds.index(vispol[1]))
+                for vispol in vispols
+            }
+            # Get the mapping from uvdata pols to uvbeam pols
+            req_pols = [
+                avail_pols[uvutils.polnum2str(polnum, uvbeam.x_orientation)]
+                for polnum in uvdata.polarization_array
+            ]
+            return req_pols
 
     def _reduce_mpi(self, visfull, myid):
         from mpi4py.MPI import SUM
