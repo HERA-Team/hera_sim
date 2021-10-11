@@ -45,8 +45,14 @@ class VisCPU(VisibilitySimulator):
         Whether to use the GPU version of vis_cpu or not. Default: False.
     mpi_comm : MPI communicator
         MPI communicator, for parallelization.
-    **kwargs
-        Passed through to :class:`~.simulators.VisibilitySimulator`.
+    ref_time
+        A reference time for computing adjustments to the co-ordinate transforms using
+        astropy. For best fidelity, set this to a mid-point of your observation times.
+        By default, if `correct_source_positions` is True, will use the first
+        observation time.
+    correct_source_positions
+        Whether to correct the source positions using astropy and the reference time.
+        Default is True if `ref_time` is given otherwise False.
     """
 
     conjugation_convention = "ant1<ant2"
@@ -64,7 +70,7 @@ class VisCPU(VisibilitySimulator):
         use_gpu: bool = False,
         mpi_comm=None,
         ref_time: Optional[Union[str, Time]] = None,
-        correct_source_positions: bool = False,
+        correct_source_positions: bool | None = None,
     ):
 
         assert precision in {1, 2}
@@ -102,7 +108,11 @@ class VisCPU(VisibilitySimulator):
         self.polarized = polarized
         self.mpi_comm = mpi_comm
         self.ref_time = ref_time
-        self.correct_source_positions = correct_source_positions
+        self.correct_source_positions = (
+            (ref_time is not None)
+            if correct_source_positions is None
+            else correct_source_positions
+        )
 
     def validate(self, data_model: ModelData):
         """Checks for correct input format."""
