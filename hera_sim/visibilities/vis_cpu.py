@@ -282,7 +282,7 @@ class VisCPU(VisibilitySimulator):
         if self.correct_source_positions:
             # TODO: check if this is the right time to be using...
             ra, dec = self.correct_point_source_pos(
-                data_model, obstime=data_model.uvdata.time_array[0]
+                data_model, obstime=Time(data_model.uvdata.time_array[0], format="jd")
             )
         else:
             ra, dec = data_model.sky_model.ra, data_model.sky_model.dec
