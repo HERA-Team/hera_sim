@@ -1,5 +1,5 @@
 """Wrapper for vis_cpu visibility simulator."""
-from __future__ import division
+from __future__ import division, annotations
 import numpy as np
 import pyuvdata
 
