@@ -888,6 +888,9 @@ class Simulator:
         model_params = {k: v for k, v in model_params.items() if v is inspect._empty}
 
         # Pull the LST and frequency arrays if they are required.
+        # TODO: update this to allow more flexibility in which arguments are
+        # looked for (this is exactly what needs to be updated to accommodate the
+        # updated crosstalk model for IDR3 validation)
         args = {
             param: getattr(self, param)
             for param in model_params
@@ -1244,31 +1247,32 @@ class Simulator:
             Polarization string. Currently not used.
         """
         # Helper function for getting the correct parameter name
+        def keys(requires):
+            return [arg for arg, req in zip(args, requires) if req]
+
         def key(requires):
             return list(args)[requires.index(True)]
 
-        # find out what needs to be added to args
-        # for antenna-based gains
-        _requires_ants = [param.startswith("ant") for param in args]
-        requires_ants = any(_requires_ants)
-        # for sky components
-        _requires_bl_vec = [param.startswith("bl") for param in args]
-        requires_bl_vec = any(_requires_bl_vec)
-        # for cross-coupling xtalk
-        _requires_vis = [param.find("vis") != -1 for param in args]
-        requires_vis = any(_requires_vis)
+        # Kind of a hack, this could get ugly in the future...
+        # TODO: make this somewhat more general?
+        requires_ants = [param == "ants" for param in args]
+        requires_bl_vec = [param == "bl_vec" for param in args]
+        requires_autovis = [param.startswith("autovis") for param in args]
+        requires_antpos = [param == "antpos" for param in args]
+        requires_antpair = [param == "antpair" for param in args]
 
         # check if this is an antenna-dependent quantity; should
         # only ever be true for gains (barring future changes)
-        if requires_ants:
-            new_param = {key(_requires_ants): self.antpos}
+        new_params = {}
+        if any(requires_ants):
+            new_params[key(requires_ants)] = list(self.antpos.keys())
         # check if this is something requiring a baseline vector
         # current assumption is that these methods require the
         # baseline vector to be provided in nanoseconds
-        elif requires_bl_vec:
+        if any(requires_bl_vec):
             bl_vec = self.antpos[ant2] - self.antpos[ant1]
             bl_vec_ns = bl_vec * 1e9 / const.c.value
-            new_param = {key(_requires_bl_vec): bl_vec_ns}
+            new_params[key(requires_bl_vec)] = bl_vec_ns
         # check if this is something that depends on another
         # visibility. as of now, this should only be cross coupling
         # crosstalk
@@ -1277,14 +1281,19 @@ class Simulator:
         # cross-correlation actually depends on another cross-correlation.
         # (It is implicitly assumed here that the only time we need another
         # visibility is if it's an autocorrelation.)
-        elif requires_vis:
-            autovis = self.data.get_data(ant1, ant1, pol)
-            new_param = {key(_requires_vis): autovis}
-        else:
-            new_param = {}
+        if any(requires_autovis):
+            for i, k in enumerate(keys(requires_autovis)):
+                ant = [ant1, ant2][i]
+                autovis = self.data.get_data(ant, ant, pol)
+                new_params[k] = autovis
+        if any(requires_antpos):
+            new_params[key(requires_antpos)] = self.antpos
+        if any(requires_antpair):
+            new_params[key(requires_antpair)] = (ant1, ant2)
+
         # update appropriately and return
         use_args = args.copy()
-        use_args.update(new_param)
+        use_args.update(new_params)
 
         # there should no longer be any unspecified, required parameters
         # so this *shouldn't* error out

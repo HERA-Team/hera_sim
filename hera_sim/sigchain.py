@@ -504,8 +504,7 @@ class OverAirCrossCoupling(Crosstalk):
 
     def __init__(
         self,
-        emitter_pos=None,
-        antpos=None,
+        emitter_pos=0,
         cable_delays=None,
         base_amp=2e-5,
         amp_slope=-1,
@@ -516,11 +515,8 @@ class OverAirCrossCoupling(Crosstalk):
         max_delay=2000,
         amp_decay_fac=1e-2,
     ):
-        if emitter_pos is None:
-            emitter_pos = np.zeros(3, dtype=float)
         super().__init__(
             emitter_pos=emitter_pos,
-            antpos=antpos or {},
             cable_delays=cable_delays or {},
             base_amp=base_amp,
             amp_slope=amp_slope,
@@ -536,14 +532,15 @@ class OverAirCrossCoupling(Crosstalk):
         self,
         freqs,
         antpair,
-        autovis,
+        antpos,
+        autovis_i,
+        autovis_j,
         **kwargs,
     ):
         """Actually simulate the crosstalk."""
         self._check_kwargs(**kwargs)
         (
             emitter_pos,
-            antpos,
             cable_delay,
             base_amp,
             amp_slope,
@@ -588,7 +585,7 @@ class OverAirCrossCoupling(Crosstalk):
             symmetrize=False,
         )
 
-        return xt_ij(freqs, autovis) + xt_ji(freqs, autovis)
+        return xt_ij(freqs, autovis_i) + xt_ji(freqs, autovis_j)
 
 
 class WhiteNoiseCrosstalk(Crosstalk):
