@@ -240,6 +240,7 @@ class Reflections(Gain):
     def _complete_params(
         ants, amp=None, dly=None, phs=None, amp_jitter=0, dly_jitter=0
     ):
+        # TODO: docstring isn't exactly accurate, should be updated
         """
         Generate parameters to calculate a reflection coefficient.
 
@@ -408,10 +409,17 @@ class CrossCouplingSpectrum(Crosstalk):
     dly_jitter : int, optional
         Standard deviation of the random jitter to be applied to
         the regular delays.
+    amp_logbase: float, optional
+        Base of the logarithm to use for generating amplitudes.
     symmetrize : bool, optional
         Whether to also produce statistically equivalent cross-talk at
         negative delays. Note that while the statistics are equivalent,
         both amplitudes and delays will be different random realizations.
+
+    Notes
+    -----
+    The generated amplitudes will be in the range
+    ``amp_logbase ** amp_range[0]`` to ``amp_logbase ** amp_range[1]``.
     """
 
     _alias = ("cross_coupling_spectrum", "xtalk_spectrum")
@@ -424,6 +432,7 @@ class CrossCouplingSpectrum(Crosstalk):
         phs_range=(-np.pi, np.pi),
         amp_jitter=0,
         dly_jitter=0,
+        amp_logbase=10,
         symmetrize=True,
     ):
         super().__init__(
@@ -433,11 +442,12 @@ class CrossCouplingSpectrum(Crosstalk):
             phs_range=phs_range,
             amp_jitter=amp_jitter,
             dly_jitter=dly_jitter,
+            amp_logbase=amp_logbase,
             symmetrize=symmetrize,
         )
 
     def __call__(self, freqs, autovis, **kwargs):
-        """Copute the cross-correlations.
+        """Compute the cross-correlations.
 
         Parameters
         ----------
@@ -461,11 +471,12 @@ class CrossCouplingSpectrum(Crosstalk):
             phs_range,
             amp_jitter,
             dly_jitter,
+            amp_logbase,
             symmetrize,
         ) = self._extract_kwarg_values(**kwargs)
 
         # Construct the arrays of amplitudes and delays.
-        amps = np.logspace(*amp_range, Ncopies)
+        amps = np.logspace(*amp_range, Ncopies, base=amp_logbase)
         dlys = np.linspace(*dly_range, Ncopies)
 
         # Construct the spectrum of crosstalk.
@@ -486,6 +497,98 @@ class CrossCouplingSpectrum(Crosstalk):
                 crosstalk_spectrum += gen_xtalk(freqs, autovis, dly=-dly)
 
         return crosstalk_spectrum
+
+
+class OverAirCrossCoupling(Crosstalk):
+    """Crosstalk based on HERA Memo on H1C crosstalk."""
+
+    def __init__(
+        self,
+        emitter_pos=None,
+        antpos=None,
+        cable_delays=None,
+        base_amp=2e-5,
+        amp_slope=-1,
+        amp_decay_base=10,
+        Ncopies=10,
+        amp_jitter=0,
+        dly_jitter=0,
+        max_delay=2000,
+        amp_decay_fac=1e-2,
+    ):
+        if emitter_pos is None:
+            emitter_pos = np.zeros(3, dtype=float)
+        super().__init__(
+            emitter_pos=emitter_pos,
+            antpos=antpos or {},
+            cable_delays=cable_delays or {},
+            base_amp=base_amp,
+            amp_slope=amp_slope,
+            amp_decay_base=amp_decay_base,
+            Ncopies=Ncopies,
+            amp_jitter=amp_jitter,
+            dly_jitter=dly_jitter,
+            max_delay=max_delay,
+            amp_decay_fac=amp_decay_fac,
+        )
+
+    def __call__(
+        self,
+        freqs,
+        antpair,
+        autovis,
+        **kwargs,
+    ):
+        """Actually simulate the crosstalk."""
+        self._check_kwargs(**kwargs)
+        (
+            emitter_pos,
+            antpos,
+            cable_delay,
+            base_amp,
+            amp_slope,
+            amp_decay_base,
+            Ncopies,
+            amp_jitter,
+            dly_jitter,
+            max_delay,
+            amp_decay_fac,
+        ) = self._extract_kwarg_values(**kwargs)
+
+        ai, aj = antpair
+        xi = antpos[ai]
+        xj = antpos[aj]
+
+        def log(x):
+            return np.log(x) / np.log(amp_decay_base)
+
+        amp_i = base_amp * np.linalg.norm(xi) ** amp_slope
+        amp_j = base_amp * np.linalg.norm(xj) ** amp_slope
+        dly_i = np.linalg.norm(xi - emitter_pos) / 3e8 * 1e9
+        dly_j = np.linalg.norm(xj - emitter_pos) / 3e8 * 1e9
+        dly_ij = cable_delay[ai] + dly_j
+        dly_ji = cable_delay[aj] + dly_i
+
+        xt_ij = CrossCouplingSpectrum(
+            Ncopies=Ncopies,
+            amp_range=(log(amp_i), log(amp_i * amp_decay_fac)),
+            dly_range=(-dly_ij, -max_delay),
+            amp_jitter=amp_jitter,
+            dly_jitter=dly_jitter,
+            amp_logbase=amp_decay_base,
+            symmetrize=False,
+        )
+        xt_ji = CrossCouplingSpectrum(
+            Ncopies=Ncopies,
+            amp_range=(log(amp_j), log(amp_j * amp_decay_fac)),
+            dly_range=(dly_ji, max_delay),
+            amp_jitter=amp_jitter,
+            dly_jitter=dly_jitter,
+            amp_logbase=amp_decay_base,
+            symmetrize=False,
+        )
+
+        return xt_ij(freqs, autovis) + xt_ji(freqs, autovis)
 
 
 class WhiteNoiseCrosstalk(Crosstalk):
