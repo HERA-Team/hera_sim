@@ -53,22 +53,17 @@ class VisCPU(VisibilitySimulator):
         Whether to use the GPU version of vis_cpu or not. Default: False.
     mpi_comm : MPI communicator
         MPI communicator, for parallelization.
+    ref_time
+        A reference time for computing adjustments to the co-ordinate transforms using
+        astropy. For best fidelity, set this to a mid-point of your observation times.
+        By default, if `correct_source_positions` is True, will use the first
+        observation time.
+    correct_source_positions
+        Whether to correct the source positions using astropy and the reference time.
+        Default is True if `ref_time` is given otherwise False.
     **kwargs
         Passed through to :class:`~.simulators.VisibilitySimulator`.
 
-    Notes
-    -----
-    ``vis_cpu`` has a number of assumptions, conventions and limitations that the user
-    should be aware of. See the ``vis_cpu`` package documentation for more details, but
-    here we list a few of the important ones.
-
-    Firstly, vis_cpu for now does not support power beams; input beams must be efield.
-    This is not a fundamental limitation of ``vis_cpu``, it just hasn't been implemented
-    yet.
-
-    Furthermore, ``vis_cpu`` internally assumes that the x-orientation is **north**.
-    Again, this is not a fundamental limitation, and future versions of ``vis_cpu`` may
-    support other orientations, but for now this is enforced to ensure consistency.
     """
 
     conjugation_convention = "ant1<ant2"
@@ -85,7 +80,7 @@ class VisCPU(VisibilitySimulator):
         use_gpu: bool = False,
         mpi_comm=None,
         ref_time: Optional[Union[str, Time]] = None,
-        correct_source_positions: bool = True,
+        correct_source_positions: bool | None = None,
     ):
 
         assert precision in {1, 2}
@@ -117,7 +112,11 @@ class VisCPU(VisibilitySimulator):
         self.use_pixel_beams = use_pixel_beams
         self.mpi_comm = mpi_comm
         self.ref_time = ref_time
-        self.correct_source_positions = correct_source_positions
+        self.correct_source_positions = (
+            (ref_time is not None)
+            if correct_source_positions is None
+            else correct_source_positions
+        )
 
     def validate(self, data_model: ModelData):
         """Checks for correct input format."""
@@ -308,7 +307,7 @@ class VisCPU(VisibilitySimulator):
         if self.correct_source_positions:
             # TODO: check if this is the right time to be using...
             ra, dec = self.correct_point_source_pos(
-                data_model, obstime=data_model.uvdata.time_array[0]
+                data_model, obstime=Time(data_model.uvdata.time_array[0], format="jd")
             )
         else:
             ra, dec = data_model.sky_model.ra, data_model.sky_model.dec
