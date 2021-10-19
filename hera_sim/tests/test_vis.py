@@ -20,7 +20,6 @@ from hera_sim.beams import PolyBeam
 from pyradiosky import SkyModel
 from astropy.coordinates.angles import Latitude, Longitude
 from astropy import time as apt
-from itertools import product
 import copy
 
 SIMULATORS = (HealVis, VisCPU, UVSim)
@@ -69,6 +68,7 @@ def uvdata_linear():
         array_layout={0: (0, 0, 0), 1: (10, 0, 0), 2: (20, 0, 0), 3: (0, 10, 0)},
         start_time=2456658.5,
         conjugation="ant1<ant2",
+        polarization_array=["xx", "yy", "xy", "yx"],
     )
 
 
@@ -83,6 +83,7 @@ def uvdataJD():
             0: (0, 0, 0),
         },
         start_time=2456659,
+        polarization_array=["xx", "yy", "xy", "yx"],
     )
 
 
@@ -318,7 +319,7 @@ def test_shapes(uvdata, simulator):
         n_side=2 ** 4,
     )
 
-    assert sim.simulate().shape == (uvdata.Nblts, 1, NFREQ, 1)
+    assert sim.simulate().shape == (uvdata.Nblts, 1, NFREQ, uvdata.Npols)
 
 
 @pytest.mark.parametrize("precision, cdtype", [(1, np.complex64), (2, complex)])
@@ -352,14 +353,16 @@ def test_autocorr_flat_beam(uvdata, simulator):
     sim = VisibilitySimulation(
         data_model=ModelData(uvdata=uvdata, sky_model=sky), simulator=simulator()
     )
-    v = sim.simulate()
+    sim.simulate()
 
-    # Account for factor of 2 between Stokes I and 'xx' pol for vis_cpu
-    if simulator == VisCPU:
-        v *= 2.0
+    v = sim.uvdata.get_data((0, 0, "xx"))
 
-    np.testing.assert_allclose(np.abs(v), np.mean(v), rtol=1e-5)
-    np.testing.assert_almost_equal(np.abs(v), 0.5, 2)
+    # The sky is uniform and integrates to one over the full sky.
+    # Thus the stokes-I component of an autocorr will be 0.5 (going to horizon)
+    # Since I = XX + YY and X/Y should be equal, the xx part should be 0.25
+
+    np.testing.assert_allclose(np.abs(v), np.mean(v), rtol=1e-4)
+    np.testing.assert_almost_equal(np.abs(v), 0.25, 2)
 
 
 @pytest.mark.parametrize("simulator", SIMULATORS)
@@ -372,20 +375,17 @@ def test_single_source_autocorr(uvdata, simulator, sky_model):
         simulator=simulator(),
         n_side=2 ** 4,
     )
-    v = sim.simulate()
+    sim.simulate()
 
+    v = sim.uvdata.get_data((0, 0, "xx"))[:, 0]  # Get just one frequency
     # Account for factor of 2 between Stokes I and 'xx' pol for vis_cpu
-    if simulator == VisCPU:
-        v *= 2.0
+    # if simulator == VisCPU:
+    #     v *= 2.0
 
     # Make sure the source is over the horizon half the time
     # (+/- 1 because of the discreteness of the times)
     # 1e-3 on either side to account for float inaccuracies.
-    assert (
-        -1e-3 + (NTIMES / 2.0 - 1.0) / NTIMES
-        <= np.round(np.abs(np.mean(v)), 3)
-        <= (NTIMES / 2.0 + 1.0) / NTIMES + 1e-3
-    )
+    assert NTIMES / 2 - 1 <= np.sum(np.abs(v) > 0) <= NTIMES / 2 + 1
 
 
 @pytest.mark.parametrize("simulator", SIMULATORS)
@@ -525,12 +525,9 @@ def test_vis_cpu_pol_gpu(uvdata_linear):
     vis_cpu.HAVE_GPU = old
 
 
-@pytest.mark.parametrize(
-    "simulator, order, conj",
-    product(
-        SIMULATORS, ["time", "baseline", "ant1", "ant2"], ["ant1<ant2", "ant2<ant1"]
-    ),
-)
+@pytest.mark.parametrize("simulator", SIMULATORS)
+@pytest.mark.parametrize("order", ["time", "baseline", "ant1", "ant2"])
+@pytest.mark.parametrize("conj", ["ant1<ant2", "ant2<ant1"])
 def test_ordering(uvdata_linear, simulator, order, conj):
 
     uvdata_linear.reorder_blts(order=order, conj_convention=conj)
@@ -554,11 +551,12 @@ def test_ordering(uvdata_linear, simulator, order, conj):
 
     sim.uvdata.reorder_blts(order="time", conj_convention="ant1<ant2")
 
-    print(sim.uvdata.data_array[sim.uvdata.antpair2ind(0, 1)].shape)
     assert np.allclose(
         sim.uvdata.data_array[sim.uvdata.antpair2ind(0, 1), 0, 0, 0],
         sim.uvdata.data_array[sim.uvdata.antpair2ind(1, 2), 0, 0, 0],
     )
+
+    assert not np.allclose(sim.uvdata.get_data((0, 1)), sim.uvdata.get_data((0, 3)))
 
     assert not np.allclose(
         sim.uvdata.data_array[sim.uvdata.antpair2ind(0, 1), 0, 0, 0],
