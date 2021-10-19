@@ -150,11 +150,9 @@ def run_sim(
         precision=2,
     )
 
-    # get_perturbed_beams(beam_rotation, len(ants.keys()))
     data_model = ModelData(
         uvdata=uvdata,
         beams=beams,
-        # beam_ids={i: 0 for i in ants},
         sky_model=SkyModel(
             freq_array=freqs,
             ra=Longitude(ra_dec[:, 0] * units.rad),
@@ -173,7 +171,6 @@ def run_sim(
     )
     simulation.simulate()
 
-    print("XORIENT:", simulation.uvdata.x_orientation)
     return np.abs(simulation.uvdata.get_data(0, 0, pol)[0][0])
 
 
