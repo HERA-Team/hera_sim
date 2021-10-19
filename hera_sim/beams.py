@@ -36,7 +36,7 @@ def stokes_matrix(pol_index):
     elif pol_index == 3:
         pauli_mat = np.array([[0.0, -1.0j], [1.0j, 0.0]])
     else:
-        raise ValueError("'pol_index' most be an integer between 0 and 3")
+        raise ValueError("'pol_index' must be an integer between 0 and 3")
 
     return pauli_mat
 
