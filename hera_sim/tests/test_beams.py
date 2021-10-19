@@ -173,6 +173,7 @@ def run_sim(
     )
     simulation.simulate()
 
+    print("XORIENT:", simulation.uvdata.x_orientation)
     return np.abs(simulation.uvdata.get_data(0, 0, pol)[0][0])
 
 
