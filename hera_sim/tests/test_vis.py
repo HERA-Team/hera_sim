@@ -20,6 +20,7 @@ from pyradiosky import SkyModel
 from astropy.coordinates.angles import Latitude, Longitude
 from astropy import time as apt
 from itertools import product
+import copy
 
 SIMULATORS = (HealVis, VisCPU)
 
@@ -615,4 +616,32 @@ def test_vis_cpu_pol(polarization_array, xfail):
             data_model=ModelData(uvdata=uvdata, sky_model=sky_model, beams=[beam]),
             simulator=simulator,
             n_side=2 ** 4,
+        )
+
+
+def test_beam_type_consistency(uvdata, sky_model):
+    beams = [AnalyticBeam("gaussian"), AnalyticBeam("airy")]
+    beams[0].efield_to_power()
+
+    with pytest.raises(ValueError):
+        ModelData(uvdata=uvdata, sky_model=sky_model, beams=beams)
+
+
+def test_power_polsky(uvdata, sky_model):
+    new_sky = copy.deepcopy(sky_model)
+    new_sky.stokes[1:] = 1.0 * units.Jy
+
+    beams = [AnalyticBeam("gaussian")]
+    beams[0].efield_to_power()
+
+    with pytest.raises(TypeError):
+        ModelData(uvdata=uvdata, sky_model=new_sky, beams=beams)
+
+
+def test_vis_cpu_stokespol(uvdata_linear, sky_model):
+    uvdata_linear.polarization_array = [0, 1, 2, 3]
+    with pytest.raises(ValueError):
+        VisibilitySimulation(
+            data_model=ModelData(uvdata=uvdata_linear, sky_model=sky_model),
+            simulator=VisCPU(),
         )

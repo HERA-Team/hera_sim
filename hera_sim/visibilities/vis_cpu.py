@@ -427,7 +427,7 @@ class VisCPU(VisibilitySimulator):
 
         return [avail_pols[pol] for pol in uvdata_pols]
 
-    def _reduce_mpi(self, visfull, myid):
+    def _reduce_mpi(self, visfull, myid):  # pragma: no cover
         from mpi4py.MPI import SUM
 
         _visfull = np.zeros(visfull.shape, dtype=visfull.dtype)

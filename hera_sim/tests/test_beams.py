@@ -2,7 +2,13 @@ import pytest
 import numpy as np
 from hera_sim.visibilities import VisCPU, ModelData, VisibilitySimulation
 from hera_sim import io
-from hera_sim.beams import PerturbedPolyBeam, PolyBeam, efield_to_pstokes, ZernikeBeam
+from hera_sim.beams import (
+    PerturbedPolyBeam,
+    PolyBeam,
+    efield_to_pstokes,
+    ZernikeBeam,
+    stokes_matrix,
+)
 from hera_sim.defaults import defaults
 from pyradiosky import SkyModel
 from astropy import units
@@ -348,7 +354,7 @@ class TestPerturbedPolyBeam:
         eval_beam = evaluate_polybeam(ppb)[0]
         assert np.all(np.isfinite(eval_beam))
 
-    def test_mainlob_scale(self):
+    def test_mainlobe_scale(self):
         # Check that specifying mainlobe_scale factor works
         ppb = PerturbedPolyBeam(
             perturb_coeffs=np.array([-0.204, -0.486]),
@@ -359,6 +365,28 @@ class TestPerturbedPolyBeam:
         )
         eval_beam = evaluate_polybeam(ppb)[0]
         assert np.all(np.isfinite(eval_beam))
+
+    def test_zeropoint(self):
+        ppb = PerturbedPolyBeam(
+            perturb_coeffs=np.array([-0.204, -0.486]),
+            mainlobe_width=1.0,
+            beam_coeffs=[2.35e-01, -4.2e-01, 2.99e-01],
+            freq_perturb_coeffs=[0.0, 0.1],
+            perturb_zeropoint=1.0,
+        )
+
+        eval_beam = evaluate_polybeam(ppb)[0]
+        assert np.all(np.isfinite(eval_beam))
+
+    def test_bad_freq_perturb_scale(self):
+        with pytest.raises(ValueError, match="must be less than 1"):
+            PerturbedPolyBeam(
+                perturb_coeffs=np.array([-0.204, -0.486]),
+                mainlobe_width=1.0,
+                beam_coeffs=[2.35e-01, -4.2e-01, 2.99e-01],
+                freq_perturb_coeffs=[0.0, 0.1],
+                freq_perturb_scale=2.0,
+            )
 
 
 class TestPolarizedPolyBeam:
@@ -538,3 +566,8 @@ class TestZernikeBeam:
         beams[0].beam_type = "power"
         y1b = beams[0].interp(az_array=az, za_array=za, freq_array=freqs)[0]
         assert np.all(np.isfinite(y1b))
+
+
+def test_pol_stokes_bad_idx():
+    with pytest.raises(ValueError, match="must be an integer between"):
+        stokes_matrix(5)
