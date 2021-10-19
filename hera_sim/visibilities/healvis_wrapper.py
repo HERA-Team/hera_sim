@@ -4,7 +4,7 @@ from __future__ import division
 import numpy as np
 
 import pyuvsim
-
+import warnings
 from .simulators import VisibilitySimulator, ModelData, SkyModel
 
 from astropy import constants as cnst
@@ -61,6 +61,11 @@ class HealVis(VisibilitySimulator):
         # Check if pyuvsim.analyticbeam and switch to healvis.beam_model
         # TODO: we shouldn't silently modify model_data.beams...
         if isinstance(model_data.beams[0], pyuvsim.analyticbeam.AnalyticBeam):
+            warnings.warn(
+                "Using pyuvsim.AnalyticBeam for healvis is not really supported. "
+                "model_data.beams is being automatically modified to be a single "
+                "healvis.AnalyticBeam of the same type."
+            )
             old_args = model_data.beams[0].__dict__
 
             if old_args["type"] == "gaussian":
