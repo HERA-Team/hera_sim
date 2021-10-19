@@ -486,7 +486,6 @@ def test_comparison(uvdata2, sky_model, beam_model):
     )
 
     viscpu = VisibilitySimulation(data_model=model_data, simulator=cpu).simulate()
-    viscpu *= 2.0  # account for factor of 2 between Stokes I and 'xx' pol.
 
     healvis = VisibilitySimulation(
         data_model=model_data, simulator=healvis, n_side=2 ** 4
