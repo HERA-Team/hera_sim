@@ -279,7 +279,6 @@ def half_sky_model(uvdata2):
     hp = aph.HEALPix(nside=nside, order="ring")
     ipix_disc = hp.cone_search_lonlat(0 * rad, np.pi / 2 * rad, radius=np.pi / 2 * rad)
     sky.stokes[0, :, ipix_disc] = 0
-    print(sky.stokes.unit)
     return sky
 
 
@@ -552,7 +551,6 @@ def test_ordering(uvdata_linear, simulator, order, conj):
 
     sim.uvdata.reorder_blts(order="time", conj_convention="ant1<ant2")
 
-    print(sim.uvdata.data_array[sim.uvdata.antpair2ind(0, 1)].shape)
     assert np.allclose(
         sim.uvdata.data_array[sim.uvdata.antpair2ind(0, 1), 0, 0, 0],
         sim.uvdata.data_array[sim.uvdata.antpair2ind(1, 2), 0, 0, 0],

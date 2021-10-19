@@ -13,10 +13,10 @@ from .simulators import VisibilitySimulator, VisibilitySimulation, ModelData
 # Registered Simulators
 try:
     from .vis_cpu import VisCPU
-except (ImportError, NameError):
+except (ImportError, NameError):  # pragma: no cover
     pass
 
 try:
     from .healvis_wrapper import HealVis
-except (ImportError, NameError):
+except (ImportError, NameError):  # pragma: no cover
     pass
