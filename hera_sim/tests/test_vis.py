@@ -15,6 +15,7 @@ from hera_sim.visibilities import (
     ModelData,
     vis_cpu,
 )
+from hera_sim.beams import PolyBeam
 from pyradiosky import SkyModel
 from astropy.coordinates.angles import Latitude, Longitude
 from astropy import time as apt
@@ -489,15 +490,35 @@ def test_comparison(uvdata2, sky_model, beam_model):
     ).simulate()
 
     assert viscpu.shape == healvis.shape
-    np.testing.assert_allclose(viscpu.conj(), healvis, rtol=0.05)
+    np.testing.assert_allclose(viscpu, healvis, rtol=0.05)
 
 
-def test_vis_cpu_pol_gpu():
+def test_vis_cpu_pol_gpu(uvdata_linear):
     old = vis_cpu.HAVE_GPU
 
     vis_cpu.HAVE_GPU = True
+
+    uvdata_linear.polarization_array = [-8, -7, -6, -5]
+    beam = PolyBeam(polarized=True)
+
+    sky_model = make_point_sky(
+        uvdata_linear,
+        ra=np.linspace(0, 2 * np.pi, 8) * rad,
+        dec=uvdata_linear.telescope_location_lat_lon_alt[0] * np.ones(8) * rad,
+        align=False,
+    )
+
+    simulator = VisCPU(use_gpu=True)
+
     with pytest.raises(RuntimeError):
-        VisCPU(use_gpu=True, polarized=True)
+        VisibilitySimulation(
+            data_model=ModelData(
+                uvdata=uvdata_linear, sky_model=sky_model, beams=[beam]
+            ),
+            simulator=simulator,
+            n_side=2 ** 4,
+        )
+
     vis_cpu.HAVE_GPU = old
 
 
@@ -548,22 +569,15 @@ def test_ordering(uvdata_linear, simulator, order, conj):
 
 
 @pytest.mark.parametrize(
-    "polarization_array, polarized, xfail",
+    "polarization_array, xfail",
     [
-        (["XX"], False, False),
-        (["XY"], False, True),
-        (
-            ["YY"],
-            False,
-            False,
-        ),  # TODO: do we treat YY equivalent to XX when unpolarized?
-        (["XX", "YX", "XY", "YY"], False, True),
-        (["XX"], True, False),
-        (["YX"], True, False),
-        (["XX", "YX", "XY", "YY"], True, False),
+        (["XX"], False),
+        (["XY"], False),
+        (["YY"], False),
+        (["XX", "YX", "XY", "YY"], False),
     ],
 )
-def test_vis_cpu_pol(polarization_array, polarized, xfail):
+def test_vis_cpu_pol(polarization_array, xfail):
     """Test whether different combinations of input polarization array work."""
 
     defaults.set("h1c")
@@ -586,19 +600,19 @@ def test_vis_cpu_pol(polarization_array, polarized, xfail):
         align=False,
     )
 
-    simulator = VisCPU(polarized=polarized)
-
-    sim = VisibilitySimulation(
-        data_model=ModelData(
-            uvdata=uvdata,
-            sky_model=sky_model,
-        ),
-        simulator=simulator,
-        n_side=2 ** 4,
-    )
+    beam = PolyBeam(polarized=False)
+    simulator = VisCPU()
 
     if xfail:
         with pytest.raises(KeyError):
-            sim.simulate()
+            VisibilitySimulation(
+                data_model=ModelData(uvdata=uvdata, sky_model=sky_model, beams=[beam]),
+                simulator=simulator,
+                n_side=2 ** 4,
+            )
     else:
-        sim.simulate()
+        VisibilitySimulation(
+            data_model=ModelData(uvdata=uvdata, sky_model=sky_model, beams=[beam]),
+            simulator=simulator,
+            n_side=2 ** 4,
+        )

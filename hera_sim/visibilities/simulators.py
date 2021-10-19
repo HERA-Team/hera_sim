@@ -144,9 +144,9 @@ class ModelData:
     def _validate_beam_ids(self, beam_ids, beams):
         if max(beam_ids.values()) >= len(beams):
             raise ValueError(
-                "There is at least one beam_id that points to a non-existent beam."
+                "There is at least one beam_id that points to a non-existent beam. "
                 f"Number of given beams={len(beams)} but maximum"
-                f" beam_id={beam_ids.max()}."
+                f" beam_id={max(beam_ids.values())}."
             )
 
         if len(beam_ids) != self.n_ant:

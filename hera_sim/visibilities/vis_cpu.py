@@ -160,7 +160,12 @@ class VisCPU(VisibilitySimulator):
         do_pol = self._check_if_polarized(data_model)
         if do_pol:
             # Number of feeds must be two if doing polarized
-            assert uvbeam.data_array.shape[2] == 2
+            try:
+                nfeeds = uvbeam.data_array.shape[2]
+            except AttributeError:
+                nfeeds = uvbeam.Nfeeds
+
+                assert nfeeds == 2
 
             if self.use_gpu:
                 raise RuntimeError(
@@ -338,7 +343,9 @@ class VisCPU(VisibilitySimulator):
             ]
 
         # Get all the polarizations required to be simulated.
-        req_pols = self._get_req_pols(data_model.uvdata, polarized=polarized)
+        req_pols = self._get_req_pols(
+            data_model.uvdata, data_model.beams[0], polarized=polarized
+        )
 
         # Empty visibility array
         visfull = np.zeros_like(data_model.uvdata.data_array, dtype=self._complex_dtype)
@@ -395,23 +402,30 @@ class VisCPU(VisibilitySimulator):
     def _get_req_pols(self, uvdata, uvbeam, polarized: bool) -> List[Tuple[int, int]]:
         if not polarized:
             return [(0, 0)]
-        else:
-            feeds = list(uvbeam.feed_array)
-            # In order to get all 4 visibility polarizations for a dual feed system
-            vispols = set()
-            for p1, p2 in itertools.combinations_with_replacement(feeds, 2):
-                vispols.add(p1 + p2)
-                vispols.add(p2 + p1)
-            avail_pols = {
-                vispol: (feeds.index(vispol[0]), feeds.index(vispol[1]))
-                for vispol in vispols
-            }
-            # Get the mapping from uvdata pols to uvbeam pols
-            req_pols = [
-                avail_pols[uvutils.polnum2str(polnum, uvbeam.x_orientation)]
-                for polnum in uvdata.polarization_array
-            ]
-            return req_pols
+
+        feeds = list(uvbeam.feed_array)
+        # In order to get all 4 visibility polarizations for a dual feed system
+        vispols = set()
+        for p1, p2 in itertools.combinations_with_replacement(feeds, 2):
+            vispols.add(p1 + p2)
+            vispols.add(p2 + p1)
+        avail_pols = {
+            vispol: (feeds.index(vispol[0]), feeds.index(vispol[1]))
+            for vispol in vispols
+        }
+        # Get the mapping from uvdata pols to uvbeam pols
+        uvdata_pols = [
+            uvutils.polnum2str(polnum, uvbeam.x_orientation)
+            for polnum in uvdata.polarization_array
+        ]
+        if any(pol not in avail_pols for pol in uvdata_pols):
+            raise ValueError(
+                "Not all polarizations in UVData object are in your beam. "
+                f"UVData polarizations = {uvdata_pols}. "
+                f"UVBeam polarizations = {list(avail_pols.keys())}"
+            )
+
+        return [avail_pols[pol] for pol in uvdata_pols]
 
     def _reduce_mpi(self, visfull, myid):
         from mpi4py.MPI import SUM
