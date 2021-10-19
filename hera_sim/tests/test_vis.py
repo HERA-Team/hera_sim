@@ -68,7 +68,7 @@ def uvdata_linear():
         array_layout={0: (0, 0, 0), 1: (10, 0, 0), 2: (20, 0, 0), 3: (0, 10, 0)},
         start_time=2456658.5,
         conjugation="ant1<ant2",
-        polarization_array=["xx", "yy", "xy", "yx"],
+        polarization_array=["xx", "xy", "yx", "yy"],
     )
 
 
