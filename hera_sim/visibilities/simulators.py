@@ -80,6 +80,8 @@ class ModelData:
         if not isinstance(self.sky_model, SkyModel):
             raise TypeError("sky_model must be a SkyModel instance.")
 
+        self._validate()
+
     def _process_uvdata(self, uvdata: UVData | str | Path):
         if isinstance(uvdata, UVData):
             return uvdata
@@ -102,6 +104,11 @@ class ModelData:
 
         if beams.string_mode:
             beams.set_obj_mode()
+
+        if len({beam.beam_type for beam in beams}) != 1:
+            # TODO: replace with beam.check_consistency() when that is available in
+            # pyuvsim.
+            raise ValueError("All beams must be of the same beam_type!")
 
         return beams
 
@@ -137,9 +144,9 @@ class ModelData:
     def _validate_beam_ids(self, beam_ids, beams):
         if max(beam_ids.values()) >= len(beams):
             raise ValueError(
-                "There is at least one beam_id that points to a non-existent beam."
+                "There is at least one beam_id that points to a non-existent beam. "
                 f"Number of given beams={len(beams)} but maximum"
-                f" beam_id={beam_ids.max()}."
+                f" beam_id={max(beam_ids.values())}."
             )
 
         if len(beam_ids) != self.n_ant:
@@ -214,6 +221,20 @@ class ModelData:
             return_names=False,
             path_out=direc,
         )
+
+    def _validate(self):
+        """Perform validation of the full ModelData instance.
+
+        The idea here is to validate the combination of inputs -- uvdata, uvbeam list
+        and sky model, checking for inconsistencies that would be wrong for _any_
+        simulator.
+        """
+        if any(b.beam_type == "power" for b in self.beams) and np.any(
+            self.sky_model.stokes[1:] != 0
+        ):
+            raise TypeError(
+                "Cannot use power beams when the sky model contains polarized sources."
+            )
 
 
 @dataclass

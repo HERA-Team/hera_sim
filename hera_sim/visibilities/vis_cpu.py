@@ -1,10 +1,10 @@
 """Wrapper for vis_cpu visibility simulator."""
-from __future__ import division
+from __future__ import division, annotations
 import numpy as np
-import pyuvdata
+import itertools
 
 from .simulators import VisibilitySimulator, ModelData
-from typing import Tuple, Union, Optional
+from typing import Tuple, Union, Optional, List
 
 import astropy.units as u
 from astropy.time import Time
@@ -13,6 +13,9 @@ from astropy.coordinates import EarthLocation
 from vis_cpu import vis_cpu, vis_gpu, HAVE_GPU, __version__
 from vis_cpu import conversions as convs
 from pyuvdata import UVData
+from pyuvdata import utils as uvutils
+
+import warnings
 
 
 class VisCPU(VisibilitySimulator):
@@ -20,10 +23,7 @@ class VisCPU(VisibilitySimulator):
     vis_cpu visibility simulator.
 
     This is a fast, simple visibility simulator that is intended to be
-    replaced by vis_gpu. It extends :class:`~.simulators.VisibilitySimulator`.
-
-    Note that that output of `simulate()` in this class always has ordering
-    in which the baselines are in increasing order of antenna number.
+    replaced by vis_gpu.
 
     Parameters
     ----------
@@ -35,7 +35,17 @@ class VisCPU(VisibilitySimulator):
         grid, or directly evaluate the primary beams using the available
         UVBeam objects. Default: True.
     polarized : bool, optional
-        Whether to calculate polarized visibilities or not.
+        Whether to calculate polarized visibilities or not. By default does polarization
+        iff multiple polarizations exist in the UVData object. The behaviour of the
+        simulator is that if requesting polarized output and only a subset of the
+        simulated pols are available in the UVdata object, the code will issue a warning
+        but otherwise continue happily, throwing away the simulated pols it can't store
+        in the UVdata object. Conversely, if polarization is not requested and multiple
+        polarizations are present on the UVData object, it will error unless
+        ``allow_empty_pols`` is set to True (in which case it will warn but continue).
+        The "unpolarized" output of ``vis_cpu`` is expected to be XX polarization, which
+        corresponds to whatever the UVData object considers to be the x-direction
+        (default East).
     precision : int, optional
         Which precision level to use for floats and complex numbers.
         Allowed values:
@@ -45,8 +55,17 @@ class VisCPU(VisibilitySimulator):
         Whether to use the GPU version of vis_cpu or not. Default: False.
     mpi_comm : MPI communicator
         MPI communicator, for parallelization.
+    ref_time
+        A reference time for computing adjustments to the co-ordinate transforms using
+        astropy. For best fidelity, set this to a mid-point of your observation times.
+        By default, if `correct_source_positions` is True, will use the first
+        observation time.
+    correct_source_positions
+        Whether to correct the source positions using astropy and the reference time.
+        Default is True if `ref_time` is given otherwise False.
     **kwargs
         Passed through to :class:`~.simulators.VisibilitySimulator`.
+
     """
 
     conjugation_convention = "ant1<ant2"
@@ -59,12 +78,11 @@ class VisCPU(VisibilitySimulator):
         self,
         bm_pix: int = 100,
         use_pixel_beams: bool = True,
-        polarized: bool = False,
         precision: int = 1,
         use_gpu: bool = False,
         mpi_comm=None,
         ref_time: Optional[Union[str, Time]] = None,
-        correct_source_positions: bool = False,
+        correct_source_positions: bool | None = None,
     ):
 
         assert precision in {1, 2}
@@ -88,21 +106,19 @@ class VisCPU(VisibilitySimulator):
             raise RuntimeError(
                 "GPU can only be used with pixel beams (use_pixel_beams=True)"
             )
-        if use_gpu and polarized:
-            raise RuntimeError(
-                "GPU support is currently only available when polarized=False"
-            )
 
-        self.polarized = polarized
         self._vis_cpu = vis_gpu if use_gpu else vis_cpu
         self.bm_pix = bm_pix
 
         self.use_gpu = use_gpu
         self.use_pixel_beams = use_pixel_beams
-        self.polarized = polarized
         self.mpi_comm = mpi_comm
         self.ref_time = ref_time
-        self.correct_source_positions = correct_source_positions
+        self.correct_source_positions = (
+            (ref_time is not None)
+            if correct_source_positions is None
+            else correct_source_positions
+        )
 
     def validate(self, data_model: ModelData):
         """Checks for correct input format."""
@@ -128,6 +144,35 @@ class VisCPU(VisibilitySimulator):
                 "VisCPU requires that baselines be in a conjugation in which antenna "
                 "order doesn't change with time!"
             )
+
+        uvbeam = data_model.beams[0]  # Representative beam
+        uvdata = data_model.uvdata
+
+        # Now check that we only have linear polarizations (don't allow pseudo-stokes)
+        if any(pol not in [-5, -6, -7, -8] for pol in uvdata.polarization_array):
+            raise ValueError(
+                """
+                While UVData allows non-linear polarizations, they are not suitable
+                for generating simulations. Please convert your UVData object to use
+                linear polarizations before simulating (and convert back to
+                other polarizations afterwards if necessary).
+                """
+            )
+
+        do_pol = self._check_if_polarized(data_model)
+        if do_pol:
+            # Number of feeds must be two if doing polarized
+            try:
+                nfeeds = uvbeam.data_array.shape[2]
+            except AttributeError:
+                nfeeds = uvbeam.Nfeeds
+
+                assert nfeeds == 2
+
+            if self.use_gpu:
+                raise RuntimeError(
+                    "GPU support is currently only available when polarized=False"
+                )
 
     def correct_point_source_pos(
         self,
@@ -186,24 +231,25 @@ class VisCPU(VisibilitySimulator):
         -------
         bm_cube : array_like
             The beam pattern in (l,m) for each antenna. If `self.polarized=True`,
-            its shape is (NANT, NAXES, NFEEDS, NFREQS, BM_PIX, BM_PIX),
-            otherwise (NANT, NFREQS, BM_PIX, BM_PIX).
+            its shape is (NFREQS, NAXES, NFEEDS, NANT, BM_PIX, BM_PIX),
+            otherwise (NFREQS, NANT, BM_PIX, BM_PIX).
 
         Notes
         -----
-            Due to using the verbatim :func:`vis_cpu.vis_cpu` function, the beam
-            cube must have an entry for each antenna, which is a bit of
-            a waste of memory in some cases. If this is changed in the
-            future, this method can be modified to only return one
-            matrix for each beam.
+        Due to using the verbatim :func:`vis_cpu.vis_cpu` function, the beam
+        cube must have an entry for each antenna, which is a bit of
+        a waste of memory in some cases. If this is changed in the
+        future, this method can be modified to only return one
+        matrix for each beam.
         """
-        return np.asarray(
+        out = np.asarray(
             [
                 convs.uvbeam_to_lm(
                     data_model.beams[data_model.beam_ids[ant]],
                     data_model.freqs,
                     n_pix_lm=self.bm_pix,
-                    polarized=self.polarized,
+                    polarized=self._check_if_polarized(data_model),
+                    use_feed=self.get_feed(data_model.uvdata),
                 )
                 for ant, num in zip(
                     data_model.uvdata.antenna_names, data_model.uvdata.antenna_numbers
@@ -211,6 +257,17 @@ class VisCPU(VisibilitySimulator):
                 if num in data_model.uvdata.get_ants()
             ]
         )
+
+        if self._check_if_polarized(data_model):
+            # shape FREQ, NAXES, NFEEDS, NANT, NPIX, NPIX
+            return np.transpose(out, (3, 1, 2, 0, 4, 5))
+        else:
+            return np.transpose(out, (1, 0, 2, 3))
+
+    def _check_if_polarized(self, data_model: ModelData) -> bool:
+        p = data_model.uvdata.polarization_array
+        # We only do a non-polarized simulation if UVData has only XX or YY polarization
+        return len(p) != 1 or uvutils.polnum2str(p[0]) not in ["xx", "yy"]
 
     def get_eq2tops(self, uvdata: UVData, lsts: np.ndarray):
         """
@@ -229,28 +286,25 @@ class VisCPU(VisibilitySimulator):
             dtype=self._real_dtype,
         )
 
+    def get_feed(self, uvdata) -> str:
+        """Get the feed to use from the beam, given the UVData object.
+
+        Only applies for an *unpolarized* simulation (for a polarized sim, all feeds
+        are used).
+        """
+        return uvutils.polnum2str(uvdata.polarization_array[0])[0]
+
     def simulate(self, data_model):
         """
         Calls :func:vis_cpu to perform the visibility calculation.
-
-        Parameters
-        ----------
-        crd_eq : array_like
-            Rotation matrix to convert between source coords and equatorial
-            coords.
-
-        I : array_like
-            Flux for each source in each frequency channel.
 
         Returns
         -------
         array_like of self._complex_dtype
             Visibilities. Shape=self.uvdata.data_array.shape.
         """
-        if self.use_gpu and self.polarized:
-            raise NotImplementedError(
-                "use_gpu not currently supported if " "polarized=True"
-            )
+        polarized = self._check_if_polarized(data_model)
+        feed = self.get_feed(data_model.uvdata)
 
         # Setup MPI info if enabled
         if self.mpi_comm is not None:
@@ -260,7 +314,7 @@ class VisCPU(VisibilitySimulator):
         if self.correct_source_positions:
             # TODO: check if this is the right time to be using...
             ra, dec = self.correct_point_source_pos(
-                data_model, obstime=data_model.uvdata.time_array[0]
+                data_model, obstime=Time(data_model.uvdata.time_array[0], format="jd")
             )
         else:
             ra, dec = data_model.sky_model.ra, data_model.sky_model.dec
@@ -270,7 +324,6 @@ class VisCPU(VisibilitySimulator):
         # Convert equatorial to topocentric coords
         eq2tops = self.get_eq2tops(data_model.uvdata, data_model.lsts)
 
-        # ant_list = data_model.uvdata.get_ants()
         # The following are antenna positions in the order that they are
         # in the uvdata.data_array
         active_antpos, ant_list = data_model.uvdata.get_ENU_antpos(pick_data_ants=True)
@@ -280,62 +333,29 @@ class VisCPU(VisibilitySimulator):
             beam_lm = self.get_beam_lm(data_model)
         else:
             beam_list = [
-                data_model.beams[data_model.beam_ids[name]]
+                convs.prepare_beam(
+                    data_model.beams[data_model.beam_ids[name]],
+                    polarized=polarized,
+                    use_feed=feed,
+                )
                 for number, name in zip(
                     data_model.uvdata.antenna_numbers, data_model.uvdata.antenna_names
                 )
                 if number in ant_list
             ]
 
-        # Get required pols and map them to the right output index
-        if self.polarized:
-            avail_pols = {"nn": (0, 0), "ne": (0, 1), "en": (1, 0), "ee": (1, 1)}
-        else:
-            avail_pols = {
-                "ee": (1, 1),
-            }  # only xx = ee
-
-        req_pols = []
-        for pol in data_model.uvdata.polarization_array:
-
-            # Get x_orientation
-            x_orient = data_model.uvdata.x_orientation
-            if x_orient is None:
-                data_model.uvdata.x_orientation = "e"  # set in UVData object
-                x_orient = "e"  # default to east
-
-            # Get polarization strings in terms of n/e feeds
-            polstr = pyuvdata.utils.polnum2str(pol, x_orientation=x_orient).lower()
-
-            # Check if polarization can be formed
-            if polstr not in avail_pols.keys():
-                raise KeyError(
-                    "Simulation UVData object expecting polarization"
-                    " '%s', but only polarizations %s can be formed."
-                    % (polstr, list(avail_pols.keys()))
-                )
-
-            # If polarization can be formed, specify which is which in the
-            # output polarization_array (ordered list)
-            req_pols.append(avail_pols[polstr])
+        # Get all the polarizations required to be simulated.
+        req_pols = self._get_req_pols(
+            data_model.uvdata, data_model.beams[0], polarized=polarized
+        )
 
         # Empty visibility array
         visfull = np.zeros_like(data_model.uvdata.data_array, dtype=self._complex_dtype)
 
         for i, freq in enumerate(data_model.freqs):
-
             # Divide tasks between MPI workers if needed
             if self.mpi_comm is not None and i % nproc != myid:
                 continue
-
-            # Determine correct shape of beam cube if pixel beams are used
-            if self.use_pixel_beams:
-                if self.polarized:
-                    _beam_lm = beam_lm[:, :, :, i, :, :]
-                    # (NANT, NAXES, NFEEDS, NFREQS, BM_PIX, BM_PIX)
-                else:
-                    _beam_lm = beam_lm[:, i, :, :]
-                    # (NANT, NFREQS, BM_PIX, BM_PIX)
 
             # Call vis_cpu function to simulate visibilities
             vis = self._vis_cpu(
@@ -345,50 +365,76 @@ class VisCPU(VisibilitySimulator):
                 crd_eq=crd_eq,
                 I_sky=data_model.sky_model.stokes[0, i].to("Jy").value,
                 beam_list=beam_list if not self.use_pixel_beams else None,
-                bm_cube=_beam_lm if self.use_pixel_beams else None,
+                bm_cube=beam_lm[i] if self.use_pixel_beams else None,
                 precision=self._precision,
-                polarized=self.polarized,
-            )
-            indices = (
-                np.triu_indices(vis.shape[3])
-                if self.polarized
-                else np.triu_indices(vis.shape[1])
+                polarized=polarized,
             )
 
-            # Order output correctly
-            if not self.polarized:
-                req_pols = [(0, (0, 0))]
-
-            for p, pidxs in enumerate(req_pols):
-                p1, p2 = pidxs
-                for ant1, ant2 in zip(*indices):  # go through indices in output
-                    if self.polarized:
-                        vis_here = vis[p1, p2, :, ant1, ant2]
-                    else:
-                        vis_here = vis[:, ant1, ant2]
-
-                    # get official "antenna numbers" corresponding to these indices
-                    antnum1, antnum2 = ant_list[ant1], ant_list[ant2]
-
-                    # get all blt indices corresponding to this antpair
-                    indx = data_model.uvdata.antpair2ind(antnum1, antnum2)
-                    if len(indx) == 0:
-                        # maybe we chose the wrong ordering according to the data. Then
-                        # we just conjugate.
-                        indx = data_model.uvdata.antpair2ind(antnum2, antnum1)
-                        vis_here = np.conj(vis_here)
-
-                    visfull[indx, 0, i, p] = vis_here
+            self._reorder_vis(
+                req_pols, data_model.uvdata, visfull[:, 0, i], vis, ant_list, polarized
+            )
 
         # Reduce visfull array if in MPI mode
         if self.mpi_comm is not None:
-            from mpi4py.MPI import SUM
-
-            _visfull = np.zeros(visfull.shape, dtype=visfull.dtype)
-            self.mpi_comm.Reduce(visfull, _visfull, op=SUM, root=0)
-            if myid == 0:
-                return _visfull
-            else:
-                return 0  # workers return 0
+            return self._reduce_mpi(visfull, myid)
 
         return visfull
+
+    def _reorder_vis(self, req_pols, uvdata, visfull, vis, ant_list, polarized):
+        indices = np.triu_indices(vis.shape[-1])
+
+        for p, (p1, p2) in enumerate(req_pols):
+            for ant1, ant2 in zip(*indices):  # go through indices in output
+                vis_here = (
+                    vis[p1, p2, :, ant1, ant2] if polarized else vis[:, ant1, ant2]
+                )
+                # get official "antenna numbers" corresponding to these indices
+                antnum1, antnum2 = ant_list[ant1], ant_list[ant2]
+
+                # get all blt indices corresponding to this antpair
+                indx = uvdata.antpair2ind(antnum1, antnum2)
+                if len(indx) == 0:
+                    # maybe we chose the wrong ordering according to the data. Then
+                    # we just conjugate.
+                    indx = uvdata.antpair2ind(antnum2, antnum1)
+                    vis_here = np.conj(vis_here)
+
+                visfull[indx, p] = vis_here
+
+    def _get_req_pols(self, uvdata, uvbeam, polarized: bool) -> List[Tuple[int, int]]:
+        if not polarized:
+            return [(0, 0)]
+
+        feeds = list(uvbeam.feed_array)
+        # In order to get all 4 visibility polarizations for a dual feed system
+        vispols = set()
+        for p1, p2 in itertools.combinations_with_replacement(feeds, 2):
+            vispols.add(p1 + p2)
+            vispols.add(p2 + p1)
+        avail_pols = {
+            vispol: (feeds.index(vispol[0]), feeds.index(vispol[1]))
+            for vispol in vispols
+        }
+        # Get the mapping from uvdata pols to uvbeam pols
+        uvdata_pols = [
+            uvutils.polnum2str(polnum, uvbeam.x_orientation)
+            for polnum in uvdata.polarization_array
+        ]
+        if any(pol not in avail_pols for pol in uvdata_pols):
+            raise ValueError(
+                "Not all polarizations in UVData object are in your beam. "
+                f"UVData polarizations = {uvdata_pols}. "
+                f"UVBeam polarizations = {list(avail_pols.keys())}"
+            )
+
+        return [avail_pols[pol] for pol in uvdata_pols]
+
+    def _reduce_mpi(self, visfull, myid):  # pragma: no cover
+        from mpi4py.MPI import SUM
+
+        _visfull = np.zeros(visfull.shape, dtype=visfull.dtype)
+        self.mpi_comm.Reduce(visfull, _visfull, op=SUM, root=0)
+        if myid == 0:
+            return _visfull
+        else:
+            return 0  # workers return 0
