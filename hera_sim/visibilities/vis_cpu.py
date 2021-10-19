@@ -15,6 +15,8 @@ from vis_cpu import conversions as convs
 from pyuvdata import UVData
 from pyuvdata import utils as uvutils
 
+import warnings
+
 
 class VisCPU(VisibilitySimulator):
     """
