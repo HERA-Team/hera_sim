@@ -7,6 +7,7 @@ from pyuvsim.telescope import BeamList
 
 from hera_sim.beams import PolyBeam
 from hera_sim.visibilities import VisCPU, ModelData, VisibilitySimulation
+from hera_sim import io
 
 from astropy.coordinates import Latitude, Longitude
 from astropy.units import Quantity
@@ -37,7 +38,7 @@ def get_uvdata(pol_array=None):
     ants = {i: (x[i], y[i], z[i]) for i in range(nants)}
 
     # Observing parameters in a UVData object
-    return simsetup.initialize_uvdata_from_keywords(
+    return io.empty_uvdata(
         Nfreqs=nfreq,
         start_freq=100e6,
         channel_width=97.3e3,
@@ -51,7 +52,6 @@ def get_uvdata(pol_array=None):
         x_orientation="east",
         phase_type="drift",
         vis_units="Jy",
-        complete=True,
         write_files=False,
     )
 
