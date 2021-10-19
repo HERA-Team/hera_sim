@@ -76,7 +76,7 @@ def test_from_empty(base_sim):
 
 def test_initialize_from_defaults():
     with open(CONFIG_PATH / "H1C.yaml") as config:
-        defaults = yaml.load(config.read())
+        defaults = yaml.load(config.read(), Loader=yaml.FullLoader)
     setup = defaults["setup"]
     freq_params = setup["frequency_array"]
     time_params = setup["time_array"]
@@ -245,6 +245,7 @@ def test_get_redundant_data(pol, conj):
         3: [10, 10, 0],
     }
     sim = create_sim(array_layout=antpos)
+    defaults.set("h1c")
     sim.add("diffuse_foreground", seed="redundant")
     ant1, ant2 = (0, 1) if conj else (1, 0)
     ai, aj = (2, 3) if conj else (3, 2)
@@ -253,6 +254,7 @@ def test_get_redundant_data(pol, conj):
         assert np.allclose(sim.data.get_data(ai, aj, pol), vis)
     else:
         assert np.allclose(sim.data.get_data(ai, aj), vis[..., 0])
+    defaults.deactivate()
 
 
 @pytest.mark.parametrize("pol", [None, "x"])

@@ -15,10 +15,12 @@ from hera_sim.visibilities import (
     ModelData,
     vis_cpu,
 )
+from hera_sim.beams import PolyBeam
 from pyradiosky import SkyModel
 from astropy.coordinates.angles import Latitude, Longitude
 from astropy import time as apt
 from itertools import product
+import copy
 
 SIMULATORS = (HealVis, VisCPU)
 
@@ -489,15 +491,35 @@ def test_comparison(uvdata2, sky_model, beam_model):
     ).simulate()
 
     assert viscpu.shape == healvis.shape
-    np.testing.assert_allclose(viscpu.conj(), healvis, rtol=0.05)
+    np.testing.assert_allclose(viscpu, healvis, rtol=0.05)
 
 
-def test_vis_cpu_pol_gpu():
+def test_vis_cpu_pol_gpu(uvdata_linear):
     old = vis_cpu.HAVE_GPU
 
     vis_cpu.HAVE_GPU = True
+
+    uvdata_linear.polarization_array = [-8, -7, -6, -5]
+    beam = PolyBeam(polarized=True)
+
+    sky_model = make_point_sky(
+        uvdata_linear,
+        ra=np.linspace(0, 2 * np.pi, 8) * rad,
+        dec=uvdata_linear.telescope_location_lat_lon_alt[0] * np.ones(8) * rad,
+        align=False,
+    )
+
+    simulator = VisCPU(use_gpu=True)
+
     with pytest.raises(RuntimeError):
-        VisCPU(use_gpu=True, polarized=True)
+        VisibilitySimulation(
+            data_model=ModelData(
+                uvdata=uvdata_linear, sky_model=sky_model, beams=[beam]
+            ),
+            simulator=simulator,
+            n_side=2 ** 4,
+        )
+
     vis_cpu.HAVE_GPU = old
 
 
@@ -545,3 +567,81 @@ def test_ordering(uvdata_linear, simulator, order, conj):
         sim.uvdata.data_array[sim.uvdata.antpair2ind(0, 2), 0, 0, 0],
         sim.uvdata.data_array[sim.uvdata.antpair2ind(0, 3), 0, 0, 0],
     )
+
+
+@pytest.mark.parametrize(
+    "polarization_array, xfail",
+    [
+        (["XX"], False),
+        (["XY"], False),
+        (["YY"], False),
+        (["XX", "YX", "XY", "YY"], False),
+    ],
+)
+def test_vis_cpu_pol(polarization_array, xfail):
+    """Test whether different combinations of input polarization array work."""
+
+    defaults.set("h1c")
+    uvdata = io.empty_uvdata(
+        Nfreqs=NFREQ,
+        integration_time=sday.to("s") / NTIMES,
+        Ntimes=NTIMES,
+        array_layout={
+            0: (0, 0, 0),
+        },
+        start_time=2456658.5,
+        conjugation="ant1<ant2",
+        polarization_array=polarization_array,
+    )
+
+    sky_model = make_point_sky(
+        uvdata,
+        ra=np.linspace(0, 2 * np.pi, 8) * rad,
+        dec=uvdata.telescope_location_lat_lon_alt[0] * np.ones(8) * rad,
+        align=False,
+    )
+
+    beam = PolyBeam(polarized=False)
+    simulator = VisCPU()
+
+    if xfail:
+        with pytest.raises(KeyError):
+            VisibilitySimulation(
+                data_model=ModelData(uvdata=uvdata, sky_model=sky_model, beams=[beam]),
+                simulator=simulator,
+                n_side=2 ** 4,
+            )
+    else:
+        VisibilitySimulation(
+            data_model=ModelData(uvdata=uvdata, sky_model=sky_model, beams=[beam]),
+            simulator=simulator,
+            n_side=2 ** 4,
+        )
+
+
+def test_beam_type_consistency(uvdata, sky_model):
+    beams = [AnalyticBeam("gaussian"), AnalyticBeam("airy")]
+    beams[0].efield_to_power()
+
+    with pytest.raises(ValueError):
+        ModelData(uvdata=uvdata, sky_model=sky_model, beams=beams)
+
+
+def test_power_polsky(uvdata, sky_model):
+    new_sky = copy.deepcopy(sky_model)
+    new_sky.stokes[1:] = 1.0 * units.Jy
+
+    beams = [AnalyticBeam("gaussian")]
+    beams[0].efield_to_power()
+
+    with pytest.raises(TypeError):
+        ModelData(uvdata=uvdata, sky_model=new_sky, beams=beams)
+
+
+def test_vis_cpu_stokespol(uvdata_linear, sky_model):
+    uvdata_linear.polarization_array = [0, 1, 2, 3]
+    with pytest.raises(ValueError):
+        VisibilitySimulation(
+            data_model=ModelData(uvdata=uvdata_linear, sky_model=sky_model),
+            simulator=VisCPU(),
+        )
