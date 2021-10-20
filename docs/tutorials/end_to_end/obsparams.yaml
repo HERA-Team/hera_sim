@@ -1,0 +1,19 @@
+freq:
+    Nfreqs: 100
+    start_freq: 140000000.0
+    bandwidth: 20000000.0
+
+time:
+    Ntimes: 500
+    start_time: 2458119.5
+    integration_time: 10.7
+
+telescope:
+    array_layout: 'array_layout.csv'
+    telescope_config_name: 'telescope.yaml'
+
+sources:
+    catalog: 'mock'
+    mock_arrangement: 'random'
+    time: 2458119.5
+    Nsrcs: 200
