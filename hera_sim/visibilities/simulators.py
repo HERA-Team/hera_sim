@@ -85,13 +85,14 @@ class ModelData:
     def _process_uvdata(self, uvdata: UVData | str | Path):
         if isinstance(uvdata, UVData):
             return uvdata
-        elif isinstance(UVData, (str, Path)):
+        elif isinstance(uvdata, (str, Path)):
             out = UVData()
-            out.read(uvdata)
+            out.read(str(uvdata))
             return out
         else:
             raise TypeError(
-                "uvdata must be a UVData object or path to a compatible file."
+                "uvdata must be a UVData object or path to a compatible file. Got "
+                f"{uvdata}, type {type(uvdata)}"
             )
 
     @classmethod

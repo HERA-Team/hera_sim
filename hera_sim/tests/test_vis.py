@@ -641,3 +641,17 @@ def test_vis_cpu_stokespol(uvdata_linear, sky_model):
             data_model=ModelData(uvdata=uvdata_linear, sky_model=sky_model),
             simulator=VisCPU(),
         )
+
+
+def test_bad_uvdata(sky_model):
+    with pytest.raises(TypeError, match="uvdata must be a UVData object"):
+        ModelData(uvdata=3, sky_model=sky_model)
+
+
+def test_str_uvdata(uvdata, sky_model, tmp_path):
+    pth = tmp_path / "tmp_uvdata.uvh5"
+    print(type(pth))
+    uvdata.write_uvh5(str(pth))
+
+    model_data = ModelData(uvdata=pth, sky_model=sky_model)
+    assert model_data.uvdata.Nants_data == uvdata.Nants_data
