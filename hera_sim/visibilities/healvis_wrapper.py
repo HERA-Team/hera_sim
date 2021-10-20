@@ -158,6 +158,12 @@ class HealVis(VisibilitySimulator):
             visibility, _, baselines = obs.make_visibilities(
                 sky, Nprocs=self._nprocs, beam_pol=pol
             )  # Shape (Nblts, Nskies, Nfreqs)
+
+            # AnalyticBeams do not use polarization at all in healvis, and are
+            # equivalent to "pI" polarization. To match our definition of linear pols
+            # we divide by two if this is the case.
+            if isinstance(data_model.beams[0], AnalyticBeam) and "p" not in pol:
+                visibility /= 2
             visibilities.append(visibility[:, 0, :][:, np.newaxis, :])
 
         # Transform from shape (Npols, Nblts, 1, Nfreqs) to  (Nblts, 1, Nfreqs, Npols).

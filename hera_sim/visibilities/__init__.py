@@ -11,6 +11,9 @@ of simulators.
 from .simulators import VisibilitySimulator, VisibilitySimulation, ModelData
 
 # Registered Simulators
+
+from .pyuvsim_wrapper import UVSim
+
 try:
     from .vis_cpu import VisCPU
 except (ImportError, NameError):  # pragma: no cover

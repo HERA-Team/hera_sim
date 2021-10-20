@@ -15,8 +15,6 @@ from vis_cpu import conversions as convs
 from pyuvdata import UVData
 from pyuvdata import utils as uvutils
 
-import warnings
-
 
 class VisCPU(VisibilitySimulator):
     """
@@ -165,9 +163,12 @@ class VisCPU(VisibilitySimulator):
             try:
                 nfeeds = uvbeam.data_array.shape[2]
             except AttributeError:
-                nfeeds = uvbeam.Nfeeds
+                # TODO: the following assumes that analytic beams are 2 feeds unless
+                # otherwise specified. This should be fixed at the AnalyticBeam API
+                # level.
+                nfeeds = getattr(uvbeam, "Nfeeds", 2)
 
-                assert nfeeds == 2
+            assert nfeeds == 2
 
             if self.use_gpu:
                 raise RuntimeError(
@@ -405,7 +406,10 @@ class VisCPU(VisibilitySimulator):
         if not polarized:
             return [(0, 0)]
 
-        feeds = list(uvbeam.feed_array)
+        # TODO: this can be updated to just access uvbeam.feed_array once the
+        # AnalyticBeam API has been improved.
+        feeds = list(getattr(uvbeam, "feed_array", ["x", "y"]))
+
         # In order to get all 4 visibility polarizations for a dual feed system
         vispols = set()
         for p1, p2 in itertools.combinations_with_replacement(feeds, 2):
@@ -417,7 +421,7 @@ class VisCPU(VisibilitySimulator):
         }
         # Get the mapping from uvdata pols to uvbeam pols
         uvdata_pols = [
-            uvutils.polnum2str(polnum, uvbeam.x_orientation)
+            uvutils.polnum2str(polnum, getattr(uvbeam, "x_orientation", None))
             for polnum in uvdata.polarization_array
         ]
         if any(pol not in avail_pols for pol in uvdata_pols):
