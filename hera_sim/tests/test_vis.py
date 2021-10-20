@@ -87,7 +87,7 @@ def uvdataJD():
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def sky_model(uvdata):
     return make_point_sky(
         uvdata,
@@ -655,3 +655,18 @@ def test_str_uvdata(uvdata, sky_model, tmp_path):
 
     model_data = ModelData(uvdata=pth, sky_model=sky_model)
     assert model_data.uvdata.Nants_data == uvdata.Nants_data
+
+
+def test_bad_healvis_skymodel(sky_model):
+    hv = HealVis()
+    sky_model.stokes *= units.sr  # something stupid
+    with pytest.raises(ValueError, match="not compatible with healvis"):
+        hv.get_sky_model(sky_model)
+
+
+def test_mK_healvis_skymodel(sky_model):
+    hv = HealVis()
+    sky_model.stokes = sky_model.stokes.value * units.mK
+    sky_model.nside = 2 ** 3
+    sky = hv.get_sky_model(sky_model)
+    assert np.isclose(np.sum(sky.data), np.sum(sky_model.stokes[0].value / 1000))
