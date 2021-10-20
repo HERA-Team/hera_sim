@@ -378,9 +378,6 @@ def test_single_source_autocorr(uvdata, simulator, sky_model):
     sim.simulate()
 
     v = sim.uvdata.get_data((0, 0, "xx"))[:, 0]  # Get just one frequency
-    # Account for factor of 2 between Stokes I and 'xx' pol for vis_cpu
-    # if simulator == VisCPU:
-    #     v *= 2.0
 
     # Make sure the source is over the horizon half the time
     # (+/- 1 because of the discreteness of the times)

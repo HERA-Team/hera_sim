@@ -163,12 +163,12 @@ class VisCPU(VisibilitySimulator):
             try:
                 nfeeds = uvbeam.data_array.shape[2]
             except AttributeError:
-                # TODO: the following assumes that analytic beams are 1 feed unless
+                # TODO: the following assumes that analytic beams are 2 feeds unless
                 # otherwise specified. This should be fixed at the AnalyticBeam API
                 # level.
                 nfeeds = getattr(uvbeam, "Nfeeds", 2)
 
-                assert nfeeds == 2
+            assert nfeeds == 2
 
             if self.use_gpu:
                 raise RuntimeError(
@@ -406,7 +406,10 @@ class VisCPU(VisibilitySimulator):
         if not polarized:
             return [(0, 0)]
 
+        # TODO: this can be updated to just access uvbeam.feed_array once the
+        # AnalyticBeam API has been improved.
         feeds = list(getattr(uvbeam, "feed_array", ["x", "y"]))
+
         # In order to get all 4 visibility polarizations for a dual feed system
         vispols = set()
         for p1, p2 in itertools.combinations_with_replacement(feeds, 2):
