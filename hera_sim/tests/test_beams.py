@@ -477,6 +477,14 @@ class TestPolarizedPolyBeam:
     def test_equality_method(self, polarized_polybeam):
         assert polarized_polybeam == polarized_polybeam
 
+    def test_not_all_pols(self, polarized_polybeam, antennas, sources):
+        ppb = copy.deepcopy(polarized_polybeam)
+        ppb.feed_array = ["X", "Y"]
+        with pytest.raises(
+            ValueError, match="Not all polarizations in UVData object are in your beam."
+        ):
+            run_sim(antennas, sources, [ppb], use_pixel_beams=True, use_pol=True)
+
 
 class TestZernikeBeam:
     @pytest.fixture(scope="function")
