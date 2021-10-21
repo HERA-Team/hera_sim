@@ -6,6 +6,7 @@ from pyuvsim import create_mock_catalog
 from pyradiosky import SkyModel
 import argparse
 
+
 def make_mock_catalog(
     filename,
     obsparam_file,
@@ -29,7 +30,6 @@ def make_mock_catalog(
     )[0]
     sky_model_recarray = sky_model.to_recarray()
 
-
     # Get the source positions.
     ras = np.array(list(row[1] for row in sky_model_recarray))
     decs = np.array(list(row[2] for row in sky_model_recarray))
@@ -46,7 +46,7 @@ def make_mock_catalog(
     freqs = np.unique(temp_uvdata.freq_array)
     ref_freq = np.mean(freqs)
     scales = np.exp(np.outer(np.log(freqs / ref_freq), indices))
-    fluxes = ref_fluxes.reshape(1,-1) * scales
+    fluxes = ref_fluxes.reshape(1, -1) * scales
     stokes = np.zeros((4,) + fluxes.shape, dtype=float)
     stokes[0] = fluxes  # Only Stokes-I terms.
 
@@ -60,10 +60,11 @@ def make_mock_catalog(
         freq_array=freqs * units.Hz,
         component_type="point",
     )
-    
+
     # Save the contents as a catalog, then we're done.
     sky_model.write_text_catalog(filename)
     return
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
