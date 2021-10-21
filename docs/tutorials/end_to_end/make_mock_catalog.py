@@ -33,7 +33,7 @@ def make_mock_catalog(
     sky_model_recarray = sky_model.to_recarray()
 
     # Get the source positions.
-    ras = np.array([row[1] for row in sky_model_recarray)])
+    ras = np.array([row[1] for row in sky_model_recarray])
     decs = np.array([row[2] for row in sky_model_recarray])
 
     # Randomly assign fluxes (whether this is realistic or not).
