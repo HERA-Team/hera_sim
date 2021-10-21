@@ -14,7 +14,5 @@ telescope:
     telescope_config_name: 'telescope.yaml'
 # Define the source catalog.
 sources:
-    catalog: 'mock'
-    mock_arrangement: 'random'
-    time: 2458119.5
-    Nsrcs: 200
+    catalog: 'sample_catalog.txt'
+    spectral_type: 'full'
