@@ -1,3 +1,4 @@
+"""Script for making a mock point source catalog."""
 from pyuvsim.simsetup import initialize_uvdata_from_params
 from astropy.coordinates import EarthLocation, Latitude, Longitude
 from astropy import units
@@ -16,6 +17,7 @@ def make_mock_catalog(
     index_low=-3,
     index_high=-1,
 ):
+    """Generate and svae a mock point source catalog."""
     # Easiset to load the metadata this way.
     temp_uvdata = initialize_uvdata_from_params(str(obsparam_file))[0]
     center_time = np.mean(np.unique(temp_uvdata.time_array))
@@ -31,9 +33,8 @@ def make_mock_catalog(
 
 
     # Get the source positions.
-    ras = np.array(list(row[1] for row in sky_model_recarray))
-    decs = np.array(list(row[2] for row in sky_model_recarray))
-    src_pos = np.array([ras, decs]).T * units.deg.to("rad")
+    ras = np.array([row[1] for row in sky_model_recarray)])
+    decs = np.array([row[2] for row in sky_model_recarray])
 
     # Randomly assign fluxes (whether this is realistic or not).
     ref_fluxes = np.random.lognormal(mean=1, sigma=sigma, size=len(ras))
