@@ -243,21 +243,30 @@ class VisCPU(VisibilitySimulator):
         future, this method can be modified to only return one
         matrix for each beam.
         """
-        out = np.asarray(
-            [
-                convs.uvbeam_to_lm(
-                    data_model.beams[data_model.beam_ids[ant]],
-                    data_model.freqs,
-                    n_pix_lm=self.bm_pix,
-                    polarized=self._check_if_polarized(data_model),
-                    use_feed=self.get_feed(data_model.uvdata),
-                )
-                for ant, num in zip(
-                    data_model.uvdata.antenna_names, data_model.uvdata.antenna_numbers
-                )
-                if num in data_model.uvdata.get_ants()
-            ]
-        )
+
+        def iter_ants():
+            for ant, num in zip(
+                data_model.uvdata.antenna_names, data_model.uvdata.antenna_numbers
+            ):
+                if num in data_model.uvdata.get_ants():
+                    yield ant
+
+        used_beam_indices = {data_model.beam_ids[ant] for ant in iter_ants()}
+
+        lm_beams = [
+            convs.uvbeam_to_lm(
+                beam,
+                data_model.freqs,
+                n_pix_lm=self.bm_pix,
+                polarized=self._check_if_polarized(data_model),
+                use_feed=self.get_feed(data_model.uvdata),
+            )
+            if i in used_beam_indices
+            else None
+            for i, beam in enumerate(data_model.beams)
+        ]
+
+        out = np.asarray([lm_beams[data_model.beam_ids[ant]] for ant in iter_ants()])
 
         if self._check_if_polarized(data_model):
             # shape FREQ, NAXES, NFEEDS, NANT, NPIX, NPIX
