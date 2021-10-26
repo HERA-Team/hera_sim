@@ -4,7 +4,7 @@ import numpy as np
 import itertools
 
 from .simulators import VisibilitySimulator, ModelData
-from typing import Tuple, Union, Optional, List
+from typing import Tuple, Union, Optional, List, Set
 
 import astropy.units as u
 from astropy.time import Time
@@ -243,6 +243,31 @@ class VisCPU(VisibilitySimulator):
         future, this method can be modified to only return one
         matrix for each beam.
         """
+        used_beam_indices = self.get_used_beam_idxs(data_model)
+
+        lm_beams = np.array(
+            [
+                convs.uvbeam_to_lm(
+                    beam,
+                    data_model.freqs,
+                    n_pix_lm=self.bm_pix,
+                    polarized=self._check_if_polarized(data_model),
+                    use_feed=self.get_feed(data_model.uvdata),
+                )
+                for i, beam in enumerate(data_model.beams)
+                if i in used_beam_indices
+            ]
+        )
+
+        if self._check_if_polarized(data_model):
+            # shape FREQ, NAXES, NFEEDS, NBEAM, NPIX, NPIX
+            return np.transpose(lm_beams, (3, 1, 2, 0, 4, 5))
+        else:
+            return np.transpose(lm_beams, (1, 0, 2, 3))
+
+    @classmethod
+    def get_used_beam_idxs(cls, data_model) -> Set[int]:
+        """Return a set of beam indices actually used in the simulation."""
 
         def iter_ants():
             for ant, num in zip(
@@ -251,28 +276,7 @@ class VisCPU(VisibilitySimulator):
                 if num in data_model.uvdata.get_ants():
                     yield ant
 
-        used_beam_indices = {data_model.beam_ids[ant] for ant in iter_ants()}
-
-        lm_beams = [
-            convs.uvbeam_to_lm(
-                beam,
-                data_model.freqs,
-                n_pix_lm=self.bm_pix,
-                polarized=self._check_if_polarized(data_model),
-                use_feed=self.get_feed(data_model.uvdata),
-            )
-            if i in used_beam_indices
-            else None
-            for i, beam in enumerate(data_model.beams)
-        ]
-
-        out = np.asarray([lm_beams[data_model.beam_ids[ant]] for ant in iter_ants()])
-
-        if self._check_if_polarized(data_model):
-            # shape FREQ, NAXES, NFEEDS, NANT, NPIX, NPIX
-            return np.transpose(out, (3, 1, 2, 0, 4, 5))
-        else:
-            return np.transpose(out, (1, 0, 2, 3))
+        return {data_model.beam_ids[ant] for ant in iter_ants()}
 
     def _check_if_polarized(self, data_model: ModelData) -> bool:
         p = data_model.uvdata.polarization_array
@@ -342,16 +346,15 @@ class VisCPU(VisibilitySimulator):
         if self.use_pixel_beams:
             beam_lm = self.get_beam_lm(data_model)
         else:
+            used_idx = self.get_used_beam_idxs(data_model)
             beam_list = [
                 convs.prepare_beam(
-                    data_model.beams[data_model.beam_ids[name]],
+                    beam,
                     polarized=polarized,
                     use_feed=feed,
                 )
-                for number, name in zip(
-                    data_model.uvdata.antenna_numbers, data_model.uvdata.antenna_names
-                )
-                if number in ant_list
+                for i, beam in enumerate(data_model.beams)
+                if i in used_idx
             ]
 
         # Get all the polarizations required to be simulated.
@@ -378,6 +381,7 @@ class VisCPU(VisibilitySimulator):
                 bm_cube=beam_lm[i] if self.use_pixel_beams else None,
                 precision=self._precision,
                 polarized=polarized,
+                beam_idx=np.array([data_model.beam_ids[ant] for ant in ant_list]),
             )
 
             self._reorder_vis(
