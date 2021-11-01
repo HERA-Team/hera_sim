@@ -266,9 +266,17 @@ class VisCPU(VisibilitySimulator):
             return np.transpose(lm_beams, (1, 0, 2, 3))
 
     @classmethod
-    def get_used_beam_idxs(cls, data_model: ModelData) -> Set[int]:
+    def get_used_beam_idxs(cls, data_model) -> Set[int]:
         """Return a set of beam indices actually used in the simulation."""
-        return {data_model.beam_ids[ant] for ant in data_model.iter_data_ant_names()}
+
+        def iter_ants():
+            for ant, num in zip(
+                data_model.uvdata.antenna_names, data_model.uvdata.antenna_numbers
+            ):
+                if num in data_model.uvdata.get_ants():
+                    yield ant
+
+        return {data_model.beam_ids[ant] for ant in iter_ants()}
 
     def _check_if_polarized(self, data_model: ModelData) -> bool:
         p = data_model.uvdata.polarization_array
@@ -300,7 +308,7 @@ class VisCPU(VisibilitySimulator):
         """
         return uvutils.polnum2str(uvdata.polarization_array[0])[0]
 
-    def simulate(self, data_model: ModelData):
+    def simulate(self, data_model):
         """
         Calls :func:vis_cpu to perform the visibility calculation.
 
@@ -373,12 +381,7 @@ class VisCPU(VisibilitySimulator):
                 bm_cube=beam_lm[i] if self.use_pixel_beams else None,
                 precision=self._precision,
                 polarized=polarized,
-                beam_idx=np.array(
-                    [
-                        data_model.beam_ids[ant]
-                        for ant in data_model.iter_data_ant_names()
-                    ]
-                ),
+                beam_idx=np.array([data_model.beam_ids[ant] for ant in ant_list]),
             )
 
             self._reorder_vis(
