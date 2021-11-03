@@ -117,7 +117,7 @@ class ModelData:
         self,
         beam_ids: Dict[str, int] | np.typing.ArrayLike[int] | None,
         beams: BeamList,
-    ) -> np.array[int]:
+    ) -> Dict[str, int]:
         # beam ids maps antenna name to INDEX of the beam in the beam list.
 
         # Set the beam_ids.
