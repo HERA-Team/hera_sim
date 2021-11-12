@@ -14,20 +14,6 @@ def config_file(tmp_path_factory):
     cfg_file = tmpdir / "config.yaml"
     cfg_file.write_text(
         f"""
-        bda:
-            max_decorr: 0
-            pre_fs_int_time: !dimensionful
-                value: 0.1
-                units: s
-            corr_fov_angle: !dimensionful
-                value: 20
-                units: deg
-            max_time: !dimensionful
-                value: 16
-                units: s
-            corr_int_time: !dimensionful
-                value: 2
-                units: s
         filing:
             outdir: {str(tmpdir)}
             outfile_name: test.uvh5
