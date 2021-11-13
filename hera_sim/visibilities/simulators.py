@@ -237,12 +237,6 @@ class ModelData:
                 "Cannot use power beams when the sky model contains polarized sources."
             )
 
-    def iter_data_ant_names(self):
-        """Iterator over antenna names that actually have data."""
-        for ant, num in zip(self.uvdata.antenna_names, self.uvdata.antenna_numbers):
-            if num in self.uvdata.get_ants():
-                yield ant
-
 
 @dataclass
 class VisibilitySimulation:

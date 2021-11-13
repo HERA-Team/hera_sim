@@ -1,0 +1,18 @@
+filing:
+  outdir: '.'
+  outfile_name: './h1c_idr3_gleam_top50'
+  output_format: 'uvh5'
+  clobber: True
+freq:
+  Nfreqs: 10
+  channel_width: 97656.25
+  start_freq: 100000000.0
+sources:
+  catalog: './gleam_top50.skyh5'
+telescope:
+  array_layout: './antenna_layout_hera_phase1.csv'
+  telescope_config_name: './telescope_config_hera_airy.yaml'
+time:
+  Ntimes: 60
+  integration_time: 10.737418174743652
+  start_time: 2458101.5804317305
