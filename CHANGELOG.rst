@@ -2,6 +2,32 @@
 Changelog
 =========
 
+v2.0.0 [2021.11.16]
+===================
+
+Added
+-----
+- New VisibilitySimulator interface. See the `<https://hera-sim.readthedocs.io/en/latest/tutorials/visibility_simulator.html> Visibility Simulator Tutorial`_
+  for details. This is a breaking change for usage of the visibility simulators, and
+  includes more robust handling of polarization, fixed ordering of data when put back
+  into the ``UVData`` objects, more native support for using ``pyradiosky`` to define
+  the sky model, and improved support for ``vis_cpu``.
+- Interface directly to the ``pyuvsim`` simulation engine.
+- Ability to load tutorial data from the installed package.
+- New and refactored tests for visibility simulations.
+
+Fixed
+-----
+- default ``feed_array` for ``PolyBeam`` fixed.
+
+Changed
+-------
+- Updated tutorial for the visibility simulator interface (see above link).
+- ``vis_cpu``  made an optional extra
+- removed the ``conversions`` module, which is now in the ``vis_cpu`` package.
+- Can now properly use ``pyuvdata>=2.2.0``.
+
+
 v1.1.1 [2021.08.21]
 ===================
 
