@@ -1,0 +1,6 @@
+beam_paths:
+  0:
+    diameter: 14.0
+    type: airy
+telescope_location: (-30.72152612068957, 21.428303826863015, 1051.6900000218302)
+telescope_name: HERA
