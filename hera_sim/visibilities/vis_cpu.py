@@ -15,6 +15,14 @@ from vis_cpu import conversions as convs
 from pyuvdata import UVData
 from pyuvdata import utils as uvutils
 
+try:
+    profile
+except NameError:
+
+    def profile(fnc):
+        """Placeholder profile decorator."""
+        return fnc
+
 
 class VisCPU(VisibilitySimulator):
     """
@@ -304,6 +312,7 @@ class VisCPU(VisibilitySimulator):
         """
         return uvutils.polnum2str(uvdata.polarization_array[0])[0]
 
+    @profile
     def simulate(self, data_model):
         """
         Calls :func:vis_cpu to perform the visibility calculation.
