@@ -2,7 +2,7 @@ exclude: 'config.yaml|config_examples/*.yaml|hera_sim/config/H1C.yaml|hera_sim/c
 
 repos:
 - repo: git://github.com/pre-commit/pre-commit-hooks
-  rev: v4.0.1
+  rev: v4.1.0
   hooks:
   - id: trailing-whitespace
   - id: check-added-large-files
@@ -17,8 +17,8 @@ repos:
   - id: requirements-txt-fixer
   - id: mixed-line-ending
     args: ['--fix=no']
--   repo: https://gitlab.com/pycqa/flake8
-    rev: 3.9.2  # pick a git hash / tag to point to
+-   repo: https://github.com/PyCQA/flake8
+    rev: 4.0.1  # pick a git hash / tag to point to
     hooks:
     -   id: flake8
         additional_dependencies:
@@ -33,10 +33,10 @@ repos:
           - flake8-comprehensions
           - flake8-print
 -   repo: https://github.com/psf/black
-    rev: 20.8b1
+    rev: 21.12b0
     hooks:
     - id: black
 -   repo: https://github.com/pre-commit/pygrep-hooks
-    rev: v1.8.0
+    rev: v1.9.0
     hooks:
       - id: rst-backticks
