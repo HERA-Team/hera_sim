@@ -8,17 +8,18 @@ temperature fields, rectilinear co-ordinates, spherical co-ordinates, healpix
 maps etc. This package intends to unify the interfaces of these various kinds
 of simulators.
 """
-from .simulators import VisibilitySimulator
-from .conversions import (
-    eq2top_m,
-    healpix_to_crd_eq,
-)
+from .simulators import VisibilitySimulator, VisibilitySimulation, ModelData
 
 # Registered Simulators
-from .vis_cpu import VisCPU
 
+from .pyuvsim_wrapper import UVSim
+
+try:
+    from .vis_cpu import VisCPU
+except (ImportError, NameError):  # pragma: no cover
+    pass
 
 try:
     from .healvis_wrapper import HealVis
-except (ImportError, NameError):
+except (ImportError, NameError):  # pragma: no cover
     pass

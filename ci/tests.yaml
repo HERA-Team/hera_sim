@@ -18,7 +18,7 @@ dependencies:
   - psutil
   - astropy-healpix>=0.5
   - basemap
-  - pyuvdata>=2.1.4,<2.2.0
+  - pyuvdata
   - blas<2.0
   - mpi4py>=3.0,<4  # Required by pyuvsim
   - git

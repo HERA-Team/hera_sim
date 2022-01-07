@@ -36,7 +36,7 @@ def stokes_matrix(pol_index):
     elif pol_index == 3:
         pauli_mat = np.array([[0.0, -1.0j], [1.0j, 0.0]])
     else:
-        raise ValueError("'pol_index' most be an integer between 0 and 3")
+        raise ValueError("'pol_index' must be an integer between 0 and 3")
 
     return pauli_mat
 
@@ -281,7 +281,11 @@ class PolyBeam(AnalyticBeam):
     """
 
     def __init__(
-        self, beam_coeffs=None, spectral_index=0.0, ref_freq=1e8, polarized=False
+        self,
+        beam_coeffs=None,
+        spectral_index=0.0,
+        ref_freq=1e8,
+        polarized=False,
     ):
 
         self.ref_freq = ref_freq
@@ -295,7 +299,7 @@ class PolyBeam(AnalyticBeam):
         self.beam_type = "efield"
         self.Nfeeds = 2  # n and e feeds
         self.pixel_coordinate_system = "az_za"  # az runs from East to North
-        self.feed_array = ["N", "E"]
+        self.feed_array = ["n", "e"]
         self.x_orientation = "east"
 
         # Beam data

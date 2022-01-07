@@ -1,10 +1,9 @@
 """Module defining a high-level visibility simulator wrapper."""
-from __future__ import division
-import warnings
+from __future__ import annotations
 
 import numpy as np
 from cached_property import cached_property
-from pyuvsim import analyticbeam as ab
+from pyuvsim import analyticbeam as ab, BeamList
 from pyuvsim.simsetup import (
     initialize_uvdata_from_params,
     initialize_catalog_from_params,
@@ -13,378 +12,181 @@ from pyuvsim.simsetup import (
 )
 from os import path
 from abc import ABCMeta, abstractmethod
-import astropy_healpix as aph
 from astropy import units
+from pyuvdata import UVData, UVBeam
+from typing import List, Dict, Union, Sequence
+from pyradiosky import SkyModel
+from pathlib import Path
+from dataclasses import dataclass
+import astropy_healpix as aph
+from .. import __version__
+
+BeamListType = Union[BeamList, List[Union[ab.AnalyticBeam, UVBeam]]]
 
 
-def _is_power_of_2(n):
-    # checking if a power of 2 from https://stackoverflow.com/a/57025941/1467820
-    return (n & (n - 1) == 0) and n != 0
-
-
-def _isnpixok(npix):
-    n = npix // 12
-    return npix % 12 == 0 and _is_power_of_2(n)
-
-
-class VisibilitySimulator(metaclass=ABCMeta):
+class ModelData:
     """
-    Base VisibilitySimulator class.
-
-    Any actual visibility simulator should be sub-classed from this one.
-    This class provides several convenience methods and defines the API.
+    An object containing all the information required to perform visibility simulation.
 
     Parameters
     ----------
-    obsparams : dict or filepath, optional
-        Exactly the expected input to `pyuvsim`'s
-        :func:`pyuvsim.simsetup.initialize_uvdata_from_params`
-        function. By default `uvdata`, `beams`, and `beam_ids`
-        are used instead.
-    uvdata : UVData object, optional
+    uvdata
         A :class:`pyuvdata.UVData` object contain information about
-        the "observation". Initalized from `obsparams`, if included.
-    sky_freqs : array_like, optional
-        Frequencies at which the sky intensity and/or point sources
-        are defined in [Hz]. Defaults to the unique frequencies in
-        `uvdata` Shape=(NFREQS,).
-    beams : array_like of `pyuvsim.analyticbeam.AnalyticBeam`, optional
+        the "observation". If a path, must point to a UVData-readable file.
+    sky_model
+        A model for the sky to simulate.
+    beams
         UVBeam models for as many antennae as have unique beams.
         Initialized from `obsparams`, if included. Defaults to a
-        single uniform beam is applied for every antenna. Each beam
-        is the response of an individual antenna and NOT a
-        per-baseline response.
+        single uniform beam which is applied for every antenna. Each beam
+        is the response of an individual antenna and NOT a per-baseline response.
         Shape=(N_BEAMS,).
-    beam_ids : array_like of int, optional
-        List of integers specifying which beam model each antenna
-        uses (i.e. the index of `beams` which it should refer to).
-        Initialized from `obsparams`, if included. By default, all
-        antennas use the same beam (beam 0).
+    beam_ids
+        List of integers specifying which beam model each antenna uses (i.e. the index
+        of `beams` which it should refer to). Also accepts a dictionary in the format
+        used by pyuvsim (i.e. ``antenna_name: index``), which is converted to such a
+        list. By default, if one beam is given all antennas use the same beam, whereas
+        if a beam is given per antenna, they are used in their given order.
         Shape=(N_ANTS,).
-    sky_intensity : array_like, optional
-        A healpix model for the intensity of the sky emission, in
-        [Jy/sr]. Shape=(NFREQS, N_PIX_SKY).
-    point_source_pos : array_like, optional
-        An array of point sources. For each source, the entries are
-        (ra, dec) [rad] (assumed to be in J2000).
-        Shape=(N_SOURCES, 2).
-    point_source_flux : array_like, optional
-        An array of fluxes of the given point sources, per
-        frequency. Fluxes in [Jy]. Shape=(NFREQS, N_SOURCES).
-    nside : int, optional
-        Only used if sky_intensity is *not* given but the simulator
-        is incapable of directly dealing with point sources. In this
-        case, it sets the resolution of the healpix map to which the
-        sources will be allocated.
 
     Notes
     -----
-        Input beam models represent the responses of individual
-        antennas and are NOT the same as per-baseline "primary
-        beams". This interpretation of a "primary beam" would be the
-        product of the responses of two input antenna beams.
+    Input beam models represent the responses of individual
+    antennas and are NOT the same as per-baseline "primary
+    beams". This interpretation of a "primary beam" would be the
+    product of the responses of two input antenna beams.
     """
-
-    #: Whether this particular simulator has the ability to simulate point
-    #: sources directly.
-    point_source_ability = True
-
-    #: Whether this particular simulator has the ability to simulate diffuse
-    #: maps directly.
-    diffuse_ability = True
 
     def __init__(
         self,
-        obsparams=None,
-        uvdata=None,
-        sky_freqs=None,
-        beams=None,
-        beam_ids=None,
-        sky_intensity=None,
-        point_source_pos=None,
-        point_source_flux=None,
-        nside=2 ** 5,
-        validate=True,
+        *,
+        uvdata: UVData | str | Path,
+        sky_model: SkyModel,
+        beam_ids: Dict[str, int] | Sequence[int] | None = None,
+        beams: BeamListType | None = None,
     ):
-        if obsparams:
-            (self.uvdata, self.beams, self.beam_ids) = initialize_uvdata_from_params(
-                obsparams
-            )
 
-            if not (
-                sky_intensity is None
-                and point_source_pos is None
-                and point_source_flux is None
-            ):
-                raise ValueError(
-                    "If obsparams is given, sky_intensity, "
-                    "point_source_pos, and point_source_flux "
-                    "must be None."
-                )
+        self.uvdata = self._process_uvdata(uvdata)
 
-            # Try setting up SkyModel.catalog from the obsparams. Will only work,
-            # of course, if the "catalog" key is in obsparams['sources'].
-            # If it's not there, it will raise a KeyError.
-            try:
-                catalog = initialize_catalog_from_params(
-                    obsparams, return_recarray=False
-                )[0]
-                catalog.at_frequencies(np.unique(self.uvdata.freq_array) * units.Hz)
+        # NOT Nants because we only want ants with data
+        self.n_ant = self.uvdata.Nants_data
 
-                if catalog.component_type == "point":
-                    # If the catalog is point source, gets the 'I' component
-                    # of the flux density and the source positions.
-                    point_source_flux = np.atleast_2d(catalog.stokes[0].to("Jy").value)
-                    point_source_pos = np.array([catalog.ra.rad, catalog.dec.rad]).T
-                elif catalog.component_type == "healpix":
-                    # If the catalog is healpix, get the 'I' component as sky intensity.
-                    sky_intensity = np.atleast_2d(catalog.stokes[0].to("K").value)
-                else:
-                    # At the moment, only 'point' and 'healpix' are available as
-                    # component types
-                    raise AttributeError(
-                        "catalog.component_type is neither 'point' nor 'healpix'. "
-                        "Something is wrong here."
-                    )
-            except KeyError:
-                # If 'catalog' was not defined in obsparams, that's fine. We assume
-                # the user has passed some sky model directly (we'll catch it later).
-                pass
+        self.beams = self._process_beams(beams)
+        self.beam_ids = self._process_beam_ids(beam_ids, self.beams)
+        self._validate_beam_ids(self.beam_ids, self.beams)
 
-            # convert the beam_ids dict to an array of ints
-            nms = list(self.uvdata.antenna_names)
-            tmp_ids = np.zeros(len(self.beam_ids), dtype=int)
-            for name, beam_id in self.beam_ids.items():
-                tmp_ids[nms.index(name)] = beam_id
-            self.beam_ids = tmp_ids
-            self.beams.set_obj_mode()
-            _complete_uvdata(self.uvdata, inplace=True)
+        self.sky_model = sky_model
+        self.sky_model.at_frequencies(self.freqs * units.Hz)
+        if not isinstance(self.sky_model, SkyModel):
+            raise TypeError("sky_model must be a SkyModel instance.")
+
+        self._validate()
+
+    def _process_uvdata(self, uvdata: UVData | str | Path):
+        if isinstance(uvdata, UVData):
+            return uvdata
+        elif isinstance(uvdata, (str, Path)):
+            out = UVData()
+            out.read(str(uvdata))
+            return out
         else:
-            if uvdata is None:
-                raise ValueError("if obsparams is not given, uvdata must be.")
-
-            self.uvdata = uvdata
-
-            self.beams = [ab.AnalyticBeam("uniform")] if beams is None else beams
-            if beam_ids is None:
-                if len(self.beams) == 1:
-                    self.beam_ids = np.zeros(self.n_ant, dtype=int)
-                elif len(self.beams) == self.n_ant:
-                    self.beam_ids = np.arange(self.n_ant, dtype=int)
-                else:
-                    raise ValueError(
-                        "You must give beam_ids if giving more than one beam."
-                    )
-            else:
-                self.beam_ids = beam_ids
-
-        self._nside = nside
-        self.sky_intensity = sky_intensity
-
-        if sky_freqs is None:
-            self.sky_freqs = np.unique(self.uvdata.freq_array)
-        else:
-            self.sky_freqs = sky_freqs
-
-        self.point_source_pos = point_source_pos
-        self.point_source_flux = point_source_flux
-
-        if validate:
-            self.validate()
-
-    def validate(self):
-        """Checks for correct input format."""
-        if (self.point_source_pos is None) != (self.point_source_flux is None):
-            raise ValueError(
-                "Either both or neither of point_source_pos and "
-                "point_source_flux must be given."
+            raise TypeError(
+                "uvdata must be a UVData object or path to a compatible file. Got "
+                f"{uvdata}, type {type(uvdata)}"
             )
 
-        if self.sky_intensity is not None and not _isnpixok(self.n_pix):
-            raise ValueError("The sky_intensity map is not compatible with healpix.")
+    @classmethod
+    def _process_beams(cls, beams: BeamListType | None):
+        if beams is None:
+            beams = [ab.AnalyticBeam("uniform")]
 
-        if self.point_source_pos is None and self.sky_intensity is None:
-            raise ValueError(
-                "You must pass at least one of sky_intensity or point_sources."
-            )
+        if not isinstance(beams, BeamList):
+            beams = BeamList(beams)
 
-        if (
-            self.point_source_flux is not None
-            and self.point_source_flux.shape[0] != self.sky_freqs.shape[0]
-        ):
-            if self.point_source_flux.shape[0] == 1:
-                self.point_source_flux = np.repeat(
-                    self.point_source_flux, self.sky_freqs.shape[0]
-                ).reshape((self.sky_freqs.shape[0], -1))
+        if beams.string_mode:
+            beams.set_obj_mode()
+
+        if len({beam.beam_type for beam in beams}) != 1:
+            # TODO: replace with beam.check_consistency() when that is available in
+            # pyuvsim.
+            raise ValueError("All beams must be of the same beam_type!")
+
+        return beams
+
+    def _process_beam_ids(
+        self,
+        beam_ids: Dict[str, int] | np.typing.ArrayLike[int] | None,
+        beams: BeamList,
+    ) -> Dict[str, int]:
+        # beam ids maps antenna name to INDEX of the beam in the beam list.
+
+        # Set the beam_ids.
+        if beam_ids is None:
+            if len(beams) == 1:
+                beam_ids = {nm: 0 for nm in self.uvdata.antenna_names}
+            elif len(beams) == self.n_ant:
+                beam_ids = {nm: i for i, nm in enumerate(self.uvdata.antenna_names)}
             else:
                 raise ValueError(
-                    f"point_source_flux must have the same number of freqs as "
-                    f"sky_freqs. point_source_flux.shape = "
-                    f"{self.point_source_flux.shape}. sky_freq.shape = "
-                    f"{self.sky_freqs.shape}"
+                    "Need to give beam_ids if beams is given and not one per ant."
                 )
+        elif isinstance(beam_ids, (list, tuple, np.ndarray)):
+            if len(beam_ids) != self.n_ant:
+                raise ValueError("Number of beam_ids given must match n_ant")
 
-        if self.point_source_flux is not None:
-            flux_shape = self.point_source_flux.shape
-            pos_shape = self.point_source_pos.shape
-            if flux_shape[1] != pos_shape[0]:
-                raise ValueError(
-                    "Number of sources in point_source_flux and "
-                    "point_source_pos is different."
-                )
+            beam_ids = {
+                nm: int(beam_ids[i]) for i, nm in enumerate(self.uvdata.antenna_names)
+            }
+        elif not isinstance(beam_ids, dict):
+            raise TypeError("beam_ids should be a dict or sequence of integers")
 
-        if (
-            self.sky_intensity is not None
-            and self.sky_intensity.shape[0] != self.sky_freqs.shape[0]
-        ):
+        return beam_ids
+
+    def _validate_beam_ids(self, beam_ids, beams):
+        if max(beam_ids.values()) >= len(beams):
             raise ValueError(
-                "sky_intensity has a different number of freqs " "than sky_freqs."
+                "There is at least one beam_id that points to a non-existent beam. "
+                f"Number of given beams={len(beams)} but maximum"
+                f" beam_id={max(beam_ids.values())}."
             )
 
-        if self.sky_intensity is not None and self.sky_intensity.ndim != 2:
+        if len(beam_ids) != self.n_ant:
             raise ValueError(
-                "sky_intensity must be a 2D array (a healpix map " "per frequency)."
+                f"Length of beam_ids ({len(beam_ids)}) must match the "
+                f"number of ants ({self.n_ant})."
             )
 
-        if not (self.point_source_ability or self.point_source_pos is None):
-            warnings.warn(
-                "This visibility simulator is unable to explicitly "
-                "simulate point sources. Adding point sources to "
-                "diffuse pixels."
-            )
-            if self.sky_intensity is None:
-                self.sky_intensity = 0
-            self.sky_intensity += self.convert_point_sources_to_healpix(
-                self.point_source_pos, self.point_source_flux, self.nside
-            )
+    @classmethod
+    def from_config(cls, config_file: str | Path) -> ModelData:
+        """Initialize the :class:`ModelData` from a pyuvsim-compatible config."""
+        uvdata, beams, beam_ids = initialize_uvdata_from_params(config_file)
+        catalog = initialize_catalog_from_params(config_file, return_recarray=False)[0]
 
-        if not self.diffuse_ability and self.sky_intensity is not None:
-            warnings.warn(
-                "This visibility simulator is unable to explicitly "
-                "simulate diffuse structure. Converting diffuse "
-                "intensity to approximate points."
-            )
+        _complete_uvdata(uvdata, inplace=True)
 
-            (pos, flux) = self.convert_healpix_to_point_sources(self.sky_intensity)
-
-            if self.point_source_pos is None:
-                self.point_source_pos = pos
-                self.point_source_flux = flux
-            else:
-                self.point_source_flux = np.hstack((self.point_source_flux, flux))
-                self.point_source_pos = np.hstack((self.point_source_pos, pos))
-
-            self.sky_intensity = None
-
-    @staticmethod
-    def convert_point_sources_to_healpix(
-        point_source_pos, point_source_flux, nside=2 ** 5
-    ):
-        """
-        Convert point sources to an approximate diffuse HEALPix model.
-
-        The healpix map returned is in RING scheme.
-
-        Parameters
-        ----------
-        point_source_pos : array_like
-            An array of point sources. For each source, the entries are
-            (ra, dec) [rad] (assumed to be in J2000).
-            Shape=(N_SOURCES, 2).
-        point_source_flux : array_like
-            point_source_flux : array_like, optional
-            An array of fluxes of the given point sources, per
-            frequency. Fluxes in [Jy]. Shape=(NFREQS, N_SOURCES).
-        nside : int, optional
-            HEALPix nside parameter (must be a power of 2).
-
-        Returns
-        -------
-        array_like
-            The HEALPix diffuse model. Shape=(NFREQ, NPIX).
-        """
-        hmap = np.zeros((len(point_source_flux), aph.nside_to_npix(nside)))
-
-        # Get which pixel every point source lies in.
-        pix = aph.lonlat_to_healpix(
-            lon=point_source_pos[:, 0] * units.rad,
-            lat=point_source_pos[:, 1] * units.rad,
-            nside=nside,
+        return ModelData(
+            uvdata=uvdata,
+            beams=beams,
+            beam_ids=beam_ids,
+            sky_model=catalog,
         )
 
-        hmap[:, pix] += point_source_flux / aph.nside_to_pixel_area(nside).value
-
-        return hmap
-
-    @staticmethod
-    def convert_healpix_to_point_sources(hmap):
-        """
-        Convert a HEALPix map to a set of point sources.
-
-        The point sources are placed at the center of each pixel.
-
-        Parameters
-        ----------
-        hmap : array_like
-            The HEALPix map. Shape=(NFREQ, NPIX).
-
-        Returns
-        -------
-        array_like
-            The point source approximation. Positions in (ra, dec) (J2000).
-            Shape=(N_SOURCES, 2). Fluxes in [Jy]. Shape=(NFREQ, N_SOURCES).
-        """
-        nside = aph.npix_to_nside(len(hmap[0]))
-        ra, dec = aph.healpix_to_lonlat(np.arange(len(hmap[0])), nside)
-        flux = hmap * aph.nside_to_pixel_area(nside).to(units.rad ** 2).value
-        return np.array([ra.to(units.rad).value, dec.to(units.rad).value]).T, flux
-
-    def simulate(self):
-        """Perform the visibility simulation."""
-        self._write_history()
-        vis = self._simulate()
-        self.uvdata.data_array += vis
-        return vis
-
-    @abstractmethod
-    def _simulate(self):
-        """Subclass-specific simulation method, to be overwritten."""
-        pass
-
-    @property
-    def nside(self):
-        """Nside parameter of the sky healpix map."""
-        try:
-            return aph.npix_to_nside(len(self.sky_intensity[0]))
-        except TypeError:
-
-            if not _is_power_of_2(self._nside):
-                raise ValueError("nside must be a power of 2")
-
-            return self._nside
+    @cached_property
+    def lsts(self):
+        """Local Sidereal Times in radians."""
+        # This process retrieves the unique LSTs while respecting phase wraps.
+        _, unique_inds = np.unique(self.uvdata.time_array, return_index=True)
+        return self.uvdata.lst_array[unique_inds]
 
     @cached_property
-    def n_pix(self):
-        """Number of pixels in the sky map."""
-        return self.sky_intensity.shape[1]
+    def freqs(self) -> np.ndarray:
+        """Frequnecies at which data is defined."""
+        return self.uvdata.freq_array[0]
 
     @cached_property
-    def n_ant(self):
-        """Number of antennas in array."""
-        return self.uvdata.get_ants().shape[0]
-
-    @cached_property
-    def n_beams(self):
+    def n_beams(self) -> int:
         """Number of beam models used."""
         return len(self.beams)
-
-    def _write_history(self):
-        """Write pertinent details of simulation to the UVData's history."""
-        class_name = self.__class__.__name__
-        self.uvdata.history += (
-            "Visibility Simulation performed with " "hera_sim's {} simulator\n"
-        ).format(class_name)
-        self.uvdata.history += "Class Repr: {}".format(repr(self))
 
     def write_config_file(
         self, filename, direc=".", beam_filepath=None, antenna_layout_path=None
@@ -420,3 +222,123 @@ class VisibilitySimulator(metaclass=ABCMeta):
             return_names=False,
             path_out=direc,
         )
+
+    def _validate(self):
+        """Perform validation of the full ModelData instance.
+
+        The idea here is to validate the combination of inputs -- uvdata, uvbeam list
+        and sky model, checking for inconsistencies that would be wrong for _any_
+        simulator.
+        """
+        if any(b.beam_type == "power" for b in self.beams) and np.any(
+            self.sky_model.stokes[1:] != 0
+        ):
+            raise TypeError(
+                "Cannot use power beams when the sky model contains polarized sources."
+            )
+
+
+@dataclass
+class VisibilitySimulation:
+    """An object representing a visibility simulation, including data and simulator."""
+
+    data_model: ModelData
+    simulator: VisibilitySimulator
+    n_side: int = 2 ** 5
+
+    def __post_init__(self):
+        """Perform simple validation on combined attributes."""
+        self.simulator.validate(self.data_model)
+
+        # Convert the sky model to either point source or healpix depending on the
+        # simulator's capabilities.
+        sky_model = self.data_model.sky_model
+        if not self.simulator.diffuse_ability and sky_model.component_type == "healpix":
+            sky_model.healpix_to_point()
+        if (
+            not self.simulator.point_source_ability
+            and sky_model.component_type == "point"
+        ):
+            self.data_model.sky_model = self._convert_point_to_healpix(sky_model)
+
+    def _convert_point_to_healpix(self, sky_model) -> SkyModel:
+        # TODO: update this to just use SkyModel native functionality when available
+        npix = aph.nside_to_npix(self.n_side)
+        hmap = np.zeros((len(sky_model.freq_array), npix)) * units.Jy / units.sr
+
+        # Get which pixel every point source lies in.
+        pix = aph.lonlat_to_healpix(
+            lon=sky_model.ra,
+            lat=sky_model.dec,
+            nside=self.n_side,
+        )
+
+        hmap[:, pix] += sky_model.stokes[0].to("Jy") / aph.nside_to_pixel_area(
+            self.n_side
+        )
+
+        return SkyModel(
+            stokes=np.array(
+                [
+                    hmap.value,
+                    np.zeros_like(hmap),
+                    np.zeros_like(hmap),
+                    np.zeros_like(hmap),
+                ]
+            )
+            * units.Jy
+            / units.sr,
+            component_type="healpix",
+            nside=self.n_side,
+            hpx_inds=np.arange(npix),
+            spectral_type="full",
+            freq_array=sky_model.freq_array,
+        )
+
+    def _write_history(self):
+        """Write pertinent details of simulation to the UVData's history."""
+        class_name = self.simulator.__class__.__name__
+        self.uvdata.history += (
+            f"Visibility Simulation performed with hera_sim's {class_name} simulator\n"
+        )
+        self.uvdata.history += f"Class Repr: {repr(self.simulator)}\n"
+        self.uvdata.history += f"hera_sim version: {__version__}"
+        self.uvdata.history += f"Simulator Version: {self.simulator.__version__}"
+
+    def simulate(self):
+        """Perform the visibility simulation."""
+        # Order the baselines/times in the order expected by the simulator.
+        vis = self.simulator.simulate(self.data_model)
+
+        self.uvdata.data_array += vis
+        self._write_history()
+
+        return vis
+
+    @property
+    def uvdata(self) -> UVData:
+        """A simple view into the UVData object in the :attr:`data_model`."""
+        return self.data_model.uvdata
+
+
+class VisibilitySimulator(metaclass=ABCMeta):
+    """Base class for all hera_sim compatible visibility simulators."""
+
+    #: Whether this particular simulator has the ability to simulate point
+    #: sources directly.
+    point_source_ability = True
+
+    #: Whether this particular simulator has the ability to simulate diffuse
+    #: maps directly.
+    diffuse_ability = False
+
+    __version__ = "unknown"
+
+    @abstractmethod
+    def simulate(self, data_model: ModelData) -> np.ndarray:
+        """Simulate the visibilities."""
+        pass
+
+    def validate(self, data_model: ModelData):
+        """Check that the data model complies with the assumptions of the simulator."""
+        pass
