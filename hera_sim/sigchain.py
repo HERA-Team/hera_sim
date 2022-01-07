@@ -393,7 +393,7 @@ class CrossCouplingSpectrum(Crosstalk):
 
     Parameters
     ----------
-    Ncopies : int, optional
+    n_copies : int, optional
         Number of random cross-talk models to add.
     amp_range : tuple, optional
         Two-tuple of floats specifying the range of amplitudes
@@ -426,7 +426,7 @@ class CrossCouplingSpectrum(Crosstalk):
 
     def __init__(
         self,
-        Ncopies=10,
+        n_copies=10,
         amp_range=(-4, -6),
         dly_range=(1000, 1200),
         phs_range=(-np.pi, np.pi),
@@ -436,7 +436,7 @@ class CrossCouplingSpectrum(Crosstalk):
         symmetrize=True,
     ):
         super().__init__(
-            Ncopies=Ncopies,
+            n_copies=n_copies,
             amp_range=amp_range,
             dly_range=dly_range,
             phs_range=phs_range,
@@ -465,7 +465,7 @@ class CrossCouplingSpectrum(Crosstalk):
         self._check_kwargs(**kwargs)
 
         (
-            Ncopies,
+            n_copies,
             amp_range,
             dly_range,
             phs_range,
@@ -476,8 +476,8 @@ class CrossCouplingSpectrum(Crosstalk):
         ) = self._extract_kwarg_values(**kwargs)
 
         # Construct the arrays of amplitudes and delays.
-        amps = np.logspace(*amp_range, Ncopies, base=amp_logbase)
-        dlys = np.linspace(*dly_range, Ncopies)
+        amps = np.logspace(*amp_range, n_copies, base=amp_logbase)
+        dlys = np.linspace(*dly_range, n_copies)
 
         # Construct the spectrum of crosstalk.
         crosstalk_spectrum = np.zeros(autovis.shape, dtype=complex)
@@ -509,7 +509,7 @@ class OverAirCrossCoupling(Crosstalk):
         base_amp=2e-5,
         amp_slope=-1,
         amp_decay_base=10,
-        Ncopies=10,
+        n_copies=10,
         amp_jitter=0,
         dly_jitter=0,
         max_delay=2000,
@@ -521,7 +521,7 @@ class OverAirCrossCoupling(Crosstalk):
             base_amp=base_amp,
             amp_slope=amp_slope,
             amp_decay_base=amp_decay_base,
-            Ncopies=Ncopies,
+            n_copies=n_copies,
             amp_jitter=amp_jitter,
             dly_jitter=dly_jitter,
             max_delay=max_delay,
@@ -545,7 +545,7 @@ class OverAirCrossCoupling(Crosstalk):
             base_amp,
             amp_slope,
             amp_decay_base,
-            Ncopies,
+            n_copies,
             amp_jitter,
             dly_jitter,
             max_delay,
@@ -567,7 +567,7 @@ class OverAirCrossCoupling(Crosstalk):
         dly_ji = cable_delay[aj] + dly_i
 
         xt_ij = CrossCouplingSpectrum(
-            Ncopies=Ncopies,
+            n_copies=n_copies,
             amp_range=(log(amp_i), log(amp_i * amp_decay_fac)),
             dly_range=(-dly_ij, -max_delay),
             amp_jitter=amp_jitter,
@@ -576,7 +576,7 @@ class OverAirCrossCoupling(Crosstalk):
             symmetrize=False,
         )
         xt_ji = CrossCouplingSpectrum(
-            Ncopies=Ncopies,
+            n_copies=n_copies,
             amp_range=(log(amp_j), log(amp_j * amp_decay_fac)),
             dly_range=(dly_ji, max_delay),
             amp_jitter=amp_jitter,
