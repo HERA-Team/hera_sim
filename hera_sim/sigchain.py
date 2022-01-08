@@ -507,31 +507,33 @@ class OverAirCrossCoupling(Crosstalk):
     and the autocorrelations for each antenna involved. Physically, it is modeled
     as the signal from one antenna traveling to the receiverator, then being
     broadcast to the other antenna. Under this model, the cross-coupling component
-    :math:`V_{ij}^{\\rm cc}` can be described via
+    :math:`V_{ij}^{\rm cc}` can be described via
 
     .. math::
-       V_{ij}^{\\rm cc} = \\epsilon_{ij}^* V_{ii} + \\epsilon_{ji} V_{jj},
+        
+        V_{ij}^{\rm cc} = \epsilon_{ij}^* V_{ii} + \epsilon_{ji} V_{jj},
 
     where the reflection coefficient :math:`\\epsilon_{ij}` is modeled as
 
     .. math::
-       \\epsilon_{ij} = A_i \\exp \\bigl[2\\pi i\\nu(\\tau_{i,{\\rm cable}} +
-       \\tau_{X \\rightarrow j} ) \\bigr].
+        
+        \epsilon_{ij} = A_i \exp \bigl[2\pi i\nu(\tau_{i,{\rm cable}} +
+        \tau_{X \rightarrow j} ) \bigr].
 
     Here, :math:`X` denotes the position of the receiverator (or rather, where the
     excess signal is radiated from), and the indices :math:`i,j` refer to antennas.
-    So, :math:`\\tau_{i,{\\rm cable}}` is the delay from the signal traveling down
-    the cable from antenna :math:`i` to the receiverator, and :math:`\\tau_{X
-    \\rightarrow j}` denotes the delay from the signal traveling over-the-air from
+    So, :math:`\tau_{i,{\rm cable}}` is the delay from the signal traveling down
+    the cable from antenna :math:`i` to the receiverator, and :math:`\tau_{X
+    \rightarrow j}` denotes the delay from the signal traveling over-the-air from
     the receiverator to antenna :math:`j`. As usual, :math:`A_i` is the amplitude
     of the reflection coefficient. Here, the amplitude is described by three free
-    parameters, :math:`a, \\vec{r}_X, \\beta`:
+    parameters, :math:`a, \vec{r}_X, \beta`:
 
     .. math::
-       A_i = a |\\vec{r}_i - \\vec{r}_X|^\\beta.
+       A_i = a |\vec{r}_i - \vec{r}_X|^\beta.
 
-    :math:`a` is a base amplitude, :math:`\\vec{r}_X` is the receiverator position,
-    and :math:`\\beta` describes how quickly the amplitude falls off with distance
+    :math:`a` is a base amplitude, :math:`\vec{r}_X` is the receiverator position,
+    and :math:`\beta` describes how quickly the amplitude falls off with distance
     from the receiverator, and is typically taken to be negative. For more details,
     refer to HERA Memo 104 for more details:
 
