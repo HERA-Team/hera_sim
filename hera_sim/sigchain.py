@@ -510,13 +510,13 @@ class OverAirCrossCoupling(Crosstalk):
     :math:`V_{ij}^{\rm cc}` can be described via
 
     .. math::
-        
+
         V_{ij}^{\rm cc} = \epsilon_{ij}^* V_{ii} + \epsilon_{ji} V_{jj},
 
     where the reflection coefficient :math:`\\epsilon_{ij}` is modeled as
 
     .. math::
-        
+
         \epsilon_{ij} = A_i \exp \bigl[2\pi i\nu(\tau_{i,{\rm cable}} +
         \tau_{X \rightarrow j} ) \bigr].
 

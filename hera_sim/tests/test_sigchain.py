@@ -268,7 +268,7 @@ def test_over_air_cross_coupling(Tsky_mdl, lsts):
     end_amp = start_amp + np.log10(amp_decay_fac)
     amplitudes = np.logspace(start_amp, end_amp, n_copies)
     all_dlys = np.concatenate([neg_dlys, pos_dlys])
-    all_amps = np.concatenate([amplitudes,] * 2)
+    all_amps = np.concatenate([amplitudes, amplitudes])
     Tsky_avg = np.abs(
         uvtools.utils.FFT(Tsky, axis=1, taper="bh7")[:, np.argmin(np.abs(dlys))]
     )
