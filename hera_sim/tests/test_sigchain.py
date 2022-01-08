@@ -220,17 +220,17 @@ def test_dly_jitter():
 
 
 def test_cross_coupling_spectrum(fqs, dlys, Tsky):
-    Ncopies = 5
+    n_copies = 5
     amp_range = (-2, -5)
     dly_range = (50, 450)
     xtalk_spectrum = sigchain.CrossCouplingSpectrum(
-        Ncopies=Ncopies,
+        n_copies=n_copies,
         amp_range=amp_range,
         dly_range=dly_range,
         symmetrize=True,
     )
-    amplitudes = np.logspace(*amp_range, Ncopies)
-    delays = np.linspace(*dly_range, Ncopies)
+    amplitudes = np.logspace(*amp_range, n_copies)
+    delays = np.linspace(*dly_range, n_copies)
     xtalk = xtalk_spectrum(freqs=fqs, autovis=Tsky)
     Tsky_avg = np.abs(
         uvtools.utils.FFT(Tsky, axis=1, taper="bh7")[:, np.argmin(np.abs(dlys))]
