@@ -510,15 +510,13 @@ class OverAirCrossCoupling(Crosstalk):
     :math:`V_{ij}^{\\rm cc}` can be described via
 
     .. math::
-
-        V_{ij}^{\\rm cc} = \\epsilon_{ij}^* V_{ii} + \\epsilon_{ji} V_{jj},
+       V_{ij}^{\\rm cc} = \\epsilon_{ij}^* V_{ii} + \\epsilon_{ji} V_{jj},
 
     where the reflection coefficient :math:`\\epsilon_{ij}` is modeled as
 
     .. math::
-
-        \\epsilon_{ij} = A_i \\exp \\bigl[2\\pi i\\nu(\\tau_{i,{\\rm cable}} +
-        \\tau_{X \\rightarrow j} ) \\bigr].
+       \\epsilon_{ij} = A_i \\exp \\bigl[2\\pi i\\nu(\\tau_{i,{\\rm cable}} +
+       \\tau_{X \\rightarrow j} ) \\bigr].
 
     Here, :math:`X` denotes the position of the receiverator (or rather, where the
     excess signal is radiated from), and the indices :math:`i,j` refer to antennas.
@@ -530,15 +528,14 @@ class OverAirCrossCoupling(Crosstalk):
     parameters, :math:`a, \\vec{r}_X, \\beta`:
 
     .. math::
-
-        A_i = a |\\vec{r}_i - \\vec{r}_X|^\\beta.
+       A_i = a |\\vec{r}_i - \\vec{r}_X|^\\beta.
 
     :math:`a` is a base amplitude, :math:`\\vec{r}_X` is the receiverator position,
     and :math:`\\beta` describes how quickly the amplitude falls off with distance
     from the receiverator, and is typically taken to be negative. For more details,
     refer to HERA Memo 104 for more details:
 
-    <http://reionization.org/manual_uploads/HERA104_Crosstalk_Physical_Model.html>
+    http://reionization.org/manual_uploads/HERA104_Crosstalk_Physical_Model.html
 
     Parameters
     ----------
