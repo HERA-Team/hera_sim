@@ -8,6 +8,7 @@ import numpy as np
 import warnings
 from typing import Dict, Tuple, Union
 
+from astropy import constants
 from scipy import stats
 from scipy.signal import blackmanharris
 
@@ -500,7 +501,80 @@ class CrossCouplingSpectrum(Crosstalk):
 
 
 class OverAirCrossCoupling(Crosstalk):
-    """Crosstalk based on HERA Memo on H1C crosstalk."""
+    r"""Crosstalk model based on the mechanism described in HERA Memo 104.
+
+    This model describes first-order coupling between a visibility :math:`V_{ij}`
+    and the autocorrelations for each antenna involved. Physically, it is modeled
+    as the signal from one antenna traveling to the receiverator, then being
+    broadcast to the other antenna. Under this model, the cross-coupling component
+    :math:`V_{ij}^{\\rm cc}` can be described via
+
+    .. math::
+
+        V_{ij}^{\\rm cc} = \\epsilon_{ij}^* V_{ii} + \\epsilon_{ji} V_{jj},
+
+    where the reflection coefficient :math:`\\epsilon_{ij}` is modeled as
+
+    .. math::
+
+        \\epsilon_{ij} = A_i \\exp \\bigl[2\\pi i\\nu(\\tau_{i,{\\rm cable}} +
+        \\tau_{X \\rightarrow j} ) \\bigr].
+
+    Here, :math:`X` denotes the position of the receiverator (or rather, where the
+    excess signal is radiated from), and the indices :math:`i,j` refer to antennas.
+    So, :math:`\\tau_{i,{\\rm cable}}` is the delay from the signal traveling down
+    the cable from antenna :math:`i` to the receiverator, and :math:`\\tau_{X
+    \\rightarrow j}` denotes the delay from the signal traveling over-the-air from
+    the receiverator to antenna :math:`j`. As usual, :math:`A_i` is the amplitude
+    of the reflection coefficient. Here, the amplitude is described by three free
+    parameters, :math:`a, \\vec{r}_X, \\beta`:
+
+    .. math::
+
+        A_i = a |\\vec{r}_i - \\vec{r}_X|^\\beta.
+
+    :math:`a` is a base amplitude, :math:`\\vec{r}_X` is the receiverator position,
+    and :math:`\\beta` describes how quickly the amplitude falls off with distance
+    from the receiverator, and is typically taken to be negative. For more details,
+    refer to HERA Memo 104 for more details:
+
+    <http://reionization.org/manual_uploads/HERA104_Crosstalk_Physical_Model.html>
+
+    Parameters
+    ----------
+    emitter_pos
+        Receiverator position, in meters, in local ENU coordinates.
+    cable_delays
+        Mapping from antenna numbers to cable delays, in nanoseconds.
+    base_amp
+        Base amplitude of reflection coefficient. If `amp_slope` is set to 0, then
+        this is the amplitude of all of the reflection coefficients.
+    amp_slope
+        Power-law index describing how rapidly the reflection coefficient decays
+        with distance from the receiverator.
+    amp_decay_base
+        Logarithmic base to use when generating the additional peaks in the
+        cross-coupling spectrum.
+    n_copies
+        Number of peaks to include in the cross-coupling spectrum.
+    amp_jitter
+        Fractional jitter to apply to the amplitudes of the peaks in the
+        cross-coupling spectrum.
+    dly_jitter
+        Absolute jitter to apply to the delays of the peaks in the cross-coupling
+        spectrum, in nanoseconds.
+    max_delay
+        Magnitude of the maximum delay to which the cross-coupling spectrum extends,
+        in nanoseconds.
+    amp_decay_fac
+        Ratio of the amplitude of the last peak in the cross-coupling spectrum to
+        the first peak. In other words, how much the cross-coupling spectrum decays
+        over the full range of delays it covers.
+
+    See Also
+    --------
+    :class:`CrossCouplingSpectrum`
+    """
 
     def __init__(
         self,
@@ -537,7 +611,28 @@ class OverAirCrossCoupling(Crosstalk):
         autovis_j,
         **kwargs,
     ):
-        """Actually simulate the crosstalk."""
+        """Generate a cross-coupling spectrum modeled via HERA Memo 104.
+
+        Parameters
+        ----------
+        freqs
+            Frequencies at which to evaluate the reflection coefficients, in GHz.
+        antpair
+            The two antennas involved in forming the visibility.
+        antpos
+            Mapping from antenna numbers to positions in meters, in local ENU
+            coordinates.
+        autovis_i
+            Autocorrelation for the first antenna in the pair.
+        autovis_j
+            Autocorrelation for the second antenna in the pair.
+
+        Returns
+        -------
+        xtalk_vis
+            Array with the cross-coupling visibility. Has the same shape as the input
+            autocorrelations.
+        """
         self._check_kwargs(**kwargs)
         (
             emitter_pos,
@@ -553,16 +648,16 @@ class OverAirCrossCoupling(Crosstalk):
         ) = self._extract_kwarg_values(**kwargs)
 
         ai, aj = antpair
-        xi = antpos[ai]
-        xj = antpos[aj]
+        xi = antpos[ai] - np.asarray(emitter_pos)
+        xj = antpos[aj] - np.asarray(emitter_pos)
 
         def log(x):
             return np.log(x) / np.log(amp_decay_base)
 
         amp_i = base_amp * np.linalg.norm(xi) ** amp_slope
         amp_j = base_amp * np.linalg.norm(xj) ** amp_slope
-        dly_i = np.linalg.norm(xi - emitter_pos) / 3e8 * 1e9
-        dly_j = np.linalg.norm(xj - emitter_pos) / 3e8 * 1e9
+        dly_i = np.linalg.norm(xi) / constants.c.to("m/ns").value
+        dly_j = np.linalg.norm(xj) / constants.c.to("m/ns").value
         dly_ij = cable_delay[ai] + dly_j
         dly_ji = cable_delay[aj] + dly_i
 
