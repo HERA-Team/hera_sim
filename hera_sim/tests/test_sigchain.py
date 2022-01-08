@@ -4,7 +4,7 @@ from hera_sim.interpolators import Bandpass, Beam
 from hera_sim import DATA_PATH
 import uvtools
 import numpy as np
-from astropy import units
+from astropy import units, constants
 
 np.random.seed(0)
 
@@ -244,6 +244,48 @@ def test_cross_coupling_spectrum(fqs, dlys, Tsky):
         for ind in (dly_ind, neg_dly_ind):
             ratio = np.abs(xt_fft[:, ind]) / Tsky_avg
             assert np.allclose(ratio, amp, rtol=0.01)
+
+
+def test_over_air_cross_coupling(Tsky_mdl, lsts):
+    # Setup various parameters. To make it easy, only have cable lengths vary.
+    n_copies = 5
+    emitter_pos = np.array([0, 0, 0])
+    # Both antennas have same distance to emitter.
+    antpos = {0: np.array([30, 40, 0]), 1: np.array([50, 0, 0])}
+    cable_delays = {0: 400, 1: 600}
+    max_delay = 1500
+    amp_decay_fac = 1e-2
+    base_amp = 2e-5
+    fqs = np.linspace(0.1, 0.2, 1024, endpoint=False)
+    dlys = uvtools.utils.fourier_freqs(fqs)
+    Tsky = Tsky_mdl(lsts, fqs)
+
+    # Calculate the expected delays/amplitudes
+    base_delay = 50 / constants.c.to("m/ns").value
+    pos_dlys = np.linspace(base_delay + cable_delays[1], max_delay, n_copies)
+    neg_dlys = -np.linspace(base_delay + cable_delays[0], max_delay, n_copies)
+    start_amp = np.log10(base_amp / 50)
+    end_amp = start_amp + np.log10(amp_decay_fac)
+    amplitudes = np.logspace(start_amp, end_amp, n_copies)
+    all_dlys = np.concatenate([neg_dlys, pos_dlys])
+    all_amps = np.concatenate([amplitudes,] * 2)
+    Tsky_avg = np.abs(
+        uvtools.utils.FFT(Tsky, axis=1, taper="bh7")[:, np.argmin(np.abs(dlys))]
+    )
+    gen_xtalk = sigchain.OverAirCrossCoupling(
+        base_amp=base_amp,
+        n_copies=n_copies,
+        emitter_pos=emitter_pos,
+        cable_delays=cable_delays,
+        max_delay=max_delay,
+        amp_decay_fac=amp_decay_fac,
+    )
+    xtalk = gen_xtalk(fqs, (0, 1), antpos, Tsky, Tsky)
+    xt_fft = uvtools.utils.FFT(xtalk, axis=1, taper="bh7")
+    for dly, amp in zip(all_dlys, all_amps):
+        dly_ind = np.argmin(np.abs(dlys - dly))
+        ratio = np.abs(xt_fft[:, dly_ind]) / Tsky_avg
+        assert np.allclose(ratio, amp, rtol=0.01)
 
 
 @pytest.fixture(scope="function")
