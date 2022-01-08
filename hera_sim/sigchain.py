@@ -555,7 +555,8 @@ class OverAirCrossCoupling(Crosstalk):
         Logarithmic base to use when generating the additional peaks in the
         cross-coupling spectrum.
     n_copies
-        Number of peaks to include in the cross-coupling spectrum.
+        Number of peaks in the cross-coupling spectrum at positive and negative
+        delays, separately.
     amp_jitter
         Fractional jitter to apply to the amplitudes of the peaks in the
         cross-coupling spectrum.
