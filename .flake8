@@ -14,6 +14,7 @@ exclude =
     development/*
 per-file-ignores =
     hera_sim/tests/*:D,T001   # print statements allowed in tests
+    hera_sim/tests/*:RST499   # ignore docstring titles in tests
     docs/conf.py:D,A
     */__init__.py:F401
     scripts/*:T001
