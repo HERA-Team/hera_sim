@@ -651,8 +651,10 @@ class OverAirCrossCoupling(Crosstalk):
         xi = antpos[ai] - np.asarray(emitter_pos)
         xj = antpos[aj] - np.asarray(emitter_pos)
 
+        log_scale = np.log(amp_decay_base)
+
         def log(x):
-            return np.log(x) / np.log(amp_decay_base)
+            return np.log(x) / log_scale
 
         amp_i = base_amp * np.linalg.norm(xi) ** amp_slope
         amp_j = base_amp * np.linalg.norm(xj) ** amp_slope
