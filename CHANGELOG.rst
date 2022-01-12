@@ -2,6 +2,14 @@
 Changelog
 =========
 
+v2.1.0 [2022.01.12]
+===================
+
+Added
+-----
+- New ``OverAirCrossCoupling`` class to better model crosstalk in H1C data.
+
+
 v2.0.0 [2021.11.16]
 ===================
 
