@@ -9,6 +9,11 @@ Added
 -----
 - New ``OverAirCrossCoupling`` class to better model crosstalk in H1C data.
 
+Changed
+-------
+- Slightly modified ``Simulator`` logic for automatically choosing parameter values.
+  This extends the number of cases the class can handle, but will be changed in a
+  future update.
 
 v2.0.0 [2021.11.16]
 ===================
