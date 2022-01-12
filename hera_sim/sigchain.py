@@ -6,7 +6,7 @@ example bandpass gains, reflections and cross-talk.
 
 import numpy as np
 import warnings
-from typing import Dict, Tuple, Union
+from typing import Dict, Optional, Sequence, Tuple, Union
 
 from astropy import constants
 from scipy import stats
@@ -578,16 +578,16 @@ class OverAirCrossCoupling(Crosstalk):
 
     def __init__(
         self,
-        emitter_pos=0,
-        cable_delays=None,
-        base_amp=2e-5,
-        amp_slope=-1,
-        amp_decay_base=10,
-        n_copies=10,
-        amp_jitter=0,
-        dly_jitter=0,
-        max_delay=2000,
-        amp_decay_fac=1e-2,
+        emitter_pos: Optional[Union[np.ndarray, Sequence]] = None,
+        cable_delays: Optional[Dict[int, float]] = None,
+        base_amp: float = 2e-5,
+        amp_slope: float = -1,
+        amp_decay_base: float = 10,
+        n_copies: int = 10,
+        amp_jitter: float = 0,
+        dly_jitter: float = 0,
+        max_delay: float = 2000,
+        amp_decay_fac: float = 1e-2,
     ):
         super().__init__(
             emitter_pos=emitter_pos,
@@ -604,13 +604,13 @@ class OverAirCrossCoupling(Crosstalk):
 
     def __call__(
         self,
-        freqs,
-        antpair,
-        antpos,
-        autovis_i,
-        autovis_j,
+        freqs: np.ndarray,
+        antpair: Sequence[int, int],
+        antpos: Dict[int, np.ndarray],
+        autovis_i: np.ndarray,
+        autovis_j: np.ndarray,
         **kwargs,
-    ):
+    ) -> np.ndarray:
         """Generate a cross-coupling spectrum modeled via HERA Memo 104.
 
         Parameters
@@ -648,6 +648,8 @@ class OverAirCrossCoupling(Crosstalk):
         ) = self._extract_kwarg_values(**kwargs)
 
         ai, aj = antpair
+        if emitter_pos is None:
+            emitter_pos = np.zeros(3, dtype=float)
         xi = antpos[ai] - np.asarray(emitter_pos)
         xj = antpos[aj] - np.asarray(emitter_pos)
 
