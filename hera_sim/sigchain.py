@@ -605,7 +605,7 @@ class OverAirCrossCoupling(Crosstalk):
     def __call__(
         self,
         freqs: np.ndarray,
-        antpair: Sequence[int, int],
+        antpair: Tuple[int, int],
         antpos: Dict[int, np.ndarray],
         autovis_i: np.ndarray,
         autovis_j: np.ndarray,
