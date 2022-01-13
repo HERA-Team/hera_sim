@@ -308,7 +308,7 @@ class Reflections(Gain):
         return amps, dlys, phases
 
 
-class ReflectionSpectrum(Reflections):
+class ReflectionSpectrum(Gain):
     """Generate many reflections between a range of delays.
 
     Amplitudes are distributed on a logarithmic grid, while delays are distributed
@@ -361,7 +361,25 @@ class ReflectionSpectrum(Reflections):
             amp_logbase=amp_logbase,
         )
 
-    def __call__(self, freqs: np.ndarray, ants: Sequence[int], **kwargs):
+    def __call__(
+        self, freqs: np.ndarray, ants: Sequence[int], **kwargs
+    ) -> Dict[int, np.ndarray]:
+        """
+        Generate a series of reflections.
+
+        Parameters
+        ----------
+        freqs
+            Frequencies at which to calculate the reflection coefficients.
+            These should be provided in GHz.
+        ants
+            Antenna numbers for which to generate reflections.
+
+        Returns
+        -------
+        reflection_gains
+            Reflection gains for each antenna.
+        """
         (
             n_copies,
             amp_range,
@@ -376,7 +394,7 @@ class ReflectionSpectrum(Reflections):
         dlys = np.linspace(*dly_range, n_copies)
         phases = np.random.uniform(*phs_range, n_copies)
 
-        reflection_gains = {ant: np.ones_like(freqs)}
+        reflection_gains = {ant: np.ones(freqs.size, dtype=complex) for ant in ants}
         for amp, dly, phs in zip(amps, dlys, phases):
             reflections = Reflections(
                 amp=amp,
@@ -390,7 +408,7 @@ class ReflectionSpectrum(Reflections):
                 reflection_gains[ant] *= reflection
 
         return reflection_gains
-        
+
 
 @component
 class Crosstalk:
