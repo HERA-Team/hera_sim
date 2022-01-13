@@ -136,7 +136,12 @@ class Reflections(Gain):
         self, amp=None, dly=None, phs=None, conj=False, amp_jitter=0, dly_jitter=0
     ):
         super().__init__(
-            amp=amp, dly=dly, phs=phs, conj=conj, amp_jitter=0, dly_jitter=0
+            amp=amp,
+            dly=dly,
+            phs=phs,
+            conj=conj,
+            amp_jitter=amp_jitter,
+            dly_jitter=dly_jitter,
         )
 
     def __call__(self, freqs, ants, **kwargs):
@@ -445,7 +450,12 @@ class CrossCouplingCrosstalk(Crosstalk, Reflections):
         self, amp=None, dly=None, phs=None, conj=False, amp_jitter=0, dly_jitter=0
     ):
         super().__init__(
-            amp=amp, dly=dly, phs=phs, conj=conj, amp_jitter=0, dly_jitter=0
+            amp=amp,
+            dly=dly,
+            phs=phs,
+            conj=conj,
+            amp_jitter=amp_jitter,
+            dly_jitter=dly_jitter,
         )
 
     def __call__(self, freqs, autovis, **kwargs):
