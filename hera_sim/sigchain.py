@@ -136,7 +136,12 @@ class Reflections(Gain):
         self, amp=None, dly=None, phs=None, conj=False, amp_jitter=0, dly_jitter=0
     ):
         super().__init__(
-            amp=amp, dly=dly, phs=phs, conj=conj, amp_jitter=0, dly_jitter=0
+            amp=amp,
+            dly=dly,
+            phs=phs,
+            conj=conj,
+            amp_jitter=amp_jitter,
+            dly_jitter=dly_jitter,
         )
 
     def __call__(self, freqs, ants, **kwargs):
@@ -308,6 +313,108 @@ class Reflections(Gain):
         return amps, dlys, phases
 
 
+class ReflectionSpectrum(Gain):
+    """Generate many reflections between a range of delays.
+
+    Amplitudes are distributed on a logarithmic grid, while delays are distributed
+    on a linear grid. Effectively, this gives a reflection spectrum whose amplitude
+    decreases exponentially over the range of delays specified.
+
+    Parameters
+    ----------
+    n_copies
+        Number of peaks in the reflection spectrum.
+    amp_range
+        Max/min of the amplitudes of the reflections in the spectrum. The
+        spectrum amplitudes monotonically decrease (up to jitter).
+    dly_range
+        Min/max of the delays at which the reflections are injected, in ns.
+    phs_range
+        Bounds of the uniform distribution from which to draw reflection phases.
+    amp_jitter
+        Fractional jitter in amplitude across antennas for each of the reflections.
+    dly_jitter
+        Absolute jitter in delay across antennas for each of the reflections.
+    amp_logbase
+        Base of the logarithm to use for generating reflection amplitudes.
+
+    Notes
+    -----
+    The generated amplitudes will be in the range
+    ``amp_logbase ** amp_range[0]`` to ``amp_logbase ** amp_range[1]``.
+    """
+
+    _alias = ("reflection_spectrum",)
+
+    def __init__(
+        self,
+        n_copies: int = 20,
+        amp_range: Tuple[float, float] = (-3, -4),
+        dly_range: Tuple[float, float] = (200, 1000),
+        phs_range: Tuple[float, float] = (-np.pi, np.pi),
+        amp_jitter: float = 0.05,
+        dly_jitter: float = 30,
+        amp_logbase: float = 10,
+    ):
+        super().__init__(
+            n_copies=n_copies,
+            amp_range=amp_range,
+            dly_range=dly_range,
+            phs_range=phs_range,
+            amp_jitter=amp_jitter,
+            dly_jitter=dly_jitter,
+            amp_logbase=amp_logbase,
+        )
+
+    def __call__(
+        self, freqs: np.ndarray, ants: Sequence[int], **kwargs
+    ) -> Dict[int, np.ndarray]:
+        """
+        Generate a series of reflections.
+
+        Parameters
+        ----------
+        freqs
+            Frequencies at which to calculate the reflection coefficients.
+            These should be provided in GHz.
+        ants
+            Antenna numbers for which to generate reflections.
+
+        Returns
+        -------
+        reflection_gains
+            Reflection gains for each antenna.
+        """
+        (
+            n_copies,
+            amp_range,
+            dly_range,
+            phs_range,
+            amp_jitter,
+            dly_jitter,
+            amp_logbase,
+        ) = self._extract_kwarg_values(**kwargs)
+
+        amps = np.logspace(*amp_range, n_copies, base=amp_logbase)
+        dlys = np.linspace(*dly_range, n_copies)
+        phases = np.random.uniform(*phs_range, n_copies)
+
+        reflection_gains = {ant: np.ones(freqs.size, dtype=complex) for ant in ants}
+        for amp, dly, phs in zip(amps, dlys, phases):
+            reflections = Reflections(
+                amp=amp,
+                dly=dly,
+                phs=phs,
+                amp_jitter=amp_jitter,
+                dly_jitter=dly_jitter,
+            )
+            reflections = reflections(freqs, ants)
+            for ant, reflection in reflections.items():
+                reflection_gains[ant] *= reflection
+
+        return reflection_gains
+
+
 @component
 class Crosstalk:
     """Base class for cross-talk models."""
@@ -343,7 +450,12 @@ class CrossCouplingCrosstalk(Crosstalk, Reflections):
         self, amp=None, dly=None, phs=None, conj=False, amp_jitter=0, dly_jitter=0
     ):
         super().__init__(
-            amp=amp, dly=dly, phs=phs, conj=conj, amp_jitter=0, dly_jitter=0
+            amp=amp,
+            dly=dly,
+            phs=phs,
+            conj=conj,
+            amp_jitter=amp_jitter,
+            dly_jitter=dly_jitter,
         )
 
     def __call__(self, freqs, autovis, **kwargs):

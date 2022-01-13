@@ -161,6 +161,39 @@ def test_reflection_gains_exception(fqs):
         sigchain.gen_reflection_gains(fqs, [0], amp=[amp], dly=[300], phs=[1])
 
 
+def test_reflection_spectrum():
+    # Turns out testing that things check out with the jitter isn't so
+    # straightforward... so we'll do this with no jitter.
+    n_copies = 5
+    amp_range = (-3, -7)
+    dly_range = (100, 800)
+    amp_jitter = 0
+    dly_jitter = 0
+    amp_logbase = 5
+    amplitudes = np.logspace(*amp_range, n_copies, base=amp_logbase)
+    delays = np.linspace(*dly_range, n_copies)  # All dlys are multiples of 5
+    reflections = sigchain.ReflectionSpectrum(
+        n_copies=n_copies,
+        amp_range=amp_range,
+        dly_range=dly_range,
+        amp_jitter=amp_jitter,
+        dly_jitter=dly_jitter,
+        amp_logbase=amp_logbase,
+    )
+
+    # This is kind of backwards, but I want to specify the delays
+    dlys = np.arange(-1000, 1001, 5)
+    fqs = uvtools.utils.fourier_freqs(dlys)
+    fqs += 0.1 - fqs.min()  # Range from 100 MHz to whatever the upper bound is
+    reflections = reflections(fqs, range(100))
+    reflections = np.vstack(list(reflections.values()))
+    spectra = np.abs(uvtools.utils.FFT(reflections, axis=1))
+    spectra = spectra / spectra.max(axis=1).reshape(-1, 1)
+    dly_inds = np.argwhere(dlys[:, None] - delays[None, :] == 0)[:, 0].astype(int)
+    for amp, ind in zip(amplitudes, dly_inds.flat):
+        assert np.allclose(spectra[:, ind], amp, rtol=0.01)
+
+
 def test_cross_coupling_xtalk_correct_delay(fqs, dlys, Tsky):
     # introduce a cross reflection at a single delay
     outvis = sigchain.gen_cross_coupling_xtalk(fqs, Tsky, amp=1e-2, dly=300, phs=1)
