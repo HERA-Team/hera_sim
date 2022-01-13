@@ -2,6 +2,18 @@
 Changelog
 =========
 
+v2.2.0 [2022.01.13]
+===================
+
+Added
+-----
+- New ``ReflectionSpectrum`` class to generate multiple reflections over a
+  specified range of delays/amplitudes.
+
+Fixed
+-----
+- Corrected some parameter initializations in ``sigchain`` module.
+
 v2.1.0 [2022.01.12]
 ===================
 
