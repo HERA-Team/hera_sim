@@ -5,6 +5,12 @@ Changelog
 v2.2.1 [2022.01.14]
 ===================
 
+Added
+-----
+- ``OverAirCrossCoupling`` now has a parameter ``amp_norm``. This lets the user
+  decide at what distance from the receiverator the gain of the emitted signal
+  is equal to the base amplitude.
+
 Fixed
 -----
 - ``OverAirCrossCoupling`` now only simulates the systematic for cross-correlations.
