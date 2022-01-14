@@ -289,6 +289,8 @@ def test_over_air_cross_coupling(Tsky_mdl, lsts):
     max_delay = 1500
     amp_decay_fac = 1e-2
     base_amp = 2e-5
+    amp_norm = 100
+    amp_slope = -2.3
     fqs = np.linspace(0.1, 0.2, 1024, endpoint=False)
     dlys = uvtools.utils.fourier_freqs(fqs)
     Tsky = Tsky_mdl(lsts, fqs)
@@ -297,7 +299,7 @@ def test_over_air_cross_coupling(Tsky_mdl, lsts):
     base_delay = 50 / constants.c.to("m/ns").value
     pos_dlys = np.linspace(base_delay + cable_delays[1], max_delay, n_copies)
     neg_dlys = -np.linspace(base_delay + cable_delays[0], max_delay, n_copies)
-    start_amp = np.log10(base_amp / 50)
+    start_amp = np.log10(base_amp * (50 / amp_norm) ** amp_slope)
     end_amp = start_amp + np.log10(amp_decay_fac)
     amplitudes = np.logspace(start_amp, end_amp, n_copies)
     all_dlys = np.concatenate([neg_dlys, pos_dlys])
@@ -307,6 +309,8 @@ def test_over_air_cross_coupling(Tsky_mdl, lsts):
     )
     gen_xtalk = sigchain.OverAirCrossCoupling(
         base_amp=base_amp,
+        amp_norm=amp_norm,
+        amp_slope=amp_slope,
         n_copies=n_copies,
         emitter_pos=emitter_pos,
         cable_delays=cable_delays,
@@ -318,7 +322,7 @@ def test_over_air_cross_coupling(Tsky_mdl, lsts):
     for dly, amp in zip(all_dlys, all_amps):
         dly_ind = np.argmin(np.abs(dlys - dly))
         ratio = np.abs(xt_fft[:, dly_ind]) / Tsky_avg
-        assert np.allclose(ratio, amp, rtol=0.01)
+        assert np.allclose(ratio, amp, rtol=0.05)
 
 
 def test_over_air_xtalk_skips_autos(fqs, Tsky):
