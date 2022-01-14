@@ -743,7 +743,7 @@ class OverAirCrossCoupling(Crosstalk):
         -------
         xtalk_vis
             Array with the cross-coupling visibility. Has the same shape as the input
-            autocorrelations.
+            autocorrelations. This systematic is not applied to the auto-correlations.
         """
         self._check_kwargs(**kwargs)
         (
@@ -760,6 +760,9 @@ class OverAirCrossCoupling(Crosstalk):
         ) = self._extract_kwarg_values(**kwargs)
 
         ai, aj = antpair
+        if ai == aj:
+            return np.zeros_like(autovis_i)
+
         if emitter_pos is None:
             emitter_pos = np.zeros(3, dtype=float)
         xi = antpos[ai] - np.asarray(emitter_pos)

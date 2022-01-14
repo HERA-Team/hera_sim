@@ -321,6 +321,12 @@ def test_over_air_cross_coupling(Tsky_mdl, lsts):
         assert np.allclose(ratio, amp, rtol=0.01)
 
 
+def test_over_air_xtalk_skips_autos(fqs, Tsky):
+    gen_xtalk = sigchain.OverAirCrossCoupling()
+    xtalk = gen_xtalk(fqs, (0, 0), range(3), Tsky, Tsky)
+    assert xtalk.shape == Tsky.shape and np.all(xtalk == 0)
+
+
 @pytest.fixture(scope="function")
 def freqs():
     return np.linspace(0.1, 0.2, 1024)
