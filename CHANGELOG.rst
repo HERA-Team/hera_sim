@@ -2,6 +2,13 @@
 Changelog
 =========
 
+v2.2.1 [2022.01.14]
+===================
+
+Fixed
+-----
+- ``OverAirCrossCoupling`` now only simulates the systematic for cross-correlations.
+
 v2.2.0 [2022.01.13]
 ===================
 
