@@ -344,6 +344,7 @@ class ReflectionSpectrum(Gain):
     ``amp_logbase ** amp_range[0]`` to ``amp_logbase ** amp_range[1]``.
     """
 
+    is_multiplicative = True
     _alias = ("reflection_spectrum",)
 
     def __init__(
