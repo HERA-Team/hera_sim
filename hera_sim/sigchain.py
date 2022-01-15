@@ -660,6 +660,9 @@ class OverAirCrossCoupling(Crosstalk):
     base_amp
         Base amplitude of reflection coefficient. If `amp_slope` is set to 0, then
         this is the amplitude of all of the reflection coefficients.
+    amp_norm
+        Distance from the receiverator, in meteres, at which the cross-coupling
+        amplitude is equal to ``base_amp``.
     amp_slope
         Power-law index describing how rapidly the reflection coefficient decays
         with distance from the receiverator.
@@ -693,6 +696,7 @@ class OverAirCrossCoupling(Crosstalk):
         emitter_pos: Optional[Union[np.ndarray, Sequence]] = None,
         cable_delays: Optional[Dict[int, float]] = None,
         base_amp: float = 2e-5,
+        amp_norm: float = 100,
         amp_slope: float = -1,
         amp_decay_base: float = 10,
         n_copies: int = 10,
@@ -705,6 +709,7 @@ class OverAirCrossCoupling(Crosstalk):
             emitter_pos=emitter_pos,
             cable_delays=cable_delays or {},
             base_amp=base_amp,
+            amp_norm=amp_norm,
             amp_slope=amp_slope,
             amp_decay_base=amp_decay_base,
             n_copies=n_copies,
@@ -743,13 +748,14 @@ class OverAirCrossCoupling(Crosstalk):
         -------
         xtalk_vis
             Array with the cross-coupling visibility. Has the same shape as the input
-            autocorrelations.
+            autocorrelations. This systematic is not applied to the auto-correlations.
         """
         self._check_kwargs(**kwargs)
         (
             emitter_pos,
             cable_delay,
             base_amp,
+            amp_norm,
             amp_slope,
             amp_decay_base,
             n_copies,
@@ -760,20 +766,23 @@ class OverAirCrossCoupling(Crosstalk):
         ) = self._extract_kwarg_values(**kwargs)
 
         ai, aj = antpair
+        if ai == aj:
+            return np.zeros_like(autovis_i)
+
         if emitter_pos is None:
             emitter_pos = np.zeros(3, dtype=float)
-        xi = antpos[ai] - np.asarray(emitter_pos)
-        xj = antpos[aj] - np.asarray(emitter_pos)
+        xi = np.linalg.norm(antpos[ai] - np.asarray(emitter_pos))
+        xj = np.linalg.norm(antpos[aj] - np.asarray(emitter_pos))
 
         log_scale = np.log(amp_decay_base)
 
         def log(x):
             return np.log(x) / log_scale
 
-        amp_i = base_amp * np.linalg.norm(xi) ** amp_slope
-        amp_j = base_amp * np.linalg.norm(xj) ** amp_slope
-        dly_i = np.linalg.norm(xi) / constants.c.to("m/ns").value
-        dly_j = np.linalg.norm(xj) / constants.c.to("m/ns").value
+        amp_i = base_amp * (xi / amp_norm) ** amp_slope
+        amp_j = base_amp * (xj / amp_norm) ** amp_slope
+        dly_i = xi / constants.c.to("m/ns").value
+        dly_j = xj / constants.c.to("m/ns").value
         dly_ij = cable_delay[ai] + dly_j
         dly_ji = cable_delay[aj] + dly_i
 
