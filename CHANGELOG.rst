@@ -14,6 +14,7 @@ Added
 Fixed
 -----
 - ``OverAirCrossCoupling`` now only simulates the systematic for cross-correlations.
+- ``ReflectionSpectrum`` class had its ``is_multiplicative`` attribute set to True.
 
 v2.2.0 [2022.01.13]
 ===================
