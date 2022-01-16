@@ -300,7 +300,7 @@ class TestPerturbedPolyBeam:
 
     @pytest.mark.parametrize("pol", ["ee", "nn", "en", "ne"])
     def test_polarized_validity(self, antennas, sources, pol):
-        beams = self.get_perturbed_beams(12.0)
+        beams = self.get_perturbed_beams(12.0, power_beam=True)
         res = run_sim(
             antennas, sources, beams, use_pixel_beams=True, use_pol=True, pol=pol
         )

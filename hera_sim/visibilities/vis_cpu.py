@@ -156,22 +156,23 @@ class VisCPU(VisibilitySimulator):
                 other polarizations afterwards if necessary).
                 """
             )
-
-        # If we are simulating polarized visibilities from an unpolarized I sky
-        # then the beam must be a power beam that includes the various
-        # polarizations present in the data. We would actually need an e-field
-        # beam if we were simulating
-        # a polarized sky so this will need to be changed once we include
-        # polarized sky emission.
-        for polnum in uvdata.polarization_array:
-            if polnum not in uvbeam.polarization_array:
-                raise ValueError(
-                    """
-                    Not all polarizations in uvdata are present in uvbeam.
-                    Make sure you are providing a power beam with all polarizations
-                    in uvdata present!
-                    """
-                )
+        do_pols = self._check_if_polarized(data_model)
+        if do_pols:
+            # If we are simulating polarized visibilities from an unpolarized I sky
+            # then the beam must be a power beam that includes the various
+            # polarizations present in the data. We would actually need an e-field
+            # beam if we were simulating
+            # a polarized sky so this will need to be changed once we include
+            # polarized sky emission.
+            for polnum in uvdata.polarization_array:
+                if polnum not in uvbeam.polarization_array:
+                    raise ValueError(
+                        """
+                        Not all polarizations in uvdata are present in uvbeam.
+                        Make sure you are providing a power beam with all polarizations
+                        in uvdata present!
+                        """
+                    )
 
         if self.use_gpu:
             raise RuntimeError(
