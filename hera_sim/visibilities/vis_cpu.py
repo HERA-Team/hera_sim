@@ -156,8 +156,8 @@ class VisCPU(VisibilitySimulator):
                 other polarizations afterwards if necessary).
                 """
             )
-        do_pols = self._check_if_polarized(data_model)
-        if do_pols:
+        do_pol = self._check_if_polarized(data_model)
+        if do_pol:
             # If we are simulating polarized visibilities from an unpolarized I sky
             # then the beam must be a power beam that includes the various
             # polarizations present in the data. We would actually need an e-field
