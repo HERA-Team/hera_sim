@@ -157,23 +157,26 @@ class VisCPU(VisibilitySimulator):
                 """
             )
 
-        do_pol = self._check_if_polarized(data_model)
-        if do_pol:
-            # Number of feeds must be two if doing polarized
-            try:
-                nfeeds = uvbeam.data_array.shape[2]
-            except AttributeError:
-                # TODO: the following assumes that analytic beams are 2 feeds unless
-                # otherwise specified. This should be fixed at the AnalyticBeam API
-                # level.
-                nfeeds = getattr(uvbeam, "Nfeeds", 2)
 
-            assert nfeeds == 2
-
-            if self.use_gpu:
-                raise RuntimeError(
-                    "GPU support is currently only available when polarized=False"
+        # If we are simulating polarized visibilities from an unpolarized I sky
+        # then the beam must be a power beam that includes the various polarizations.
+        # present in the data. We would actually need an e-field beam if we were simulating
+        # from a polarized sky so this will need to be changed once we include
+        # polarized sky emission.
+        for polnum in uvdata.polarization_array:
+            if polnum not in uvbeam.polarization_array:
+                raise ValueError(
+                """
+                Not all polarizations in uvdata are present in uvbeam.
+                Make sure you are providing a power beam with all polarizations
+                in uvdata present!
+                """
                 )
+
+        if self.use_gpu:
+            raise RuntimeError(
+                "GPU support is currently only available when polarized=False"
+            )
 
     def correct_point_source_pos(
         self,
