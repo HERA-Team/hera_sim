@@ -421,7 +421,7 @@ class VisCPU(VisibilitySimulator):
         # In order to get all 4 visibility polarizations for a dual feed system
         # We should compare pols in the earth-oriented frame so here we convert
         # to earth orientations  (if possible)
-        if uvbeam.x_orientation is not None:
+        if getattr(uvbeam, "x_orientation", None) is not None:
             for fn, feed in enumerate(feeds):
                 if feed == "x":
                     feeds[fn] = uvbeam.x_orientation[0]
