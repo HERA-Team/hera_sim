@@ -423,13 +423,13 @@ class VisCPU(VisibilitySimulator):
         # to earth orientations  (if possible)
         if uvbeam.x_orientation is not None:
             for fn, feed in enumerate(feeds):
-                if feed == 'x':
+                if feed == "x":
                     feeds[fn] = uvbeam.x_orientation[0]
-                elif feed == 'y':
-                    if uvbeam.x_orientation.lower() == 'north':
-                        feeds[fn] = 'e'
+                elif feed == "y":
+                    if uvbeam.x_orientation.lower() == "north":
+                        feeds[fn] = "e"
                     else:
-                        feeds[fn] = 'n'
+                        feeds[fn] = "n"
 
         vispols = set()
         for p1, p2 in itertools.combinations_with_replacement(feeds, 2):
