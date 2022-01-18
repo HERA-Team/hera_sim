@@ -4,7 +4,7 @@ from hera_sim.interpolators import Bandpass, Beam
 from hera_sim import DATA_PATH
 import uvtools
 import numpy as np
-from astropy import units
+from astropy import units, constants
 
 np.random.seed(0)
 
@@ -161,6 +161,39 @@ def test_reflection_gains_exception(fqs):
         sigchain.gen_reflection_gains(fqs, [0], amp=[amp], dly=[300], phs=[1])
 
 
+def test_reflection_spectrum():
+    # Turns out testing that things check out with the jitter isn't so
+    # straightforward... so we'll do this with no jitter.
+    n_copies = 5
+    amp_range = (-3, -7)
+    dly_range = (100, 800)
+    amp_jitter = 0
+    dly_jitter = 0
+    amp_logbase = 5
+    amplitudes = np.logspace(*amp_range, n_copies, base=amp_logbase)
+    delays = np.linspace(*dly_range, n_copies)  # All dlys are multiples of 5
+    reflections = sigchain.ReflectionSpectrum(
+        n_copies=n_copies,
+        amp_range=amp_range,
+        dly_range=dly_range,
+        amp_jitter=amp_jitter,
+        dly_jitter=dly_jitter,
+        amp_logbase=amp_logbase,
+    )
+
+    # This is kind of backwards, but I want to specify the delays
+    dlys = np.arange(-1000, 1001, 5)
+    fqs = uvtools.utils.fourier_freqs(dlys)
+    fqs += 0.1 - fqs.min()  # Range from 100 MHz to whatever the upper bound is
+    reflections = reflections(fqs, range(100))
+    reflections = np.vstack(list(reflections.values()))
+    spectra = np.abs(uvtools.utils.FFT(reflections, axis=1))
+    spectra = spectra / spectra.max(axis=1).reshape(-1, 1)
+    dly_inds = np.argwhere(dlys[:, None] - delays[None, :] == 0)[:, 0].astype(int)
+    for amp, ind in zip(amplitudes, dly_inds.flat):
+        assert np.allclose(spectra[:, ind], amp, rtol=0.01)
+
+
 def test_cross_coupling_xtalk_correct_delay(fqs, dlys, Tsky):
     # introduce a cross reflection at a single delay
     outvis = sigchain.gen_cross_coupling_xtalk(fqs, Tsky, amp=1e-2, dly=300, phs=1)
@@ -220,17 +253,17 @@ def test_dly_jitter():
 
 
 def test_cross_coupling_spectrum(fqs, dlys, Tsky):
-    Ncopies = 5
+    n_copies = 5
     amp_range = (-2, -5)
     dly_range = (50, 450)
     xtalk_spectrum = sigchain.CrossCouplingSpectrum(
-        Ncopies=Ncopies,
+        n_copies=n_copies,
         amp_range=amp_range,
         dly_range=dly_range,
         symmetrize=True,
     )
-    amplitudes = np.logspace(*amp_range, Ncopies)
-    delays = np.linspace(*dly_range, Ncopies)
+    amplitudes = np.logspace(*amp_range, n_copies)
+    delays = np.linspace(*dly_range, n_copies)
     xtalk = xtalk_spectrum(freqs=fqs, autovis=Tsky)
     Tsky_avg = np.abs(
         uvtools.utils.FFT(Tsky, axis=1, taper="bh7")[:, np.argmin(np.abs(dlys))]
@@ -244,6 +277,58 @@ def test_cross_coupling_spectrum(fqs, dlys, Tsky):
         for ind in (dly_ind, neg_dly_ind):
             ratio = np.abs(xt_fft[:, ind]) / Tsky_avg
             assert np.allclose(ratio, amp, rtol=0.01)
+
+
+def test_over_air_cross_coupling(Tsky_mdl, lsts):
+    # Setup various parameters. To make it easy, only have cable lengths vary.
+    n_copies = 5
+    emitter_pos = np.array([0, 0, 0])
+    # Both antennas have same distance to emitter.
+    antpos = {0: np.array([30, 40, 0]), 1: np.array([50, 0, 0])}
+    cable_delays = {0: 400, 1: 600}
+    max_delay = 1500
+    amp_decay_fac = 1e-2
+    base_amp = 2e-5
+    amp_norm = 100
+    amp_slope = -2.3
+    fqs = np.linspace(0.1, 0.2, 1024, endpoint=False)
+    dlys = uvtools.utils.fourier_freqs(fqs)
+    Tsky = Tsky_mdl(lsts, fqs)
+
+    # Calculate the expected delays/amplitudes
+    base_delay = 50 / constants.c.to("m/ns").value
+    pos_dlys = np.linspace(base_delay + cable_delays[1], max_delay, n_copies)
+    neg_dlys = -np.linspace(base_delay + cable_delays[0], max_delay, n_copies)
+    start_amp = np.log10(base_amp * (50 / amp_norm) ** amp_slope)
+    end_amp = start_amp + np.log10(amp_decay_fac)
+    amplitudes = np.logspace(start_amp, end_amp, n_copies)
+    all_dlys = np.concatenate([neg_dlys, pos_dlys])
+    all_amps = np.concatenate([amplitudes, amplitudes])
+    Tsky_avg = np.abs(
+        uvtools.utils.FFT(Tsky, axis=1, taper="bh7")[:, np.argmin(np.abs(dlys))]
+    )
+    gen_xtalk = sigchain.OverAirCrossCoupling(
+        base_amp=base_amp,
+        amp_norm=amp_norm,
+        amp_slope=amp_slope,
+        n_copies=n_copies,
+        emitter_pos=emitter_pos,
+        cable_delays=cable_delays,
+        max_delay=max_delay,
+        amp_decay_fac=amp_decay_fac,
+    )
+    xtalk = gen_xtalk(fqs, (0, 1), antpos, Tsky, Tsky)
+    xt_fft = uvtools.utils.FFT(xtalk, axis=1, taper="bh7")
+    for dly, amp in zip(all_dlys, all_amps):
+        dly_ind = np.argmin(np.abs(dlys - dly))
+        ratio = np.abs(xt_fft[:, dly_ind]) / Tsky_avg
+        assert np.allclose(ratio, amp, rtol=0.05)
+
+
+def test_over_air_xtalk_skips_autos(fqs, Tsky):
+    gen_xtalk = sigchain.OverAirCrossCoupling()
+    xtalk = gen_xtalk(fqs, (0, 0), range(3), Tsky, Tsky)
+    assert xtalk.shape == Tsky.shape and np.all(xtalk == 0)
 
 
 @pytest.fixture(scope="function")

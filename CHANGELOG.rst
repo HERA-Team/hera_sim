@@ -2,6 +2,45 @@
 Changelog
 =========
 
+v2.2.1 [2022.01.14]
+===================
+
+Added
+-----
+- ``OverAirCrossCoupling`` now has a parameter ``amp_norm``. This lets the user
+  decide at what distance from the receiverator the gain of the emitted signal
+  is equal to the base amplitude.
+
+Fixed
+-----
+- ``OverAirCrossCoupling`` now only simulates the systematic for cross-correlations.
+- ``ReflectionSpectrum`` class had its ``is_multiplicative`` attribute set to True.
+
+v2.2.0 [2022.01.13]
+===================
+
+Added
+-----
+- New ``ReflectionSpectrum`` class to generate multiple reflections over a
+  specified range of delays/amplitudes.
+
+Fixed
+-----
+- Corrected some parameter initializations in ``sigchain`` module.
+
+v2.1.0 [2022.01.12]
+===================
+
+Added
+-----
+- New ``OverAirCrossCoupling`` class to better model crosstalk in H1C data.
+
+Changed
+-------
+- Slightly modified ``Simulator`` logic for automatically choosing parameter values.
+  This extends the number of cases the class can handle, but will be changed in a
+  future update.
+
 v2.0.0 [2021.11.16]
 ===================
 

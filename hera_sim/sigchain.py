@@ -6,8 +6,9 @@ example bandpass gains, reflections and cross-talk.
 
 import numpy as np
 import warnings
-from typing import Dict, Tuple, Union
+from typing import Dict, Optional, Sequence, Tuple, Union
 
+from astropy import constants
 from scipy import stats
 from scipy.signal import blackmanharris
 
@@ -135,7 +136,12 @@ class Reflections(Gain):
         self, amp=None, dly=None, phs=None, conj=False, amp_jitter=0, dly_jitter=0
     ):
         super().__init__(
-            amp=amp, dly=dly, phs=phs, conj=conj, amp_jitter=0, dly_jitter=0
+            amp=amp,
+            dly=dly,
+            phs=phs,
+            conj=conj,
+            amp_jitter=amp_jitter,
+            dly_jitter=dly_jitter,
         )
 
     def __call__(self, freqs, ants, **kwargs):
@@ -240,6 +246,7 @@ class Reflections(Gain):
     def _complete_params(
         ants, amp=None, dly=None, phs=None, amp_jitter=0, dly_jitter=0
     ):
+        # TODO: docstring isn't exactly accurate, should be updated
         """
         Generate parameters to calculate a reflection coefficient.
 
@@ -306,6 +313,109 @@ class Reflections(Gain):
         return amps, dlys, phases
 
 
+class ReflectionSpectrum(Gain):
+    """Generate many reflections between a range of delays.
+
+    Amplitudes are distributed on a logarithmic grid, while delays are distributed
+    on a linear grid. Effectively, this gives a reflection spectrum whose amplitude
+    decreases exponentially over the range of delays specified.
+
+    Parameters
+    ----------
+    n_copies
+        Number of peaks in the reflection spectrum.
+    amp_range
+        Max/min of the amplitudes of the reflections in the spectrum. The
+        spectrum amplitudes monotonically decrease (up to jitter).
+    dly_range
+        Min/max of the delays at which the reflections are injected, in ns.
+    phs_range
+        Bounds of the uniform distribution from which to draw reflection phases.
+    amp_jitter
+        Fractional jitter in amplitude across antennas for each of the reflections.
+    dly_jitter
+        Absolute jitter in delay across antennas for each of the reflections.
+    amp_logbase
+        Base of the logarithm to use for generating reflection amplitudes.
+
+    Notes
+    -----
+    The generated amplitudes will be in the range
+    ``amp_logbase ** amp_range[0]`` to ``amp_logbase ** amp_range[1]``.
+    """
+
+    is_multiplicative = True
+    _alias = ("reflection_spectrum",)
+
+    def __init__(
+        self,
+        n_copies: int = 20,
+        amp_range: Tuple[float, float] = (-3, -4),
+        dly_range: Tuple[float, float] = (200, 1000),
+        phs_range: Tuple[float, float] = (-np.pi, np.pi),
+        amp_jitter: float = 0.05,
+        dly_jitter: float = 30,
+        amp_logbase: float = 10,
+    ):
+        super().__init__(
+            n_copies=n_copies,
+            amp_range=amp_range,
+            dly_range=dly_range,
+            phs_range=phs_range,
+            amp_jitter=amp_jitter,
+            dly_jitter=dly_jitter,
+            amp_logbase=amp_logbase,
+        )
+
+    def __call__(
+        self, freqs: np.ndarray, ants: Sequence[int], **kwargs
+    ) -> Dict[int, np.ndarray]:
+        """
+        Generate a series of reflections.
+
+        Parameters
+        ----------
+        freqs
+            Frequencies at which to calculate the reflection coefficients.
+            These should be provided in GHz.
+        ants
+            Antenna numbers for which to generate reflections.
+
+        Returns
+        -------
+        reflection_gains
+            Reflection gains for each antenna.
+        """
+        (
+            n_copies,
+            amp_range,
+            dly_range,
+            phs_range,
+            amp_jitter,
+            dly_jitter,
+            amp_logbase,
+        ) = self._extract_kwarg_values(**kwargs)
+
+        amps = np.logspace(*amp_range, n_copies, base=amp_logbase)
+        dlys = np.linspace(*dly_range, n_copies)
+        phases = np.random.uniform(*phs_range, n_copies)
+
+        reflection_gains = {ant: np.ones(freqs.size, dtype=complex) for ant in ants}
+        for amp, dly, phs in zip(amps, dlys, phases):
+            reflections = Reflections(
+                amp=amp,
+                dly=dly,
+                phs=phs,
+                amp_jitter=amp_jitter,
+                dly_jitter=dly_jitter,
+            )
+            reflections = reflections(freqs, ants)
+            for ant, reflection in reflections.items():
+                reflection_gains[ant] *= reflection
+
+        return reflection_gains
+
+
 @component
 class Crosstalk:
     """Base class for cross-talk models."""
@@ -341,7 +451,12 @@ class CrossCouplingCrosstalk(Crosstalk, Reflections):
         self, amp=None, dly=None, phs=None, conj=False, amp_jitter=0, dly_jitter=0
     ):
         super().__init__(
-            amp=amp, dly=dly, phs=phs, conj=conj, amp_jitter=0, dly_jitter=0
+            amp=amp,
+            dly=dly,
+            phs=phs,
+            conj=conj,
+            amp_jitter=amp_jitter,
+            dly_jitter=dly_jitter,
         )
 
     def __call__(self, freqs, autovis, **kwargs):
@@ -392,7 +507,7 @@ class CrossCouplingSpectrum(Crosstalk):
 
     Parameters
     ----------
-    Ncopies : int, optional
+    n_copies : int, optional
         Number of random cross-talk models to add.
     amp_range : tuple, optional
         Two-tuple of floats specifying the range of amplitudes
@@ -408,36 +523,45 @@ class CrossCouplingSpectrum(Crosstalk):
     dly_jitter : int, optional
         Standard deviation of the random jitter to be applied to
         the regular delays.
+    amp_logbase: float, optional
+        Base of the logarithm to use for generating amplitudes.
     symmetrize : bool, optional
         Whether to also produce statistically equivalent cross-talk at
         negative delays. Note that while the statistics are equivalent,
         both amplitudes and delays will be different random realizations.
+
+    Notes
+    -----
+    The generated amplitudes will be in the range
+    ``amp_logbase ** amp_range[0]`` to ``amp_logbase ** amp_range[1]``.
     """
 
     _alias = ("cross_coupling_spectrum", "xtalk_spectrum")
 
     def __init__(
         self,
-        Ncopies=10,
+        n_copies=10,
         amp_range=(-4, -6),
         dly_range=(1000, 1200),
         phs_range=(-np.pi, np.pi),
         amp_jitter=0,
         dly_jitter=0,
+        amp_logbase=10,
         symmetrize=True,
     ):
         super().__init__(
-            Ncopies=Ncopies,
+            n_copies=n_copies,
             amp_range=amp_range,
             dly_range=dly_range,
             phs_range=phs_range,
             amp_jitter=amp_jitter,
             dly_jitter=dly_jitter,
+            amp_logbase=amp_logbase,
             symmetrize=symmetrize,
         )
 
     def __call__(self, freqs, autovis, **kwargs):
-        """Copute the cross-correlations.
+        """Compute the cross-correlations.
 
         Parameters
         ----------
@@ -455,18 +579,19 @@ class CrossCouplingSpectrum(Crosstalk):
         self._check_kwargs(**kwargs)
 
         (
-            Ncopies,
+            n_copies,
             amp_range,
             dly_range,
             phs_range,
             amp_jitter,
             dly_jitter,
+            amp_logbase,
             symmetrize,
         ) = self._extract_kwarg_values(**kwargs)
 
         # Construct the arrays of amplitudes and delays.
-        amps = np.logspace(*amp_range, Ncopies)
-        dlys = np.linspace(*dly_range, Ncopies)
+        amps = np.logspace(*amp_range, n_copies, base=amp_logbase)
+        dlys = np.linspace(*dly_range, n_copies)
 
         # Construct the spectrum of crosstalk.
         crosstalk_spectrum = np.zeros(autovis.shape, dtype=complex)
@@ -486,6 +611,202 @@ class CrossCouplingSpectrum(Crosstalk):
                 crosstalk_spectrum += gen_xtalk(freqs, autovis, dly=-dly)
 
         return crosstalk_spectrum
+
+
+class OverAirCrossCoupling(Crosstalk):
+    r"""Crosstalk model based on the mechanism described in HERA Memo 104.
+
+    This model describes first-order coupling between a visibility :math:`V_{ij}`
+    and the autocorrelations for each antenna involved. Physically, it is modeled
+    as the signal from one antenna traveling to the receiverator, then being
+    broadcast to the other antenna. Under this model, the cross-coupling component
+    :math:`V_{ij}^{\rm cc}` can be described via
+
+    .. math::
+
+        V_{ij}^{\rm cc} = \epsilon_{ij}^* V_{ii} + \epsilon_{ji} V_{jj},
+
+    where the reflection coefficient :math:`\\epsilon_{ij}` is modeled as
+
+    .. math::
+
+        \epsilon_{ij} = A_i \exp \bigl[2\pi i\nu(\tau_{i,{\rm cable}} +
+        \tau_{X \rightarrow j} ) \bigr].
+
+    Here, :math:`X` denotes the position of the receiverator (or rather, where the
+    excess signal is radiated from), and the indices :math:`i,j` refer to antennas.
+    So, :math:`\tau_{i,{\rm cable}}` is the delay from the signal traveling down
+    the cable from antenna :math:`i` to the receiverator, and :math:`\tau_{X
+    \rightarrow j}` denotes the delay from the signal traveling over-the-air from
+    the receiverator to antenna :math:`j`. As usual, :math:`A_i` is the amplitude
+    of the reflection coefficient. Here, the amplitude is described by three free
+    parameters, :math:`a, \vec{r}_X, \beta`:
+
+    .. math::
+       A_i = a |\vec{r}_i - \vec{r}_X|^\beta.
+
+    :math:`a` is a base amplitude, :math:`\vec{r}_X` is the receiverator position,
+    and :math:`\beta` describes how quickly the amplitude falls off with distance
+    from the receiverator, and is typically taken to be negative. For more details,
+    refer to HERA Memo 104 for more details:
+
+    http://reionization.org/manual_uploads/HERA104_Crosstalk_Physical_Model.html
+
+    Parameters
+    ----------
+    emitter_pos
+        Receiverator position, in meters, in local ENU coordinates.
+    cable_delays
+        Mapping from antenna numbers to cable delays, in nanoseconds.
+    base_amp
+        Base amplitude of reflection coefficient. If `amp_slope` is set to 0, then
+        this is the amplitude of all of the reflection coefficients.
+    amp_norm
+        Distance from the receiverator, in meteres, at which the cross-coupling
+        amplitude is equal to ``base_amp``.
+    amp_slope
+        Power-law index describing how rapidly the reflection coefficient decays
+        with distance from the receiverator.
+    amp_decay_base
+        Logarithmic base to use when generating the additional peaks in the
+        cross-coupling spectrum.
+    n_copies
+        Number of peaks in the cross-coupling spectrum at positive and negative
+        delays, separately.
+    amp_jitter
+        Fractional jitter to apply to the amplitudes of the peaks in the
+        cross-coupling spectrum.
+    dly_jitter
+        Absolute jitter to apply to the delays of the peaks in the cross-coupling
+        spectrum, in nanoseconds.
+    max_delay
+        Magnitude of the maximum delay to which the cross-coupling spectrum extends,
+        in nanoseconds.
+    amp_decay_fac
+        Ratio of the amplitude of the last peak in the cross-coupling spectrum to
+        the first peak. In other words, how much the cross-coupling spectrum decays
+        over the full range of delays it covers.
+
+    See Also
+    --------
+    :class:`CrossCouplingSpectrum`
+    """
+
+    def __init__(
+        self,
+        emitter_pos: Optional[Union[np.ndarray, Sequence]] = None,
+        cable_delays: Optional[Dict[int, float]] = None,
+        base_amp: float = 2e-5,
+        amp_norm: float = 100,
+        amp_slope: float = -1,
+        amp_decay_base: float = 10,
+        n_copies: int = 10,
+        amp_jitter: float = 0,
+        dly_jitter: float = 0,
+        max_delay: float = 2000,
+        amp_decay_fac: float = 1e-2,
+    ):
+        super().__init__(
+            emitter_pos=emitter_pos,
+            cable_delays=cable_delays or {},
+            base_amp=base_amp,
+            amp_norm=amp_norm,
+            amp_slope=amp_slope,
+            amp_decay_base=amp_decay_base,
+            n_copies=n_copies,
+            amp_jitter=amp_jitter,
+            dly_jitter=dly_jitter,
+            max_delay=max_delay,
+            amp_decay_fac=amp_decay_fac,
+        )
+
+    def __call__(
+        self,
+        freqs: np.ndarray,
+        antpair: Tuple[int, int],
+        antpos: Dict[int, np.ndarray],
+        autovis_i: np.ndarray,
+        autovis_j: np.ndarray,
+        **kwargs,
+    ) -> np.ndarray:
+        """Generate a cross-coupling spectrum modeled via HERA Memo 104.
+
+        Parameters
+        ----------
+        freqs
+            Frequencies at which to evaluate the reflection coefficients, in GHz.
+        antpair
+            The two antennas involved in forming the visibility.
+        antpos
+            Mapping from antenna numbers to positions in meters, in local ENU
+            coordinates.
+        autovis_i
+            Autocorrelation for the first antenna in the pair.
+        autovis_j
+            Autocorrelation for the second antenna in the pair.
+
+        Returns
+        -------
+        xtalk_vis
+            Array with the cross-coupling visibility. Has the same shape as the input
+            autocorrelations. This systematic is not applied to the auto-correlations.
+        """
+        self._check_kwargs(**kwargs)
+        (
+            emitter_pos,
+            cable_delay,
+            base_amp,
+            amp_norm,
+            amp_slope,
+            amp_decay_base,
+            n_copies,
+            amp_jitter,
+            dly_jitter,
+            max_delay,
+            amp_decay_fac,
+        ) = self._extract_kwarg_values(**kwargs)
+
+        ai, aj = antpair
+        if ai == aj:
+            return np.zeros_like(autovis_i)
+
+        if emitter_pos is None:
+            emitter_pos = np.zeros(3, dtype=float)
+        xi = np.linalg.norm(antpos[ai] - np.asarray(emitter_pos))
+        xj = np.linalg.norm(antpos[aj] - np.asarray(emitter_pos))
+
+        log_scale = np.log(amp_decay_base)
+
+        def log(x):
+            return np.log(x) / log_scale
+
+        amp_i = base_amp * (xi / amp_norm) ** amp_slope
+        amp_j = base_amp * (xj / amp_norm) ** amp_slope
+        dly_i = xi / constants.c.to("m/ns").value
+        dly_j = xj / constants.c.to("m/ns").value
+        dly_ij = cable_delay[ai] + dly_j
+        dly_ji = cable_delay[aj] + dly_i
+
+        xt_ij = CrossCouplingSpectrum(
+            n_copies=n_copies,
+            amp_range=(log(amp_i), log(amp_i * amp_decay_fac)),
+            dly_range=(-dly_ij, -max_delay),
+            amp_jitter=amp_jitter,
+            dly_jitter=dly_jitter,
+            amp_logbase=amp_decay_base,
+            symmetrize=False,
+        )
+        xt_ji = CrossCouplingSpectrum(
+            n_copies=n_copies,
+            amp_range=(log(amp_j), log(amp_j * amp_decay_fac)),
+            dly_range=(dly_ji, max_delay),
+            amp_jitter=amp_jitter,
+            dly_jitter=dly_jitter,
+            amp_logbase=amp_decay_base,
+            symmetrize=False,
+        )
+
+        return xt_ij(freqs, autovis_i) + xt_ji(freqs, autovis_j)
 
 
 class WhiteNoiseCrosstalk(Crosstalk):
