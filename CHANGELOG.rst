@@ -2,6 +2,15 @@
 Changelog
 =========
 
+v2.3.0 [2022.01.19]
+===================
+
+Added
+-----
+- ``normalize_beams`` option in ``ModelData`` class. Setting this parameter to
+  ``True`` enforces peak-normalization on all of the beams used in the simulation.
+  The default behavior is to not peak-normalize the beams.
+
 v2.2.1 [2022.01.14]
 ===================
 

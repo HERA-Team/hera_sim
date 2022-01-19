@@ -48,6 +48,9 @@ class ModelData:
         list. By default, if one beam is given all antennas use the same beam, whereas
         if a beam is given per antenna, they are used in their given order.
         Shape=(N_ANTS,).
+    normalize_beams
+        Whether to peak-normalize the beams. This removes the bandpass from the beams'
+        data arrays and moves it into their ``bandpass_array`` attributes.
 
     Notes
     -----
@@ -64,6 +67,7 @@ class ModelData:
         sky_model: SkyModel,
         beam_ids: Dict[str, int] | Sequence[int] | None = None,
         beams: BeamListType | None = None,
+        normalize_beams: bool = False,
     ):
 
         self.uvdata = self._process_uvdata(uvdata)
@@ -71,7 +75,7 @@ class ModelData:
         # NOT Nants because we only want ants with data
         self.n_ant = self.uvdata.Nants_data
 
-        self.beams = self._process_beams(beams)
+        self.beams = self._process_beams(beams, normalize_beams)
         self.beam_ids = self._process_beam_ids(beam_ids, self.beams)
         self._validate_beam_ids(self.beam_ids, self.beams)
 
@@ -96,7 +100,7 @@ class ModelData:
             )
 
     @classmethod
-    def _process_beams(cls, beams: BeamListType | None):
+    def _process_beams(cls, beams: BeamListType | None, normalize_beams: bool):
         if beams is None:
             beams = [ab.AnalyticBeam("uniform")]
 
@@ -110,6 +114,11 @@ class ModelData:
             # TODO: replace with beam.check_consistency() when that is available in
             # pyuvsim.
             raise ValueError("All beams must be of the same beam_type!")
+
+        if normalize_beams:
+            for beam in beams:
+                if beam.data_normalization != "peak":
+                    beam.peak_normalize()
 
         return beams
 
