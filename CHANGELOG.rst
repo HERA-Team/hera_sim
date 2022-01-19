@@ -2,6 +2,14 @@
 Changelog
 =========
 
+v2.3.1 [2022.01.19]
+===================
+
+Fixed
+-----
+- Using the ``normalize_beams`` option is now possible with the ``from_config``
+  class method.
+
 v2.3.0 [2022.01.19]
 ===================
 
