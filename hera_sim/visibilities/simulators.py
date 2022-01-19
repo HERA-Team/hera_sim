@@ -166,7 +166,9 @@ class ModelData:
             )
 
     @classmethod
-    def from_config(cls, config_file: str | Path) -> ModelData:
+    def from_config(
+        cls, config_file: str | Path, normalize_beams: bool = False
+    ) -> ModelData:
         """Initialize the :class:`ModelData` from a pyuvsim-compatible config."""
         uvdata, beams, beam_ids = initialize_uvdata_from_params(config_file)
         catalog = initialize_catalog_from_params(config_file, return_recarray=False)[0]
@@ -178,6 +180,7 @@ class ModelData:
             beams=beams,
             beam_ids=beam_ids,
             sky_model=catalog,
+            normalize_beams=normalize_beams,
         )
 
     @cached_property
