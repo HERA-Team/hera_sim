@@ -589,7 +589,7 @@ def test_bad_initialization_data():
 
 
 def test_integer_seed(base_sim):
-    seed = 2 ** 18
+    seed = 2**18
     d1 = base_sim.add("noiselike_eor", add_vis=False, ret_vis=True, seed=seed)
     d2 = base_sim.add("noiselike_eor", add_vis=False, ret_vis=True, seed=seed)
     assert np.allclose(d1, d2)

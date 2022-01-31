@@ -164,7 +164,7 @@ def test_delay_filter_norm(freqs):
 
     out /= nreal
 
-    assert np.isclose(out, np.sum(tsky ** 2), atol=0, rtol=1e-2)
+    assert np.isclose(out, np.sum(tsky**2), atol=0, rtol=1e-2)
 
 
 @pytest.mark.parametrize("bl_len_ns", [50, 150])

@@ -271,7 +271,7 @@ class PointSourceForeground(Foreground):
         # draw flux densities from a power law
         alpha = beta + 1
         flux_densities = (
-            Smax ** alpha + Smin ** alpha * (1 - np.random.uniform(size=nsrcs))
+            Smax**alpha + Smin**alpha * (1 - np.random.uniform(size=nsrcs))
         ) ** (1 / alpha)
 
         # initialize the visibility array
@@ -297,7 +297,7 @@ class PointSourceForeground(Foreground):
         # convolve vis with beam at each frequency
         for j, freq in enumerate(freqs):
             # first calculate the beam, using truncated Gaussian model
-            beam = np.exp(-(has ** 2) / (2 * beam_width[j] ** 2))
+            beam = np.exp(-(has**2) / (2 * beam_width[j] ** 2))
             beam = np.where(np.abs(has) > np.pi / 2, 0, beam)
 
             # who the hell knows what this does
