@@ -50,7 +50,7 @@ def get_bl_len_magnitude(bl_len_ns: Union[float, np.ndarray, Sequence]) -> float
         The magnitude of the baseline length.
     """
     bl_len_ns = _get_bl_len_vec(bl_len_ns)
-    return np.sqrt(np.sum(bl_len_ns ** 2))
+    return np.sqrt(np.sum(bl_len_ns**2))
 
 
 def gen_delay_filter(
@@ -123,7 +123,7 @@ def gen_delay_filter(
 
     # normalize
     if normalize is not None and np.any(delay_filter):
-        norm = normalize / np.sqrt(np.sum(delay_filter ** 2))
+        norm = normalize / np.sqrt(np.sum(delay_filter**2))
         delay_filter *= norm * np.sqrt(len(delay_filter))
 
     return delay_filter
@@ -451,7 +451,7 @@ def jansky_to_kelvin(freqs: np.ndarray, omega_p: Union[Beam, np.ndarray]) -> np.
 
     wavelengths = const.c.value / (freqs * 1e9)  # meters
     # The factor of 1e-26 converts from Jy to W/m^2/Hz.
-    return 1e-26 * wavelengths ** 2 / (2 * const.k_B.value * omega_p)
+    return 1e-26 * wavelengths**2 / (2 * const.k_B.value * omega_p)
 
 
 def Jy2T(freqs, omega_p):

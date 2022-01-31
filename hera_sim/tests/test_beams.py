@@ -53,7 +53,7 @@ def evaluate_polybeam(polybeam):
     L = L.flatten()
     m = m.flatten()
 
-    lsqr = L ** 2 + m ** 2
+    lsqr = L**2 + m**2
     n = np.where(lsqr < 1, np.sqrt(1 - lsqr), 0)
 
     # Generate azimuth and zenith angle.

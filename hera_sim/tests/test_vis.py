@@ -38,7 +38,7 @@ if HAVE_GPU:
 np.random.seed(0)
 NTIMES = 10
 BM_PIX = 31
-NPIX = 12 * 16 ** 2
+NPIX = 12 * 16**2
 NFREQ = 5
 
 
@@ -114,7 +114,7 @@ def test_healvis_beam(uvdata, sky_model):
             uvdata=uvdata,
             sky_model=sky_model,
         ),
-        n_side=2 ** 4,
+        n_side=2**4,
     )
 
     assert len(sim.data_model.beams) == 1
@@ -271,7 +271,7 @@ def twin_sky_model(uvdata2):
 
 def half_sky_model(uvdata2):
     nbase = 4
-    nside = 2 ** nbase
+    nside = 2**nbase
 
     sky = create_uniform_sky(
         np.unique(uvdata2.freq_array),
@@ -288,8 +288,8 @@ def half_sky_model(uvdata2):
 def create_uniform_sky(freq, nbase=4, scale=1) -> SkyModel:
     """Create a uniform sky with total (integrated) flux density of `scale`"""
     nfreq = len(freq)
-    nside = 2 ** nbase
-    npix = 12 * nside ** 2
+    nside = 2**nbase
+    npix = 12 * nside**2
     return SkyModel(
         nside=nside,
         hpx_inds=np.arange(npix),
@@ -316,7 +316,7 @@ def test_shapes(uvdata, simulator):
     sim = VisibilitySimulation(
         data_model=ModelData(uvdata=uvdata, sky_model=sky),
         simulator=simulator(),
-        n_side=2 ** 4,
+        n_side=2**4,
     )
 
     assert sim.simulate().shape == (uvdata.Nblts, 1, NFREQ, uvdata.Npols)
@@ -373,7 +373,7 @@ def test_single_source_autocorr(uvdata, simulator, sky_model):
             sky_model=sky_model,
         ),
         simulator=simulator(),
-        n_side=2 ** 4,
+        n_side=2**4,
     )
     sim.simulate()
 
@@ -400,7 +400,7 @@ def test_single_source_autocorr_past_horizon(uvdata, simulator):
             sky_model=sky_model,
         ),
         simulator=simulator(),
-        n_side=2 ** 4,
+        n_side=2**4,
     )
     v = sim.simulate()
 
@@ -438,7 +438,7 @@ def test_viscpu_coordinate_correction(uvdata2):
     assert np.allclose(v, v2)
 
 
-def align_src_to_healpix(ra, dec, nside=2 ** 4):
+def align_src_to_healpix(ra, dec, nside=2**4):
     """Where the point sources will be placed when converted to healpix model
 
     Parameters
@@ -485,7 +485,7 @@ def test_comparison(uvdata2, sky_model, beam_model):
     viscpu = VisibilitySimulation(data_model=model_data, simulator=cpu).simulate()
 
     healvis = VisibilitySimulation(
-        data_model=model_data, simulator=healvis, n_side=2 ** 4
+        data_model=model_data, simulator=healvis, n_side=2**4
     ).simulate()
 
     assert viscpu.shape == healvis.shape
@@ -515,7 +515,7 @@ def test_vis_cpu_pol_gpu(uvdata_linear):
                 uvdata=uvdata_linear, sky_model=sky_model, beams=[beam]
             ),
             simulator=simulator,
-            n_side=2 ** 4,
+            n_side=2**4,
         )
 
     vis_cpu.HAVE_GPU = old
@@ -541,7 +541,7 @@ def test_ordering(uvdata_linear, simulator, order, conj):
             sky_model=sky_model,
         ),
         simulator=simulator(),
-        n_side=2 ** 4,
+        n_side=2**4,
     )
     sim.simulate()
 
@@ -605,13 +605,13 @@ def test_vis_cpu_pol(polarization_array, xfail):
             VisibilitySimulation(
                 data_model=ModelData(uvdata=uvdata, sky_model=sky_model, beams=[beam]),
                 simulator=simulator,
-                n_side=2 ** 4,
+                n_side=2**4,
             )
     else:
         VisibilitySimulation(
             data_model=ModelData(uvdata=uvdata, sky_model=sky_model, beams=[beam]),
             simulator=simulator,
-            n_side=2 ** 4,
+            n_side=2**4,
         )
 
 
@@ -667,6 +667,6 @@ def test_bad_healvis_skymodel(sky_model):
 def test_mK_healvis_skymodel(sky_model):
     hv = HealVis()
     sky_model.stokes = sky_model.stokes.value * units.mK
-    sky_model.nside = 2 ** 3
+    sky_model.nside = 2**3
     sky = hv.get_sky_model(sky_model)
     assert np.isclose(np.sum(sky.data), np.sum(sky_model.stokes[0].value / 1000))

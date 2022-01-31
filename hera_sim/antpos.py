@@ -149,7 +149,7 @@ class HexArray(Array):
                     )
                     y_pos = row * sep * (hex_num - 1) * np.sqrt(3) / 2
                     theta = np.arctan2(y_pos, x_pos)
-                    if np.sqrt(x_pos ** 2 + y_pos ** 2) > sep * (hex_num + 1):
+                    if np.sqrt(x_pos**2 + y_pos**2) > sep * (hex_num + 1):
                         if 0 < theta <= 2 * np.pi / 3 + 0.01:
                             positions.append(
                                 np.asarray([x_pos, y_pos, 0])

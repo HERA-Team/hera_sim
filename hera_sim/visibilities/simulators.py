@@ -256,7 +256,7 @@ class VisibilitySimulation:
 
     data_model: ModelData
     simulator: VisibilitySimulator
-    n_side: int = 2 ** 5
+    n_side: int = 2**5
 
     def __post_init__(self):
         """Perform simple validation on combined attributes."""

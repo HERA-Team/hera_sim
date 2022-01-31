@@ -614,7 +614,7 @@ class PerturbedPolyBeam(PolyBeam):
             Ys = (X * np.sin(a) + Y * np.cos(a)) / self.ystretch
 
             # Updated polar coordinates
-            theta_s = np.sqrt(Xs ** 2.0 + Ys ** 2.0)
+            theta_s = np.sqrt(Xs**2.0 + Ys**2.0)
             phi_s = np.zeros_like(theta_s)
             mask = theta_s == 0.0
             phi_s[~mask] = np.arccos(Xs[~mask] / theta_s[~mask])
@@ -793,8 +793,8 @@ class ZernikeBeam(AnalyticBeam):
         c[: len(coeffs)] += coeffs
 
         # Precompute powers of x and y
-        x2, x3, x4, x5, x6, x7, x8, x9, x10 = tuple(x ** idx for idx in range(2, 11))
-        y2, y3, y4, y5, y6, y7, y8, y9, y10 = tuple(y ** idx for idx in range(2, 11))
+        x2, x3, x4, x5, x6, x7, x8, x9, x10 = tuple(x**idx for idx in range(2, 11))
+        y2, y3, y4, y5, y6, y7, y8, y9, y10 = tuple(y**idx for idx in range(2, 11))
 
         # Setting the equations for the Zernike polynomials
         # r = np.sqrt(powl(x,2) + powl(y,2))
