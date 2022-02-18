@@ -152,7 +152,7 @@ def run_sim(
         use_pixel_beams=use_pixel_beams,
         use_gpu=use_gpu,
         mpi_comm=DummyMPIComm() if use_mpi else None,
-        bm_pix=200,
+        bm_pix=201,
         precision=2,
     )
 
