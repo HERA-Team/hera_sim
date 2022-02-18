@@ -5,10 +5,20 @@ Changelog
 v2.3.2 [2022.02.18]
 ===================
 
+Added
+-----
+- ``_extract_kwargs`` attribute added to the ``SimulationComponent`` class. This
+  attribute is used by the ``Simulator`` to determine which optional parameters
+  should actually be extracted from the data.
+- ``antpair`` optional parameter added to the ``ThermalNoise`` class. This is
+  used to determine whether to simulate noise via the radiometer equation (as is
+  appropriate for a cross-correlation) or to just add a bias from the receiver
+  temperature (which is our proxy for what should happen to an auto-correlation).
+
 Fixed
 -----
-- The ``ThermalNoise`` class ``__call__`` method is now aware of baseline
-  length so that autocorrelations only receive a receiver temperature bias.
+- The ``Simulator`` class now correctly uses the auto-correlations to simulate
+  noise for the cross-correlations.
 
 v2.3.1 [2022.01.19]
 ===================
