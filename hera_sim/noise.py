@@ -211,7 +211,7 @@ def sky_noise_jy(lsts: np.ndarray, freqs: np.ndarray, **kwargs):
     ndarray
         2D array of white noise in LST/freq.
     """
-    return thermal_noise(lsts, freqs, Trx=0, **kwargs)
+    return thermal_noise(lsts, freqs, bl_vec=100, Trx=0, **kwargs)
 
 
 def white_noise(*args, **kwargs):
