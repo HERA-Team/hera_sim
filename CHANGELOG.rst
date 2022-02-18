@@ -2,6 +2,14 @@
 Changelog
 =========
 
+v2.3.2 [2022.02.18]
+===================
+
+Fixed
+-----
+- The ``ThermalNoise`` class ``__call__`` method is now aware of baseline
+  length so that autocorrelations only receive a receiver temperature bias.
+
 v2.3.1 [2022.01.19]
 ===================
 

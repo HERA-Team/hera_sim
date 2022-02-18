@@ -44,6 +44,13 @@ class ThermalNoise(Noise):
         Receiver temperature in K
     autovis : float, optional
         Autocorrelation visibility amplitude. Used if provided instead of ``Tsky_mdl``.
+
+    Notes
+    -----
+    At the time of writing, we're unsure of the correct prescription for
+    autocorrelations, so we only add a receiver temperature bias to baselines that
+    are interpreted as autocorrelations (i.e. where the ``bl_vec`` parameter provided
+    on calling an instance of this class is nearly zero length).
     """
 
     _alias = ("thermal_noise",)
@@ -66,7 +73,9 @@ class ThermalNoise(Noise):
             autovis=autovis,
         )
 
-    def __call__(self, lsts: np.ndarray, freqs: np.ndarray, **kwargs):
+    def __call__(
+        self, lsts: np.ndarray, freqs: np.ndarray, bl_vec: np.ndarray, **kwargs
+    ):
         """Compute the thermal noise.
 
         Parameters
@@ -75,11 +84,16 @@ class ThermalNoise(Noise):
             Local siderial times at which to compute the noise.
         freqs
             Frequencies at which to compute the noise.
+        bl_vec
+            Baseline vector, in meters. Used to determine whether noise is being
+            simulated for an auto-correlation or a cross-correlation.
 
         Returns
         -------
         array
-            A 2D array shaped ``(lsts, freqs)`` with the thermal noise.
+            A 2D array shaped ``(lsts, freqs)`` with the thermal noise. If the
+            provided ``bl_vec`` is nearly zero-length, then only a receiver
+            temperature bias is returned
         """
         # validate the kwargs
         self._check_kwargs(**kwargs)
@@ -112,6 +126,10 @@ class ThermalNoise(Noise):
         # support passing beam as an interpolator
         if callable(omega_p):
             omega_p = omega_p(freqs)
+
+        # If this is an autocorrelation, only add receiver temperature bias
+        if np.isclose(np.linalg.norm(bl_vec), 0, atol=0.1):
+            return Trx / utils.jansky_to_kelvin(freqs, omega_p).reshape(1, -1)
 
         # get the sky temperature; use an autocorrelation if provided
         if autovis is not None and not np.all(np.isclose(autovis, 0)):
