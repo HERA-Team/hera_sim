@@ -39,6 +39,9 @@ class SimulationComponent(metaclass=ABCMeta):
 
     _alias: Tuple[str] = tuple()
 
+    # Keyword arguments for the Simulator to extract from the data
+    _extract_kwargs = set()
+
     def __init_subclass__(cls, is_abstract: bool = False):
         """Provide some useful augmentations to subclasses.
 

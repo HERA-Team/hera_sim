@@ -44,6 +44,10 @@ class ThermalNoise(Noise):
         Receiver temperature in K
     autovis : float, optional
         Autocorrelation visibility amplitude. Used if provided instead of ``Tsky_mdl``.
+    antpair : tuple of int, optional
+        Antenna numbers for the baseline that noise is being simulated for. This is
+        just used to determine whether to simulate noise via the radiometer equation
+        or to just add a bias from the receiver temperature.
 
     Notes
     -----
@@ -54,6 +58,7 @@ class ThermalNoise(Noise):
     """
 
     _alias = ("thermal_noise",)
+    _extract_kwargs = {"autovis", "antpair"}
 
     def __init__(
         self,
@@ -63,6 +68,7 @@ class ThermalNoise(Noise):
         channel_width=None,
         Trx=0,
         autovis=None,
+        antpair=None,
     ):
         super().__init__(
             Tsky_mdl=Tsky_mdl,
@@ -71,11 +77,10 @@ class ThermalNoise(Noise):
             channel_width=channel_width,
             Trx=Trx,
             autovis=autovis,
+            antpair=antpair,
         )
 
-    def __call__(
-        self, lsts: np.ndarray, freqs: np.ndarray, bl_vec: np.ndarray, **kwargs
-    ):
+    def __call__(self, lsts: np.ndarray, freqs: np.ndarray, **kwargs):
         """Compute the thermal noise.
 
         Parameters
@@ -84,16 +89,13 @@ class ThermalNoise(Noise):
             Local siderial times at which to compute the noise.
         freqs
             Frequencies at which to compute the noise.
-        bl_vec
-            Baseline vector, in meters. Used to determine whether noise is being
-            simulated for an auto-correlation or a cross-correlation.
 
         Returns
         -------
         array
             A 2D array shaped ``(lsts, freqs)`` with the thermal noise. If the
-            provided ``bl_vec`` is nearly zero-length, then only a receiver
-            temperature bias is returned
+            provided ``antpair`` is for an autocorrelation, then only a receiver
+            temperature bias is returned.
         """
         # validate the kwargs
         self._check_kwargs(**kwargs)
@@ -106,6 +108,7 @@ class ThermalNoise(Noise):
             channel_width,
             Trx,
             autovis,
+            antpair,
         ) = self._extract_kwarg_values(**kwargs)
 
         # get the channel width in Hz if not specified
@@ -128,8 +131,9 @@ class ThermalNoise(Noise):
             omega_p = omega_p(freqs)
 
         # If this is an autocorrelation, only add receiver temperature bias
-        if np.isclose(np.linalg.norm(bl_vec), 0, atol=0.1):
-            return Trx / utils.jansky_to_kelvin(freqs, omega_p).reshape(1, -1)
+        if antpair is not None:
+            if antpair[0] == antpair[1]:
+                return Trx / utils.jansky_to_kelvin(freqs, omega_p).reshape(1, -1)
 
         # get the sky temperature; use an autocorrelation if provided
         if autovis is not None and not np.all(np.isclose(autovis, 0)):
@@ -211,7 +215,7 @@ def sky_noise_jy(lsts: np.ndarray, freqs: np.ndarray, **kwargs):
     ndarray
         2D array of white noise in LST/freq.
     """
-    return thermal_noise(lsts, freqs, bl_vec=100, Trx=0, **kwargs)
+    return thermal_noise(lsts, freqs, Trx=0, **kwargs)
 
 
 def white_noise(*args, **kwargs):
