@@ -212,15 +212,16 @@ def test_get_with_one_seed(base_sim, pol, conj):
 # TODO: this will need to be updated when full polarization support is added
 @pytest.mark.parametrize("pol", [None, "xx"])
 @pytest.mark.parametrize("conj", [True, False])
-def test_get_with_initial_seed(base_sim, pol, conj):
+def test_get_with_initial_seed(pol, conj):
     # Simulate an effect where we would actually use this setting.
-    base_sim.add("thermal_noise", seed="initial")
+    sim = create_sim(autos=True)
+    sim.add("thermal_noise", seed="initial")
     ant1, ant2 = (0, 1) if conj else (1, 0)
-    vis = base_sim.get("thermal_noise", key=(ant1, ant2, pol))
+    vis = sim.get("thermal_noise", key=(ant1, ant2, pol))
     if pol:
-        assert np.allclose(base_sim.data.get_data(ant1, ant2, pol), vis)
+        assert np.allclose(sim.data.get_data(ant1, ant2, pol), vis)
     else:
-        assert np.allclose(base_sim.data.get_data(ant1, ant2), vis[..., 0])
+        assert np.allclose(sim.data.get_data(ant1, ant2), vis[..., 0])
 
 
 def test_get_nonexistent_component(ref_sim):

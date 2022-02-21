@@ -44,9 +44,21 @@ class ThermalNoise(Noise):
         Receiver temperature in K
     autovis : float, optional
         Autocorrelation visibility amplitude. Used if provided instead of ``Tsky_mdl``.
+    antpair : tuple of int, optional
+        Antenna numbers for the baseline that noise is being simulated for. This is
+        just used to determine whether to simulate noise via the radiometer equation
+        or to just add a bias from the receiver temperature.
+
+    Notes
+    -----
+    At the time of writing, we're unsure of the correct prescription for
+    autocorrelations, so we only add a receiver temperature bias to baselines that
+    are interpreted as autocorrelations (i.e. where the ``bl_vec`` parameter provided
+    on calling an instance of this class is nearly zero length).
     """
 
     _alias = ("thermal_noise",)
+    _extract_kwargs = {"autovis", "antpair"}
 
     def __init__(
         self,
@@ -56,6 +68,7 @@ class ThermalNoise(Noise):
         channel_width=None,
         Trx=0,
         autovis=None,
+        antpair=None,
     ):
         super().__init__(
             Tsky_mdl=Tsky_mdl,
@@ -64,6 +77,7 @@ class ThermalNoise(Noise):
             channel_width=channel_width,
             Trx=Trx,
             autovis=autovis,
+            antpair=antpair,
         )
 
     def __call__(self, lsts: np.ndarray, freqs: np.ndarray, **kwargs):
@@ -79,7 +93,9 @@ class ThermalNoise(Noise):
         Returns
         -------
         array
-            A 2D array shaped ``(lsts, freqs)`` with the thermal noise.
+            A 2D array shaped ``(lsts, freqs)`` with the thermal noise. If the
+            provided ``antpair`` is for an autocorrelation, then only a receiver
+            temperature bias is returned.
         """
         # validate the kwargs
         self._check_kwargs(**kwargs)
@@ -92,6 +108,7 @@ class ThermalNoise(Noise):
             channel_width,
             Trx,
             autovis,
+            antpair,
         ) = self._extract_kwarg_values(**kwargs)
 
         # get the channel width in Hz if not specified
@@ -112,6 +129,11 @@ class ThermalNoise(Noise):
         # support passing beam as an interpolator
         if callable(omega_p):
             omega_p = omega_p(freqs)
+
+        # If this is an autocorrelation, only add receiver temperature bias
+        if antpair is not None:
+            if antpair[0] == antpair[1]:
+                return Trx / utils.jansky_to_kelvin(freqs, omega_p).reshape(1, -1)
 
         # get the sky temperature; use an autocorrelation if provided
         if autovis is not None and not np.all(np.isclose(autovis, 0)):

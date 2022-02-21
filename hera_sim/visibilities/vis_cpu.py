@@ -74,7 +74,7 @@ class VisCPU(VisibilitySimulator):
 
     def __init__(
         self,
-        bm_pix: int = 100,
+        bm_pix: int = 101,
         use_pixel_beams: bool = True,
         precision: int = 1,
         use_gpu: bool = False,

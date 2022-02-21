@@ -885,7 +885,11 @@ class Simulator:
         has a default value, it will not be in the returned dictionary.
         """
         model_params = self._get_model_parameters(model)
-        model_params = {k: v for k, v in model_params.items() if v is inspect._empty}
+        model_params = {
+            k: v
+            for k, v in model_params.items()
+            if v is inspect._empty or k in model._extract_kwargs
+        }
 
         # Pull the LST and frequency arrays if they are required.
         # TODO: update this to allow more flexibility in which arguments are
