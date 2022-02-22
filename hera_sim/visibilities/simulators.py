@@ -88,10 +88,16 @@ class ModelData:
 
     def _process_uvdata(self, uvdata: UVData | str | Path):
         if isinstance(uvdata, UVData):
+            # Temporary fix for future array shape - to be removed after v3.
+            if uvdata.future_array_shapes:
+                uvdata.use_current_array_shapes()
             return uvdata
         elif isinstance(uvdata, (str, Path)):
             out = UVData()
             out.read(str(uvdata))
+            # Temporary fix for future array shape - to be removed after v3.
+            if out.future_array_shapes:
+                out.use_current_array_shapes()
             return out
         else:
             raise TypeError(
