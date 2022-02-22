@@ -2,6 +2,19 @@
 Changelog
 =========
 
+v2.3.3 [2022.02.21]
+===================
+
+Added
+-----
+- ``adjustment.interpolate_to_reference`` now supports interpolating in time when
+  there is a phase wrap in LST.
+
+Changed
+-------
+- Some logical statements in ``adjustment.interpolate_to_reference`` were changed
+  to use binary operators on logical arrays instead of e.g. ``np.logical_or``.
+
 v2.3.2 [2022.02.18]
 ===================
 
