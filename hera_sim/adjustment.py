@@ -521,14 +521,16 @@ def interpolate_to_reference(
 
         if np.any((ref_lsts < target_lsts[0]) | (ref_lsts > target_lsts[-1])):
             warn("Reference LSTs not a subset of target LSTs; clipping.")
-            key = (target_lsts[0] <= ref_lsts) & (ref_lsts <= target_lsts[-1])
-            ref_times = ref_times[key]
-            ref_lsts = ref_lsts[key]
+            is_in_range = (target_lsts[0] <= ref_lsts) & (ref_lsts <= target_lsts[-1])
+            ref_times = ref_times[is_in_range]
+            ref_lsts = ref_lsts[is_in_range]
     if axis in ("freq", "both"):
         if np.any((ref_freqs < target_freqs[0]) | (ref_freqs > target_freqs[-1])):
             warn("Reference frequencies not a subset of target frequencies; clipping.")
-            key = (target_freqs[0] <= ref_freqs) & (ref_freqs <= target_freqs[-1])
-            ref_freqs = ref_freqs[key]
+            is_in_range = (target_freqs[0] <= ref_freqs) & (
+                ref_freqs <= target_freqs[-1]
+            )
+            ref_freqs = ref_freqs[is_in_range]
 
     # Setup data/metadata objects that need to be non-trivially rewritten.
     if axis in ("time", "both"):
