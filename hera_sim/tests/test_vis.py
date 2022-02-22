@@ -5,6 +5,7 @@ import pytest
 from astropy.units import sday, rad
 from astropy import units
 from pyuvsim.analyticbeam import AnalyticBeam
+from pyuvsim.telescope import BeamConsistencyError
 from vis_cpu import HAVE_GPU
 from hera_sim.defaults import defaults
 from hera_sim import io
@@ -357,6 +358,7 @@ def test_autocorr_flat_beam(uvdata, simulator):
 
     v = sim.uvdata.get_data((0, 0, "xx"))
 
+    print(v)
     # The sky is uniform and integrates to one over the full sky.
     # Thus the stokes-I component of an autocorr will be 0.5 (going to horizon)
     # Since I = XX + YY and X/Y should be equal, the xx part should be 0.25
@@ -619,7 +621,7 @@ def test_beam_type_consistency(uvdata, sky_model):
     beams = [AnalyticBeam("gaussian"), AnalyticBeam("airy")]
     beams[0].efield_to_power()
 
-    with pytest.raises(ValueError):
+    with pytest.raises(BeamConsistencyError):
         ModelData(uvdata=uvdata, sky_model=sky_model, beams=beams)
 
 
