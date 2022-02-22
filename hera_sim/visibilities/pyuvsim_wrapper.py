@@ -52,4 +52,5 @@ class UVSim(VisibilitySimulator):
             catalog=pyuvsim.simsetup.SkyModelData(data_model.sky_model),
             quiet=self.quiet,
         )
+        out_uv.use_current_array_shapes()
         return out_uv.data_array
