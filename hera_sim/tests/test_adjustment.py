@@ -577,6 +577,34 @@ def test_interpolation_in_time_is_consistent(base_config, base_sim):
     )
 
 
+def test_interpolation_with_phase_wrap(base_config):
+    # Make a simulation with times straddling the phase wrap at 2pi.
+    base_config["start_time"] = 2458041.37335
+    base_config["Ntimes"] = 100
+    sim = Simulator(**base_config)
+
+    # Extract a subset of the LSTs to interpolate to.
+    ref_lsts = sim.lsts[10:-10]
+    ref_times = sim.times[10:-10]
+
+    # Just set all the data to unity for simplicity.
+    sim.data.data_array[...] = 1
+
+    # Actually do the interpolation.
+    interp_sim = adjustment.interpolate_to_reference(
+        target=sim,
+        ref_times=ref_times,
+        ref_lsts=ref_lsts,
+        axis="time",
+    )
+
+    print(ref_lsts)
+    print(interp_sim.lsts)
+    assert np.allclose(interp_sim.data.data_array, 1)
+    assert np.allclose(interp_sim.lsts, ref_lsts)
+    assert np.allclose(interp_sim.times, ref_times)
+
+
 def test_interpolation_both_axes_with_simulators(base_config, base_sim):
     # Make same modifications done in previous two tests.
     base_config["Ntimes"] = 150
@@ -703,17 +731,6 @@ def test_interpolate_exception_reference_time_and_lst_mismatch(base_sim):
             base_sim, ref_times=[1, 2, 3], ref_lsts=[0, 1]
         )
     assert "ref_times and ref_lsts must have the same length." == err.value.args[0]
-
-
-def test_interpolate_exception_unsupported_phase_wraps(base_sim):
-    with pytest.raises(NotImplementedError) as err:
-        ref_lsts = np.linspace(7 * np.pi / 4, 5 * np.pi / 2, base_sim.times.size) % (
-            2 * np.pi
-        )  # Phase wrapped LSTs
-        adjustment.interpolate_to_reference(
-            base_sim, ref_times=base_sim.times, ref_lsts=ref_lsts
-        )
-    assert "currently not supported" in err.value.args[0]
 
 
 def test_interpolate_warning_partial_frequency_match(base_config, base_sim):

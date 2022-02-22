@@ -482,12 +482,8 @@ def interpolate_to_reference(
             except TypeError:
                 raise TypeError("reference must be convertible to a UVData object.")
 
-        ref_time_to_lst_map = {
-            ref_time: ref_lst
-            for ref_time, ref_lst in zip(reference.time_array, reference.lst_array)
-        }
-        ref_times = np.array(list(ref_time_to_lst_map.keys()))
-        ref_lsts = np.array(list(ref_time_to_lst_map.values()))
+        ref_times, inds = np.unique(reference.time_array, return_index=True)
+        ref_lsts = reference.lst_array[inds].copy()
         ref_freqs = np.unique(reference.freq_array)
     else:
         if axis in ("time", "both"):
@@ -498,6 +494,8 @@ def interpolate_to_reference(
                 )
             if len(ref_times) != len(ref_lsts):
                 raise ValueError("ref_times and ref_lsts must have the same length.")
+            # Don't accidentally mess up the input LST array if there's a phase wrap.
+            ref_lsts = ref_lsts.copy()
         if axis in ("freq", "both") and ref_freqs is None:
             raise ValueError(
                 "Frequency reference information must be provided for "
@@ -506,43 +504,30 @@ def interpolate_to_reference(
 
     target_is_simulator = isinstance(target, Simulator)
     target = _to_uvdata(target)
-    target_time_to_lst_map = {
-        target_time: target_lst
-        for target_time, target_lst in zip(target.time_array, target.lst_array)
-    }
-    target_lsts = np.array(list(target_time_to_lst_map.values()))
+    target_times, inds = np.unique(target.time_array, return_index=True)
+    target_lsts = target.lst_array[inds].copy()
     target_freqs = np.unique(target.freq_array)
 
-    # TODO: figure out how to handle phase wraps
     def iswrapped(lsts):
         return np.any(lsts < lsts[0])
 
-    if axis in ("time", "both"):
-        if iswrapped(target_lsts) or iswrapped(ref_lsts):
-            raise NotImplementedError(
-                "Either the target LSTs or the reference LSTs have a phase wrap. "
-                "This is currently not supported."
-            )
-
     # Ensure reference parameters are a subset of target parameters.
     if axis in ("time", "both"):
-        if np.any(np.logical_or(ref_lsts < target_lsts[0], ref_lsts > target_lsts[-1])):
+        # Unwrap the LST axis if we have a phase wrap.
+        if iswrapped(target_lsts):
+            target_lsts[target_lsts < target_lsts[0]] += 2 * np.pi
+        if iswrapped(ref_lsts):
+            ref_lsts[ref_lsts < ref_lsts[0]] += 2 * np.pi
+
+        if np.any((ref_lsts < target_lsts[0]) | (ref_lsts > target_lsts[-1])):
             warn("Reference LSTs not a subset of target LSTs; clipping.")
-            key = np.argwhere(
-                np.logical_and(target_lsts[0] <= ref_lsts, ref_lsts <= target_lsts[-1])
-            ).flatten()
+            key = (target_lsts[0] <= ref_lsts) & (ref_lsts <= target_lsts[-1])
             ref_times = ref_times[key]
             ref_lsts = ref_lsts[key]
     if axis in ("freq", "both"):
-        if np.any(
-            np.logical_or(ref_freqs < target_freqs[0], ref_freqs > target_freqs[-1])
-        ):
+        if np.any((ref_freqs < target_freqs[0]) | (ref_freqs > target_freqs[-1])):
             warn("Reference frequencies not a subset of target frequencies; clipping.")
-            key = np.argwhere(
-                np.logical_and(
-                    target_freqs[0] <= ref_freqs, ref_freqs <= target_freqs[-1]
-                )
-            ).flatten()
+            key = (target_freqs[0] <= ref_freqs) & (ref_freqs <= target_freqs[-1])
             ref_freqs = ref_freqs[key]
 
     # Setup data/metadata objects that need to be non-trivially rewritten.
@@ -630,7 +615,7 @@ def interpolate_to_reference(
         target.Nblts = ref_times.size * target.Nbls
         target.Ntimes = ref_times.size
         target.time_array = new_time_array
-        target.lst_array = new_lst_array
+        target.lst_array = new_lst_array % (2 * np.pi)
         target.ant_1_array = new_ant_1_array
         target.ant_2_array = new_ant_2_array
         target.baseline_array = new_baseline_array
