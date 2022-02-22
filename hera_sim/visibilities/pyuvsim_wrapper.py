@@ -53,4 +53,5 @@ class UVSim(VisibilitySimulator):
             quiet=self.quiet,
         )
         out_uv.use_current_array_shapes()
+        data_model.uvdata.use_current_array_shapes()
         return out_uv.data_array
