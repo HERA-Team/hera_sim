@@ -114,6 +114,10 @@ def empty_uvdata(
     if conjugation is not None:
         uvd.conjugate_bls(convention=conjugation)
 
+    # Temporary fix for future array shape - to be removed after v3.
+    if uvd.future_array_shapes:
+        uvd.use_current_array_shapes()
+
     return uvd
 
 

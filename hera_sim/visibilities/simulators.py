@@ -87,17 +87,23 @@ class ModelData:
         self._validate()
 
     def _process_uvdata(self, uvdata: UVData | str | Path):
-        if isinstance(uvdata, UVData):
-            return uvdata
-        elif isinstance(uvdata, (str, Path)):
+
+        if isinstance(uvdata, (str, Path)):
             out = UVData()
             out.read(str(uvdata))
-            return out
-        else:
+            uvdata = out
+
+        if not isinstance(uvdata, UVData):
             raise TypeError(
                 "uvdata must be a UVData object or path to a compatible file. Got "
                 f"{uvdata}, type {type(uvdata)}"
             )
+
+        # Temporary fix for future array shape - to be removed after v3.
+        if uvdata.future_array_shapes:
+            uvdata.use_current_array_shapes()
+
+        return uvdata
 
     @classmethod
     def _process_beams(cls, beams: BeamListType | None, normalize_beams: bool):

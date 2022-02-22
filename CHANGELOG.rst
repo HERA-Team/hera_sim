@@ -2,6 +2,13 @@
 Changelog
 =========
 
+dev-version
+===========
+
+Changed
+-------
+- Temporarily forced all UVData objects in the code to use current array shapes.
+
 v2.3.3 [2022.02.21]
 ===================
 
