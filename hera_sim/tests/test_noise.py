@@ -115,11 +115,11 @@ def test_sky_noise_jy(
 )
 def test_thermal_noise_with_phase_wrap(freqs, omega_p, autovis, expectation):
     dlst = np.pi / 180
-    wrapped_lsts = np.linspace(2*np.pi - dlst, 2*np.pi + dlst, 50)
-    integration_time = np.mean(
-        np.diff(wrapped_lsts)
-    ) * units.day.to("s") * units.rad.to("cycle")
-    wrapped_lsts %= (2 * np.pi)
+    wrapped_lsts = np.linspace(2 * np.pi - dlst, 2 * np.pi + dlst, 50)
+    integration_time = (
+        np.mean(np.diff(wrapped_lsts)) * units.day.to("s") * units.rad.to("cycle")
+    )
+    wrapped_lsts %= 2 * np.pi
     channel_width = np.mean(np.diff(freqs)) * units.GHz.to("Hz")
     expected_SNR = np.sqrt(integration_time * channel_width)
     Trx = 0
