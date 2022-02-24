@@ -125,7 +125,12 @@ def test_thermal_noise_with_phase_wrap(freqs, omega_p, autovis, expectation):
     Trx = 0
     if autovis is not None:
         autovis = np.ones((wrapped_lsts.size, freqs.size), dtype=complex)
-    noise_sim = noise.ThermalNoise(omega_p=omega_p, Trx=Trx, autovis=autovis)
+    noise_sim = noise.ThermalNoise(
+        Tsky_mdl=noise.HERA_Tsky_mdl["xx"],
+        omega_p=omega_p,
+        Trx=Trx,
+        autovis=autovis,
+    )
     with expectation:
         vis = noise_sim(lsts=wrapped_lsts, freqs=freqs)
         assert np.isclose(np.std(vis), 1 / expected_SNR, rtol=1 / np.sqrt(vis.size))
