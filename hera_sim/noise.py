@@ -133,7 +133,7 @@ class ThermalNoise(Noise):
         # get the integration time if not specified
         if integration_time is None:
             integration_time = np.mean(
-                np.diff(np.where(lsts < lsts[0], lsts + 2*np.pi, lsts))
+                np.diff(np.where(lsts < lsts[0], lsts + 2 * np.pi, lsts))
             ) / (2 * np.pi)
             integration_time *= u.sday.to("s")
 
