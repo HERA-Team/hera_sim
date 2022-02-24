@@ -5,6 +5,15 @@ Changelog
 dev-version
 ===========
 
+Added
+-----
+- ``NotImplementedError`` raised when trying to simulate noise using an interpolated
+  sky temperature and phase-wrapped LSTs.
+
+Fixed
+-----
+- Inferred integration time in ``ThermalNoise`` when phase-wrapped LSTs are used.
+
 Changed
 -------
 - Temporarily forced all UVData objects in the code to use current array shapes.

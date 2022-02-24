@@ -96,6 +96,13 @@ class ThermalNoise(Noise):
             A 2D array shaped ``(lsts, freqs)`` with the thermal noise. If the
             provided ``antpair`` is for an autocorrelation, then only a receiver
             temperature bias is returned.
+
+        Raises
+        ------
+        NotImplementedError
+            This method does not yet have support for handling the case when the
+            provided LST array has a phase wrap and a sky temperature interpolation
+            object is intended to be used to simulate the noise.
         """
         # validate the kwargs
         self._check_kwargs(**kwargs)
@@ -115,9 +122,19 @@ class ThermalNoise(Noise):
         if channel_width is None:
             channel_width = np.mean(np.diff(freqs)) * 1e9
 
+        # Check whether there's a phase wrap in the provided LSTs.
+        iswrapped = np.any(lsts < lsts[0])
+        if iswrapped and autovis is None and Tsky_mdl is not None:
+            raise NotImplementedError(
+                "Edge cases with wrapped LSTs and sky temperature interpolation "
+                "objects haven't been worked out yet."
+            )
+
         # get the integration time if not specified
         if integration_time is None:
-            integration_time = np.mean(np.diff(lsts)) / (2 * np.pi)
+            integration_time = np.mean(
+                np.diff(np.where(lsts < lsts[0], lsts + 2 * np.pi, lsts))
+            ) / (2 * np.pi)
             integration_time *= u.sday.to("s")
 
         # default to H1C beam if not specified
