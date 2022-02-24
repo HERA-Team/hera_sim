@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 import pytest
 
 import numpy as np
@@ -10,6 +11,11 @@ from hera_sim.defaults import defaults
 
 # Ensure that defaults aren't subtly overwritten.
 defaults.deactivate()
+
+
+@contextmanager
+def does_not_raise():
+    yield
 
 
 @pytest.fixture(scope="function")
@@ -101,3 +107,25 @@ def test_sky_noise_jy(
     assert np.allclose(
         getattr(np, aspect)(noise_Jy, axis=0), expected_noise_Jy, rtol=rtol, atol=atol
     )
+
+
+@pytest.mark.parametrize(
+    "autovis,expectation",
+    [(None, pytest.raises(NotImplementedError)), (True, does_not_raise())],
+)
+def test_thermal_noise_with_phase_wrap(freqs, omega_p, autovis, expectation):
+    dlst = np.pi / 180
+    wrapped_lsts = np.linspace(2*np.pi - dlst, 2*np.pi + dlst, 50)
+    integration_time = np.mean(
+        np.diff(wrapped_lsts)
+    ) * units.day.to("s") * units.rad.to("cycle")
+    wrapped_lsts %= (2 * np.pi)
+    channel_width = np.mean(np.diff(freqs)) * units.GHz.to("Hz")
+    expected_SNR = np.sqrt(integration_time * channel_width)
+    Trx = 0
+    if autovis is not None:
+        autovis = np.ones((wrapped_lsts.size, freqs.size), dtype=complex)
+    noise_sim = noise.ThermalNoise(omega_p=omega_p, Trx=Trx, autovis=autovis)
+    with expectation:
+        vis = noise_sim(lsts=wrapped_lsts, freqs=freqs)
+        assert np.isclose(np.std(vis), 1 / expected_SNR, rtol=1 / np.sqrt(vis.size))
