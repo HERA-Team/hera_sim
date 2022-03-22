@@ -310,6 +310,9 @@ class PolyBeam(AnalyticBeam):
         # Not required
         pass
 
+    def select(self, **kwargs):
+        pass
+
     def interp(self, az_array, za_array, freq_array, reuse_spline=None):
         """
         Evaluate the primary beam at given az, za locations (in radians).
