@@ -311,6 +311,7 @@ class PolyBeam(AnalyticBeam):
         pass
 
     def select(self, **kwargs):
+        """Dummy select method."""
         pass
 
     def interp(self, az_array, za_array, freq_array, reuse_spline=None):
