@@ -1,7 +1,7 @@
 exclude: 'config.yaml|config_examples/*.yaml|hera_sim/config/H1C.yaml|hera_sim/config/H2C.yaml|setup.py'
 
 repos:
-- repo: git://github.com/pre-commit/pre-commit-hooks
+- repo: https://github.com/pre-commit/pre-commit-hooks
   rev: v4.1.0
   hooks:
   - id: trailing-whitespace
