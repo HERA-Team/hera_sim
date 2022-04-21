@@ -20,6 +20,9 @@ from pathlib import Path
 from dataclasses import dataclass
 import astropy_healpix as aph
 from .. import __version__
+from .. import visibilities as vis
+import importlib
+import yaml
 
 BeamListType = Union[BeamList, List[Union[ab.AnalyticBeam, UVBeam]]]
 
@@ -360,3 +363,45 @@ class VisibilitySimulator(metaclass=ABCMeta):
     def validate(self, data_model: ModelData):
         """Check that the data model complies with the assumptions of the simulator."""
         pass
+
+    @classmethod
+    def from_yaml(cls, yaml_config: dict | str | Path) -> VisibilitySimulator:
+        """Generate the simulator from a YAML file or dictionary."""
+        if not isinstance(yaml_config, dict):
+            with open(yaml_config, "r") as fl:
+                yaml_config = yaml.safe_load(fl)
+
+        # In general, we allow to specify which simulator to use in the config,
+        # but that shouldn't be passed on to the constructor of a particular simulator.
+        if "simulator" in yaml_config:
+            del yaml_config["simulator"]
+
+        return cls._from_yaml_dict(yaml_config)
+
+    @classmethod
+    def from_yaml_dict(cls, cfg: dict) -> VisibilitySimulator:
+        """Generate the simulator from a dictionary read from YAML."""
+        return cls(**cfg)
+
+
+def load_simulator_from_yaml(config: Path | str) -> VisibilitySimulator:
+    """Construct a visibility simulator from a YAML file."""
+    with open(config, "r") as fl:
+        cfg = yaml.safe_load(fl)
+
+    simulator_cls = cfg.pop("simulator")
+
+    if "." not in simulator_cls:
+        # Use a built-in simulator
+        try:
+            simulator_cls = getattr(vis, simulator_cls)
+        except AttributeError:
+            raise AttributeError(
+                f"The given simulator '{simulator_cls}' is not available in hera_sim."
+            )
+    else:
+        module = ".".join(simulator_cls.split(".")[:-1])
+        module = importlib.import_module(module)
+        simulator_cls = getattr(module, simulator_cls.split(".")[-1])
+
+    assert isinstance(simulator_cls, VisibilitySimulator)
