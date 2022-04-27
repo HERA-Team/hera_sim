@@ -380,7 +380,11 @@ class VisibilitySimulator(metaclass=ABCMeta):
 
     @classmethod
     def from_yaml_dict(cls, cfg: dict) -> VisibilitySimulator:
-        """Generate the simulator from a dictionary read from YAML."""
+        """Generate the simulator from a dictionary read from YAML.
+
+        This method should be overloaded in subclasses if class generation is more
+        complex than simply setting parameters from the dictionary.
+        """
         return cls(**cfg)
 
 

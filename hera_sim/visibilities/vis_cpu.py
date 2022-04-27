@@ -208,7 +208,14 @@ class VisCPU(VisibilitySimulator):
             obstime = self.ref_time
 
         if isinstance(obstime, str):
-            obstime = Time(obstime, format="isot", scale="utc")
+            if obstime == "mean":
+                obstime = Time(data_model.uvdata.time_array.mean(), format="jd")
+            elif obstime == "min":
+                obstime = Time(data_model.uvdata.time_array.min(), format="jd")
+            elif obstime == "max":
+                obstime = Time(data_model.uvdata.time_array.max(), format="jd")
+            else:
+                obstime = Time(obstime, format="isot", scale="utc")
         elif not isinstance(obstime, Time):
             raise TypeError("`obstime` must be a string or astropy.Time object")
 

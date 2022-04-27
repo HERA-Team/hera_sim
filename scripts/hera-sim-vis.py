@@ -16,15 +16,23 @@ import pyuvdata
 import pyuvsim
 import pyradiosky
 import hera_sim
-import vis_cpu
 from mpi4py import MPI
-from astropy.time import Time
-from hera_sim.visibilities import VisCPU, ModelData, VisibilitySimulation
+from hera_sim.visibilities import (
+    ModelData,
+    VisibilitySimulation,
+    load_simulator_from_yaml,
+)
 from rich.console import Console
 from rich.rule import Rule
 from rich.panel import Panel
 
 cns = Console()
+
+
+def cprint(*args, **kwargs):
+    """Print only if root worker."""
+    if myid == 0:
+        cns.print(*args, **kwargs)
 
 
 parser = argparse.ArgumentParser(
@@ -33,11 +41,6 @@ parser = argparse.ArgumentParser(
 parser.add_argument("obsparam", type=str, help="pyuvsim-formatted obsparam file.")
 parser.add_argument(
     "simulator-config", type=str, help=" YAML configuration file for the simulator."
-)
-parser.add_argument("--use_pixel_beams", action="store_true", help="Use pixel beam.")
-parser.add_argument("--bm_pix", type=int, default=200)
-parser.add_argument(
-    "--use_mpi", action="store_true", help="Use MPI for parallelization."
 )
 parser.add_argument(
     "--object_name", type=str, default=None, help="Set object_name in the UVData"
@@ -58,59 +61,47 @@ parser.add_argument(
 
 args = parser.parse_args()
 
-if args.use_mpi:
-    comm = MPI.COMM_WORLD
-    myid = comm.Get_rank()
-else:
-    comm = None
-    myid = 0
+comm = MPI.COMM_WORLD
+myid = comm.Get_rank()
 
-cns.print(Panel("hera-sim-vis: Simulating Visibilities"))
+cprint(Panel("hera-sim-vis: Simulating Visibilities"))
 
+# Make data_model, simulator, and simulation objects
+cprint("Initializing ModelData objects... ", end="")
+data_model = ModelData.from_config(args.obsparam, normalize_beams=args.normalize_beams)
+cprint("[green]:heavy-checkmark:[/green]")
+
+cprint("Initializing VisibilitySimulator object... ", end="")
+simulator = load_simulator_from_yaml(args.simulator_config)
+cprint("[green]:heavy-checkmark:[/green]")
 
 # Print versions
-cns.print(
+cprint(
     f"""
     [bold]Using the following packages:[/bold]
 
     \tpyuvdata: {pyuvdata.__version__}
     \tpyuvsim: {pyuvsim.__version__}
     \tpyradiosky: {pyradiosky.__version__}
-    \tvis_cpu: {vis_cpu.__version__}
     \thera_sim: {hera_sim.__version__}
+    \t{simulator.__class__.__name__}: {simulator.__version__}
     """
 )
 
-# Make data_model, simulator, and simulation objects
-cns.print("Initializing ModelData objects... ", end="")
-data_model = ModelData.from_config(args.obsparam, normalize_beams=args.normalize_beams)
-cns.print("[green]:heavy-checkmark:[/green]")
-
 if args.object_name is None:
-    data_model.uvdata.object_name = "viscpu"
+    data_model.uvdata.object_name = simulator.__class__.__name__
 else:
     data_model.uvdata.object_name = args.object_name
-
-cns.print("Initializing VisibilitySimulator object... ", end="")
-simulator = VisCPU(
-    bm_pix=args.bm_pix,
-    use_pixel_beams=args.use_pixel_beams,
-    precision=2,
-    ref_time=Time(data_model.uvdata.time_array.mean(), format="jd"),
-    correct_source_positions=True,
-    mpi_comm=comm,
-)
-cns.print("[green]:heavy-checkmark:[/green]")
 
 
 simulation = VisibilitySimulation(data_model=data_model, simulator=simulator)
 
 # Run simulation
-cns.print()
-cns.print(Rule("Running Simulation"))
+cprint()
+cprint(Rule("Running Simulation"))
 simulation.simulate()
-cns.print("[green]:heavy-checkmark:[/] Completed Simulation!")
-cns.print(Rule())
+cprint("[green]:heavy-checkmark:[/] Completed Simulation!")
+cprint(Rule())
 
 
 if myid != 0:
@@ -166,7 +157,5 @@ if myid == 0:
 
 
 # Sync with other workers and finalise
-if args.use_mpi:
-    comm.Barrier()
-cns.print("[green][bold]Complete![/][/]")
-sys.exit(0)
+comm.Barrier()
+cprint("[green][bold]Complete![/][/]")
