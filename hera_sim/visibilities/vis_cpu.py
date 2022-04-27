@@ -9,6 +9,7 @@ from typing import Tuple, Union, Optional, List
 import astropy.units as u
 from astropy.time import Time
 from astropy.coordinates import EarthLocation
+import warnings
 
 from vis_cpu import vis_cpu, vis_gpu, HAVE_GPU, __version__
 from vis_cpu import conversions as convs
@@ -75,13 +76,23 @@ class VisCPU(VisibilitySimulator):
     def __init__(
         self,
         bm_pix: int = 101,
-        use_pixel_beams: bool = True,
+        use_pixel_beams: bool | None = None,
         precision: int = 1,
         use_gpu: bool = False,
         mpi_comm=None,
         ref_time: Optional[Union[str, Time]] = None,
         correct_source_positions: bool | None = None,
     ):
+
+        if use_pixel_beams is None:
+            warnings.warn(
+                """
+                Note that the default value of use_pixel_beams changed in v2.3.4 from
+                True to False. If you really want to use pixel beams, set it to True
+                manually, but note that this is a bad idea.
+                """
+            )
+            use_pixel_beams = True
 
         assert precision in {1, 2}
         self._precision = precision
