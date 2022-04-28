@@ -28,11 +28,23 @@ Modules
 
 Visibility Simulators
 ---------------------
+
+Simulation Framework
+++++++++++++++++++++
+
 .. autosummary::
     :toctree: _autosummary
     :template: module.rst
 
     hera_sim.visibilities.simulators
-    hera_sim.visibilities.conversions
-    hera_sim.visibilities.healvis_wrapper
-    hera_sim.visibilities.vis_cpu
+
+Built-In Simulators
++++++++++++++++++++
+
+.. autosummary::
+    :toctree: _autosummary
+    :template: class.rst
+
+    hera_sim.visibilities.healvis_wrapper.HealVis
+    hera_sim.visibilities.vis_cpu.VisCPU
+    hera_sim.visibilities.pyuvsim_wrapper.UVSim

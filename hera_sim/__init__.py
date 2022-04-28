@@ -25,7 +25,7 @@ from . import io
 from . import noise
 from . import rfi
 from . import sigchain
-from .visibilities import simulators
+from .visibilities import simulators, load_simulator_from_yaml
 from . import eor
 from . import utils
 from . import simulate
