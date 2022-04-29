@@ -40,7 +40,7 @@ parser = argparse.ArgumentParser(
 )
 parser.add_argument("obsparam", type=str, help="pyuvsim-formatted obsparam file.")
 parser.add_argument(
-    "simulator-config", type=str, help=" YAML configuration file for the simulator."
+    "simulator_config", type=str, help=" YAML configuration file for the simulator."
 )
 parser.add_argument(
     "--object_name", type=str, default=None, help="Set object_name in the UVData"
@@ -60,6 +60,9 @@ parser.add_argument(
 )
 
 args = parser.parse_args()
+
+if not MPI.Is_initialized():
+    MPI.Init()
 
 comm = MPI.COMM_WORLD
 myid = comm.Get_rank()
@@ -113,6 +116,8 @@ if myid == 0:
     # if data_model.uvdata.x_orientation is None:
     #     data_model.uvdata.x_orientation = 'east'
 
+    # Check imaginary of xx/yy autos and fix non-real values if the option is
+    # selected in the arguments
     uvd_autos = data_model.uvdata.select(ant_str="auto", inplace=False)
     max_xx_autos_to_abs = (
         np.abs(uvd_autos.get_data("xx").imag) / np.abs(uvd_autos.get_data("xx"))
@@ -135,8 +140,6 @@ if myid == 0:
             f"{max_xx_autos_to_abs:1.2e}."
         )
 
-    # Check imaginary of xx/yy autos and fix non-real values if the option is
-    # selected in the arguments
     if args.compress:
         cns.print("Compressing data by redundancy... ", end="")
         data_model.uvdata.compress_by_redundancy(keep_all_metadata=True)

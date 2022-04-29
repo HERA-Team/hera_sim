@@ -123,7 +123,7 @@ class VisCPU(VisibilitySimulator):
         self.use_gpu = use_gpu
         self.use_pixel_beams = use_pixel_beams
         self.mpi_comm = mpi_comm
-        self.ref_time = ref_time.lower()
+        self.ref_time = ref_time
         self.correct_source_positions = (
             (ref_time is not None)
             if correct_source_positions is None
