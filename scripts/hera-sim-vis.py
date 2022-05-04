@@ -72,11 +72,11 @@ cprint(Panel("hera-sim-vis: Simulating Visibilities"))
 # Make data_model, simulator, and simulation objects
 cprint("Initializing ModelData objects... ", end="")
 data_model = ModelData.from_config(args.obsparam, normalize_beams=args.normalize_beams)
-cprint("[green]:heavy-checkmark:[/green]")
+cprint("[green]:heavy_check_mark:[/green]")
 
 cprint("Initializing VisibilitySimulator object... ", end="")
 simulator = load_simulator_from_yaml(args.simulator_config)
-cprint("[green]:heavy-checkmark:[/green]")
+cprint("[green]:heavy_check_mark:[/green]")
 
 # Print versions
 cprint(
@@ -103,7 +103,7 @@ simulation = VisibilitySimulation(data_model=data_model, simulator=simulator)
 cprint()
 cprint(Rule("Running Simulation"))
 simulation.simulate()
-cprint("[green]:heavy-checkmark:[/] Completed Simulation!")
+cprint("[green]:heavy_check_mark:[/] Completed Simulation!")
 cprint(Rule())
 
 
@@ -131,7 +131,7 @@ if myid == 0:
         if args.fix_autos:
             cns.print("Setting the autos to be purely real... ", end="")
             data_model.uvdata._fix_autos()
-            cns.print("[green]:heavy-checkmark:[/]")
+            cns.print("[green]:heavy_check_mark:[/]")
     elif max_xx_autos_to_abs >= args.max_auto_imag:
         raise ValueError(
             f"Some autos have large fractional imaginary components "
@@ -143,7 +143,7 @@ if myid == 0:
     if args.compress:
         cns.print("Compressing data by redundancy... ", end="")
         data_model.uvdata.compress_by_redundancy(keep_all_metadata=True)
-        cns.print("[green]:heavy-checkmark:[/]")
+        cns.print("[green]:heavy_check_mark:[/]")
 
     # Read obsparams to get filing config
     with open(args.obsparam) as file:
@@ -156,7 +156,7 @@ if myid == 0:
     # Write output
     cns.print("Writing output... ", end="")
     data_model.uvdata.write_uvh5(outfile.as_posix(), clobber=cfg_filing["clobber"])
-    cns.print("[green]:heavy-checkmark:[/]")
+    cns.print("[green]:heavy_check_mark:[/]")
 
 
 # Sync with other workers and finalise
