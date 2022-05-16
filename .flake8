@@ -16,7 +16,7 @@ per-file-ignores =
     hera_sim/tests/*:D,RST,T001,T201   # print statements allowed in tests
     docs/conf.py:D,A
     */__init__.py:F401
-    scripts/*:T001
+    scripts/*:T001,T201
     hera_sim/components.py:T001
 rst-roles =
     class
