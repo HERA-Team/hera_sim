@@ -16,12 +16,14 @@ from hera_sim.visibilities import (
     ModelData,
     UVSim,
     vis_cpu,
+    load_simulator_from_yaml,
 )
 from hera_sim.beams import PolyBeam
 from pyradiosky import SkyModel
 from astropy.coordinates.angles import Latitude, Longitude
 from astropy import time as apt
 import copy
+from pathlib import Path
 
 SIMULATORS = (HealVis, VisCPU, UVSim)
 
@@ -698,3 +700,11 @@ def test_ref_time_viscpu(uvdata2):
     assert not np.all(dmean == dmin)
     assert not np.all(dmean == dmax)
     assert not np.all(dmax == dmin)
+
+
+def test_load_from_yaml(tmpdir):
+    example_dir = Path(__file__).parent.parent.parent / "config_examples"
+
+    simulator = load_simulator_from_yaml(example_dir / "simulator.yaml")
+    assert isinstance(simulator, VisCPU)
+    assert simulator.ref_time == "mean"

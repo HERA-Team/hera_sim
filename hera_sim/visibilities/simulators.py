@@ -350,20 +350,20 @@ class VisibilitySimulator(metaclass=ABCMeta):
     itself.
 
     The :meth:`simulate` abstract method *must* be overwritten in the subclass, to
-    perform the actual simulation. The :meth::`validate` method *may* also be
+    perform the actual simulation. The :meth:`validate` method *may* also be
     overwritten to validate the given `UVData` input for the particular simulator.
 
     The subclass may define any number of simulator-specific parameters as part of its
     init method.
 
     Finally, to enable constructing the simulator in command-line applications, a
-    :meth::`from_yaml` method is provided. This will load a YAML file's contents as a
+    :meth:`from_yaml` method is provided. This will load a YAML file's contents as a
     dictionary, and then instantiate the subclass with the parameters in that dict.
     To enable some control over this process, the subclass can overwrite the
-    :meth::`_from_yaml_dict` private method, which takes in the dictionary read from the
+    :meth:`_from_yaml_dict` private method, which takes in the dictionary read from the
     YAML file, and transforms any necessary parameters before constructing the class.
     For example, if the class required a set of data from a file, the YAML might contain
-    the filename itself, and in :meth::`_from_yaml_dict`, the file would be read and the
+    the filename itself, and in :meth:`_from_yaml_dict`, the file would be read and the
     data itself passed to the constructor.
     """
 
@@ -429,6 +429,12 @@ def load_simulator_from_yaml(config: Path | str) -> VisibilitySimulator:
         module = ".".join(simulator_cls.split(".")[:-1])
         module = importlib.import_module(module)
         simulator_cls = getattr(module, simulator_cls.split(".")[-1])
+
+    if not issubclass(simulator_cls, VisibilitySimulator):
+        raise TypeError(
+            f"Specified simulator {simulator_cls} is not a subclass of"
+            "VisibilitySimulator!"
+        )
 
     assert issubclass(simulator_cls, VisibilitySimulator)
     return simulator_cls.from_yaml(cfg)
