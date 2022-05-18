@@ -712,8 +712,8 @@ def test_load_from_yaml(tmpdir):
     sim2 = VisCPU.from_yaml(example_dir / "simulator.yaml")
 
     assert sim2.ref_time == simulator.ref_time
-    assert sim2.precision == simulator.precision
     assert sim2.diffuse_ability == simulator.diffuse_ability
+    assert sim2.use_pixel_beams == simulator.use_pixel_beams
 
 
 def test_bad_load(tmpdir):
