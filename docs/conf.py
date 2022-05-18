@@ -52,6 +52,10 @@ extensions = [
     "IPython.sphinxext.ipython_console_highlighting",
 ]
 
+autodoc_mock_imports = [
+    "mpi4py",
+]
+
 # EXTENSION CONFIG
 autosectionlabel_prefix_document = True
 autosummary_generate = True
