@@ -708,3 +708,17 @@ def test_load_from_yaml(tmpdir):
     simulator = load_simulator_from_yaml(example_dir / "simulator.yaml")
     assert isinstance(simulator, VisCPU)
     assert simulator.ref_time == "mean"
+
+    sim2 = VisCPU.from_yaml(example_dir / "simulator.yaml")
+
+    assert sim2.ref_time == simulator.ref_time
+    assert sim2.precision == simulator.precision
+    assert sim2.diffuse_ability == simulator.diffuse_ability
+
+
+def test_bad_load(tmpdir):
+    with open(tmpdir / "bad_sim.yaml", "w") as fl:
+        fl.write("""simulator: nonexistent\n""")
+
+    with pytest.raises(AttributeError, match="The given simulator"):
+        load_simulator_from_yaml(tmpdir / "bad_sim.yaml")
