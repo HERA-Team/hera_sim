@@ -16,12 +16,14 @@ from hera_sim.visibilities import (
     ModelData,
     UVSim,
     vis_cpu,
+    load_simulator_from_yaml,
 )
 from hera_sim.beams import PolyBeam
 from pyradiosky import SkyModel
 from astropy.coordinates.angles import Latitude, Longitude
 from astropy import time as apt
 import copy
+from pathlib import Path
 
 SIMULATORS = (HealVis, VisCPU, UVSim)
 
@@ -672,3 +674,51 @@ def test_mK_healvis_skymodel(sky_model):
     sky_model.nside = 2**3
     sky = hv.get_sky_model(sky_model)
     assert np.isclose(np.sum(sky.data), np.sum(sky_model.stokes[0].value / 1000))
+
+
+def test_ref_time_viscpu(uvdata2):
+    vc_mean = VisCPU(ref_time="mean")
+    vc_min = VisCPU(ref_time="min")
+    vc_max = VisCPU(ref_time="max")
+
+    sky_model = half_sky_model(uvdata2)
+
+    sim_mean = VisibilitySimulation(
+        simulator=vc_mean, data_model=ModelData(uvdata=uvdata2, sky_model=sky_model)
+    )
+    sim_min = VisibilitySimulation(
+        simulator=vc_min, data_model=ModelData(uvdata=uvdata2, sky_model=sky_model)
+    )
+    sim_max = VisibilitySimulation(
+        simulator=vc_max, data_model=ModelData(uvdata=uvdata2, sky_model=sky_model)
+    )
+
+    dmean = sim_mean.simulate().copy()
+    dmin = sim_min.simulate().copy()
+    dmax = sim_max.simulate().copy()
+
+    assert not np.all(dmean == dmin)
+    assert not np.all(dmean == dmax)
+    assert not np.all(dmax == dmin)
+
+
+def test_load_from_yaml(tmpdir):
+    example_dir = Path(__file__).parent.parent.parent / "config_examples"
+
+    simulator = load_simulator_from_yaml(example_dir / "simulator.yaml")
+    assert isinstance(simulator, VisCPU)
+    assert simulator.ref_time == "mean"
+
+    sim2 = VisCPU.from_yaml(example_dir / "simulator.yaml")
+
+    assert sim2.ref_time == simulator.ref_time
+    assert sim2.diffuse_ability == simulator.diffuse_ability
+    assert sim2.use_pixel_beams == simulator.use_pixel_beams
+
+
+def test_bad_load(tmpdir):
+    with open(tmpdir / "bad_sim.yaml", "w") as fl:
+        fl.write("""simulator: nonexistent\n""")
+
+    with pytest.raises(AttributeError, match="The given simulator"):
+        load_simulator_from_yaml(tmpdir / "bad_sim.yaml")

@@ -57,8 +57,9 @@ class VisCPU(VisibilitySimulator):
     ref_time
         A reference time for computing adjustments to the co-ordinate transforms using
         astropy. For best fidelity, set this to a mid-point of your observation times.
-        By default, if `correct_source_positions` is True, will use the first
-        observation time.
+        If specified as a string, this must either use the 'isot' format and 'utc'
+        scale, or be one of "mean", "min" or "max". If any of the latter, the value
+        ll be calculated from the input data directly.
     correct_source_positions
         Whether to correct the source positions using astropy and the reference time.
         Default is True if `ref_time` is given otherwise False.
@@ -202,8 +203,10 @@ class VisCPU(VisibilitySimulator):
         ----------
         obstime : str or astropy.Time
             Specifies the time of the reference observation used to compute the
-            coordinate correction. If specified as a string, this must use the
-            'isot' format and 'utc' scale.
+            coordinate correction. If specified as a string, this must either use the
+            'isot' format and 'utc' scale, or be one of "mean", "min" or "max". If any
+            of the latter, the ``data_model`` will be used to generate the reference
+            time.
 
         frame : str, optional
             Which frame that the original RA and Dec positions are specified
@@ -219,7 +222,14 @@ class VisCPU(VisibilitySimulator):
             obstime = self.ref_time
 
         if isinstance(obstime, str):
-            obstime = Time(obstime, format="isot", scale="utc")
+            if obstime == "mean":
+                obstime = Time(data_model.uvdata.time_array.mean(), format="jd")
+            elif obstime == "min":
+                obstime = Time(data_model.uvdata.time_array.min(), format="jd")
+            elif obstime == "max":
+                obstime = Time(data_model.uvdata.time_array.max(), format="jd")
+            else:
+                obstime = Time(obstime, format="isot", scale="utc")
         elif not isinstance(obstime, Time):
             raise TypeError("`obstime` must be a string or astropy.Time object")
 

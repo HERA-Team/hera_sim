@@ -8,7 +8,12 @@ temperature fields, rectilinear co-ordinates, spherical co-ordinates, healpix
 maps etc. This package intends to unify the interfaces of these various kinds
 of simulators.
 """
-from .simulators import VisibilitySimulator, VisibilitySimulation, ModelData
+from .simulators import (
+    VisibilitySimulator,
+    VisibilitySimulation,
+    ModelData,
+    load_simulator_from_yaml,
+)
 
 # Registered Simulators
 

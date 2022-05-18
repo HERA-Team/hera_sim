@@ -8,6 +8,7 @@ dependencies:
   - nbsphinx
   - numpydoc
   - sphinx>=1.3
+  - mpi4py
   - pip:
     - sphinx-rtd-theme
     - sphinx_autorun
