@@ -672,3 +672,29 @@ def test_mK_healvis_skymodel(sky_model):
     sky_model.nside = 2**3
     sky = hv.get_sky_model(sky_model)
     assert np.isclose(np.sum(sky.data), np.sum(sky_model.stokes[0].value / 1000))
+
+
+def test_ref_time_viscpu(uvdata2):
+    vc_mean = VisCPU(ref_time="mean")
+    vc_min = VisCPU(ref_time="min")
+    vc_max = VisCPU(ref_time="max")
+
+    sky_model = half_sky_model(uvdata2)
+
+    sim_mean = VisibilitySimulation(
+        simulator=vc_mean, data_model=ModelData(uvdata=uvdata2, sky_model=sky_model)
+    )
+    sim_min = VisibilitySimulation(
+        simulator=vc_min, data_model=ModelData(uvdata=uvdata2, sky_model=sky_model)
+    )
+    sim_max = VisibilitySimulation(
+        simulator=vc_max, data_model=ModelData(uvdata=uvdata2, sky_model=sky_model)
+    )
+
+    dmean = sim_mean.simulate().copy()
+    dmin = sim_min.simulate().copy()
+    dmax = sim_max.simulate().copy()
+
+    assert not np.all(dmean == dmin)
+    assert not np.all(dmean == dmax)
+    assert not np.all(dmax == dmin)
