@@ -13,6 +13,7 @@ Added
 Fixed
 -----
 - Inferred integration time in ``ThermalNoise`` when phase-wrapped LSTs are used.
+- Added **kwargs to ``PolyBeam.interp`` method to match UVBeam.
 
 Changed
 -------

@@ -314,7 +314,7 @@ class PolyBeam(AnalyticBeam):
         """Dummy select method."""
         pass
 
-    def interp(self, az_array, za_array, freq_array, reuse_spline=None):
+    def interp(self, az_array, za_array, freq_array, **kwargs):
         """
         Evaluate the primary beam at given az, za locations (in radians).
 
@@ -327,8 +327,12 @@ class PolyBeam(AnalyticBeam):
             Zenith angle values in radians (same length as az_array).
         freq_array : array_like
             Frequency values to evaluate at.
-        reuse_spline : bool, optional
-            Does nothing for analytic beams. Here for compatibility with UVBeam.
+
+
+        Other Parameters
+        ----------------
+        All other parameters are ignored -- they are there for compatibility with
+        :class:`pyuvdata.uvbeam.UVBeam`.
 
         Returns
         -------
