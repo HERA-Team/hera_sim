@@ -45,6 +45,14 @@ class HealVis(VisibilitySimulator):
         if not HAVE_HEALVIS:
             raise ImportError("to use the healvis wrapper, you must install healvis!")
 
+        warnings.warn(
+            (
+                "The healvis package is deprecated. Please use pyuvsim instead. "
+                "The healvis wrapper will be removed from hera_sim in version 4",
+            ),
+            category=DeprecationWarning,
+        )
+
         self.fov = fov
         self._nprocs = nprocesses
         self._sky_ref_chan = sky_ref_chan

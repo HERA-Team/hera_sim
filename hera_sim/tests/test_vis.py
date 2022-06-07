@@ -11,7 +11,6 @@ from hera_sim.defaults import defaults
 from hera_sim import io
 from hera_sim.visibilities import (
     VisCPU,
-    HealVis,
     VisibilitySimulation,
     ModelData,
     UVSim,
@@ -25,7 +24,14 @@ from astropy import time as apt
 import copy
 from pathlib import Path
 
-SIMULATORS = (HealVis, VisCPU, UVSim)
+SIMULATORS = (VisCPU, UVSim)
+
+try:
+    from hera_sim.visibilities import HealVis
+
+    SIMULATORS = SIMULATORS + (HealVis,)
+except ImportError:
+    pass
 
 if HAVE_GPU:
 
@@ -111,6 +117,7 @@ def sky_modelJD(uvdataJD):
 
 
 def test_healvis_beam(uvdata, sky_model):
+    pytest.importorskip("healvis")
     sim = VisibilitySimulation(
         simulator=HealVis(),
         data_model=ModelData(
@@ -126,6 +133,7 @@ def test_healvis_beam(uvdata, sky_model):
 
 def test_healvis_beam_obsparams(tmpdir):
     # Now try creating with an obsparam file
+    pytest.importorskip("healvis")
     direc = tmpdir.mkdir("test_healvis_beam")
 
     with open(direc.join("catalog.txt"), "w") as fl:
@@ -479,21 +487,23 @@ def align_src_to_healpix(ra, dec, nside=2**4):
     ],
 )
 def test_comparison(uvdata2, sky_model, beam_model):
-    cpu = VisCPU()
-    healvis = HealVis()
+    simulators = [sim() for sim in SIMULATORS]
 
     model_data = ModelData(
         uvdata=uvdata2, sky_model=sky_model(uvdata2), beams=beam_model
     )
 
-    viscpu = VisibilitySimulation(data_model=model_data, simulator=cpu).simulate()
+    vissims = [
+        VisibilitySimulation(
+            data_model=model_data, simulator=sim, n_side=2**4
+        ).simulate()
+        for sim in simulators
+    ]
 
-    healvis = VisibilitySimulation(
-        data_model=model_data, simulator=healvis, n_side=2**4
-    ).simulate()
+    assert all(v.shape == vissims[0].shape for v in vissims)
 
-    assert viscpu.shape == healvis.shape
-    np.testing.assert_allclose(viscpu, healvis, rtol=0.05)
+    for v in vissims:
+        np.testing.assert_allclose(vissims[0], v, rtol=0.05)
 
 
 def test_vis_cpu_pol_gpu(uvdata_linear):
@@ -662,6 +672,7 @@ def test_str_uvdata(uvdata, sky_model, tmp_path):
 
 
 def test_bad_healvis_skymodel(sky_model):
+    pytest.importorskip("healvis")
     hv = HealVis()
     sky_model.stokes *= units.sr  # something stupid
     with pytest.raises(ValueError, match="not compatible with healvis"):
@@ -669,6 +680,7 @@ def test_bad_healvis_skymodel(sky_model):
 
 
 def test_mK_healvis_skymodel(sky_model):
+    pytest.importorskip("healvis")
     hv = HealVis()
     sky_model.stokes = sky_model.stokes.value * units.mK
     sky_model.nside = 2**3
