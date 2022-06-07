@@ -218,6 +218,7 @@ def uvdata2():
         array_layout={0: (0, 0, 0), 1: (1, 1, 0)},
         start_time=2456658.5,
         conjugation="ant1<ant2",
+        polarization_array=["xx", "yy", "xy", "yx"],
     )
 
 
@@ -476,6 +477,7 @@ def align_src_to_healpix(ra, dec, nside=2**4):
     return ra, dec
 
 
+@pytest.mark.parametrize("simulator", SIMULATORS[1:])
 @pytest.mark.parametrize(
     "sky_model, beam_model",
     [
@@ -486,24 +488,22 @@ def align_src_to_healpix(ra, dec, nside=2**4):
         (half_sky_model, [AnalyticBeam("airy", diameter=1.75)]),
     ],
 )
-def test_comparison(uvdata2, sky_model, beam_model):
-    simulators = [sim() for sim in SIMULATORS]
-
+def test_comparison(simulator, uvdata2, sky_model, beam_model):
     model_data = ModelData(
         uvdata=uvdata2, sky_model=sky_model(uvdata2), beams=beam_model
     )
 
-    vissims = [
-        VisibilitySimulation(
-            data_model=model_data, simulator=sim, n_side=2**4
-        ).simulate()
-        for sim in simulators
-    ]
+    v0 = VisibilitySimulation(
+        data_model=model_data, simulator=SIMULATORS[0](), n_side=2**4
+    ).simulate()
 
-    assert all(v.shape == vissims[0].shape for v in vissims)
+    v1 = VisibilitySimulation(
+        data_model=model_data, simulator=simulator(), n_side=2**4
+    ).simulate()
 
-    for v in vissims:
-        np.testing.assert_allclose(vissims[0], v, rtol=0.05)
+    assert v0.shape == v1.shape
+
+    np.testing.assert_allclose(v0, v1, rtol=0.05)
 
 
 def test_vis_cpu_pol_gpu(uvdata_linear):
