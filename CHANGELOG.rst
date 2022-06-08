@@ -5,15 +5,20 @@ Changelog
 dev-version
 ===========
 
+v2.3.4 [2022.06.08]
+===================
+
 Added
 -----
 - ``NotImplementedError`` raised when trying to simulate noise using an interpolated
   sky temperature and phase-wrapped LSTs.
+- More comparison tests of pyuvsim wrapper.
 
 Fixed
 -----
 - Inferred integration time in ``ThermalNoise`` when phase-wrapped LSTs are used.
-- Added **kwargs to ``PolyBeam.interp`` method to match UVBeam.
+- Added ``**kwargs`` to ``PolyBeam.interp`` method to match UVBeam.
+- healvis wrapper properly sets cross-pol visibilities to zero.
 
 Changed
 -------
