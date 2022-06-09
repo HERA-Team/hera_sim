@@ -56,6 +56,8 @@ extensions = [
 autosectionlabel_prefix_document = True
 autosummary_generate = True
 
+autodoc_mock_imports = ["healvis"]
+
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
 

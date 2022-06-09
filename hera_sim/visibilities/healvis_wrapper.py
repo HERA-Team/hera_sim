@@ -45,6 +45,14 @@ class HealVis(VisibilitySimulator):
         if not HAVE_HEALVIS:
             raise ImportError("to use the healvis wrapper, you must install healvis!")
 
+        warnings.warn(
+            (
+                "The healvis package is deprecated. Please use pyuvsim instead. "
+                "The healvis wrapper will be removed from hera_sim in version 4",
+            ),
+            category=DeprecationWarning,
+        )
+
         self.fov = fov
         self._nprocs = nprocesses
         self._sky_ref_chan = sky_ref_chan
@@ -155,9 +163,15 @@ class HealVis(VisibilitySimulator):
 
         # Simulate the visibilities for each polarization.
         for pol in data_model.uvdata.get_pols():
-            visibility, _, baselines = obs.make_visibilities(
-                sky, Nprocs=self._nprocs, beam_pol=pol
-            )  # Shape (Nblts, Nskies, Nfreqs)
+            if pol in ["xx", "yy"]:
+                visibility, _, baselines = obs.make_visibilities(
+                    sky, Nprocs=self._nprocs, beam_pol=pol
+                )  # Shape (Nblts, Nskies, Nfreqs)
+            else:
+                # healvis doesn't support polarization
+                visibility = np.zeros(
+                    (data_model.uvdata.Nblts, 1, data_model.uvdata.Nfreqs)
+                )
 
             # AnalyticBeams do not use polarization at all in healvis, and are
             # equivalent to "pI" polarization. To match our definition of linear pols

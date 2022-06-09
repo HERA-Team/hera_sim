@@ -23,7 +23,7 @@ try:
     HERA_CAL = True
 except (ModuleNotFoundError, FileNotFoundError) as err:  # pragma: no cover
     if err is ModuleNotFoundError:
-        missing = "hera_cal"
+        missing = "hera-calibration"
     else:
         missing = "git"
     warn(f"{missing} is not installed. Rephasing tool unavailable.")
@@ -669,7 +669,7 @@ def rephase_to_reference(
     """
     if not HERA_CAL:  # pragma: no cover
         raise NotImplementedError(
-            "You must have ``hera_cal`` installed to use this function."
+            "You must have ``hera-calibration`` installed to use this function."
         )
 
     # Convert target to a HERAData object.

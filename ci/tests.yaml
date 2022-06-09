@@ -24,11 +24,11 @@ dependencies:
   - git
   - pip:
     - cached-property
-    - pyuvsim[sim]>=1.2,<1.4
+    - pyuvsim[sim]>=1.2
     - vis_cpu>=0.2.2
     - deprecation
     - pyradiosky
-    - git+https://github.com/HERA-Team/uvtools.git
+    - uvtools
     - git+https://github.com/rasg-affiliates/healvis
-    - git+https://github.com/HERA-Team/hera_cal.git
-    - git+https://github.com/HERA-Team/baseline_dependent_averaging.git
+    - hera-calibration
+    - bda
