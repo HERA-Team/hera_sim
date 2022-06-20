@@ -439,8 +439,19 @@ class VisCPU(VisibilitySimulator):
         # TODO: this can be updated to just access uvbeam.feed_array once the
         # AnalyticBeam API has been improved.
         feeds = list(getattr(uvbeam, "feed_array", ["x", "y"]))
-
         # In order to get all 4 visibility polarizations for a dual feed system
+        # We should compare pols in the earth-oriented frame so here we convert
+        # to earth orientations  (if possible)
+        if getattr(uvbeam, "x_orientation", None) is not None:
+            for fn, feed in enumerate(feeds):
+                if feed == "x":
+                    feeds[fn] = uvbeam.x_orientation[0]
+                elif feed == "y":
+                    if uvbeam.x_orientation.lower() == "north":
+                        feeds[fn] = "e"
+                    else:
+                        feeds[fn] = "n"
+
         vispols = set()
         for p1, p2 in itertools.combinations_with_replacement(feeds, 2):
             vispols.add(p1 + p2)
@@ -449,9 +460,13 @@ class VisCPU(VisibilitySimulator):
             vispol: (feeds.index(vispol[0]), feeds.index(vispol[1]))
             for vispol in vispols
         }
-        # Get the mapping from uvdata pols to uvbeam pols
+
+        # We want to compare pols in the earth-oriented labels (nn, ee)
+        # So I've changed this to compute the uvdata earth-oriented pols
+        # and compare directly to avail_pols which are alos earth-oriented
+        # from the UVBeam object.
         uvdata_pols = [
-            uvutils.polnum2str(polnum, getattr(uvbeam, "x_orientation", None))
+            uvutils.polnum2str(polnum, getattr(uvdata, "x_orientation", None))
             for polnum in uvdata.polarization_array
         ]
         if any(pol not in avail_pols for pol in uvdata_pols):
