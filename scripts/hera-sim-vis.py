@@ -165,10 +165,14 @@ if __name__ == "__main__":
         outfile = (
             base_path / f"{cfg_filing['outfile_name']}.{cfg_filing['output_format']}"
         )
+        if "clobber" not in cfg_filing:
+            clobber = False
+        else:
+            clobber = cfg_filing["clobber"]
 
         # Write output
         cns.print("Writing output... ", end="")
-        data_model.uvdata.write_uvh5(outfile.as_posix(), clobber=cfg_filing["clobber"])
+        data_model.uvdata.write_uvh5(outfile.as_posix(), clobber=clobber)
         cns.print("[green]:heavy_check_mark:[/]")
 
     # Sync with other workers and finalise
