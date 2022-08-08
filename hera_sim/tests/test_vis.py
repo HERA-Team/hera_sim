@@ -136,12 +136,11 @@ def test_healvis_beam_obsparams(tmpdir):
     pytest.importorskip("healvis")
     direc = tmpdir.mkdir("test_healvis_beam")
 
+    with open(Path(__file__).parent / "testdata" / "healvis_catalog.txt", "r") as fl:
+        txt = fl.read()
+
     with open(direc.join("catalog.txt"), "w") as fl:
-        fl.write(
-            """SOURCE_ID       RA_J2000 [deg]  Dec_J2000 [deg] Flux [Jy]       Frequency [Hz]
-    HERATEST0       68.48535        -28.559917      1       100000000.0
-    """
-        )
+        fl.write(txt)
 
     with open(direc.join("telescope_config.yml"), "w") as fl:
         fl.write(
