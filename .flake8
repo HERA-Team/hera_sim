@@ -7,6 +7,7 @@ ignore =
     D401  # "First line should be in imperative mood" -- this doesn't work for properties, see https://github.com/PyCQA/pydocstyle/issues/301
     A003  # allow method names to be the same as python builtins
     RST210  # inline strong start-string without end-string. This is OK in the case of **kwargs in parameters.
+    G004  # Logging statement uses f-string.
 max-line-length = 88
 # Should be 18.
 max-complexity = 35
