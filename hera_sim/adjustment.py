@@ -192,10 +192,7 @@ def adjust_to_reference(
     )
 
     if conjugation_convention is not None:
-        logger.info(
-            "Conjugating target to %s convention...",
-            extra={"cc": conjugation_convention},
-        )
+        logger.info(f"Conjugating target to {conjugation_convention} convention...")
         target.conjugate_bls(conjugation_convention)
 
     if target_is_simulator:
