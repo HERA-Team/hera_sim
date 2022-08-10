@@ -14,7 +14,6 @@ from hera_sim.visibilities import (
     VisibilitySimulation,
     ModelData,
     UVSim,
-    vis_cpu,
     load_simulator_from_yaml,
 )
 from hera_sim.beams import PolyBeam
@@ -46,7 +45,6 @@ if HAVE_GPU:
 
 np.random.seed(0)
 NTIMES = 10
-BM_PIX = 31
 NPIX = 12 * 16**2
 NFREQ = 5
 
@@ -505,35 +503,6 @@ def test_comparison(simulator, uvdata2, sky_model, beam_model):
     np.testing.assert_allclose(v0, v1, rtol=0.05)
 
 
-def test_vis_cpu_pol_gpu(uvdata_linear):
-    old = vis_cpu.HAVE_GPU
-
-    vis_cpu.HAVE_GPU = True
-
-    uvdata_linear.polarization_array = [-8, -7, -6, -5]
-    beam = PolyBeam(polarized=True)
-
-    sky_model = make_point_sky(
-        uvdata_linear,
-        ra=np.linspace(0, 2 * np.pi, 8) * rad,
-        dec=uvdata_linear.telescope_location_lat_lon_alt[0] * np.ones(8) * rad,
-        align=False,
-    )
-
-    simulator = VisCPU(use_gpu=True)
-
-    with pytest.raises(RuntimeError):
-        VisibilitySimulation(
-            data_model=ModelData(
-                uvdata=uvdata_linear, sky_model=sky_model, beams=[beam]
-            ),
-            simulator=simulator,
-            n_side=2**4,
-        )
-
-    vis_cpu.HAVE_GPU = old
-
-
 @pytest.mark.parametrize("simulator", SIMULATORS)
 @pytest.mark.parametrize("order", ["time", "baseline", "ant1", "ant2"])
 @pytest.mark.parametrize("conj", ["ant1<ant2", "ant2<ant1"])
@@ -724,7 +693,6 @@ def test_load_from_yaml(tmpdir):
 
     assert sim2.ref_time == simulator.ref_time
     assert sim2.diffuse_ability == simulator.diffuse_ability
-    assert sim2.use_pixel_beams == simulator.use_pixel_beams
 
 
 def test_bad_load(tmpdir):

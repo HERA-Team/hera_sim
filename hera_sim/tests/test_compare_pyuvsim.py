@@ -171,7 +171,6 @@ def test_compare_viscpu_with_pyuvsim(uvdata_allpols, nsource, beam_type, polariz
     simulator = VisCPU(
         ref_time=Time("2018-08-31T04:02:30.11", format="isot", scale="utc"),
         use_gpu=False,
-        use_pixel_beams=False,
     )
 
     # TODO: if we update the PolyBeam API so that it doesn't *require* 2 feeds,

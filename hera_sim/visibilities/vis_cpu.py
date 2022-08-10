@@ -9,7 +9,6 @@ from typing import Tuple, Union, Optional, List
 import astropy.units as u
 from astropy.time import Time
 from astropy.coordinates import EarthLocation
-import warnings
 
 from vis_cpu import vis_cpu, vis_gpu, HAVE_GPU, __version__
 from vis_cpu import conversions as convs
@@ -26,13 +25,6 @@ class VisCPU(VisibilitySimulator):
 
     Parameters
     ----------
-    bm_pix : int, optional
-        The number of pixels along a side in the beam map when
-        converted to (l, m) coordinates. Defaults to 100.
-    use_pixel_beams : bool, optional
-        Whether to use primary beams that have been pixelated onto a 2D
-        grid, or directly evaluate the primary beams using the available
-        UVBeam objects. Default: True.
     polarized : bool, optional
         Whether to calculate polarized visibilities or not. By default does polarization
         iff multiple polarizations exist in the UVData object. The behaviour of the
@@ -76,25 +68,12 @@ class VisCPU(VisibilitySimulator):
 
     def __init__(
         self,
-        bm_pix: int = 101,
-        use_pixel_beams: bool | None = None,
         precision: int = 1,
         use_gpu: bool = False,
         mpi_comm=None,
         ref_time: Optional[Union[str, Time]] = None,
         correct_source_positions: bool | None = None,
     ):
-
-        if use_pixel_beams is None:
-            warnings.warn(
-                """
-                Note that the default value of use_pixel_beams changed in v2.3.4 from
-                True to False. If you really want to use pixel beams, set it to True
-                manually, but note that this is a bad idea.
-                """
-            )
-            use_pixel_beams = True
-
         assert precision in {1, 2}
         self._precision = precision
         if precision == 1:
@@ -112,16 +91,9 @@ class VisCPU(VisibilitySimulator):
                 "GPU acceleration requires hera_gpu (`pip install hera_sim[gpu]`)."
             )
 
-        if use_gpu and not use_pixel_beams:
-            raise RuntimeError(
-                "GPU can only be used with pixel beams (use_pixel_beams=True)"
-            )
-
         self._vis_cpu = vis_gpu if use_gpu else vis_cpu
-        self.bm_pix = bm_pix
 
         self.use_gpu = use_gpu
-        self.use_pixel_beams = use_pixel_beams
         self.mpi_comm = mpi_comm
         self.ref_time = ref_time
         self.correct_source_positions = (
@@ -182,11 +154,6 @@ class VisCPU(VisibilitySimulator):
 
             assert nfeeds == 2
 
-            if self.use_gpu:
-                raise RuntimeError(
-                    "GPU support is currently only available when polarized=False"
-                )
-
     def correct_point_source_pos(
         self,
         data_model: ModelData,
@@ -244,56 +211,6 @@ class VisCPU(VisibilitySimulator):
         return convs.equatorial_to_eci_coords(
             ra, dec, obstime, location, unit="rad", frame=frame
         )
-
-    def get_beam_lm(self, data_model: ModelData) -> np.ndarray:
-        """
-        Obtain the beam pattern in (l,m) co-ordinates for each antenna.
-
-        Returns
-        -------
-        bm_cube : array_like
-            The beam pattern in (l,m) for each antenna. If `self.polarized=True`,
-            its shape is (NFREQS, NAXES, NFEEDS, NANT, BM_PIX, BM_PIX),
-            otherwise (NFREQS, NANT, BM_PIX, BM_PIX).
-
-        Notes
-        -----
-        Due to using the verbatim :func:`vis_cpu.vis_cpu` function, the beam
-        cube must have an entry for each antenna, which is a bit of
-        a waste of memory in some cases. If this is changed in the
-        future, this method can be modified to only return one
-        matrix for each beam.
-        """
-
-        def iter_ants():
-            for ant, num in zip(
-                data_model.uvdata.antenna_names, data_model.uvdata.antenna_numbers
-            ):
-                if num in data_model.uvdata.get_ants():
-                    yield ant
-
-        used_beam_indices = {data_model.beam_ids[ant] for ant in iter_ants()}
-
-        lm_beams = [
-            convs.uvbeam_to_lm(
-                beam,
-                data_model.freqs,
-                n_pix_lm=self.bm_pix,
-                polarized=self._check_if_polarized(data_model),
-                use_feed=self.get_feed(data_model.uvdata),
-            )
-            if i in used_beam_indices
-            else None
-            for i, beam in enumerate(data_model.beams)
-        ]
-
-        out = np.asarray([lm_beams[data_model.beam_ids[ant]] for ant in iter_ants()])
-
-        if self._check_if_polarized(data_model):
-            # shape FREQ, NAXES, NFEEDS, NANT, NPIX, NPIX
-            return np.transpose(out, (3, 1, 2, 0, 4, 5))
-        else:
-            return np.transpose(out, (1, 0, 2, 3))
 
     def _check_if_polarized(self, data_model: ModelData) -> bool:
         p = data_model.uvdata.polarization_array
@@ -360,20 +277,17 @@ class VisCPU(VisibilitySimulator):
         active_antpos, ant_list = data_model.uvdata.get_ENU_antpos(pick_data_ants=True)
 
         # Get pixelized beams if required
-        if self.use_pixel_beams:
-            beam_lm = self.get_beam_lm(data_model)
-        else:
-            beam_list = [
-                convs.prepare_beam(
-                    data_model.beams[data_model.beam_ids[name]],
-                    polarized=polarized,
-                    use_feed=feed,
-                )
-                for number, name in zip(
-                    data_model.uvdata.antenna_numbers, data_model.uvdata.antenna_names
-                )
-                if number in ant_list
-            ]
+        beam_list = [
+            convs.prepare_beam(
+                data_model.beams[data_model.beam_ids[name]],
+                polarized=polarized,
+                use_feed=feed,
+            )
+            for number, name in zip(
+                data_model.uvdata.antenna_numbers, data_model.uvdata.antenna_names
+            )
+            if number in ant_list
+        ]
 
         # Get all the polarizations required to be simulated.
         req_pols = self._get_req_pols(
@@ -395,8 +309,7 @@ class VisCPU(VisibilitySimulator):
                 eq2tops=eq2tops,
                 crd_eq=crd_eq,
                 I_sky=data_model.sky_model.stokes[0, i].to("Jy").value,
-                beam_list=beam_list if not self.use_pixel_beams else None,
-                bm_cube=beam_lm[i] if self.use_pixel_beams else None,
+                beam_list=beam_list,
                 precision=self._precision,
                 polarized=polarized,
             )
@@ -407,7 +320,7 @@ class VisCPU(VisibilitySimulator):
 
         # Reduce visfull array if in MPI mode
         if self.mpi_comm is not None:
-            return self._reduce_mpi(visfull, myid)
+            visfull = self._reduce_mpi(visfull, myid)
 
         return visfull
 
@@ -417,7 +330,7 @@ class VisCPU(VisibilitySimulator):
         for p, (p1, p2) in enumerate(req_pols):
             for ant1, ant2 in zip(*indices):  # go through indices in output
                 vis_here = (
-                    vis[p1, p2, :, ant1, ant2] if polarized else vis[:, ant1, ant2]
+                    vis[:, p1, p2, ant1, ant2] if polarized else vis[:, ant1, ant2]
                 )
                 # get official "antenna numbers" corresponding to these indices
                 antnum1, antnum2 = ant_list[ant1], ant_list[ant2]
