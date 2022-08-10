@@ -193,7 +193,7 @@ def adjust_to_reference(
 
     if conjugation_convention is not None:
         logger.info(
-            "Conjugating target to {cc} convention...",
+            "Conjugating target to %s convention...",
             extra={"cc": conjugation_convention},
         )
         target.conjugate_bls(conjugation_convention)
