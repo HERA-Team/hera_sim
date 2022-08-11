@@ -102,6 +102,8 @@ class VisCPU(VisibilitySimulator):
             else correct_source_positions
         )
 
+        self._functions_to_profile = (self._vis_cpu,)
+
     def validate(self, data_model: ModelData):
         """Checks for correct input format."""
         # N(N-1)/2 unique cross-correlations + N autocorrelations.
@@ -153,6 +155,49 @@ class VisCPU(VisibilitySimulator):
                 nfeeds = getattr(uvbeam, "Nfeeds", 2)
 
             assert nfeeds == 2
+
+    def estimate_memory(self, data_model: ModelData) -> float:
+        """
+        Estimates the memory usage of the model.
+
+        Parameters
+        ----------
+        data_model : ModelData
+            The model data.
+
+        Returns
+        -------
+        float
+            Estimated memory usage in GB.
+        """
+        bm = data_model.beams[0]
+        nt = len(data_model.lsts)
+        nax = len(bm.Naxes_vec)
+        nfd = len(bm.Nfeeds)
+        nant = len(data_model.uvdata.antenna_names)
+        nsrc = len(data_model.sky_model.ra)
+        nbeam = len(data_model.beams)
+        nf = len(data_model.freqs)
+
+        try:
+            nbmpix = bm.data_array[..., 0, :].size
+        except AttributeError:
+            nbmpix = 0
+
+        all_floats = (
+            nf * nt * nfd**2 * nant**2
+            + nant * nsrc * nax * nfd / 2  # visibilities
+            + nf * nbeam * nbmpix  # per-antenna vis
+            + nax * nfd * nbeam * nsrc / 2  # raw beam
+            + 3 * nant  # interpolated beam
+            + nsrc * nf  # antenna positions
+            + nt * 9  # source fluxes
+            + 3 * nsrc  # rotation matrices
+            + 3 * nsrc
+            + nant * nsrc / 2  # source positions (topo and eq)  # tau.
+        )
+
+        return all_floats * self._precision * 4 / 1024**3
 
     def correct_point_source_pos(
         self,

@@ -15,6 +15,8 @@ class UVSim(VisibilitySimulator):
         If True, don't print anything.
     """
 
+    _functions_to_profile = (pyuvsim.uvsim.run_uvdata_uvsim,)
+
     def __init__(self, quiet: bool = False):
         self.quiet = quiet
 

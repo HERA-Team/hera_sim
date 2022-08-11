@@ -377,6 +377,9 @@ class VisibilitySimulator(metaclass=ABCMeta):
     #: maps directly.
     diffuse_ability = False
 
+    #: Any underlying functions that are called and we may want to do profiling on.
+    _functions_to_profile = ()
+
     __version__ = "unknown"
 
     @abstractmethod
@@ -410,6 +413,17 @@ class VisibilitySimulator(metaclass=ABCMeta):
         complex than simply setting parameters from the dictionary.
         """
         return cls(**cfg)
+
+    def estimate_memory(self, data_model: ModelData) -> float:
+        """Estimate the memory usage of the simulator in GB.
+
+        This is used to estimate the amount of memory needed to run the simulator.
+
+        .. note:: the default method is very much a lower bound -- just the size of the
+          output visibilities. Each individual simulator may or may not implement a
+          more accurate estimate.
+        """
+        return data_model.uvdata.data_array.nbytes / 1024**3
 
 
 def load_simulator_from_yaml(config: Path | str) -> VisibilitySimulator:

@@ -38,6 +38,8 @@ class HealVis(VisibilitySimulator):
 
     point_source_ability = False
     diffuse_ability = True
+    _functions_to_profile = (hv.observatory.Observatory.make_visibilities,)
+
     __version__ = hv.__version__
 
     def __init__(self, fov=180, nprocesses=1, sky_ref_chan=0):

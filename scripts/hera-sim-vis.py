@@ -8,6 +8,7 @@ write the result to disk.
 """
 import argparse
 import numpy as np
+import psutil
 import pyradiosky
 import pyuvdata
 import pyuvsim
@@ -69,7 +70,12 @@ if __name__ == "__main__":
         default=5e-14,
         help="Maximum fraction of imaginary/absolute for autos before raising an error",
     )
-
+    parser.add_argument(
+        "--profile",
+        type=str,
+        default="",
+        help="If given, do line-profiling on the simulation, and output to given file.",
+    )
     args = parser.parse_args()
 
     if HAVE_MPI and not MPI.Is_initialized():
@@ -105,17 +111,36 @@ if __name__ == "__main__":
         """
     )
 
+    ram = simulator.estimate_memory()
+    ram_avail = psutil.virtual_memory().available * 1024**3
+
+    cprint(
+        f"[bold {'red' if ram < 1.5*ram_avail else 'green'}] This simulation will use "
+        f"at least {ram}GB of RAM (Available: {ram_avail}GB).[/]"
+    )
     if args.object_name is None:
         data_model.uvdata.object_name = simulator.__class__.__name__
     else:
         data_model.uvdata.object_name = args.object_name
+
+    if args.profile:
+        cprint(f"Profiling simulation. Output to {args.profile}")
+        from line_profiler import LineProfiler
+
+        profiler = LineProfiler()
+        profiler.add_function(simulator.simulate)
+        for fnc in simulator._functions_to_profile:
+            profiler.add_function(fnc)
 
     simulation = VisibilitySimulation(data_model=data_model, simulator=simulator)
 
     # Run simulation
     cprint()
     cprint(Rule("Running Simulation"))
-    simulation.simulate()
+    if args.profile:
+        profiler.runcall(simulation.simulate)
+    else:
+        simulation.simulate()
     cprint("[green]:heavy_check_mark:[/] Completed Simulation!")
     cprint(Rule())
 
@@ -173,6 +198,16 @@ if __name__ == "__main__":
         data_model.uvdata.write_uvh5(outfile.as_posix(), clobber=clobber)
         cns.print("[green]:heavy_check_mark:[/]")
 
+        if args.profile:
+            cns.print(Rule("Profiling Information"))
+
+            profiler.print_stats()
+
+            with open(f"{args.profile}", "w") as fl:
+                profiler.print_stats(stream=fl)
+
+            cns.print(Rule())
+            cns.print()
     # Sync with other workers and finalise
     if HAVE_MPI:
         comm.Barrier()
