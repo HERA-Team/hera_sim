@@ -111,7 +111,7 @@ if __name__ == "__main__":
         """
     )
 
-    ram = simulator.estimate_memory()
+    ram = simulator.estimate_memory(data_model)
     ram_avail = psutil.virtual_memory().available * 1024**3
 
     cprint(
