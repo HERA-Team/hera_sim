@@ -6,15 +6,15 @@ Command-line interface for simulating visibilities with ``hera_sim``.
 This script may be used to run a visibility simulation from a configuration file and
 write the result to disk.
 """
-import sys
-import yaml
 import argparse
-from pathlib import Path
-
 import numpy as np
+import pyradiosky
 import pyuvdata
 import pyuvsim
-import pyradiosky
+import sys
+import yaml
+from pathlib import Path
+
 import hera_sim
 
 try:
@@ -24,14 +24,15 @@ try:
 except ImportError:
     HAVE_MPI = False
 
+from rich.console import Console
+from rich.panel import Panel
+from rich.rule import Rule
+
 from hera_sim.visibilities import (
     ModelData,
     VisibilitySimulation,
     load_simulator_from_yaml,
 )
-from rich.console import Console
-from rich.rule import Rule
-from rich.panel import Panel
 
 cns = Console()
 

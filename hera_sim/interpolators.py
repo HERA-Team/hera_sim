@@ -1,10 +1,11 @@
 """This module provides interfaces to different interpolation classes."""
-import warnings
 import numpy as np
+import warnings
 from cached_property import cached_property
-from scipy.interpolate import RectBivariateSpline, interp1d
-from hera_sim import DATA_PATH
 from os import path
+from scipy.interpolate import RectBivariateSpline, interp1d
+
+from hera_sim import DATA_PATH
 
 INTERP_OBJECTS = {
     "1d": (

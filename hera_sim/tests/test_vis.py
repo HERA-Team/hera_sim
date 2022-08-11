@@ -1,27 +1,29 @@
+import pytest
+
 import astropy_healpix as aph
+import copy
 import healvis
 import numpy as np
-import pytest
-from astropy.units import sday, rad
+from astropy import time as apt
 from astropy import units
+from astropy.coordinates.angles import Latitude, Longitude
+from astropy.units import rad, sday
+from pathlib import Path
+from pyradiosky import SkyModel
 from pyuvsim.analyticbeam import AnalyticBeam
 from pyuvsim.telescope import BeamConsistencyError
-from vis_cpu import HAVE_GPU
-from hera_sim.defaults import defaults
+
 from hera_sim import io
+from hera_sim.beams import PolyBeam
+from hera_sim.defaults import defaults
 from hera_sim.visibilities import (
-    VisCPU,
-    VisibilitySimulation,
     ModelData,
     UVSim,
+    VisCPU,
+    VisibilitySimulation,
     load_simulator_from_yaml,
 )
-from hera_sim.beams import PolyBeam
-from pyradiosky import SkyModel
-from astropy.coordinates.angles import Latitude, Longitude
-from astropy import time as apt
-import copy
-from pathlib import Path
+from vis_cpu import HAVE_GPU
 
 SIMULATORS = (VisCPU, UVSim)
 
@@ -134,7 +136,7 @@ def test_healvis_beam_obsparams(tmpdir):
     pytest.importorskip("healvis")
     direc = tmpdir.mkdir("test_healvis_beam")
 
-    with open(Path(__file__).parent / "testdata" / "healvis_catalog.txt", "r") as fl:
+    with open(Path(__file__).parent / "testdata" / "healvis_catalog.txt") as fl:
         txt = fl.read()
 
     with open(direc.join("catalog.txt"), "w") as fl:

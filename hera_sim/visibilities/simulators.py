@@ -1,28 +1,30 @@
 """Module defining a high-level visibility simulator wrapper."""
 from __future__ import annotations
 
+import astropy_healpix as aph
+import importlib
 import numpy as np
-from cached_property import cached_property
-from pyuvsim import analyticbeam as ab, BeamList
-from pyuvsim.simsetup import (
-    initialize_uvdata_from_params,
-    initialize_catalog_from_params,
-    uvdata_to_telescope_config,
-    _complete_uvdata,
-)
-from os import path
+import yaml
 from abc import ABCMeta, abstractmethod
 from astropy import units
-from pyuvdata import UVData, UVBeam
-from typing import List, Dict, Union, Sequence
-from pyradiosky import SkyModel
-from pathlib import Path
+from cached_property import cached_property
 from dataclasses import dataclass
-import astropy_healpix as aph
+from os import path
+from pathlib import Path
+from pyradiosky import SkyModel
+from pyuvdata import UVBeam, UVData
+from pyuvsim import BeamList
+from pyuvsim import analyticbeam as ab
+from pyuvsim.simsetup import (
+    _complete_uvdata,
+    initialize_catalog_from_params,
+    initialize_uvdata_from_params,
+    uvdata_to_telescope_config,
+)
+from typing import List, Sequence, Union
+
 from .. import __version__
 from .. import visibilities as vis
-import importlib
-import yaml
 
 BeamListType = Union[BeamList, List[Union[ab.AnalyticBeam, UVBeam]]]
 
@@ -68,7 +70,7 @@ class ModelData:
         *,
         uvdata: UVData | str | Path,
         sky_model: SkyModel,
-        beam_ids: Dict[str, int] | Sequence[int] | None = None,
+        beam_ids: dict[str, int] | Sequence[int] | None = None,
         beams: BeamListType | None = None,
         normalize_beams: bool = False,
     ):
@@ -133,9 +135,9 @@ class ModelData:
 
     def _process_beam_ids(
         self,
-        beam_ids: Dict[str, int] | np.typing.ArrayLike[int] | None,
+        beam_ids: dict[str, int] | np.typing.ArrayLike[int] | None,
         beams: BeamList,
-    ) -> Dict[str, int]:
+    ) -> dict[str, int]:
         # beam ids maps antenna name to INDEX of the beam in the beam list.
 
         # Set the beam_ids.
@@ -390,7 +392,7 @@ class VisibilitySimulator(metaclass=ABCMeta):
     def from_yaml(cls, yaml_config: dict | str | Path) -> VisibilitySimulator:
         """Generate the simulator from a YAML file or dictionary."""
         if not isinstance(yaml_config, dict):
-            with open(yaml_config, "r") as fl:
+            with open(yaml_config) as fl:
                 yaml_config = yaml.safe_load(fl)
 
         # In general, we allow to specify which simulator to use in the config,
@@ -412,7 +414,7 @@ class VisibilitySimulator(metaclass=ABCMeta):
 
 def load_simulator_from_yaml(config: Path | str) -> VisibilitySimulator:
     """Construct a visibility simulator from a YAML file."""
-    with open(config, "r") as fl:
+    with open(config) as fl:
         cfg = yaml.safe_load(fl)
 
     simulator_cls = cfg.pop("simulator")

@@ -1,14 +1,15 @@
 """Methods for input/output of data."""
-import os
-import warnings
 import numpy as np
+import os
 import pyuvdata
+import re
+import warnings
 from pyuvdata import UVData
 from pyuvsim.simsetup import initialize_uvdata_from_keywords
-from .defaults import _defaults
-from . import DATA_PATH
-import re
 from typing import Dict, Sequence
+
+from . import DATA_PATH
+from .defaults import _defaults
 
 HERA_LAT_LON_ALT = np.load(DATA_PATH / "HERA_LAT_LON_ALT.npy")
 

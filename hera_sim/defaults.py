@@ -1,11 +1,11 @@
 """Module for interfacing with package-wide default parameters."""
 
-import yaml
-import inspect
 import functools
+import inspect
 import warnings
-
+import yaml
 from os import path
+
 from .config import CONFIG_PATH
 
 SEASON_CONFIGS = {
@@ -20,7 +20,7 @@ class _Singleton(type):
 
     def __call__(cls, *args, **kwargs):
         if cls not in cls._instances:
-            cls._instances[cls] = super(_Singleton, cls).__call__(*args, **kwargs)
+            cls._instances[cls] = super().__call__(*args, **kwargs)
         return cls._instances[cls]
 
 
@@ -198,7 +198,7 @@ class Defaults(metaclass=_Singleton):
                 self._config_name = config
                 config = SEASON_CONFIGS[config]
             # load in the raw configuration
-            with open(config, "r") as conf:
+            with open(config) as conf:
                 self._raw_config = yaml.load(conf.read(), Loader=yaml.FullLoader)
         elif isinstance(config, dict):
             # set the raw configuration dictionary to config
@@ -290,7 +290,7 @@ class Defaults(metaclass=_Singleton):
             )
             for param, flag in flags.items():
                 if flag:
-                    warning += "{}\n".format(param)
+                    warning += f"{param}\n"
             warning += (
                 "Please check your configuration, as only the last "
                 "value specified for each parameter will be used."

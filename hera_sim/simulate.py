@@ -6,25 +6,22 @@ For detailed instructions on how to manage a simulation using the
 :class:`Simulator`, please refer to the tutorials.
 """
 
-from cached_property import cached_property
 import functools
 import inspect
+import numpy as np
+import time
 import warnings
 import yaml
-import time
-from pathlib import Path
-from deprecation import deprecated
-
-import numpy as np
-from pyuvdata import UVData
 from astropy import constants as const
-from typing import Type, Union, Tuple, Sequence, Optional, Dict
+from cached_property import cached_property
+from deprecation import deprecated
+from pathlib import Path
+from pyuvdata import UVData
+from typing import Dict, Optional, Sequence, Tuple, Type, Union
 
-from . import io
-from . import utils
-from .defaults import defaults
-from . import __version__
+from . import __version__, io, utils
 from .components import SimulationComponent, get_model, list_all_components
+from .defaults import defaults
 
 _add_depr = deprecated(
     deprecated_in="1.0", removed_in="2.0", details="Use the :meth:`add` method instead."
@@ -542,11 +539,11 @@ class Simulator:
 
         # read the simulation file if provided
         if sim_file is not None:
-            with open(sim_file, "r") as config:
+            with open(sim_file) as config:
                 try:
                     sim_params = yaml.load(config.read(), Loader=yaml.FullLoader)
                 except Exception:
-                    raise IOError("The configuration file was not able to be loaded.")
+                    raise OSError("The configuration file was not able to be loaded.")
 
         # loop over the entries in the configuration dictionary
         for component, params in sim_params.items():

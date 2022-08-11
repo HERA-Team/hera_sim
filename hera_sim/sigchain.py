@@ -6,16 +6,13 @@ example bandpass gains, reflections and cross-talk.
 
 import numpy as np
 import warnings
-from typing import Dict, Optional, Sequence, Tuple, Union
-
 from astropy import constants
 from scipy import stats
 from scipy.signal import blackmanharris
+from typing import Dict, Optional, Sequence, Tuple, Union
 
-from . import interpolators
-from . import utils
+from . import DATA_PATH, interpolators, utils
 from .components import component
-from . import DATA_PATH
 from .defaults import _defaults
 
 

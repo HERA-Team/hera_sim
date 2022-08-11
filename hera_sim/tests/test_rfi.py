@@ -1,8 +1,8 @@
 import pytest
+
 import numpy as np
 
-from hera_sim import rfi
-from hera_sim import DATA_PATH
+from hera_sim import DATA_PATH, rfi
 
 
 @pytest.fixture(scope="function")

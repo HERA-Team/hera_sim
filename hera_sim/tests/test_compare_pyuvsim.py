@@ -1,20 +1,18 @@
 """Compare vis_cpu with pyuvsim visibilities."""
-import numpy as np
 import pytest
 
-from pyuvsim import uvsim, simsetup, AnalyticBeam
+import copy
+import numpy as np
+from astropy.coordinates import Latitude, Longitude
+from astropy.time import Time
+from astropy.units import Quantity
+from pyradiosky import SkyModel
+from pyuvsim import AnalyticBeam, simsetup, uvsim
 from pyuvsim.telescope import BeamList
 
-from hera_sim.beams import PolyBeam
-from hera_sim.visibilities import VisCPU, ModelData, VisibilitySimulation
 from hera_sim import io
-
-from astropy.coordinates import Latitude, Longitude
-from astropy.units import Quantity
-from astropy.time import Time
-
-from pyradiosky import SkyModel
-import copy
+from hera_sim.beams import PolyBeam
+from hera_sim.visibilities import ModelData, VisCPU, VisibilitySimulation
 
 nfreq = 3
 ntime = 20

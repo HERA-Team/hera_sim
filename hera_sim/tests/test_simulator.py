@@ -4,24 +4,23 @@ check for correctness of individual models, as they should be tested
 elsewhere.
 """
 
-import copy
-import itertools
-import tempfile
-import os
-import yaml
-from deprecation import fail_if_not_removed
-import numpy as np
 import pytest
 
-from hera_sim.foregrounds import DiffuseForeground, diffuse_foreground
-from hera_sim.noise import HERA_Tsky_mdl
-from hera_sim.antpos import hex_array
-from hera_sim import DATA_PATH, CONFIG_PATH
-from hera_sim.defaults import defaults
-from hera_sim.interpolators import Beam
-from hera_sim import Simulator, component
+import copy
+import itertools
+import numpy as np
+import os
+import tempfile
+import yaml
+from deprecation import fail_if_not_removed
 from pyuvdata import UVData
 
+from hera_sim import CONFIG_PATH, DATA_PATH, Simulator, component
+from hera_sim.antpos import hex_array
+from hera_sim.defaults import defaults
+from hera_sim.foregrounds import DiffuseForeground, diffuse_foreground
+from hera_sim.interpolators import Beam
+from hera_sim.noise import HERA_Tsky_mdl
 
 beamfile = os.path.join(DATA_PATH, "HERA_H1C_BEAM_POLY.npy")
 omega_p = Beam(beamfile)

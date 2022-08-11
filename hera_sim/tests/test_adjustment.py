@@ -1,21 +1,18 @@
 """Test the various simulation adjustment tools."""
 
+import pytest
+
 import copy
 import itertools
 import logging
-import os
-import pytest
-
-from astropy import units
-from scipy import stats
 import numpy as np
-
-from hera_sim import adjustment
-from hera_sim import antpos
-from hera_sim import interpolators
-from hera_sim import Simulator
+import os
+from astropy import units
 from pyuvdata import UVData
 from pyuvdata.utils import antnums_to_baseline
+from scipy import stats
+
+from hera_sim import Simulator, adjustment, antpos, interpolators
 
 # For use later when simulating foregrounds.
 Tsky_mdl = interpolators.Tsky(datafile="HERA_Tsky_Reformatted.npz")

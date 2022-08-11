@@ -1,10 +1,11 @@
 import pytest
-from hera_sim import sigchain, noise, foregrounds
-from hera_sim.interpolators import Bandpass, Beam
-from hera_sim import DATA_PATH
-import uvtools
+
 import numpy as np
-from astropy import units, constants
+import uvtools
+from astropy import constants, units
+
+from hera_sim import DATA_PATH, foregrounds, noise, sigchain
+from hera_sim.interpolators import Bandpass, Beam
 
 np.random.seed(0)
 

@@ -1,11 +1,12 @@
-from contextlib import ExitStack as does_not_raise
 import pytest
-from hera_sim import foregrounds
-from hera_sim import DATA_PATH
-from hera_sim.interpolators import Beam, Tsky
-from astropy import units
+
 import numpy as np
+from astropy import units
+from contextlib import ExitStack as does_not_raise
 from uvtools.utils import FFT, fourier_freqs
+
+from hera_sim import DATA_PATH, foregrounds
+from hera_sim.interpolators import Beam, Tsky
 
 
 @pytest.fixture(scope="function")

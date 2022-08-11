@@ -1,5 +1,6 @@
-from hera_sim import antpos
 import numpy as np
+
+from hera_sim import antpos
 
 
 def check_ant_labels(Nants_expected, ants):

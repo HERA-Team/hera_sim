@@ -1,21 +1,23 @@
 import pytest
+
+import astropy_healpix.healpy as hp
+import copy
 import numpy as np
-from hera_sim.visibilities import VisCPU, ModelData, VisibilitySimulation
+from astropy import units
+from astropy.coordinates import Latitude, Longitude
+from pyradiosky import SkyModel
+from typing import List
+
 from hera_sim import io
 from hera_sim.beams import (
     PerturbedPolyBeam,
     PolyBeam,
-    efield_to_pstokes,
     ZernikeBeam,
+    efield_to_pstokes,
     stokes_matrix,
 )
 from hera_sim.defaults import defaults
-from pyradiosky import SkyModel
-from astropy import units
-from astropy.coordinates import Longitude, Latitude
-import astropy_healpix.healpy as hp
-from typing import List
-import copy
+from hera_sim.visibilities import ModelData, VisCPU, VisibilitySimulation
 
 np.seterr(invalid="ignore")
 

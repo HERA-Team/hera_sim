@@ -1,10 +1,9 @@
 """Basic tests of the hera-sim-simulate script."""
 
-import os
 import pytest
 
 import numpy as np
-
+import os
 from pyuvdata import UVCal, UVData
 
 

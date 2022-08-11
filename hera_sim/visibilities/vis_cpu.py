@@ -1,19 +1,19 @@
 """Wrapper for vis_cpu visibility simulator."""
-from __future__ import division, annotations
-import numpy as np
-import itertools
-
-from .simulators import VisibilitySimulator, ModelData
-from typing import Tuple, Union, Optional, List
+from __future__ import annotations, division
 
 import astropy.units as u
-from astropy.time import Time
+import itertools
+import numpy as np
 from astropy.coordinates import EarthLocation
-
-from vis_cpu import vis_cpu, vis_gpu, HAVE_GPU, __version__
-from vis_cpu import conversions as convs
+from astropy.time import Time
 from pyuvdata import UVData
 from pyuvdata import utils as uvutils
+
+from vis_cpu import HAVE_GPU, __version__
+from vis_cpu import conversions as convs
+from vis_cpu import vis_cpu, vis_gpu
+
+from .simulators import ModelData, VisibilitySimulator
 
 
 class VisCPU(VisibilitySimulator):
@@ -71,7 +71,7 @@ class VisCPU(VisibilitySimulator):
         precision: int = 1,
         use_gpu: bool = False,
         mpi_comm=None,
-        ref_time: Optional[Union[str, Time]] = None,
+        ref_time: str | Time | None = None,
         correct_source_positions: bool | None = None,
     ):
         assert precision in {1, 2}
@@ -157,9 +157,9 @@ class VisCPU(VisibilitySimulator):
     def correct_point_source_pos(
         self,
         data_model: ModelData,
-        obstime: Optional[Union[str, Time]] = None,
+        obstime: str | Time | None = None,
         frame: str = "icrs",
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray, np.ndarray]:
         """Apply correction to source RA and Dec positions to improve accuracy.
 
         This uses an astropy-based coordinate correction, computed for a single
@@ -345,7 +345,7 @@ class VisCPU(VisibilitySimulator):
 
                 visfull[indx, p] = vis_here
 
-    def _get_req_pols(self, uvdata, uvbeam, polarized: bool) -> List[Tuple[int, int]]:
+    def _get_req_pols(self, uvdata, uvbeam, polarized: bool) -> list[tuple[int, int]]:
         if not polarized:
             return [(0, 0)]
 

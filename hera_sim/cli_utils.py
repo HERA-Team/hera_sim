@@ -1,11 +1,12 @@
 """Useful helper functions and argparsers for running simulations via CLI."""
 import itertools
+import numpy as np
 import os
 import warnings
-import numpy as np
+from pyuvdata import UVData
+
 from .defaults import SEASON_CONFIGS
 from .simulate import Simulator
-from pyuvdata import UVData
 
 
 def get_filing_params(config: dict):

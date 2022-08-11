@@ -1,15 +1,14 @@
 """Test different utilities for the command-line interface."""
 
-import os
 import pytest
 
-from astropy import units
 import numpy as np
-
-from hera_sim import cli_utils
-from hera_sim import Simulator
-from hera_sim.sigchain import gen_gains
+import os
+from astropy import units
 from pyuvdata import UVCal
+
+from hera_sim import Simulator, cli_utils
+from hera_sim.sigchain import gen_gains
 
 
 @pytest.fixture

@@ -1,8 +1,9 @@
 """Wrapper for the pyuvsim simulator."""
-import pyuvsim
-from .simulators import VisibilitySimulator, ModelData
 import numpy as np
+import pyuvsim
 import warnings
+
+from .simulators import ModelData, VisibilitySimulator
 
 
 class UVSim(VisibilitySimulator):

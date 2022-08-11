@@ -1,13 +1,14 @@
 """A module providing discoverability features for hera_sim."""
 
 from __future__ import annotations
+
 import re
-from abc import abstractmethod, ABCMeta
-from copy import deepcopy
-from .defaults import defaults
-from typing import Dict, Optional, Tuple, Type
-from types import new_class
+from abc import ABCMeta, abstractmethod
 from collections import defaultdict
+from copy import deepcopy
+from types import new_class
+
+from .defaults import defaults
 
 _available_components = {}
 
@@ -37,7 +38,7 @@ class SimulationComponent(metaclass=ABCMeta):
     #: Whether this systematic multiplies existing visibilities
     is_multiplicative: bool = False
 
-    _alias: Tuple[str] = tuple()
+    _alias: tuple[str] = tuple()
 
     # Keyword arguments for the Simulator to extract from the data
     _extract_kwargs = set()
@@ -81,7 +82,7 @@ class SimulationComponent(metaclass=ABCMeta):
                 cls._models[name] = cls
 
     @classmethod
-    def get_aliases(cls) -> Tuple[str]:
+    def get_aliases(cls) -> tuple[str]:
         """Get all the aliases by which this model can be identified."""
         return (cls.__name__.lower(),) + cls._alias
 
@@ -162,7 +163,7 @@ class SimulationComponent(metaclass=ABCMeta):
         return param_section.partition(section_headings[1])[0]
 
     @classmethod
-    def get_models(cls, with_aliases=False) -> Dict[str, SimulationComponent]:
+    def get_models(cls, with_aliases=False) -> dict[str, SimulationComponent]:
         """Get a dictionary of models associated with this component."""
         if with_aliases:
             return deepcopy(cls._models)
@@ -221,7 +222,7 @@ def component(cls):
     return cls
 
 
-def get_all_components(with_aliases=False) -> Dict[str, Dict[str, SimulationComponent]]:
+def get_all_components(with_aliases=False) -> dict[str, dict[str, SimulationComponent]]:
     """Get a dictionary of component names mapping to a dictionary of models."""
     return {
         cmp_name.lower(): cmp.get_models(with_aliases)
@@ -229,12 +230,12 @@ def get_all_components(with_aliases=False) -> Dict[str, Dict[str, SimulationComp
     }
 
 
-def get_models(cmp: str, with_aliases: bool = False) -> Dict[str, SimulationComponent]:
+def get_models(cmp: str, with_aliases: bool = False) -> dict[str, SimulationComponent]:
     """Get a dict of model names mapping to model classes for a particular component."""
     return get_all_components(with_aliases)[cmp.lower()]
 
 
-def get_all_models(with_aliases: bool = False) -> Dict[str, SimulationComponent]:
+def get_all_models(with_aliases: bool = False) -> dict[str, SimulationComponent]:
     """Get a dictionary of model names mapping to their classes for all possible models.
 
     See Also
@@ -250,7 +251,7 @@ def get_all_models(with_aliases: bool = False) -> Dict[str, SimulationComponent]
     return out
 
 
-def get_model(mdl: str, cmp: Optional[str] = None) -> Type[SimulationComponent]:
+def get_model(mdl: str, cmp: str | None = None) -> type[SimulationComponent]:
     """Get a particular model, based on its name.
 
     Parameters

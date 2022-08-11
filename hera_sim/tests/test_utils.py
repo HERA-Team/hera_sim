@@ -1,10 +1,9 @@
-import numpy as np
 import pytest
 
+import numpy as np
 from astropy import units
 
-from hera_sim import utils
-from hera_sim import DATA_PATH
+from hera_sim import DATA_PATH, utils
 from hera_sim.interpolators import Beam
 
 
