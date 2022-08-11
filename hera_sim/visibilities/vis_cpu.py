@@ -172,8 +172,8 @@ class VisCPU(VisibilitySimulator):
         """
         bm = data_model.beams[0]
         nt = len(data_model.lsts)
-        nax = len(bm.Naxes_vec)
-        nfd = len(bm.Nfeeds)
+        nax = bm.Naxes_vec
+        nfd = bm.Nfeeds
         nant = len(data_model.uvdata.antenna_names)
         nsrc = len(data_model.sky_model.ra)
         nbeam = len(data_model.beams)
