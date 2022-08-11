@@ -12,6 +12,7 @@ from pyuvdata import utils as uvutils
 from vis_cpu import HAVE_GPU, __version__
 from vis_cpu import conversions as convs
 from vis_cpu import vis_cpu, vis_gpu
+from vis_cpu.cpu import _evaluate_beam_cpu, _wrangle_beams
 
 from .simulators import ModelData, VisibilitySimulator
 
@@ -102,7 +103,7 @@ class VisCPU(VisibilitySimulator):
             else correct_source_positions
         )
 
-        self._functions_to_profile = (self._vis_cpu,)
+        self._functions_to_profile = (self._vis_cpu, _wrangle_beams, _evaluate_beam_cpu)
 
     def validate(self, data_model: ModelData):
         """Checks for correct input format."""
