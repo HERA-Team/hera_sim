@@ -10,7 +10,7 @@ try:
     DATA_PATH = Path(__file__).parent / "data"
     CONFIG_PATH = Path(__file__).parent / "config"
     __version__ = version(__name__)
-except PackageNotFoundError:
+except PackageNotFoundError:  # pragma: no cover
     # package is not installed
     pass
 
