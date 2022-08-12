@@ -323,17 +323,24 @@ class VisCPU(VisibilitySimulator):
         active_antpos, ant_list = data_model.uvdata.get_ENU_antpos(pick_data_ants=True)
 
         # Get pixelized beams if required
+
         beam_list = [
             convs.prepare_beam(
-                data_model.beams[data_model.beam_ids[name]],
+                beam,
                 polarized=polarized,
                 use_feed=feed,
             )
-            for number, name in zip(
-                data_model.uvdata.antenna_numbers, data_model.uvdata.antenna_names
-            )
-            if number in ant_list
+            for beam in data_model.beams
         ]
+        beam_ids = np.array(
+            [
+                data_model.beam_ids[nm]
+                for i, nm in zip(
+                    data_model.uvdata.antenna_numbers, data_model.uvdata.antenna_names
+                )
+                if i in ant_list
+            ]
+        )
 
         # Get all the polarizations required to be simulated.
         req_pols = self._get_req_pols(
@@ -356,6 +363,7 @@ class VisCPU(VisibilitySimulator):
                 crd_eq=crd_eq,
                 I_sky=data_model.sky_model.stokes[0, i].to("Jy").value,
                 beam_list=beam_list,
+                beam_idx=beam_ids,
                 precision=self._precision,
                 polarized=polarized,
             )
