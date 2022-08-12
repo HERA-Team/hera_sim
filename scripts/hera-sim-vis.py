@@ -7,6 +7,7 @@ This script may be used to run a visibility simulation from a configuration file
 write the result to disk.
 """
 import argparse
+import importlib
 import numpy as np
 import psutil
 import pyradiosky
@@ -76,6 +77,9 @@ if __name__ == "__main__":
         default="",
         help="If given, do line-profiling on the simulation, and output to given file.",
     )
+    parser.add_argument(
+        "-p", "--extra-profile-func", type=str, action="append", dest="profile_funcs"
+    )
     args = parser.parse_args()
 
     if HAVE_MPI and not MPI.Is_initialized():
@@ -131,6 +135,16 @@ if __name__ == "__main__":
         profiler.add_function(simulator.simulate)
         for fnc in simulator._functions_to_profile:
             profiler.add_function(fnc)
+
+        # Now add any user-defined functions that they want to be profiled.
+        # Functions must be sent in as "path.to.module:function_name" or
+        # "path.to.module:Class.method".
+        for fnc in args.profile_funcs:
+            module = importlib.import_module(fnc.split(":")[0])
+            _fnc = module
+            for att in fnc.split(":")[-1].split("."):
+                _fnc = getattr(_fnc, att)
+            profiler.add_function(_fnc)
 
     simulation = VisibilitySimulation(data_model=data_model, simulator=simulator)
 
