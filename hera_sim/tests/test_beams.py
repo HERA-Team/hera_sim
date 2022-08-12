@@ -61,36 +61,7 @@ def evaluate_polybeam(polybeam):
     az = -np.arctan2(m, L)
     za = np.pi / 2 - np.arcsin(n)
 
-    freqs = np.array(
-        [
-            1.00e08,
-            1.04e08,
-            1.08e08,
-            1.12e08,
-            1.16e08,
-            1.20e08,
-            1.24e08,
-            1.28e08,
-            1.32e08,
-            1.36e08,
-            1.40e08,
-            1.44e08,
-            1.48e08,
-            1.52e08,
-            1.56e08,
-            1.60e08,
-            1.64e08,
-            1.68e08,
-            1.72e08,
-            1.76e08,
-            1.80e08,
-            1.84e08,
-            1.88e08,
-            1.92e08,
-            1.96e08,
-            2.00e08,
-        ]
-    )
+    freqs = np.arange(1e8, 2.01e8, 0.04e8)
 
     eval_beam = polybeam.interp(az, za, freqs)
 
@@ -250,31 +221,21 @@ class TestPerturbedPolyBeam:
         rvals = np.linspace(0.0, 180.0, 31, dtype=int)
 
         rotations = np.zeros(rvals.size)
-        # pix_results = np.zeros(rvals.size)
         calc_results = np.zeros(rvals.size)
         for i, r in enumerate(rvals):
             beams = self.get_perturbed_beams(r, power_beam=True)
-            # pix_result = run_sim(antennas, sources, beams, use_pixel_beams=True)
 
             # Direct beam calculation - no pixel beams
             calc_result = run_sim(antennas, sources, beams)
 
             rotations[i] = r
-            # pix_results[i] = pix_result
             calc_results[i] = calc_result
 
-        # Check that the maximum difference between pixel beams/direct calculation
-        # cases is no more than 5%. This shows the direct calculation of the beam
-        # tracks the pixel beam interpolation. They won't be exactly the same.
-        # np.testing.assert_allclose(pix_results, calc_results, rtol=0.05)
-
         # Check that rotations 0 and 180 produce the same values.
-        # assert pix_results[0] == pytest.approx(pix_results[-1], abs=1e-8)
         assert calc_results[0] == pytest.approx(calc_results[-1], abs=1e-8)
 
         # Check that the values are not all the same. Shouldn't be, due to
         # elliptic beam.
-        # assert np.min(pix_results) != pytest.approx(np.max(pix_results), abs=0.1)
         assert np.min(calc_results) != pytest.approx(np.max(calc_results), abs=0.1)
 
     def test_power_beam(self, antennas, sources):
@@ -514,17 +475,6 @@ class TestZernikeBeam:
             ],
         )
         return [ZernikeBeam(**cfg_beam)]
-
-    # def test_sim_with_pixels(self, beams, antennas, sources):
-
-    #     # Calculate visibilities using pixel and interpolated beams
-    #     # pix_result = run_sim(antennas, sources, beams, use_pixel_beams=True)
-    #     calc_result = run_sim(antennas, sources, beams)
-
-    #     # Check that the maximum difference between pixel beams/direct calculation
-    #     # cases is no more than 5%. This shows the direct calculation of the beam
-    #     # tracks the pixel beam interpolation. They won't be exactly the same.
-    #     np.testing.assert_allclose(pix_result, calc_result, rtol=0.05)
 
     def test_equality(self, beams):
         # Check basic methods
