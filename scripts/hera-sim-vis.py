@@ -116,11 +116,11 @@ if __name__ == "__main__":
     )
 
     ram = simulator.estimate_memory(data_model)
-    ram_avail = psutil.virtual_memory().available * 1024**3
+    ram_avail = psutil.virtual_memory().available / 1024**3
 
     cprint(
         f"[bold {'red' if ram < 1.5*ram_avail else 'green'}] This simulation will use "
-        f"at least {ram}GB of RAM (Available: {ram_avail}GB).[/]"
+        f"at least {ram:.2f}GB of RAM (Available: {ram_avail:.2f}GB).[/]"
     )
     if args.object_name is None:
         data_model.uvdata.object_name = simulator.__class__.__name__
