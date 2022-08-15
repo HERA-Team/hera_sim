@@ -78,7 +78,16 @@ if __name__ == "__main__":
         help="If given, do line-profiling on the simulation, and output to given file.",
     )
     parser.add_argument(
-        "-p", "--extra-profile-func", type=str, action="append", dest="profile_funcs"
+        "-p",
+        "--extra-profile-func",
+        type=str,
+        action="append",
+        dest="profile_funcs",
+        help=(
+            "Extra functions to profile. Can be given multiple times. Each must be a "
+            "fully-qualified path to a function or method, eg. package.module:function "
+            "or package.module:Class.method"
+        ),
     )
     args = parser.parse_args()
 
