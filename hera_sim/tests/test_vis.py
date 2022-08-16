@@ -207,6 +207,13 @@ def test_JD(uvdata, uvdataJD, sky_model):
     assert not np.allclose(sim1, sim2, atol=0.1)
 
 
+def test_vis_cpu_estimate_memory(uvdata, uvdataJD, sky_model):
+    model_data = ModelData(sky_model=sky_model, uvdata=uvdata)
+    vis = VisCPU()
+    mem = vis.estimate_memory(model_data)
+    assert mem > 0
+
+
 @pytest.fixture
 def uvdata2():
     defaults.set("h1c")
