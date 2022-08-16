@@ -6,15 +6,17 @@ Command-line interface for simulating visibilities with ``hera_sim``.
 This script may be used to run a visibility simulation from a configuration file and
 write the result to disk.
 """
-import sys
-import yaml
 import argparse
-from pathlib import Path
-
+import importlib
 import numpy as np
+import psutil
+import pyradiosky
 import pyuvdata
 import pyuvsim
-import pyradiosky
+import sys
+import yaml
+from pathlib import Path
+
 import hera_sim
 
 try:
@@ -24,14 +26,15 @@ try:
 except ImportError:
     HAVE_MPI = False
 
+from rich.console import Console
+from rich.panel import Panel
+from rich.rule import Rule
+
 from hera_sim.visibilities import (
     ModelData,
     VisibilitySimulation,
     load_simulator_from_yaml,
 )
-from rich.console import Console
-from rich.rule import Rule
-from rich.panel import Panel
 
 cns = Console()
 
@@ -68,7 +71,24 @@ if __name__ == "__main__":
         default=5e-14,
         help="Maximum fraction of imaginary/absolute for autos before raising an error",
     )
-
+    parser.add_argument(
+        "--profile",
+        type=str,
+        default="",
+        help="If given, do line-profiling on the simulation, and output to given file.",
+    )
+    parser.add_argument(
+        "-p",
+        "--extra-profile-func",
+        type=str,
+        action="append",
+        dest="profile_funcs",
+        help=(
+            "Extra functions to profile. Can be given multiple times. Each must be a "
+            "fully-qualified path to a function or method, eg. package.module:function "
+            "or package.module:Class.method"
+        ),
+    )
     args = parser.parse_args()
 
     if HAVE_MPI and not MPI.Is_initialized():
@@ -104,17 +124,46 @@ if __name__ == "__main__":
         """
     )
 
+    ram = simulator.estimate_memory(data_model)
+    ram_avail = psutil.virtual_memory().available / 1024**3
+
+    cprint(
+        f"[bold {'red' if ram < 1.5*ram_avail else 'green'}] This simulation will use "
+        f"at least {ram:.2f}GB of RAM (Available: {ram_avail:.2f}GB).[/]"
+    )
     if args.object_name is None:
         data_model.uvdata.object_name = simulator.__class__.__name__
     else:
         data_model.uvdata.object_name = args.object_name
+
+    if args.profile:
+        cprint(f"Profiling simulation. Output to {args.profile}")
+        from line_profiler import LineProfiler
+
+        profiler = LineProfiler()
+        profiler.add_function(simulator.simulate)
+        for fnc in simulator._functions_to_profile:
+            profiler.add_function(fnc)
+
+        # Now add any user-defined functions that they want to be profiled.
+        # Functions must be sent in as "path.to.module:function_name" or
+        # "path.to.module:Class.method".
+        for fnc in args.profile_funcs:
+            module = importlib.import_module(fnc.split(":")[0])
+            _fnc = module
+            for att in fnc.split(":")[-1].split("."):
+                _fnc = getattr(_fnc, att)
+            profiler.add_function(_fnc)
 
     simulation = VisibilitySimulation(data_model=data_model, simulator=simulator)
 
     # Run simulation
     cprint()
     cprint(Rule("Running Simulation"))
-    simulation.simulate()
+    if args.profile:
+        profiler.runcall(simulation.simulate)
+    else:
+        simulation.simulate()
     cprint("[green]:heavy_check_mark:[/] Completed Simulation!")
     cprint(Rule())
 
@@ -172,6 +221,16 @@ if __name__ == "__main__":
         data_model.uvdata.write_uvh5(outfile.as_posix(), clobber=clobber)
         cns.print("[green]:heavy_check_mark:[/]")
 
+        if args.profile:
+            cns.print(Rule("Profiling Information"))
+
+            profiler.print_stats()
+
+            with open(f"{args.profile}", "w") as fl:
+                profiler.print_stats(stream=fl)
+
+            cns.print(Rule())
+            cns.print()
     # Sync with other workers and finalise
     if HAVE_MPI:
         comm.Barrier()

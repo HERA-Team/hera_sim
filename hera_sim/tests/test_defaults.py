@@ -1,11 +1,13 @@
-from os.path import join
-import numpy as np
 import pytest
+
+import numpy as np
+from os.path import join
 from warnings import catch_warnings
-from hera_sim.defaults import defaults
+
 from hera_sim.config import CONFIG_PATH
+from hera_sim.defaults import defaults
+from hera_sim.interpolators import Beam, Tsky
 from hera_sim.sigchain import gen_bandpass
-from hera_sim.interpolators import Tsky, Beam
 
 
 def test_config_swap():

@@ -1,8 +1,9 @@
 """Wrapper for the pyuvsim simulator."""
-import pyuvsim
-from .simulators import VisibilitySimulator, ModelData
 import numpy as np
+import pyuvsim
 import warnings
+
+from .simulators import ModelData, VisibilitySimulator
 
 
 class UVSim(VisibilitySimulator):
@@ -13,6 +14,8 @@ class UVSim(VisibilitySimulator):
     quiet
         If True, don't print anything.
     """
+
+    _functions_to_profile = (pyuvsim.uvsim.run_uvdata_uvsim,)
 
     def __init__(self, quiet: bool = False):
         self.quiet = quiet

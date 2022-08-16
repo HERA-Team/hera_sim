@@ -1,8 +1,8 @@
 """Module for testing the various new YAML tags in this package."""
 
 import pytest
-import yaml
 
+import yaml
 from astropy.units.quantity import Quantity
 
 
@@ -22,7 +22,7 @@ def test_astropy_units_constructor(tmp_path):
                 units: rad
                 """
         )
-    with open(tfile, "r") as f:
+    with open(tfile) as f:
         mydict = yaml.load(f.read(), Loader=yaml.FullLoader)
     for value in mydict.values():
         assert isinstance(value, Quantity)
@@ -39,7 +39,7 @@ def test_astropy_constructor_nonetypes(tmp_path):
                 value: 1
                 """
         )
-    with open(tfile, "r") as f:
+    with open(tfile) as f:
         mydict = yaml.load(f.read(), Loader=yaml.FullLoader)
     for value in mydict.values():
         assert value is None
@@ -55,6 +55,6 @@ def bad_astropy_units(tmp_path):
                 units: bad_units"""
         )
     with pytest.raises(ValueError) as err:
-        with open(tfile, "r") as f:
+        with open(tfile) as f:
             yaml.load(f.read(), Loader=yaml.FullLoader)
     assert "Please check your configuration" in err.value.args[0]

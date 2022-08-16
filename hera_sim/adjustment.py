@@ -2,22 +2,21 @@
 
 import copy
 import logging
+import numpy as np
 import os
 import pathlib
-
-import numpy as np
-from scipy.interpolate import interp1d, RectBivariateSpline
-from warnings import warn
-
 from pyuvdata import UVData
 from pyuvdata.utils import polnum2str
+from scipy.interpolate import RectBivariateSpline, interp1d
+from warnings import warn
+
 from .simulate import Simulator
 from .utils import _listify
 
 try:
     # Import hera_cal functions.
-    from hera_cal.io import to_HERAData
     from hera_cal.abscal import get_d2m_time_map
+    from hera_cal.io import to_HERAData
     from hera_cal.utils import lst_rephase
 
     HERA_CAL = True

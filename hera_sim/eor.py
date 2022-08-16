@@ -7,9 +7,10 @@ a visibility appropriate for the given baseline.
 """
 
 import numpy as np
-from .components import component
-from . import utils
 from typing import Optional
+
+from . import utils
+from .components import component
 
 
 @component

@@ -1,10 +1,11 @@
 """Utility module."""
-import numpy as np
 import astropy.constants as const
 import astropy.units as u
-from scipy.interpolate import RectBivariateSpline
-from typing import Sequence, Optional, Tuple, Union
+import numpy as np
 import warnings
+from scipy.interpolate import RectBivariateSpline
+from typing import Optional, Sequence, Tuple, Union
+
 from .interpolators import Beam
 
 

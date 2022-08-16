@@ -1,11 +1,9 @@
-from hera_sim.noise import Noise, ThermalNoise
-from hera_sim.components import (
-    component,
-    get_model,
-    get_models,
-)
 import pytest
+
 import numpy as np
+
+from hera_sim.components import component, get_model, get_models
+from hera_sim.noise import Noise, ThermalNoise
 
 
 def test_get_component():

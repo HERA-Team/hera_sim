@@ -1,11 +1,11 @@
 """Script for making a mock point source catalog."""
-from pyuvsim.simsetup import initialize_uvdata_from_params
-from astropy.coordinates import EarthLocation, Latitude, Longitude
-from astropy import units
-import numpy as np
-from pyuvsim import create_mock_catalog
-from pyradiosky import SkyModel
 import argparse
+import numpy as np
+from astropy import units
+from astropy.coordinates import EarthLocation, Latitude, Longitude
+from pyradiosky import SkyModel
+from pyuvsim import create_mock_catalog
+from pyuvsim.simsetup import initialize_uvdata_from_params
 
 
 def make_mock_catalog(

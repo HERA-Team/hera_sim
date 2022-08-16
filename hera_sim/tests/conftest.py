@@ -1,6 +1,7 @@
 import pytest
-from astropy.utils import iers
+
 from astropy.time import Time
+from astropy.utils import iers
 
 
 @pytest.fixture(autouse=True, scope="session")

@@ -1,8 +1,10 @@
 import pytest
-from hera_cal import redcal as om
+
 import numpy as np
-from hera_sim.antpos import linear_array
+from hera_cal import redcal as om
+
 from hera_sim import vis
+from hera_sim.antpos import linear_array
 
 
 @pytest.fixture(scope="function")

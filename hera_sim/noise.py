@@ -1,13 +1,12 @@
 """Models of thermal noise."""
 
-import warnings
 import astropy.units as u
 import numpy as np
+import warnings
 
+from . import DATA_PATH, utils
 from .components import component
-from . import DATA_PATH
 from .interpolators import Tsky
-from . import utils
 
 # to minimize breaking changes
 HERA_Tsky_mdl = {

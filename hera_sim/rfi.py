@@ -1,10 +1,11 @@
 """Models of radio frequency interference."""
-import warnings
-import numpy as np
 import astropy.units as u
+import numpy as np
+import warnings
+from pathlib import Path
+
 from .components import component
 from .utils import _listify
-from pathlib import Path
 
 
 @component

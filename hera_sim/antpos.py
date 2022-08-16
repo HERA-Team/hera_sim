@@ -5,6 +5,7 @@ dictionary whose keys refer to antenna numbers and whose values refer
 to the ENU position of the antennas.
 """
 import numpy as np
+
 from .components import component
 
 # FIXME: old docstrings state that the positions are returned in topocentric

@@ -1,6 +1,8 @@
 import pytest
-from hera_sim import eor
+
 import numpy as np
+
+from hera_sim import eor
 
 
 @pytest.fixture(scope="function")

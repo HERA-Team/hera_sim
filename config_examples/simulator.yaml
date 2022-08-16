@@ -1,5 +1,4 @@
 simulator: VisCPU
-use_pixel_beams: false
 precision: 2
 ref_time: mean
 correct_source_positions: true

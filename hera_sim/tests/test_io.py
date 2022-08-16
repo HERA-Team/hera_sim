@@ -1,4 +1,5 @@
 import pytest
+
 import numpy as np
 
 from hera_sim import io
@@ -84,11 +85,11 @@ def test_deprecation_warning(
 def test_chunker_using_ref_files(sample_uvd, tmp_path):
     io.chunk_sim_and_save(sample_uvd, tmp_path, Nint_per_file=5, prefix="zen")
     ref_files = sorted(
-        [tmp_path / f for f in tmp_path.iterdir() if f.name.startswith("zen")]
+        tmp_path / f for f in tmp_path.iterdir() if f.name.startswith("zen")
     )
     io.chunk_sim_and_save(sample_uvd, tmp_path, ref_files=ref_files, prefix="hor")
     new_files = sorted(
-        [tmp_path / f for f in tmp_path.iterdir() if f.name.startswith("hor")]
+        tmp_path / f for f in tmp_path.iterdir() if f.name.startswith("hor")
     )
     print([f.name[4:] for f in ref_files])
     print([f.name[4:] for f in new_files])

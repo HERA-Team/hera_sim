@@ -2,20 +2,19 @@
 from __future__ import division
 
 import numpy as np
-
 import pyuvsim
 import warnings
-from .simulators import VisibilitySimulator, ModelData, SkyModel
-
 from astropy import constants as cnst
 from astropy import units
 
+from .simulators import ModelData, SkyModel, VisibilitySimulator
+
 try:
-    from healvis.beam_model import AnalyticBeam
-    from healvis.simulator import setup_observatory_from_uvdata
-    from healvis import sky_model as hvsm
-    from healvis.observatory import Observatory
     import healvis as hv
+    from healvis import sky_model as hvsm
+    from healvis.beam_model import AnalyticBeam
+    from healvis.observatory import Observatory
+    from healvis.simulator import setup_observatory_from_uvdata
 
     HAVE_HEALVIS = True
 except ImportError:
@@ -39,6 +38,8 @@ class HealVis(VisibilitySimulator):
 
     point_source_ability = False
     diffuse_ability = True
+    _functions_to_profile = (hv.observatory.Observatory.make_visibilities,)
+
     __version__ = hv.__version__
 
     def __init__(self, fov=180, nprocesses=1, sky_ref_chan=0):

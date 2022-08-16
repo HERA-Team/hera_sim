@@ -1,9 +1,9 @@
-import numpy as np
 import pytest
 
+import numpy as np
 from scipy.interpolate import RectBivariateSpline, interp1d
-from hera_sim.interpolators import Tsky, Beam, Bandpass, _check_path, _read
 
+from hera_sim.interpolators import Bandpass, Beam, Tsky, _check_path, _read
 
 INTERPOLATORS = {"beam": Beam, "bandpass": Bandpass, "tsky": Tsky}
 

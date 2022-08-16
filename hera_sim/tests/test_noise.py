@@ -1,13 +1,12 @@
-from contextlib import contextmanager
 import pytest
 
 import numpy as np
 from astropy import units
+from contextlib import contextmanager
 
-from hera_sim import noise, utils
-from hera_sim import DATA_PATH
-from hera_sim.interpolators import Beam
+from hera_sim import DATA_PATH, noise, utils
 from hera_sim.defaults import defaults
+from hera_sim.interpolators import Beam
 
 # Ensure that defaults aren't subtly overwritten.
 defaults.deactivate()

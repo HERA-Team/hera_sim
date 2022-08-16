@@ -15,15 +15,15 @@ the ``config_examples`` folder in the top-level ``hera_sim`` directory.
 """
 import argparse
 import copy
+import numpy as np
 import os
 import sys
 import yaml
+from astropy import units
+from astropy.coordinates import Angle
 
-import numpy as np
 import hera_sim
 from hera_sim import cli_utils
-from astropy.coordinates import Angle
-from astropy import units
 
 try:
     import bda
@@ -68,7 +68,7 @@ if __name__ == "__main__":
     if args.verbose:
         print("Reading configuration file and validating contents...")
 
-    with open(args.config, "r") as cfg:
+    with open(args.config) as cfg:
         config = yaml.load(cfg.read(), Loader=yaml.FullLoader)
 
     cli_utils.validate_config(config)

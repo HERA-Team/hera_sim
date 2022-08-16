@@ -1,7 +1,8 @@
 """Functions for producing white-noise redundant visibilities."""
 import numpy as np
-from . import noise
 from copy import deepcopy
+
+from . import noise
 
 DEFAULT_LSTS = np.linspace(0, 2 * np.pi, 10000, endpoint=False)
 DEFAULT_FQS = np.linspace(0.1, 0.2, 1024, endpoint=False)

@@ -5,6 +5,21 @@ Changelog
 dev-version
 ===========
 
+v3.0.0
+======
+
+Removed
+-------
+
+- Finally removed ability to set ``use_pixel_beams`` and ``bm_pix`` on the VisCPU
+  simulator. This was removed in v1.0.0 of ``vis_cpu``.
+- Official support for py37.
+
+Internals
+---------
+
+- Added isort and pyupgrade pre-commit hooks for cleaner code.
+
 v2.3.4 [2022.06.08]
 ===================
 

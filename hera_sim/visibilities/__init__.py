@@ -8,16 +8,16 @@ temperature fields, rectilinear co-ordinates, spherical co-ordinates, healpix
 maps etc. This package intends to unify the interfaces of these various kinds
 of simulators.
 """
+from .pyuvsim_wrapper import UVSim
 from .simulators import (
-    VisibilitySimulator,
-    VisibilitySimulation,
     ModelData,
+    VisibilitySimulation,
+    VisibilitySimulator,
     load_simulator_from_yaml,
 )
 
 # Registered Simulators
 
-from .pyuvsim_wrapper import UVSim
 
 try:
     from .vis_cpu import VisCPU

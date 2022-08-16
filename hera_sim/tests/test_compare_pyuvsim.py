@@ -1,20 +1,18 @@
 """Compare vis_cpu with pyuvsim visibilities."""
-import numpy as np
 import pytest
 
-from pyuvsim import uvsim, simsetup, AnalyticBeam
+import copy
+import numpy as np
+from astropy.coordinates import Latitude, Longitude
+from astropy.time import Time
+from astropy.units import Quantity
+from pyradiosky import SkyModel
+from pyuvsim import AnalyticBeam, simsetup, uvsim
 from pyuvsim.telescope import BeamList
 
-from hera_sim.beams import PolyBeam
-from hera_sim.visibilities import VisCPU, ModelData, VisibilitySimulation
 from hera_sim import io
-
-from astropy.coordinates import Latitude, Longitude
-from astropy.units import Quantity
-from astropy.time import Time
-
-from pyradiosky import SkyModel
-import copy
+from hera_sim.beams import PolyBeam
+from hera_sim.visibilities import ModelData, VisCPU, VisibilitySimulation
 
 nfreq = 3
 ntime = 20
@@ -171,7 +169,6 @@ def test_compare_viscpu_with_pyuvsim(uvdata_allpols, nsource, beam_type, polariz
     simulator = VisCPU(
         ref_time=Time("2018-08-31T04:02:30.11", format="isot", scale="utc"),
         use_gpu=False,
-        use_pixel_beams=False,
     )
 
     # TODO: if we update the PolyBeam API so that it doesn't *require* 2 feeds,
