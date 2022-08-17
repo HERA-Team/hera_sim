@@ -8,6 +8,7 @@ write the result to disk.
 """
 import argparse
 import importlib
+import logging
 import numpy as np
 import psutil
 import pyradiosky
@@ -27,6 +28,7 @@ except ImportError:
     HAVE_MPI = False
 
 from rich.console import Console
+from rich.logging import RichHandler
 from rich.panel import Panel
 from rich.rule import Rule
 
@@ -36,13 +38,23 @@ from hera_sim.visibilities import (
     load_simulator_from_yaml,
 )
 
+logger = logging.getLogger(__name__)
+
 cns = Console()
+
+logging.basicConfig(
+    handler=RichHandler(console=cns, rich_tracebacks=True, tracebacks_show_locals=True)
+)
 
 
 def cprint(*args, **kwargs):
     """Print only if root worker."""
     if myid == 0:
         cns.print(*args, **kwargs)
+
+
+def memlog(pr, label="Current"):
+    logger.info(f"{label} Mem Usage: {pr.memory_info().rss / 1024**2} MB")
 
 
 if __name__ == "__main__":
@@ -89,7 +101,19 @@ if __name__ == "__main__":
             "or package.module:Class.method"
         ),
     )
+    parser.add_argument(
+        "-l",
+        "--log-level",
+        type=str,
+        help="String giving the log-level (eg. INFO or DEBUG)",
+    )
     args = parser.parse_args()
+    pr = psutil.Process()
+
+    ll = "INFO" if args.profile else args.log_level.upper()
+    logger.setLevel(ll)
+
+    memlog(pr, "Initial")
 
     if HAVE_MPI and not MPI.Is_initialized():
         MPI.Init()
@@ -106,10 +130,12 @@ if __name__ == "__main__":
         args.obsparam, normalize_beams=args.normalize_beams
     )
     cprint("[green]:heavy_check_mark:[/green]")
+    memlog(pr)
 
     cprint("Initializing VisibilitySimulator object... ", end="")
     simulator = load_simulator_from_yaml(args.simulator_config)
     cprint("[green]:heavy_check_mark:[/green]")
+    memlog(pr)
 
     # Print versions
     cprint(
@@ -158,6 +184,7 @@ if __name__ == "__main__":
     simulation = VisibilitySimulation(data_model=data_model, simulator=simulator)
 
     # Run simulation
+    memlog(pr)
     cprint()
     cprint(Rule("Running Simulation"))
     if args.profile:
@@ -166,6 +193,7 @@ if __name__ == "__main__":
         simulation.simulate()
     cprint("[green]:heavy_check_mark:[/] Completed Simulation!")
     cprint(Rule())
+    memlog(pr)
 
     if myid != 0:
         # Wait for root worker to finish IO before ending all other worker procs

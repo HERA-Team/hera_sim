@@ -3,7 +3,9 @@ from __future__ import annotations
 
 import astropy_healpix as aph
 import importlib
+import logging
 import numpy as np
+import psutil
 import yaml
 from abc import ABCMeta, abstractmethod
 from astropy import units
@@ -27,6 +29,7 @@ from .. import __version__
 from .. import visibilities as vis
 
 BeamListType = Union[BeamList, List[Union[ab.AnalyticBeam, UVBeam]]]
+logger = logging.getLogger(__name__)
 
 
 class ModelData:
@@ -181,10 +184,19 @@ class ModelData:
         cls, config_file: str | Path, normalize_beams: bool = False
     ) -> ModelData:
         """Initialize the :class:`ModelData` from a pyuvsim-compatible config."""
+        pr = psutil.Process()
         uvdata, beams, beam_ids = initialize_uvdata_from_params(config_file)
+        logger.info(f"After UVData init Mem Usage: {pr.memory_info().rss / 1024**2} MB")
+
         catalog = initialize_catalog_from_params(config_file, return_recarray=False)[0]
+        logger.info(
+            f"Post-Sky-Catalog-Read Mem Usage: {pr.memory_info().rss / 1024**2} MB"
+        )
 
         _complete_uvdata(uvdata, inplace=True)
+        logger.info(
+            f"Post-Complete-UVData Mem Usage: {pr.memory_info().rss / 1024**2} MB"
+        )
 
         return ModelData(
             uvdata=uvdata,
