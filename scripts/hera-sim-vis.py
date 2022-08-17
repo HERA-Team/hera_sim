@@ -43,7 +43,10 @@ logger = logging.getLogger(__name__)
 cns = Console()
 
 logging.basicConfig(
-    handler=RichHandler(console=cns, rich_tracebacks=True, tracebacks_show_locals=True)
+    level="NOTSET",
+    handlers=[
+        RichHandler(console=cns, rich_tracebacks=True, tracebacks_show_locals=True)
+    ],
 )
 
 
