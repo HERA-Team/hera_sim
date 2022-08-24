@@ -109,6 +109,7 @@ if __name__ == "__main__":
         "--log-level",
         type=str,
         help="String giving the log-level (eg. INFO or DEBUG)",
+        default="WARNING",
     )
     args = parser.parse_args()
     pr = psutil.Process()
