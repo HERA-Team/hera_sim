@@ -68,7 +68,7 @@ def print_sim_config(obsparam):
     cprint()
     cprint(Rule("[bold]Simulation Configuration:"))
     with open(obsparam) as fl:
-        d = yaml.load(fl)
+        d = yaml.load(fl, Loader=yaml.FullLoader)
 
     cprint(yaml.dump(d, default_flow_style=False))
     cprint(Rule())
