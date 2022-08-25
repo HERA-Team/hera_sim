@@ -151,7 +151,7 @@ if __name__ == "__main__":
     cprint("[green]:heavy_check_mark:[/green]")
     memlog(pr)
 
-    print_sim_config(data_model)
+    print_sim_config(args.obsparam)
 
     cprint("Initializing VisibilitySimulator object... ", end="")
     simulator = load_simulator_from_yaml(args.simulator_config)
