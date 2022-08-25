@@ -40,12 +40,16 @@ from hera_sim.visibilities import (
 
 logger = logging.getLogger(__name__)
 
-cns = Console()
+cns = Console(width=160)
 
 logging.basicConfig(
-    level="NOTSET",
     handlers=[
-        RichHandler(console=cns, rich_tracebacks=True, tracebacks_show_locals=True)
+        RichHandler(
+            console=cns,
+            rich_tracebacks=True,
+            tracebacks_show_locals=True,
+            show_path=False,
+        )
     ],
 )
 
@@ -58,6 +62,17 @@ def cprint(*args, **kwargs):
 
 def memlog(pr, label="Current"):
     logger.info(f"{label} Mem Usage: {pr.memory_info().rss / 1024**2} MB")
+
+
+def print_sim_config(obsparam):
+    cprint()
+    cprint(Rule("[bold]Simulation Configuration:"))
+    with open(obsparam) as fl:
+        d = yaml.load(fl)
+
+    cprint(yaml.dump(d, default_flow_style=False))
+    cprint(Rule())
+    cprint()
 
 
 if __name__ == "__main__":
@@ -136,10 +151,13 @@ if __name__ == "__main__":
     cprint("[green]:heavy_check_mark:[/green]")
     memlog(pr)
 
+    print_sim_config(data_model)
+
     cprint("Initializing VisibilitySimulator object... ", end="")
     simulator = load_simulator_from_yaml(args.simulator_config)
     cprint("[green]:heavy_check_mark:[/green]")
     memlog(pr)
+    cprint(f"Using {simulator.__class__.__name__} Simulator")
 
     # Print versions
     cprint(
