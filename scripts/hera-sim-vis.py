@@ -118,6 +118,7 @@ if __name__ == "__main__":
             "fully-qualified path to a function or method, eg. package.module:function "
             "or package.module:Class.method"
         ),
+        default=(),
     )
     parser.add_argument(
         "-l",
