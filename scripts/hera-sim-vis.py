@@ -38,7 +38,10 @@ from hera_sim.visibilities import (
     load_simulator_from_yaml,
 )
 
-logger = logging.getLogger(__name__)
+# Use the root logger here so that we can update the log-level of the underlying
+# simulator code (where applicable). Unfortunately, this has the side effect that
+# other third party code also gets the same log level.
+logger = logging.getLogger()
 
 cns = Console(width=160)
 
