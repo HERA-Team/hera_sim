@@ -133,8 +133,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
     pr = psutil.Process()
 
-    ll = "INFO" if args.profile else args.log_level.upper()
-    logger.setLevel(ll)
+    logger.setLevel(args.log_level.upper())
+    if args.profile and not logger.isEnabledFor(logging.INFO):
+        logger.setLevel(logging.INFO)
 
     memlog(pr, "Initial")
 
