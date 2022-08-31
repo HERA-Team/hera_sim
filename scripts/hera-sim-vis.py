@@ -250,10 +250,8 @@ if __name__ == "__main__":
         profiler.runcall(simulation.simulate)
     else:
         simulation.simulate()
-    end = time.time()
-    cprint(
-        f"[green]:heavy_check_mark:[/] Completed Simulation in {timedelta(sec=end - t)}"
-    )
+    end = timedelta(seconds=time.time() - t)
+    cprint(f"[green]:heavy_check_mark:[/] Completed Simulation in {end}")
     cprint(Rule())
     memlog(pr, "After Simulation")
 
@@ -292,7 +290,7 @@ if __name__ == "__main__":
             cns.print("Compressing data by redundancy... ", end="")
             data_model.uvdata.compress_by_redundancy(keep_all_metadata=True)
             cns.print("[green]:heavy_check_mark:[/]")
-            cns.print(f"Done in {timedelta(sec=time.time() - t)}")
+            cns.print(f"Done in {timedelta(seconds=time.time() - t)}")
 
         # Read obsparams to get filing config
         with open(args.obsparam) as file:
