@@ -348,7 +348,15 @@ class VisCPU(VisibilitySimulator):
         )
 
         # Empty visibility array
-        visfull = np.zeros_like(data_model.uvdata.data_array, dtype=self._complex_dtype)
+        if np.all(data_model.uvdata.data_array == 0):
+            # Here, we don't make new memory, because that is just a whole extra copy
+            # of the largest array in the calculation. Instead we fill the data_array
+            # directly.
+            visfull = data_model.uvdata.data_array
+        else:
+            visfull = np.zeros_like(
+                data_model.uvdata.data_array, dtype=self._complex_dtype
+            )
 
         for i, freq in enumerate(data_model.freqs):
             # Divide tasks between MPI workers if needed
@@ -376,7 +384,13 @@ class VisCPU(VisibilitySimulator):
         if self.mpi_comm is not None:
             visfull = self._reduce_mpi(visfull, myid)
 
-        return visfull
+        if visfull is data_model.uvdata.data_array:
+            # In the case that we were just fulling up the data array the whole time,
+            # we return zero, because this will be added to the data_array in the
+            # wrapper simulate() function.
+            return 0
+        else:
+            return visfull
 
     def _reorder_vis(self, req_pols, uvdata, visfull, vis, ant_list, polarized):
         indices = np.triu_indices(vis.shape[-1])

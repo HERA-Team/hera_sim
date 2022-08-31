@@ -15,7 +15,9 @@ import pyradiosky
 import pyuvdata
 import pyuvsim
 import sys
+import time
 import yaml
+from datetime import timedelta
 from pathlib import Path
 
 import hera_sim
@@ -130,6 +132,12 @@ if __name__ == "__main__":
         help="String giving the log-level (eg. INFO or DEBUG)",
         default="WARNING",
     )
+    parser.add_argument(
+        "-d",
+        "--dry-run",
+        action="store_true",
+        help="If set, create the simulator and data model but don't run simulation.",
+    )
     args = parser.parse_args()
     pr = psutil.Process()
 
@@ -154,14 +162,14 @@ if __name__ == "__main__":
         args.obsparam, normalize_beams=args.normalize_beams
     )
     cprint("[green]:heavy_check_mark:[/green]")
-    memlog(pr)
+    memlog(pr, "Post-Model-Data")
 
     print_sim_config(args.obsparam)
 
     cprint("Initializing VisibilitySimulator object... ", end="")
     simulator = load_simulator_from_yaml(args.simulator_config)
     cprint("[green]:heavy_check_mark:[/green]")
-    memlog(pr)
+    memlog(pr, "After VisibilitySimulator Init")
     cprint(f"Using {simulator.__class__.__name__} Simulator")
 
     # Print versions
@@ -177,6 +185,30 @@ if __name__ == "__main__":
         """
     )
 
+    cns.print(Rule("Important Simulation Parameters"))
+    cns.print(f"Nfreqs  : {data_model.uvdata.Nfreqs}")
+    cns.print(f"Ntimes  : {len(data_model.lsts)}")
+    cns.print(f"Npols   : {data_model.uvdata.Npols}")
+    cns.print(f"Nants   : {len(data_model.uvdata.antenna_array)}")
+    cns.print(f"Nsources: {data_model.sky_model.Ncomponents}")
+    cns.print(f"Nbeams  : {data_model.n_beams}")
+    cns.print()
+
+    cns.print(Rule("Large Memory Components"))
+    cns.print(
+        f"Visibility Array  : {data_model.uvdata.data_array.nbytes / 1024**2:.2f} MB"
+    )
+    beam_array_sizes = [
+        b.data_array.nbytes for b in data_model.beams if hasattr(b, "data_array")
+    ]
+    cns.print(f"Largest Beam Array: {max(beam_array_sizes) / 1024**2:.2f} MB")
+    cns.print(f"Total Beam Arrays : {sum(beam_array_sizes) / 1024**2:.2f} MB")
+    sky_sizes = (
+        getattr(data_model.sky_model, p).nbytes
+        for p in data_model.sky_model.ncomponent_length_params
+    )
+    cns.print(f"Sky Model         : {sum(sky_sizes)/1024**2:.2f} MB")
+
     ram = simulator.estimate_memory(data_model)
     ram_avail = psutil.virtual_memory().available / 1024**3
 
@@ -188,6 +220,10 @@ if __name__ == "__main__":
         data_model.uvdata.object_name = simulator.__class__.__name__
     else:
         data_model.uvdata.object_name = args.object_name
+
+    if args.dry_run:
+        cprint("Dry run finished.")
+        sys.exit()
 
     if args.profile:
         cprint(f"Profiling simulation. Output to {args.profile}")
@@ -211,16 +247,20 @@ if __name__ == "__main__":
     simulation = VisibilitySimulation(data_model=data_model, simulator=simulator)
 
     # Run simulation
-    memlog(pr)
     cprint()
     cprint(Rule("Running Simulation"))
+    memlog(pr, "Before Simulation")
+    t = time.time()
     if args.profile:
         profiler.runcall(simulation.simulate)
     else:
         simulation.simulate()
-    cprint("[green]:heavy_check_mark:[/] Completed Simulation!")
+    end = time.time()
+    cprint(
+        f"[green]:heavy_check_mark:[/] Completed Simulation in {timedelta(sec=end - t)}"
+    )
     cprint(Rule())
-    memlog(pr)
+    memlog(pr, "After Simulation")
 
     if myid != 0:
         # Wait for root worker to finish IO before ending all other worker procs
@@ -228,9 +268,6 @@ if __name__ == "__main__":
         sys.exit(0)
 
     if myid == 0:
-        # if data_model.uvdata.x_orientation is None:
-        #     data_model.uvdata.x_orientation = 'east'
-
         # Check imaginary of xx/yy autos and fix non-real values if the option is
         # selected in the arguments
         uvd_autos = data_model.uvdata.select(ant_str="auto", inplace=False)
@@ -256,9 +293,11 @@ if __name__ == "__main__":
             )
 
         if args.compress:
+            t = time.time()
             cns.print("Compressing data by redundancy... ", end="")
             data_model.uvdata.compress_by_redundancy(keep_all_metadata=True)
             cns.print("[green]:heavy_check_mark:[/]")
+            cns.print(f"Done in {timedelta(sec=time.time() - t)}")
 
         # Read obsparams to get filing config
         with open(args.obsparam) as file:
@@ -272,9 +311,12 @@ if __name__ == "__main__":
         clobber = cfg_filing.get("clobber", False)
 
         # Write output
+        t = time.time()
         cns.print("Writing output... ", end="")
         data_model.uvdata.write_uvh5(outfile.as_posix(), clobber=clobber)
         cns.print("[green]:heavy_check_mark:[/]")
+        end = time.time()
+        cns.print(f"Done in {timedelta(sec=end - t)}")
 
         if args.profile:
             cns.print(Rule("Profiling Information"))
