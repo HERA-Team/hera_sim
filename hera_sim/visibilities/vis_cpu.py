@@ -469,8 +469,8 @@ class VisCPU(VisibilitySimulator):
             return 0  # workers return 0
 
     def compress_data_model(self, data_model: ModelData):
-        del data_model.uvdata.uvw_array
-        del data_model.uvdata.baseline_array
+        data_model.uvdata.uvw_array = 0
+        data_model.uvdata.baseline_array = 0
         data_model.uvdata.integration_time = (
             data_model.uvdata.integration_time.flatten()[0]
         )
