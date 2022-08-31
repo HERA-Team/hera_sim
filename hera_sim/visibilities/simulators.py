@@ -285,8 +285,15 @@ class VisibilitySimulation:
     def __post_init__(self):
         """Perform simple validation on combined attributes."""
         if self.simulator._blt_order_kws is not None:
+            logger.info(
+                "Re-ordering baseline-time axis with params: "
+                f"{self.simulator._blt_order_kws}"
+            )
             self.data_model.uvdata.reorder_blts(**self.simulator._blt_order_kws)
+
+        logger.info("Validating data model")
         self.simulator.validate(self.data_model)
+        logger.info("Done validation.")
 
         # Convert the sky model to either point source or healpix depending on the
         # simulator's capabilities.

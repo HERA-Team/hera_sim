@@ -59,6 +59,10 @@ class VisCPU(VisibilitySimulator):
     correct_source_positions
         Whether to correct the source positions using astropy and the reference time.
         Default is True if `ref_time` is given otherwise False.
+    check_antenna_conjugation
+        Whether to check the antenna conjugation. Default is True. This is a fairly
+        heavy operation if there are many antennas and/or many times, and can be
+        safely ignored if the data_model was created from a config file.
     **kwargs
         Passed through to :class:`~.simulators.VisibilitySimulator`.
 
@@ -77,6 +81,7 @@ class VisCPU(VisibilitySimulator):
         mpi_comm=None,
         ref_time: str | Time | None = None,
         correct_source_positions: bool | None = None,
+        check_antenna_conjugation: bool = True,
     ):
         assert precision in {1, 2}
         self._precision = precision
@@ -105,7 +110,7 @@ class VisCPU(VisibilitySimulator):
             if correct_source_positions is None
             else correct_source_positions
         )
-
+        self.check_antenna_conjugation = check_antenna_conjugation
         self._functions_to_profile = (self._vis_cpu, _wrangle_beams, _evaluate_beam_cpu)
 
     def validate(self, data_model: ModelData):
@@ -117,21 +122,24 @@ class VisCPU(VisibilitySimulator):
                 "but the UVData object does not comply."
             )
 
+        logger.info("Checking baseline-time axis shape")
         if len(data_model.uvdata.data_array) != len(
             data_model.uvdata.get_antpairs()
         ) * len(data_model.lsts):
             raise ValueError("VisCPU requires that every baseline uses the same LSTS.")
 
-        if any(
-            len(data_model.uvdata.antpair2ind(ai, aj)) > 0
-            and len(data_model.uvdata.antpair2ind(aj, ai)) > 0
-            for ai, aj in data_model.uvdata.get_antpairs()
-            if ai != aj
-        ):
-            raise ValueError(
-                "VisCPU requires that baselines be in a conjugation in which antenna "
-                "order doesn't change with time!"
-            )
+        if self.check_antenna_conjugation:
+            logger.info("Checking antenna conjugation")
+            if any(
+                len(data_model.uvdata.antpair2ind(ai, aj)) > 0
+                and len(data_model.uvdata.antpair2ind(aj, ai)) > 0
+                for ai, aj in data_model.uvdata.get_antpairs()
+                if ai != aj
+            ):
+                raise ValueError(
+                    "VisCPU requires that baselines be in a conjugation in which "
+                    "antenna order doesn't change with time!"
+                )
 
         uvbeam = data_model.beams[0]  # Representative beam
         uvdata = data_model.uvdata
