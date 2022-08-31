@@ -185,7 +185,11 @@ class ModelData:
     ) -> ModelData:
         """Initialize the :class:`ModelData` from a pyuvsim-compatible config."""
         pr = psutil.Process()
-        uvdata, beams, beam_ids = initialize_uvdata_from_params(config_file)
+        # Don't reorder the blt axis, because each simulator might do it differently.
+        uvdata, beams, beam_ids = initialize_uvdata_from_params(
+            config_file, reorder_kw={}
+        )
+
         logger.info(f"After UVData init Mem Usage: {pr.memory_info().rss / 1024**2} MB")
 
         catalog = initialize_catalog_from_params(config_file, return_recarray=False)[0]
@@ -283,6 +287,8 @@ class VisibilitySimulation:
 
     def __post_init__(self):
         """Perform simple validation on combined attributes."""
+        if self.simulator._blt_order_kws is not None:
+            self.data_model.uvdata.reorder_blts(**self.simulator._blt_order_kws)
         self.simulator.validate(self.data_model)
 
         # Convert the sky model to either point source or healpix depending on the
@@ -391,6 +397,10 @@ class VisibilitySimulator(metaclass=ABCMeta):
 
     #: Any underlying functions that are called and we may want to do profiling on.
     _functions_to_profile = ()
+
+    #: Keyword arguments to use in ordering the baseline-time axis of the incoming
+    #: UVData object, if necessasry. A dict, or None.
+    _blt_order_kws = None
 
     __version__ = "unknown"
 

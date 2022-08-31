@@ -15,6 +15,8 @@ class UVSim(VisibilitySimulator):
         If True, don't print anything.
     """
 
+    _blt_order_kws = {"order": "time", "minor_order": "baseline"}
+
     _functions_to_profile = (pyuvsim.uvsim.run_uvdata_uvsim,)
 
     def __init__(self, quiet: bool = False):

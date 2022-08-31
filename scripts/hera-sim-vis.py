@@ -189,7 +189,7 @@ if __name__ == "__main__":
     cns.print(f"Nfreqs  : {data_model.uvdata.Nfreqs}")
     cns.print(f"Ntimes  : {len(data_model.lsts)}")
     cns.print(f"Npols   : {data_model.uvdata.Npols}")
-    cns.print(f"Nants   : {len(data_model.uvdata.antenna_array)}")
+    cns.print(f"Nants   : {len(data_model.uvdata.Nants_data)}")
     cns.print(f"Nsources: {data_model.sky_model.Ncomponents}")
     cns.print(f"Nbeams  : {data_model.n_beams}")
     cns.print()
