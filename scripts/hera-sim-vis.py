@@ -203,11 +203,6 @@ if __name__ == "__main__":
     ]
     cns.print(f"Largest Beam Array: {max(beam_array_sizes) / 1024**2:.2f} MB")
     cns.print(f"Total Beam Arrays : {sum(beam_array_sizes) / 1024**2:.2f} MB")
-    sky_sizes = (
-        getattr(data_model.sky_model, p).nbytes
-        for p in data_model.sky_model.ncomponent_length_params
-    )
-    cns.print(f"Sky Model         : {sum(sky_sizes)/1024**2:.2f} MB")
 
     ram = simulator.estimate_memory(data_model)
     ram_avail = psutil.virtual_memory().available / 1024**3
