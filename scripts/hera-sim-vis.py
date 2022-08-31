@@ -309,7 +309,7 @@ if __name__ == "__main__":
         data_model.uvdata.write_uvh5(outfile.as_posix(), clobber=clobber)
         cns.print("[green]:heavy_check_mark:[/]")
         end = time.time()
-        cns.print(f"Done in {timedelta(sec=end - t)}")
+        cns.print(f"Done in {timedelta(seconds=end - t)}")
 
         if args.profile:
             cns.print(Rule("Profiling Information"))
