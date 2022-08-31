@@ -190,7 +190,6 @@ class ModelData:
             config_file,
             reorder_kw={},
             check_kw={"run_check_acceptability": False},
-            set_uvws=False,
         )
 
         logger.info(f"After UVData init Mem Usage: {pr.memory_info().rss / 1024**2} MB")
