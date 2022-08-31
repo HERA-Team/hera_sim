@@ -187,7 +187,10 @@ class ModelData:
         pr = psutil.Process()
         # Don't reorder the blt axis, because each simulator might do it differently.
         uvdata, beams, beam_ids = initialize_uvdata_from_params(
-            config_file, reorder_kw={}
+            config_file,
+            reorder_kw={},
+            check_kw={"run_acceptability_check": False},
+            set_uvws=False,
         )
 
         logger.info(f"After UVData init Mem Usage: {pr.memory_info().rss / 1024**2} MB")
@@ -197,7 +200,9 @@ class ModelData:
             f"Post-Sky-Catalog-Read Mem Usage: {pr.memory_info().rss / 1024**2} MB"
         )
 
-        _complete_uvdata(uvdata, inplace=True)
+        _complete_uvdata(
+            uvdata, inplace=True, check_kw={"run_acceptability_check": False}
+        )
         logger.info(
             f"Post-Complete-UVData Mem Usage: {pr.memory_info().rss / 1024**2} MB"
         )
