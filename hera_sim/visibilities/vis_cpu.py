@@ -1,5 +1,5 @@
 """Wrapper for vis_cpu visibility simulator."""
-from __future__ import annotations, division
+from __future__ import annotations
 
 import astropy.units as u
 import itertools
@@ -310,7 +310,6 @@ class VisCPU(VisibilitySimulator):
             nproc = self.mpi_comm.Get_size()
 
         if self.correct_source_positions:
-            # TODO: check if this is the right time to be using...
             ra, dec = self.correct_point_source_pos(data_model)
             logger.info("Done correcting source positions.")
         else:
@@ -460,3 +459,29 @@ class VisCPU(VisibilitySimulator):
             return _visfull
         else:
             return 0  # workers return 0
+
+    def compress_data_model(self, data_model: ModelData):
+        del data_model.uvdata.uvw_array
+        del data_model.uvdata.baseline_array
+        data_model.uvdata.integration_time = (
+            data_model.uvdata.integration_time.flatten()[0]
+        )
+
+    def restore_data_model(self, data_model: ModelData):
+        uv_obj = data_model.uvdata
+
+        bls = np.array(
+            [
+                uv_obj.antnums_to_baseline(
+                    uv_obj.antenna_numbers[j], uv_obj.antenna_numbers[i]
+                )
+                for i in range(0, uv_obj.Nants_data)
+                for j in range(i, uv_obj.Nants_data)
+            ]
+        )
+
+        uv_obj.baseline_array = np.tile(bls, uv_obj.Ntimes)
+        uv_obj.integration_time = np.repeat(
+            uv_obj.integration_time, uv_obj.Nbls * uv_obj.Ntimes
+        )
+        uv_obj.set_uvws_from_antenna_positions()

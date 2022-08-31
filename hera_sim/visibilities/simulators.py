@@ -345,9 +345,11 @@ class VisibilitySimulation:
 
     def simulate(self):
         """Perform the visibility simulation."""
+        self.simulator.compress_data_model(self.data_model)
         vis = self.simulator.simulate(self.data_model)
         self.uvdata.data_array += vis
         self._write_history()
+        self.simulator.restore_data_model(self.data_model)
 
         if isinstance(vis, np.ndarray):
             return vis
@@ -444,6 +446,17 @@ class VisibilitySimulator(metaclass=ABCMeta):
           more accurate estimate.
         """
         return data_model.uvdata.data_array.nbytes / 1024**3
+
+    def compress_data_model(self, data_model):
+        """Temporarily delete/remove data from the model to reduce memory usage.
+
+        Anything that is removed here should be restored after the simulation.
+        """
+        pass
+
+    def restore_data_model(self, data_model):
+        """Restore data from the model removed by :func:`compress_data_model`."""
+        pass
 
 
 def load_simulator_from_yaml(config: Path | str) -> VisibilitySimulator:
