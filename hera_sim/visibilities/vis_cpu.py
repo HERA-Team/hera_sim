@@ -130,6 +130,8 @@ class VisCPU(VisibilitySimulator):
 
         if self.check_antenna_conjugation:
             logger.info("Checking antenna conjugation")
+            # TODO: the following is extremely slow. If possible, it would be good to
+            # find a better way to do it.
             if any(
                 len(data_model.uvdata.antpair2ind(ai, aj)) > 0
                 and len(data_model.uvdata.antpair2ind(aj, ai)) > 0
@@ -409,23 +411,25 @@ class VisCPU(VisibilitySimulator):
     def _reorder_vis(self, req_pols, uvdata, visfull, vis, ant_list, polarized):
         indices = np.triu_indices(vis.shape[-1])
 
-        for p, (p1, p2) in enumerate(req_pols):
-            for ant1, ant2 in zip(*indices):  # go through indices in output
-                vis_here = (
-                    vis[:, p1, p2, ant1, ant2] if polarized else vis[:, ant1, ant2]
-                )
-                # get official "antenna numbers" corresponding to these indices
-                antnum1, antnum2 = ant_list[ant1], ant_list[ant2]
+        for ant1, ant2 in zip(*indices):  # go through indices in output
+            # get official "antenna numbers" corresponding to these indices
+            antnum1, antnum2 = ant_list[ant1], ant_list[ant2]
 
-                # get all blt indices corresponding to this antpair
-                indx = uvdata.antpair2ind(antnum1, antnum2)
-                if len(indx) == 0:
-                    # maybe we chose the wrong ordering according to the data. Then
-                    # we just conjugate.
-                    indx = uvdata.antpair2ind(antnum2, antnum1)
-                    vis_here = np.conj(vis_here)
+            # get all blt indices corresponding to this antpair
+            indx = uvdata.antpair2ind(antnum1, antnum2)
+            if len(indx) == 0:
+                # maybe we chose the wrong ordering according to the data. Then
+                # we just conjugate.
+                indx = uvdata.antpair2ind(antnum2, antnum1)
+                vis_here = vis[..., ant2, ant1]
+            else:
+                vis_here = vis[..., ant1, ant2]
 
-                visfull[indx, p] = vis_here
+            if polarized:
+                for p, (p1, p2) in enumerate(req_pols):
+                    visfull[indx, p] = vis_here[:, p1, p2]
+            else:
+                visfull[indx, 0] = vis_here
 
     def _get_req_pols(self, uvdata, uvbeam, polarized: bool) -> list[tuple[int, int]]:
         if not polarized:
