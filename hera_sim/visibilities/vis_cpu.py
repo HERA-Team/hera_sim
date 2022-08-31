@@ -3,6 +3,7 @@ from __future__ import annotations, division
 
 import astropy.units as u
 import itertools
+import logging
 import numpy as np
 from astropy.coordinates import EarthLocation
 from astropy.time import Time
@@ -15,6 +16,8 @@ from vis_cpu import vis_cpu, vis_gpu
 from vis_cpu.cpu import _evaluate_beam_cpu, _wrangle_beams
 
 from .simulators import ModelData, VisibilitySimulator
+
+logger = logging.getLogger(__name__)
 
 
 class VisCPU(VisibilitySimulator):
@@ -253,6 +256,7 @@ class VisCPU(VisibilitySimulator):
         )
 
         # Apply correction to point source positions
+        logger.info("Correcting Source Positions...")
         ra, dec = data_model.sky_model.ra, data_model.sky_model.dec
         return convs.equatorial_to_eci_coords(
             ra, dec, obstime, location, unit="rad", frame=frame
@@ -307,15 +311,16 @@ class VisCPU(VisibilitySimulator):
 
         if self.correct_source_positions:
             # TODO: check if this is the right time to be using...
-            ra, dec = self.correct_point_source_pos(
-                data_model, obstime=Time(data_model.uvdata.time_array[0], format="jd")
-            )
+            ra, dec = self.correct_point_source_pos(data_model)
+            logger.info("Done correcting source positions.")
         else:
             ra, dec = data_model.sky_model.ra, data_model.sky_model.dec
 
+        logger.info("Getting Equatorial Coordinates")
         crd_eq = convs.point_source_crd_eq(ra, dec)
 
         # Convert equatorial to topocentric coords
+        logger.info("Getting Rotation Matrices")
         eq2tops = self.get_eq2tops(data_model.uvdata, data_model.lsts)
 
         # The following are antenna positions in the order that they are
@@ -323,7 +328,7 @@ class VisCPU(VisibilitySimulator):
         active_antpos, ant_list = data_model.uvdata.get_ENU_antpos(pick_data_ants=True)
 
         # Get pixelized beams if required
-
+        logger.info("Preparing Beams...")
         beam_list = [
             convs.prepare_beam(
                 beam,
@@ -363,6 +368,8 @@ class VisCPU(VisibilitySimulator):
             if self.mpi_comm is not None and i % nproc != myid:
                 continue
 
+            logger.info(f"Simulating Frequency {i+1}/{len(data_model.freqs)}")
+
             # Call vis_cpu function to simulate visibilities
             vis = self._vis_cpu(
                 antpos=active_antpos,
@@ -376,6 +383,7 @@ class VisCPU(VisibilitySimulator):
                 polarized=polarized,
             )
 
+            logger.info("... re-ordering visibilities...")
             self._reorder_vis(
                 req_pols, data_model.uvdata, visfull[:, 0, i], vis, ant_list, polarized
             )

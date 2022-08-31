@@ -8,6 +8,7 @@ ignore =
     A003  # allow method names to be the same as python builtins
     RST210  # inline strong start-string without end-string. This is OK in the case of **kwargs in parameters.
     G004  # Logging statement uses f-string.
+    G003  # Logging statement uses + (see https://github.com/globality-corp/flake8-logging-format/issues/56)
 max-line-length = 88
 # Should be 18.
 max-complexity = 35
