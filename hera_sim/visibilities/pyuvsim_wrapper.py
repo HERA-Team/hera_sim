@@ -40,6 +40,9 @@ class UVSim(VisibilitySimulator):
         )
         data_model.uvdata.reorder_blts("time")
 
+        if not hasattr(data_model.uvdata, "uvw_array"):
+            data_model.uvdata.set_uvws_from_antenna_positions()
+
         # The UVData object must have correctly ordered pols.
         # TODO: either remove this when pyuvsim fixes bug with ordering
         # (https://github.com/RadioAstronomySoftwareGroup/pyuvsim/issues/370) or

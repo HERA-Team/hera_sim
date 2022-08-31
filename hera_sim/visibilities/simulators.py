@@ -189,7 +189,7 @@ class ModelData:
         uvdata, beams, beam_ids = initialize_uvdata_from_params(
             config_file,
             reorder_kw={},
-            check_kw={"run_acceptability_check": False},
+            check_kw={"run_check_acceptability": False},
             set_uvws=False,
         )
 
@@ -201,7 +201,7 @@ class ModelData:
         )
 
         _complete_uvdata(
-            uvdata, inplace=True, check_kw={"run_acceptability_check": False}
+            uvdata, inplace=True, check_kw={"run_check_acceptability": False}
         )
         logger.info(
             f"Post-Complete-UVData Mem Usage: {pr.memory_info().rss / 1024**2} MB"
