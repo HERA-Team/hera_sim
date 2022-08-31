@@ -162,6 +162,8 @@ class HealVis(VisibilitySimulator):
         sky = self.get_sky_model(data_model.sky_model)
         visibilities = []
 
+        data_model.uvdata.reorder_blts(order="time", minor_order="baseline")
+
         # Simulate the visibilities for each polarization.
         for pol in data_model.uvdata.get_pols():
             if pol in ["xx", "yy"]:

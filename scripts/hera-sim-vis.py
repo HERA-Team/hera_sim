@@ -15,9 +15,7 @@ import pyradiosky
 import pyuvdata
 import pyuvsim
 import sys
-import time
 import yaml
-from datetime import timedelta
 from pathlib import Path
 
 import hera_sim
@@ -30,7 +28,6 @@ except ImportError:
     HAVE_MPI = False
 
 from rich.console import Console
-from rich.logging import RichHandler
 from rich.panel import Panel
 from rich.rule import Rule
 
@@ -40,6 +37,8 @@ from hera_sim.visibilities import (
     load_simulator_from_yaml,
 )
 
+from .cli_utils import RicherHandler
+
 # Use the root logger here so that we can update the log-level of the underlying
 # simulator code (where applicable). Unfortunately, this has the side effect that
 # other third party code also gets the same log level.
@@ -48,12 +47,14 @@ logger = logging.getLogger()
 cns = Console(width=160)
 
 logging.basicConfig(
+    format="%(message)s",
     handlers=[
-        RichHandler(
+        RicherHandler(
             console=cns,
             rich_tracebacks=True,
             tracebacks_show_locals=True,
             show_path=False,
+            show_time_as_diff=True,
         )
     ],
 )
@@ -63,10 +64,6 @@ def cprint(*args, **kwargs):
     """Print only if root worker."""
     if myid == 0:
         cns.print(*args, **kwargs)
-
-
-def memlog(pr, label="Current"):
-    logger.info(f"{label} Mem Usage: {pr.memory_info().rss / 1024**2} MB")
 
 
 def print_sim_config(obsparam):
@@ -145,7 +142,7 @@ if __name__ == "__main__":
     if args.profile and not logger.isEnabledFor(logging.INFO):
         logger.setLevel(logging.INFO)
 
-    memlog(pr, "Initial")
+    logger.info("Starting Setup")
 
     if HAVE_MPI and not MPI.Is_initialized():
         MPI.Init()
@@ -157,32 +154,31 @@ if __name__ == "__main__":
     cprint(Panel("hera-sim-vis: Simulating Visibilities"))
 
     # Make data_model, simulator, and simulation objects
-    cprint("Initializing ModelData objects... ", end="")
+    logger.info("Initializing ModelData object... ")
     data_model = ModelData.from_config(
         args.obsparam, normalize_beams=args.normalize_beams
     )
-    cprint("[green]:heavy_check_mark:[/green]")
-    memlog(pr, "Post-Model-Data")
+    logger.info("Finished Setting up ModelData object")
 
     print_sim_config(args.obsparam)
 
-    cprint("Initializing VisibilitySimulator object... ", end="")
+    logger.info("Initializing VisibilitySimulator object... ")
     simulator = load_simulator_from_yaml(args.simulator_config)
-    cprint("[green]:heavy_check_mark:[/green]")
-    memlog(pr, "After VisibilitySimulator Init")
+    logger.info("Finished VisibilitySimulator Init")
+
     cprint(f"Using {simulator.__class__.__name__} Simulator")
 
     # Print versions
     cprint(
         f"""
-        [bold]Using the following packages:[/bold]
+[bold]Using the following packages:[/bold]
 
-        \tpyuvdata: {pyuvdata.__version__}
-        \tpyuvsim: {pyuvsim.__version__}
-        \tpyradiosky: {pyradiosky.__version__}
-        \thera_sim: {hera_sim.__version__}
-        \t{simulator.__class__.__name__}: {simulator.__version__}
-        """
+\tpyuvdata: {pyuvdata.__version__}
+\tpyuvsim: {pyuvsim.__version__}
+\tpyradiosky: {pyradiosky.__version__}
+\thera_sim: {hera_sim.__version__}
+\t{simulator.__class__.__name__}: {simulator.__version__}
+"""
     )
 
     cns.print(Rule("Important Simulation Parameters"))
@@ -244,16 +240,13 @@ if __name__ == "__main__":
     # Run simulation
     cprint()
     cprint(Rule("Running Simulation"))
-    memlog(pr, "Before Simulation")
-    t = time.time()
+    logger.info("About to Run Simulation")
     if args.profile:
         profiler.runcall(simulation.simulate)
     else:
         simulation.simulate()
-    end = timedelta(seconds=time.time() - t)
-    cprint(f"[green]:heavy_check_mark:[/] Completed Simulation in {end}")
+    logger.info("Simulation Complete")
     cprint(Rule())
-    memlog(pr, "After Simulation")
 
     if myid != 0:
         # Wait for root worker to finish IO before ending all other worker procs
@@ -268,15 +261,16 @@ if __name__ == "__main__":
             np.abs(uvd_autos.get_data("xx").imag) / np.abs(uvd_autos.get_data("xx"))
         ).max()
         if 0 < max_xx_autos_to_abs < args.max_auto_imag:
-            cns.print(
+            logger.warning(
                 f"[orange]Some autos have very small imaginary components (max ratio "
                 f"[blue]{max_xx_autos_to_abs:1.2e}[/])"
             )
 
             if args.fix_autos:
-                cns.print("Setting the autos to be purely real... ", end="")
+                logger.info("Setting the autos to be purely real... ")
                 data_model.uvdata._fix_autos()
-                cns.print("[green]:heavy_check_mark:[/]")
+                logger.info("Done fixing autos.")
+
         elif max_xx_autos_to_abs >= args.max_auto_imag:
             raise ValueError(
                 f"Some autos have large fractional imaginary components "
@@ -286,11 +280,9 @@ if __name__ == "__main__":
             )
 
         if args.compress:
-            t = time.time()
-            cns.print("Compressing data by redundancy... ", end="")
+            logger.info("Compressing data by redundancy... ")
             data_model.uvdata.compress_by_redundancy(keep_all_metadata=True)
-            cns.print("[green]:heavy_check_mark:[/]")
-            cns.print(f"Done in {timedelta(seconds=time.time() - t)}")
+            logger.info("Done with compression.")
 
         # Read obsparams to get filing config
         with open(args.obsparam) as file:
@@ -304,12 +296,9 @@ if __name__ == "__main__":
         clobber = cfg_filing.get("clobber", False)
 
         # Write output
-        t = time.time()
-        cns.print("Writing output... ", end="")
+        logger.info("Writing output... ")
         data_model.uvdata.write_uvh5(outfile.as_posix(), clobber=clobber)
-        cns.print("[green]:heavy_check_mark:[/]")
-        end = time.time()
-        cns.print(f"Done in {timedelta(seconds=end - t)}")
+        logger.info("Done Writing.")
 
         if args.profile:
             cns.print(Rule("Profiling Information"))
@@ -324,4 +313,5 @@ if __name__ == "__main__":
     # Sync with other workers and finalise
     if HAVE_MPI:
         comm.Barrier()
+
     cprint("[green][bold]Complete![/][/]")

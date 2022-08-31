@@ -5,7 +5,6 @@ import astropy_healpix as aph
 import importlib
 import logging
 import numpy as np
-import psutil
 import yaml
 from abc import ABCMeta, abstractmethod
 from astropy import units
@@ -184,26 +183,20 @@ class ModelData:
         cls, config_file: str | Path, normalize_beams: bool = False
     ) -> ModelData:
         """Initialize the :class:`ModelData` from a pyuvsim-compatible config."""
-        pr = psutil.Process()
         # Don't reorder the blt axis, because each simulator might do it differently.
+        logger.info("Initializing UVData object...")
         uvdata, beams, beam_ids = initialize_uvdata_from_params(
             config_file,
             reorder_kw={},
             check_kw={"run_check_acceptability": False},
         )
 
-        logger.info(f"After UVData init Mem Usage: {pr.memory_info().rss / 1024**2} MB")
-
+        logger.info("Initializing Sky Model...")
         catalog = initialize_catalog_from_params(config_file, return_recarray=False)[0]
-        logger.info(
-            f"Post-Sky-Catalog-Read Mem Usage: {pr.memory_info().rss / 1024**2} MB"
-        )
 
+        logger.info("COmpleting UVData object...")
         _complete_uvdata(
             uvdata, inplace=True, check_kw={"run_check_acceptability": False}
-        )
-        logger.info(
-            f"Post-Complete-UVData Mem Usage: {pr.memory_info().rss / 1024**2} MB"
         )
 
         return ModelData(
@@ -352,13 +345,14 @@ class VisibilitySimulation:
 
     def simulate(self):
         """Perform the visibility simulation."""
-        # Order the baselines/times in the order expected by the simulator.
         vis = self.simulator.simulate(self.data_model)
-
         self.uvdata.data_array += vis
         self._write_history()
 
-        return vis
+        if isinstance(vis, np.ndarray):
+            return vis
+        else:
+            return self.uvdata.data_array
 
     @property
     def uvdata(self) -> UVData:

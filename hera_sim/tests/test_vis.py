@@ -439,7 +439,7 @@ def test_viscpu_coordinate_correction(uvdata2):
 
     # Apply correction
     # viscpu.correct_point_source_pos(obstime="2018-08-31T04:02:30.11", frame="icrs")
-    v = sim.simulate()
+    v = sim.simulate().copy()
     assert np.all(~np.isnan(v))
 
     sim2 = VisibilitySimulation(
@@ -454,7 +454,7 @@ def test_viscpu_coordinate_correction(uvdata2):
     )
 
     v2 = sim2.simulate()
-    assert np.allclose(v, v2)
+    np.testing.assert_allclose(v, v2)
 
 
 def align_src_to_healpix(ra, dec, nside=2**4):
@@ -499,16 +499,24 @@ def test_comparison(simulator, uvdata2, sky_model, beam_model):
         uvdata=uvdata2, sky_model=sky_model(uvdata2), beams=beam_model
     )
 
-    v0 = VisibilitySimulation(
-        data_model=model_data, simulator=SIMULATORS[0](), n_side=2**4
-    ).simulate()
+    v0 = (
+        VisibilitySimulation(
+            data_model=model_data,
+            simulator=SIMULATORS[0](ref_time="min"),
+            n_side=2**4,
+        )
+        .simulate()
+        .copy()
+    )
+
+    print(v0[0, 0, 0, 0])
 
     v1 = VisibilitySimulation(
-        data_model=model_data, simulator=simulator(), n_side=2**4
+        data_model=model_data, simulator=simulator(ref_time="min"), n_side=2**4
     ).simulate()
 
     assert v0.shape == v1.shape
-
+    print(v0[-9:, 0, 0, :], v1[-9:, 0, 0, :])
     np.testing.assert_allclose(v0, v1, rtol=0.05)
 
 
