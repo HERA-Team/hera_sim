@@ -47,12 +47,12 @@ repos:
   - id: isort
 
 - repo: https://github.com/asottile/pyupgrade
-  rev: v2.37.1
+  rev: v2.37.3
   hooks:
   - id: pyupgrade
     args: [--py38-plus]
 
 - repo: https://github.com/asottile/setup-cfg-fmt
-  rev: v1.20.2
+  rev: v2.0.0
   hooks:
   - id: setup-cfg-fmt

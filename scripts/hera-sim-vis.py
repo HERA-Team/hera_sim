@@ -31,13 +31,12 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.rule import Rule
 
+from hera_sim.cli_utils import RicherHandler
 from hera_sim.visibilities import (
     ModelData,
     VisibilitySimulation,
     load_simulator_from_yaml,
 )
-
-from .cli_utils import RicherHandler
 
 # Use the root logger here so that we can update the log-level of the underlying
 # simulator code (where applicable). Unfortunately, this has the side effect that
