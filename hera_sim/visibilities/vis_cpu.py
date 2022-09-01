@@ -411,21 +411,24 @@ class VisCPU(VisibilitySimulator):
     def _reorder_vis(self, req_pols, uvdata, visfull, vis, ant_list, polarized):
         ant1idx, ant2idx = np.triu_indices(vis.shape[-1])
 
-        if (
-            getattr(uvdata, "blt_order", None) == ("time", "ant1")
-            and sorted(req_pols) == req_pols
-        ):
-            logger.info("Using direct setting of data without reordering")
-            # This is the best case scenario -- no need to reorder anything.
-            start_shape = visfull.shape
-            visfull.shape = (np.prod(visfull.shape),)  # flatten without copying
-            n = (uvdata.Nblts // vis.shape[0]) * len(req_pols)
-            logger.info(f"n: {(n, uvdata.Nblts, visfull.shape[0], len(req_pols))}")
-            for i, vis_here in enumerate(vis):
-                vis_here = vis_here[..., ant1idx, ant2idx].reshape((-1,))
-                visfull[(i * n) : ((i + 1) * n)] = vis_here
-            visfull.shape = start_shape
-            return
+        try:
+            if (
+                getattr(uvdata, "blt_order", None) == ("time", "ant1")
+                and sorted(req_pols) == req_pols
+            ):
+                logger.info("Using direct setting of data without reordering")
+                # This is the best case scenario -- no need to reorder anything.
+                start_shape = visfull.shape
+                visfull.shape = (np.prod(visfull.shape),)  # flatten without copying
+                n = (uvdata.Nblts // vis.shape[0]) * len(req_pols)
+                logger.info(f"n: {(n, uvdata.Nblts, visfull.shape[0], len(req_pols))}")
+                for i, vis_here in enumerate(vis):
+                    vis_here = vis_here[..., ant1idx, ant2idx].reshape((-1,))
+                    visfull[(i * n) : ((i + 1) * n)] = vis_here
+                visfull.shape = start_shape
+                return
+        except AttributeError:
+            pass
 
         logger.info(
             f"Reordering baselines. Pols sorted: {sorted(req_pols) == req_pols}. "

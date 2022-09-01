@@ -1,23 +1,29 @@
-def get_config_file():
-    return """
+import os
+from pathlib import Path
+
+DATA_PATH = Path(__file__).parent / "testdata" / "hera-sim-vis-config"
+
+
+def get_config_files(tmp_path, ntimes, nfreqs=2):
+    txt = f"""
 'filing':
-  'outdir': {outdir}
+  'outdir': {tmp_path}
   'outfile_name': 'out'
   'output_format': 'uvh5'
   'clobber': true
 'freq':
-  'Nfreqs': 1
-  'channel_width': 97656.25
-  'start_freq': 46920776.3671875
+  'Nfreqs': {nfreqs}
+  'channel_width': 1000000.0
+  'start_freq': 100000000.0
 'sources':
-  'catalog': '{DATA_PATH}/fch0000.skyh5'
+  'catalog': '{DATA_PATH}/gleam_50srcs.vot'
 'telescope':
-  'array_layout': '{DATA_PATH}/H4C-antennas.csv'
-  'telescope_config_name': '{DATA_PATH}/h4c_idr2.1_teleconfig.yaml'
+  'array_layout': '{DATA_PATH}/H4C-antennas-slim.csv'
+  'telescope_config_name': '{tmp_path}/telescope.yaml'
   'select':
     'freq_buffer': 3000000.0
 'time':
-  'Ntimes': 1000
+  'Ntimes': {ntimes}
   'integration_time': 4.986347833333333
   'start_time': 2458208.916228965
 'polarization_array':
@@ -27,10 +33,30 @@ def get_config_file():
   - -6
     """
 
+    with open(tmp_path / "obsparams.yaml", "w") as fl:
+        fl.write(txt)
 
-def test_vis_cli(config_file):
-    pass
-    # os.system(f"hera-sim-simulate.py {str(config_file)} --save_all --verbose")
+    telfile = f"""
+beam_paths:
+  0: {DATA_PATH}/NF_HERA_Dipole_small.fits
+telescope_location: (-30.72152612068957, 21.428303826863015, 1051.6900000218302)
+telescope_name: HERA
+    """
+    with open(tmp_path / "telescope.yaml", "w") as fl:
+        fl.write(telfile)
+
+    return tmp_path / "obsparams.yaml"
+
+
+def test_vis_cli(tmp_path_factory):
+    outdir = tmp_path_factory.mktemp("vis-sim")
+    cfg = get_config_files(outdir, 5, 2)
+
+    args = "--compress --normalize_beams --fix_autos"
+    os.system(f"hera-sim-vis.py {str(cfg)} {DATA_PATH/'viscpu.yaml'} {args}")
+    contents = os.listdir(outdir)
+    assert "out.uvh5" in contents
+
     # outdir = config_file.parent
     # contents = os.listdir(outdir)
     # assert "test.uvh5" in contents
