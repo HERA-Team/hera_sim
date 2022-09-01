@@ -428,7 +428,7 @@ class VisCPU(VisibilitySimulator):
 
         logger.info(
             f"Reordering baselines. Pols sorted: {sorted(req_pols) == req_pols}. "
-            f"Pols = {req_pols}."
+            f"Pols = {req_pols}. blt_order = {uvdata.blt_order}"
         )
         for ant1, ant2 in zip(ant1idx, ant2idx):  # go through indices in output
             # get official "antenna numbers" corresponding to these indices
