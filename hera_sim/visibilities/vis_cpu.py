@@ -421,9 +421,14 @@ class VisCPU(VisibilitySimulator):
                 start_shape = visfull.shape
                 visfull.shape = (np.prod(visfull.shape),)  # flatten without copying
                 n = (uvdata.Nblts // vis.shape[0]) * len(req_pols)
-                logger.info(f"n: {(n, uvdata.Nblts, visfull.shape[0], len(req_pols))}")
                 for i, vis_here in enumerate(vis):
-                    vis_here = vis_here[..., ant1idx, ant2idx].reshape((-1,))
+                    if polarized:
+                        vis_here = vis_here.transpose(2, 3, 0, 1)[
+                            ant1idx, ant2idx
+                        ].reshape((-1,))
+                    else:
+                        vis_here = vis_here[:, ant1idx, ant2idx].reshape((-1,))
+
                     visfull[(i * n) : ((i + 1) * n)] = vis_here
                 visfull.shape = start_shape
                 return
