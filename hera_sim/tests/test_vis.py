@@ -40,7 +40,7 @@ if HAVE_GPU:
         """Simple mock class to make testing VisCPU with use_gpu=True easier"""
 
         def __init__(self, *args, **kwargs):
-            super().__init__(*args, use_gpu=True, **kwargs)
+            super().__init__(*args, use_gpu=True, ref_time="min", **kwargs)
 
     SIMULATORS = SIMULATORS + (VisGPU,)
 
@@ -502,7 +502,7 @@ def test_comparison(simulator, uvdata2, sky_model, beam_model):
     v0 = (
         VisibilitySimulation(
             data_model=model_data,
-            simulator=SIMULATORS[0](ref_time="min"),
+            simulator=SIMULATORS[0](),
             n_side=2**4,
         )
         .simulate()
@@ -512,7 +512,7 @@ def test_comparison(simulator, uvdata2, sky_model, beam_model):
     print(v0[0, 0, 0, 0])
 
     v1 = VisibilitySimulation(
-        data_model=model_data, simulator=simulator(ref_time="min"), n_side=2**4
+        data_model=model_data, simulator=simulator(), n_side=2**4
     ).simulate()
 
     assert v0.shape == v1.shape

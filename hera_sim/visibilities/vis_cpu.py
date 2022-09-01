@@ -409,9 +409,23 @@ class VisCPU(VisibilitySimulator):
             return visfull
 
     def _reorder_vis(self, req_pols, uvdata, visfull, vis, ant_list, polarized):
-        indices = np.triu_indices(vis.shape[-1])
+        ant1idx, ant2idx = np.triu_indices(vis.shape[-1])
 
-        for ant1, ant2 in zip(*indices):  # go through indices in output
+        if (
+            getattr(uvdata, "blt_order", None) == ("time", "ant1")
+            and sorted(req_pols) == req_pols
+        ):
+            # This is the best case scenario -- no need to reorder anything.
+            start_shape = visfull.shape
+            visfull.shape = (np.prod(visfull.shape),)  # flatten without copying
+            n = uvdata.Nblts / visfull.shape[0] * len(req_pols)
+            for i, vis_here in enumerate(vis):
+                vis_here = vis_here[..., ant1idx, ant2idx].reshape((-1,))
+                visfull[i * n : (i + 1) * n] = vis_here
+            visfull.shape = start_shape
+            return
+
+        for ant1, ant2 in zip(ant1idx, ant2idx):  # go through indices in output
             # get official "antenna numbers" corresponding to these indices
             antnum1, antnum2 = ant_list[ant1], ant_list[ant2]
 
@@ -474,25 +488,11 @@ class VisCPU(VisibilitySimulator):
 
     def compress_data_model(self, data_model: ModelData):
         data_model.uvdata.uvw_array = 0
-        data_model.uvdata.baseline_array = 0
-        data_model.uvdata.integration_time = (
-            data_model.uvdata.integration_time.flatten()[0]
-        )
+        # data_model.uvdata.baseline_array = 0
+        data_model.uvdata.integration_time = data_model.uvdata.integration_time.item(0)
 
     def restore_data_model(self, data_model: ModelData):
         uv_obj = data_model.uvdata
-
-        bls = np.array(
-            [
-                uv_obj.antnums_to_baseline(
-                    uv_obj.antenna_numbers[j], uv_obj.antenna_numbers[i]
-                )
-                for i in range(0, uv_obj.Nants_data)
-                for j in range(i, uv_obj.Nants_data)
-            ]
-        )
-
-        uv_obj.baseline_array = np.tile(bls, uv_obj.Ntimes)
         uv_obj.integration_time = np.repeat(
             uv_obj.integration_time, uv_obj.Nbls * uv_obj.Ntimes
         )
