@@ -415,6 +415,7 @@ class VisCPU(VisibilitySimulator):
             getattr(uvdata, "blt_order", None) == ("time", "ant1")
             and sorted(req_pols) == req_pols
         ):
+            logger.info("Using direct setting of data without reordering")
             # This is the best case scenario -- no need to reorder anything.
             start_shape = visfull.shape
             visfull.shape = (np.prod(visfull.shape),)  # flatten without copying
@@ -425,6 +426,10 @@ class VisCPU(VisibilitySimulator):
             visfull.shape = start_shape
             return
 
+        logger.info(
+            f"Reordering baselines. Pols sorted: {sorted(req_pols) == req_pols}. "
+            f"Pols = {req_pols}."
+        )
         for ant1, ant2 in zip(ant1idx, ant2idx):  # go through indices in output
             # get official "antenna numbers" corresponding to these indices
             antnum1, antnum2 = ant_list[ant1], ant_list[ant2]
