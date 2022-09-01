@@ -284,6 +284,7 @@ class VisibilitySimulation:
 
     def __post_init__(self):
         """Perform simple validation on combined attributes."""
+        logging.info("blt_order vissim: {data_model.uvdata.blt_order}")
         if self.simulator._blt_order_kws is not None:
             logger.info(
                 "Re-ordering baseline-time axis with params: "
