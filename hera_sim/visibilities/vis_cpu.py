@@ -419,10 +419,11 @@ class VisCPU(VisibilitySimulator):
             # This is the best case scenario -- no need to reorder anything.
             start_shape = visfull.shape
             visfull.shape = (np.prod(visfull.shape),)  # flatten without copying
-            n = uvdata.Nblts // visfull.shape[0] * len(req_pols)
+            n = (uvdata.Nblts // visfull.shape[0]) * len(req_pols)
+            logger.info(f"n: {(n, uvdata.Nblts, visfull.shape[0], len(req_pols))}")
             for i, vis_here in enumerate(vis):
                 vis_here = vis_here[..., ant1idx, ant2idx].reshape((-1,))
-                visfull[i * n : (i + 1) * n] = vis_here
+                visfull[(i * n) : ((i + 1) * n)] = vis_here
             visfull.shape = start_shape
             return
 
