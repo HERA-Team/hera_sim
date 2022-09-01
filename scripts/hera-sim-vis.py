@@ -265,10 +265,13 @@ if __name__ == "__main__":
             f"{[polnum2str(x) for x in data_model.uvdata.polarization_array]}"
         )
 
-        uvd_autos = data_model.uvdata.select(ant_str="auto", inplace=False)
-        max_xx_autos_to_abs = (
-            np.abs(uvd_autos.get_data("xx").imag) / np.abs(uvd_autos.get_data("xx"))
-        ).max()
+        xxpol = data_model.uvdata.get_data("xx")
+        auto_idx = data_model.uvdata.ant_1_array == data_model.uvdata.ant_2_array
+        xxpol = xxpol[auto_idx]
+
+        max_xx_autos_to_abs = (np.abs(xxpol.imag) / np.abs(xxpol)).max()
+
+        #        uvd_autos = data_model.uvdata.select(ant_str="auto", inplace=False)
         if 0 < max_xx_autos_to_abs < args.max_auto_imag:
             logger.warning(
                 f"[orange]Some autos have very small imaginary components (max ratio "
@@ -284,7 +287,7 @@ if __name__ == "__main__":
             raise ValueError(
                 f"Some autos have large fractional imaginary components "
                 f"(>{args.max_auto_imag:1.2e}). Largest value = "
-                f"{np.abs(uvd_autos.get_data('xx').imag).max():1.2e}, largest fraction="
+                f"{np.abs(xxpol.imag).max():1.2e}, largest fraction="
                 f"{max_xx_autos_to_abs:1.2e}."
             )
 
