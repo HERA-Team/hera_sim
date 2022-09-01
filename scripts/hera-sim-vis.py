@@ -260,10 +260,11 @@ if __name__ == "__main__":
         from pyuvdata.utils import polnum2str
 
         logging.info(f"Polarization Array: {data_model.uvdata.polarization_array}")
-        logging.info(
-            "Polarizations: "
-            f"{[polnum2str(x) for x in data_model.uvdata.polarization_array]}"
-        )
+        pols = [
+            polnum2str(x, data_model.uvdata.x_orientation)
+            for x in data_model.uvdata.polarization_array
+        ]
+        logging.info(f"Polarizations: {pols}")
 
         xxpol = data_model.uvdata.get_data("xx")
         auto_idx = data_model.uvdata.ant_1_array == data_model.uvdata.ant_2_array

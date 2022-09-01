@@ -1,0 +1,25 @@
+'filing':
+  'outdir': '/ocean/projects/phy210034p/sgm/h4c_sim_repo/outputs'
+  'outfile_name': 'ptsrc__fch0000_nt1000_chunk0'
+  'output_format': 'uvh5'
+  'clobber': true
+'freq':
+  'Nfreqs': 1
+  'channel_width': 97656.25
+  'start_freq': 46920776.3671875
+'sources':
+  'catalog': '/ocean/projects/phy210034p/sgm/h4c_sim_repo/sky_models/ptsrc/fch0000.skyh5'
+'telescope':
+  'array_layout': '/ocean/projects/phy210034p/sgm/h4c_sim_repo/config_files/H4C-antennas.csv'
+  'telescope_config_name': '/ocean/projects/phy210034p/sgm/h4c_sim_repo/config_files/h4c_idr2.1_teleconfig.yaml'
+  'select':
+    'freq_buffer': 3000000.0
+'time':
+  'Ntimes': 1000
+  'integration_time': 4.986347833333333
+  'start_time': 2458208.916228965
+'polarization_array':
+  - -5
+  - -7
+  - -8
+  - -6
