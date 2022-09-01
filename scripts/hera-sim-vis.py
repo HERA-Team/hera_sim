@@ -257,6 +257,14 @@ if __name__ == "__main__":
     if myid == 0:
         # Check imaginary of xx/yy autos and fix non-real values if the option is
         # selected in the arguments
+        from pyuvdata.utils import polnum2str
+
+        logging.info(f"Polarization Array: {data_model.uvdata.polarization_array}")
+        logging.info(
+            "Polarizations: "
+            f"{[polnum2str(x) for x in data_model.uvdata.polarization_array]}"
+        )
+
         uvd_autos = data_model.uvdata.select(ant_str="auto", inplace=False)
         max_xx_autos_to_abs = (
             np.abs(uvd_autos.get_data("xx").imag) / np.abs(uvd_autos.get_data("xx"))
