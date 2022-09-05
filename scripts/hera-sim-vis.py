@@ -264,7 +264,13 @@ if __name__ == "__main__":
 
         # max_xx_autos_to_abs = (np.abs(xxpol.imag) / np.abs(xxpol)).max()
 
-        uvd_autos = data_model.uvdata.select(ant_str="auto", inplace=False)
+        uvd_autos = data_model.uvdata.select(
+            ant_str="auto",
+            inplace=False,
+            run_check=False,
+            run_check_acceptability=False,
+            check_extra=False,
+        )
         xx = uvd_autos.get_data("xx")
         max_xx_autos_to_abs = (np.abs(xx.imag) / np.abs(xx)).max()
         if 0 < max_xx_autos_to_abs < args.max_auto_imag:
