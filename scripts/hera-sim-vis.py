@@ -333,7 +333,12 @@ if __name__ == "__main__":
 
         # Write output
         logger.info("Writing output... ")
-        data_model.uvdata.write_uvh5(outfile.as_posix(), clobber=clobber)
+        data_model.uvdata.write_uvh5(
+            outfile.as_posix(),
+            clobber=clobber,
+            run_check=False,
+            run_check_acceptability=False,
+        )
         logger.info("Done Writing.")
 
         if args.profile:
