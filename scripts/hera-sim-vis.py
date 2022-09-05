@@ -158,7 +158,6 @@ if __name__ == "__main__":
         args.obsparam, normalize_beams=args.normalize_beams
     )
     logger.info("Finished Setting up ModelData object")
-    logger.info(f"BLTORDER: {data_model.uvdata.blt_order}")
     print_sim_config(args.obsparam)
 
     logger.info("Initializing VisibilitySimulator object... ")
@@ -287,7 +286,38 @@ if __name__ == "__main__":
 
         if args.compress:
             logger.info("Compressing data by redundancy... ")
-            data_model.uvdata.compress_by_redundancy(keep_all_metadata=True)
+            # Here, we don't call the convenience function directly, because we want to
+            # be able to short-circuit the process by reading in a file.
+            if not Path(args.compress).exists():
+                red_gps = data_model.uvdata.get_redundancies(
+                    tol=1.0, include_conjugates=True
+                )[0]
+                bl_ants = [
+                    data_model.uvdata.baseline_to_antnums(gp[0]) for gp in red_gps
+                ]
+                blt_inds = data_model.uvdata._select_preprocess(
+                    antenna_nums=None,
+                    antenna_names=None,
+                    ant_str=None,
+                    bls=bl_ants,
+                    frequencies=None,
+                    freq_chans=None,
+                    times=None,
+                    time_range=None,
+                    lsts=None,
+                    lst_range=None,
+                    polarizations=None,
+                    blt_inds=None,
+                )[0]
+
+                np.save(args.compress, blt_inds)
+            else:
+                blt_inds = np.load(args.compress)
+
+            data_model.uvdata._select_by_index(
+                blt_inds, None, None, "Compressed by redundancy", keep_all_metadata=True
+            )
+
             logger.info("Done with compression.")
 
         # Read obsparams to get filing config

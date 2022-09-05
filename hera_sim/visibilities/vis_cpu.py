@@ -418,6 +418,7 @@ class VisCPU(VisibilitySimulator):
             ):
                 logger.info("Using direct setting of data without reordering")
                 # This is the best case scenario -- no need to reorder anything.
+                # It is also MUCH MUCH faster!
                 start_shape = visfull.shape
                 visfull.shape = (np.prod(visfull.shape),)  # flatten without copying
                 n = (uvdata.Nblts // vis.shape[0]) * len(req_pols)
