@@ -88,7 +88,9 @@ if __name__ == "__main__":
         "--object_name", type=str, default=None, help="Set object_name in the UVData"
     )
     parser.add_argument(
-        "--compress", action="store_true", help="Compress by redundancy."
+        "--compress",
+        type=str,
+        help="Compress by redundancy. A file name to store the cache.",
     )
     parser.add_argument(
         "--normalize_beams", action="store_true", help="Peak normalize the beams."
