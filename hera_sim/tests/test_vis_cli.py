@@ -52,25 +52,7 @@ def test_vis_cli(tmp_path_factory):
     outdir = tmp_path_factory.mktemp("vis-sim")
     cfg = get_config_files(outdir, 5, 2)
 
-    args = "--compress --normalize_beams --fix_autos"
+    args = f"--compress {outdir/'compression-cache.npy'} --normalize_beams --fix_autos"
     os.system(f"hera-sim-vis.py {str(cfg)} {DATA_PATH/'viscpu.yaml'} {args}")
     contents = os.listdir(outdir)
     assert "out.uvh5" in contents
-
-    # outdir = config_file.parent
-    # contents = os.listdir(outdir)
-    # assert "test.uvh5" in contents
-    # assert "test_gains.calfits" in contents
-    # assert "test_thermal_noise.uvh5" in contents
-    # assert "test_diffuse_foreground.uvh5" in contents
-
-    # # Quick sanity check
-    # uvd = UVData()
-    # uvd.read(outdir / "test.uvh5")
-    # assert np.all(uvd.data_array != 0)
-    # assert uvd.Nfreqs == 100
-    # assert uvd.Ntimes == 20
-    # assert uvd.Nants_data == 2
-    # cal = UVCal()
-    # cal.read_calfits(outdir / "test_gains.calfits")
-    # assert np.all(cal.gain_array != 1)
