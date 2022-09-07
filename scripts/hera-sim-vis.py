@@ -207,7 +207,7 @@ if __name__ == "__main__":
         f"[bold {'red' if ram < 1.5*ram_avail else 'green'}] This simulation will use "
         f"at least {ram:.2f}GB of RAM (Available: {ram_avail:.2f}GB).[/]"
     )
-    logger.info(f"BLTORDER: {data_model.uvdata.blt_order}")
+
     if args.object_name is None:
         data_model.uvdata.object_name = simulator.__class__.__name__
     else:
@@ -241,7 +241,6 @@ if __name__ == "__main__":
     # Run simulation
     cprint()
     cprint(Rule("Running Simulation"))
-    logger.info(f"BLTORDER: {data_model.uvdata.blt_order}")
     logger.info("About to Run Simulation")
     if args.profile:
         profiler.runcall(simulation.simulate)

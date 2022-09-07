@@ -345,6 +345,17 @@ def test_dtypes(uvdata, precision, cdtype):
     sky = create_uniform_sky(np.unique(uvdata.freq_array))
     vis = VisCPU(precision=precision)
 
+    # If data_array is empty, then we never create new vis, and the returned value
+    # is literally the data array, so we should expect to get complex128 regardless.
+    sim = VisibilitySimulation(
+        data_model=ModelData(uvdata=uvdata, sky_model=sky), simulator=vis
+    )
+
+    v = sim.simulate()
+    assert v.dtype == complex
+
+    # Now, the uvdata array has stuff in it, so the returned v is a new array that
+    # would have been added to it.
     sim = VisibilitySimulation(
         data_model=ModelData(uvdata=uvdata, sky_model=sky), simulator=vis
     )

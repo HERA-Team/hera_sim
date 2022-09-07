@@ -362,14 +362,15 @@ class VisCPU(VisibilitySimulator):
         )
 
         # Empty visibility array
-        # if np.all(data_model.uvdata.data_array == 0):
-        #     # Here, we don't make new memory, because that is just a whole extra copy
-        #     # of the largest array in the calculation. Instead we fill the data_array
-        #     # directly.
-        #     print(f"Not copying ({self.use_gpu})...")
-        #     visfull = data_model.uvdata.data_array
-        # else:
-        visfull = np.zeros_like(data_model.uvdata.data_array, dtype=self._complex_dtype)
+        if np.all(data_model.uvdata.data_array == 0):
+            # Here, we don't make new memory, because that is just a whole extra copy
+            # of the largest array in the calculation. Instead we fill the data_array
+            # directly.
+            visfull = data_model.uvdata.data_array
+        else:
+            visfull = np.zeros_like(
+                data_model.uvdata.data_array, dtype=self._complex_dtype
+            )
 
         for i, freq in enumerate(data_model.freqs):
             # Divide tasks between MPI workers if needed
