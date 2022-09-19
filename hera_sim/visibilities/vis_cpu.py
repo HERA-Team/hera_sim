@@ -1,5 +1,5 @@
 """Wrapper for vis_cpu visibility simulator."""
-from __future__ import annotations, division
+from __future__ import annotations
 
 import astropy.units as u
 import itertools
