@@ -1,5 +1,4 @@
 """Wrapper for healvis so that it accepts pyuvsim configuration inputs."""
-from __future__ import division
 
 import numpy as np
 import pyuvsim
