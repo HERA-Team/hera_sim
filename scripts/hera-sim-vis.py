@@ -76,81 +76,13 @@ def print_sim_config(obsparam):
     cprint()
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Run vis_cpu via hera_sim given an obsparam."
-    )
-    parser.add_argument("obsparam", type=str, help="pyuvsim-formatted obsparam file.")
-    parser.add_argument(
-        "simulator_config", type=str, help=" YAML configuration file for the simulator."
-    )
-    parser.add_argument(
-        "--object_name", type=str, default=None, help="Set object_name in the UVData"
-    )
-    parser.add_argument(
-        "--compress",
-        type=str,
-        help="Compress by redundancy. A file name to store the cache.",
-    )
-    parser.add_argument(
-        "--normalize_beams", action="store_true", help="Peak normalize the beams."
-    )
-    parser.add_argument(
-        "--fix_autos", action="store_true", help="Check and fix non-real xx/yy autos"
-    )
-    parser.add_argument(
-        "--max-auto-imag",
-        type=float,
-        default=5e-14,
-        help="Maximum fraction of imaginary/absolute for autos before raising an error",
-    )
-    parser.add_argument(
-        "--profile",
-        type=str,
-        default="",
-        help="If given, do line-profiling on the simulation, and output to given file.",
-    )
-    parser.add_argument(
-        "-p",
-        "--extra-profile-func",
-        type=str,
-        action="append",
-        dest="profile_funcs",
-        help=(
-            "Extra functions to profile. Can be given multiple times. Each must be a "
-            "fully-qualified path to a function or method, eg. package.module:function "
-            "or package.module:Class.method"
-        ),
-        default=(),
-    )
-    parser.add_argument(
-        "-l",
-        "--log-level",
-        type=str,
-        help="String giving the log-level (eg. INFO or DEBUG)",
-        default="WARNING",
-    )
-    parser.add_argument(
-        "-d",
-        "--dry-run",
-        action="store_true",
-        help="If set, create the simulator and data model but don't run simulation.",
-    )
-    args = parser.parse_args()
-    pr = psutil.Process()
+def main(args, profiler):
 
     logger.setLevel(args.log_level.upper())
     if args.profile and not logger.isEnabledFor(logging.INFO):
         logger.setLevel(logging.INFO)
 
     logger.info("Starting Setup")
-
-    if HAVE_MPI and not MPI.Is_initialized():
-        MPI.Init()
-        comm = MPI.COMM_WORLD
-        myid = comm.Get_rank()
-    else:
-        myid = 0
 
     cprint(Panel("hera-sim-vis: Simulating Visibilities"))
 
@@ -217,11 +149,7 @@ if __name__ == "__main__":
         cprint("Dry run finished.")
         sys.exit()
 
-    if args.profile:
-        cprint(f"Profiling simulation. Output to {args.profile}")
-        from line_profiler import LineProfiler
-
-        profiler = LineProfiler()
+    if profiler is not None:
         profiler.add_function(simulator.simulate)
         for fnc in simulator._functions_to_profile:
             profiler.add_function(fnc)
@@ -363,3 +291,84 @@ if __name__ == "__main__":
         comm.Barrier()
 
     cprint("[green][bold]Complete![/][/]")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Run vis_cpu via hera_sim given an obsparam."
+    )
+    parser.add_argument("obsparam", type=str, help="pyuvsim-formatted obsparam file.")
+    parser.add_argument(
+        "simulator_config", type=str, help=" YAML configuration file for the simulator."
+    )
+    parser.add_argument(
+        "--object_name", type=str, default=None, help="Set object_name in the UVData"
+    )
+    parser.add_argument(
+        "--compress",
+        type=str,
+        help="Compress by redundancy. A file name to store the cache.",
+    )
+    parser.add_argument(
+        "--normalize_beams", action="store_true", help="Peak normalize the beams."
+    )
+    parser.add_argument(
+        "--fix_autos", action="store_true", help="Check and fix non-real xx/yy autos"
+    )
+    parser.add_argument(
+        "--max-auto-imag",
+        type=float,
+        default=5e-14,
+        help="Maximum fraction of imaginary/absolute for autos before raising an error",
+    )
+    parser.add_argument(
+        "--profile",
+        type=str,
+        default="",
+        help="If given, do line-profiling on the simulation, and output to given file.",
+    )
+    parser.add_argument(
+        "-p",
+        "--extra-profile-func",
+        type=str,
+        action="append",
+        dest="profile_funcs",
+        help=(
+            "Extra functions to profile. Can be given multiple times. Each must be a "
+            "fully-qualified path to a function or method, eg. package.module:function "
+            "or package.module:Class.method"
+        ),
+        default=(),
+    )
+    parser.add_argument(
+        "-l",
+        "--log-level",
+        type=str,
+        help="String giving the log-level (eg. INFO or DEBUG)",
+        default="WARNING",
+    )
+    parser.add_argument(
+        "-d",
+        "--dry-run",
+        action="store_true",
+        help="If set, create the simulator and data model but don't run simulation.",
+    )
+    args = parser.parse_args()
+
+    if args.profile:
+        cprint(f"Profiling simulation. Output to {args.profile}")
+        from line_profiler import LineProfiler
+
+        profiler = LineProfiler()
+        profiler.add_function(main)
+    else:
+        profiler = None
+
+    if HAVE_MPI and not MPI.Is_initialized():
+        MPI.Init()
+        comm = MPI.COMM_WORLD
+        myid = comm.Get_rank()
+    else:
+        myid = 0
+
+    main(args, profiler)
