@@ -25,7 +25,6 @@ except (ModuleNotFoundError, FileNotFoundError) as err:  # pragma: no cover
         missing = "hera-calibration"
     else:
         missing = "git"
-    warn(f"{missing} is not installed. Rephasing tool unavailable.")
     HERA_CAL = False
 
 

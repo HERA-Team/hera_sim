@@ -58,6 +58,13 @@ logging.basicConfig(
     ],
 )
 
+if HAVE_MPI and not MPI.Is_initialized():
+    MPI.Init()
+    comm = MPI.COMM_WORLD
+    myid = comm.Get_rank()
+else:
+    myid = 0
+
 
 def cprint(*args, **kwargs):
     """Print only if root worker."""
@@ -363,12 +370,5 @@ if __name__ == "__main__":
         profiler.add_function(main)
     else:
         profiler = None
-
-    if HAVE_MPI and not MPI.Is_initialized():
-        MPI.Init()
-        comm = MPI.COMM_WORLD
-        myid = comm.Get_rank()
-    else:
-        myid = 0
 
     main(args, profiler)
