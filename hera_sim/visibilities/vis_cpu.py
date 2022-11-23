@@ -82,6 +82,7 @@ class VisCPU(VisibilitySimulator):
         ref_time: str | Time | None = None,
         correct_source_positions: bool | None = None,
         check_antenna_conjugation: bool = True,
+        **kwargs,
     ):
         assert precision in {1, 2}
         self._precision = precision
@@ -112,6 +113,7 @@ class VisCPU(VisibilitySimulator):
         )
         self.check_antenna_conjugation = check_antenna_conjugation
         self._functions_to_profile = (self._vis_cpu, _wrangle_beams, _evaluate_beam_cpu)
+        self.kwargs = kwargs
 
     def validate(self, data_model: ModelData):
         """Checks for correct input format."""
@@ -390,6 +392,7 @@ class VisCPU(VisibilitySimulator):
                 beam_idx=beam_ids,
                 precision=self._precision,
                 polarized=polarized,
+                **self.kwargs,
             )
 
             logger.info("... re-ordering visibilities...")

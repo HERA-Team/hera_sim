@@ -83,14 +83,7 @@ def print_sim_config(obsparam):
     cprint()
 
 
-def main(args, profiler):
-
-    logger.setLevel(args.log_level.upper())
-    if args.profile and not logger.isEnabledFor(logging.INFO):
-        logger.setLevel(logging.INFO)
-
-    logger.info("Starting Setup")
-
+def main(args, profiler, simulator):
     cprint(Panel("hera-sim-vis: Simulating Visibilities"))
 
     # Make data_model, simulator, and simulation objects
@@ -100,10 +93,6 @@ def main(args, profiler):
     )
     logger.info("Finished Setting up ModelData object")
     print_sim_config(args.obsparam)
-
-    logger.info("Initializing VisibilitySimulator object... ")
-    simulator = load_simulator_from_yaml(args.simulator_config)
-    logger.info("Finished VisibilitySimulator Init")
 
     cprint(f"Using {simulator.__class__.__name__} Simulator")
 
@@ -155,21 +144,6 @@ def main(args, profiler):
     if args.dry_run:
         cprint("Dry run finished.")
         sys.exit()
-
-    if profiler is not None:
-        profiler.add_function(simulator.simulate)
-        for fnc in simulator._functions_to_profile:
-            profiler.add_function(fnc)
-
-        # Now add any user-defined functions that they want to be profiled.
-        # Functions must be sent in as "path.to.module:function_name" or
-        # "path.to.module:Class.method".
-        for fnc in args.profile_funcs:
-            module = importlib.import_module(fnc.split(":")[0])
-            _fnc = module
-            for att in fnc.split(":")[-1].split("."):
-                _fnc = getattr(_fnc, att)
-            profiler.add_function(_fnc)
 
     simulation = VisibilitySimulation(data_model=data_model, simulator=simulator)
 
@@ -362,13 +336,36 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
+    logger.setLevel(args.log_level.upper())
+    if args.profile and not logger.isEnabledFor(logging.INFO):
+        logger.setLevel(logging.INFO)
+
+    logger.info("Initializing VisibilitySimulator object... ")
+    simulator = load_simulator_from_yaml(args.simulator_config)
+    logger.info("Finished VisibilitySimulator Init")
+
     if args.profile:
         cprint(f"Profiling simulation. Output to {args.profile}")
         from line_profiler import LineProfiler
 
         profiler = LineProfiler()
         profiler.add_function(main)
+
+        profiler.add_function(simulator.simulate)
+        for fnc in simulator._functions_to_profile:
+            profiler.add_function(fnc)
+
+        # Now add any user-defined functions that they want to be profiled.
+        # Functions must be sent in as "path.to.module:function_name" or
+        # "path.to.module:Class.method".
+        for fnc in args.profile_funcs:
+            module = importlib.import_module(fnc.split(":")[0])
+            _fnc = module
+            for att in fnc.split(":")[-1].split("."):
+                _fnc = getattr(_fnc, att)
+            profiler.add_function(_fnc)
+
     else:
         profiler = None
 
-    main(args, profiler)
+    main(args, profiler, simulator)
