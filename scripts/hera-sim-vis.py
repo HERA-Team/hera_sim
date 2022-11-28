@@ -151,10 +151,7 @@ def main(args, profiler, simulator):
     cprint()
     cprint(Rule("Running Simulation"))
     logger.info("About to Run Simulation")
-    if args.profile:
-        profiler.runcall(simulation.simulate)
-    else:
-        simulation.simulate()
+    simulation.simulate()
     logger.info("Simulation Complete")
     cprint(Rule())
 
@@ -368,4 +365,7 @@ if __name__ == "__main__":
     else:
         profiler = None
 
-    main(args, profiler, simulator)
+    if args.profile:
+        profiler.runcall(main, args, profiler, simulator)
+    else:
+        main(args, profiler, simulator)
