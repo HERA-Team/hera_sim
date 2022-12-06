@@ -7,6 +7,8 @@ example bandpass gains, reflections and cross-talk.
 import numpy as np
 import warnings
 from astropy import constants
+from pathlib import Path
+from pyuvdata import UVBeam
 from scipy import stats
 from scipy.signal import blackmanharris
 from typing import Dict, Optional, Sequence, Tuple, Union
@@ -608,6 +610,264 @@ class CrossCouplingSpectrum(Crosstalk):
                 crosstalk_spectrum += gen_xtalk(freqs, autovis, dly=-dly)
 
         return crosstalk_spectrum
+
+
+class MutualCoupling(Crosstalk):
+    r""" """
+
+    _alias = ("mutual_coupling", "first_order_coupling")
+
+    def __init__(
+        self,
+        uvbeam: UVBeam | str | Path | None,
+        reflection_coeff: dict | callable | None = None,
+        resistance: dict | callable | None = None,
+        ant_1_array: np.ndarray | None = None,
+        ant_2_array: np.ndarray | None = None,
+        pol_array: np.ndarray | None = None,
+        array_layout: dict | None = None,
+        coupling_matrix: np.ndarray | None = None,
+        pixel_interp: str = "az_za_simple",
+        freq_interp: str = "cubic",
+    ):
+        super().__init__(
+            uvbeam=uvbeam,
+            reflection_coeff=reflection_coeff,
+            resistance=resistance,
+            ant_1_array=ant_1_array,
+            ant_2_array=ant_2_array,
+            pol_array=pol_array,
+            array_layout=array_layout,
+            coupling_matrix=coupling_matrix,
+            pixel_interp=pixel_interp,
+            freq_interp=freq_interp,
+        )
+
+    def __call__(self, freqs, visibilities, **kwargs) -> np.ndarray:
+        """ """
+        self._check_kwargs(**kwargs)
+        (
+            uvbeam,
+            reflection_coeff,
+            resistance,
+            ant_1_array,
+            ant_2_array,
+            pol_array,
+            array_layout,
+            coupling_matrix,
+            pixel_interp,
+            freq_interp,
+        ) = self._extract_kwarg_values(**kwargs)
+
+        # Do all our sanity checks up front. First, check the array.
+        data_ants = set(ant_1_array).union(ant_2_array)
+        antpos_ants = set(array_layout.keys())
+        if antpos_ants.issubset(data_ants) and antpos_ants != data_ants:
+            raise ValueError("Full array layout not provided.")
+
+        # Now, check that we can compute the coupling matrix if needed.
+        if coupling_matrix is None:
+            req_attrs = (
+                ant_1_array,
+                ant_2_array,
+                array_layout,
+                uvbeam,
+            )
+            if any(attr is None for attr in req_attrs):
+                raise ValueError(
+                    "Insufficient information to calculate coupling matrix."
+                )
+
+            # This already happens in build_coupling_matrix, but the reshape
+            # step is not a trivial amount of time, so it's better to do it
+            # again here.
+            self._check_beam_is_ok(uvbeam)
+
+        # Let's make sure that we're only using antennas that are in the data.
+        antpos_ants = antpos_ants.intersection(data_ants)
+        array_layout = {ant: array_layout[ant] for ant in sorted(antpos_ants)}
+        antenna_numbers = np.array(list(array_layout.keys()))
+
+        # Figure out how to reshape the visibility array
+        n_bls = np.unique(np.vstack([ant_1_array, ant_2_array]), axis=1).shape[1]
+        n_ants = antenna_numbers.size
+        n_times = ant_1_array.size // n_bls
+        n_freqs = visibilities.squeeze().shape[1]
+        n_pols = visibilities.shape[-1]
+        visibilities = utils.reshape_vis(
+            vis=visibilities,
+            ant_1_array=ant_1_array,
+            ant_2_array=ant_2_array,
+            pol_array=pol_array,
+            antenna_numbers=antenna_numbers,
+            n_times=n_times,
+            n_freqs=n_freqs,
+            n_ants=n_ants,
+            n_pols=n_pols,
+            invert=False,
+        )
+
+        if coupling_matrix is None:
+            coupling_matrix = self.build_coupling_matrix(
+                freqs=freqs,
+                ant_1_array=ant_1_array,
+                ant_2_array=ant_2_array,
+                array_layout=array_layout,
+                uvbeam=uvbeam,
+                reflection_coeff=reflection_coeff,
+                resistance=resistance,
+                pixel_interp=pixel_interp,
+                freq_interp=freq_interp,
+            )
+
+        # Now actually calculate the mutual coupling.
+        xt_vis = utils.matmul(
+            visibilities, coupling_matrix.conj().transpose(0, 1, 3, 2).copy()
+        ) + utils.matmul(coupling_matrix, visibilities)
+
+        # Return something with the same shape as the input data array.
+        return utils.reorder_vis(
+            vis=xt_vis,
+            ant_1_array=ant_1_array,
+            ant_2_array=ant_2_array,
+            antenna_numbers=antenna_numbers,
+            n_times=n_times,
+            n_freqs=n_freqs,
+            n_ants=n_ants,
+            n_pols=n_pols,
+            invert=True,
+        )
+
+    @staticmethod
+    def build_coupling_matrix(
+        freqs,
+        ant_1_array,
+        ant_2_array,
+        array_layout,
+        uvbeam,
+        reflection=None,
+        resistance=None,
+        pixel_interp="az_za_simple",
+        freq_interp="cubic",
+    ) -> np.ndarray:
+        n_ants = len(array_layout)
+        antenna_numbers = np.array(sorted(array_layout.keys()))
+        enu_antpos = np.array([array_layout[ant] for ant in antenna_numbers])
+        antpair2angle = utils.find_baseline_orientations(
+            antenna_numbers=antenna_numbers,
+            enu_antpos=enu_antpos,
+        )
+        antpair2angle = {
+            antpair: np.round(angle, 2) for antpair, angle in antpair2angle.items()
+        }
+        unique_angles = np.array(set(antpair2angle.values()))
+
+        # Make sure the reflection coefficients and resistances make sense.
+        if reflection is None:
+            reflection = np.ones_like(freqs)
+        elif callable(reflection):
+            reflection = reflection(freqs)
+        if reflection.size != freqs.size:
+            raise ValueError("Reflection coefficients have the wrong shape.")
+
+        if resistance is None:
+            resistance = np.ones_like(freqs)
+        elif callable(resistance):
+            resistance = resistance(freqs)
+        if resistance.size != freqs.size:
+            raise ValueError("Resistances have the wrong shape.")
+
+        # Check the beam is OK and make it smaller if it's too big.
+        MutualCoupling._check_beam_is_ok(uvbeam)
+        if uvbeam.Naxes2 > 5:
+            # We only need two points on either side of the horizon.
+            za_array = uvbeam.axis2_array
+            horizon_ind = np.argmin(np.abs(za_array - np.pi / 2))
+            horizon_select = np.arange(horizon_ind - 2, horizon_ind + 3)
+            # Do it this way to not overwrite uvbeam in memory.
+            uvbeam = uvbeam.select(
+                axis2_inds=horizon_select, inplace=False, run_check=False
+            )
+
+        # Now make sure we're OK to interpolate the beam. AnalyticBeam makes
+        # this a little annoying... but whatever.
+        if hasattr(uvbeam, "interpolation_function"):
+            if uvbeam.interpolation_function is None:
+                uvbeam.interpolation_function = pixel_interp
+        else:
+            uvbeam.interpolation_function = pixel_interp
+        if hasattr(uvbeam, "freq_interp_kind"):
+            if uvbeam.freq_interp_kind is None:
+                uvbeam.freq_interp_kind = freq_interp
+        else:
+            uvbeam.freq_interp_kind = freq_interp
+
+        # Now we'll actually interpolate the beam.
+        # The end shape is (n_az, n_freq, 2, 2).
+        jones_matrices = (
+            uvbeam.interp(
+                az_array=unique_angles,
+                za_array=np.ones_like(unique_angles) * np.pi / 2,
+                freq_array=freqs * 1e9,  # Since we default to GHz...
+            )[0]
+            .squeeze()
+            .transpose(3, 2, 0, 1)
+        )
+        jones_matrices = {
+            angle: jones_matrices[i] for i, angle in enumerate(unique_angles)
+        }
+
+        # Now let's actually make the coupling matrix.
+        coupling_matrix = np.zeros(
+            (1, freqs.size, 2 * n_ants, 2 * n_ants), dtype=complex
+        )
+        for i, ai in enumerate(antenna_numbers):
+            for j, aj in enumerate(antenna_numbers[i + 1 :]):
+                # Calculate J(b_ij)J(b_ji)^\dag
+                jones_ij = jones_matrices[antpair2angle(ai, aj)]
+                jones_ji = jones_matrices[antpair2angle(aj, ai)]
+                jones_prod = jones_ij @ jones_ji.conj().transpose(0, 2, 1)
+
+                # If we wanted to add a baseline orientation/length cut,
+                # then this is where we would do it.
+                bl_len = np.linalg.norm(enu_antpos[j] - enu_antpos[i])
+                delay = np.exp(
+                    2j * np.pi * freqs * bl_len / constants.c.to("m/ns").value
+                ).reshape(-1, 1, 1)
+                coupling = delay * jones_prod / bl_len
+
+                # Fill in the upper-triangular part
+                # Even indices are "X" feed; odd are "Y" feed
+                # TODO: double check the off-diagonals for small matrices
+                coupling_matrix[0, :, ::2, ::2][:, i, j] = coupling[:, 0, 0]
+                coupling_matrix[0, :, 1::2, ::2][:, i, j] = coupling[:, 0, 1]
+                coupling_matrix[0, :, ::2, 1::2][:, i, j] = coupling[:, 1, 0]
+                coupling_matrix[0, :, 1::2, 1::2][:, i, j] = coupling[:, 1, 1]
+
+                # Now fill in the lower-triangular part
+                # Remember we're assuming identical antennas
+                coupling_matrix[0, :, ::2, ::2][:, j, i] = coupling[:, 0, 0]
+                coupling_matrix[0, :, 1::2, ::2][:, j, i] = coupling[:, 0, 1]
+                coupling_matrix[0, :, ::2, 1::2][:, j, i] = coupling[:, 1, 0]
+                coupling_matrix[0, :, 1::2, 1::2][:, j, i] = coupling[:, 1, 1]
+
+        # Now let's tack on the prefactor
+        eta0 = np.sqrt(constants.mu0.value / constants.eps0.value)
+        coupling_matrix *= (
+            1j
+            * eta0
+            * reflection
+            * freqs
+            / (4 * constants.c.to("m/ns").value * resistance)
+        ).reshape(1, -1, 1, 1)
+        return coupling_matrix
+
+    @staticmethod
+    def _check_beam_is_ok(uvbeam):
+        if getattr(uvbeam, "pixel_coordinate_system", "") != "az_za":
+            raise ValueError("Beam must be given in az/za coordinates.")
+        if uvbeam.beam_type != "efield":
+            raise NotImplementedError("Only E-field beams are supported.")
 
 
 class OverAirCrossCoupling(Crosstalk):

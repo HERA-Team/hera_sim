@@ -1,12 +1,20 @@
 """Utility module."""
-import astropy.constants as const
-import astropy.units as u
 import numpy as np
+import pyuvdata.utils as uvutils
 import warnings
+from astropy import constants, units
+from astropy.coordinates import Longitude
 from scipy.interpolate import RectBivariateSpline
 from typing import Optional, Sequence, Tuple, Union
 
 from .interpolators import Beam
+
+try:
+    import numba
+
+    HAVE_NUMBA = True
+except ImportError:
+    HAVE_NUMBA = False
 
 
 def _get_bl_len_vec(bl_len_ns: Union[float, np.ndarray]) -> np.ndarray:
@@ -240,7 +248,7 @@ def gen_fringe_filter(
     If ``filter_type == 'none'`` fringe filter is identically one.
     """
     # setup
-    times = lsts / (2 * np.pi) * u.sday.to("s")
+    times = lsts / (2 * np.pi) * units.sday.to("s")
     fringe_rates = np.fft.fftfreq(times.size, times[1] - times[0])
 
     if fringe_filter_type in [None, "none", "None"]:
@@ -360,7 +368,7 @@ def calc_max_fringe_rate(fqs: np.ndarray, ew_bl_len_ns: float) -> np.ndarray:
         Maximum fringe rate [Hz]
     """
     bl_wavelen = fqs * ew_bl_len_ns
-    return 2 * np.pi / u.sday.to("s") * bl_wavelen
+    return 2 * np.pi / units.sday.to("s") * bl_wavelen
 
 
 def compute_ha(lsts: np.ndarray, ra: float) -> np.ndarray:
@@ -450,9 +458,9 @@ def jansky_to_kelvin(freqs: np.ndarray, omega_p: Union[Beam, np.ndarray]) -> np.
     if callable(omega_p):
         omega_p = omega_p(freqs)
 
-    wavelengths = const.c.value / (freqs * 1e9)  # meters
+    wavelengths = constants.c.value / (freqs * 1e9)  # meters
     # The factor of 1e-26 converts from Jy to W/m^2/Hz.
-    return 1e-26 * wavelengths**2 / (2 * const.k_B.value * omega_p)
+    return 1e-26 * wavelengths**2 / (2 * constants.k_B.value * omega_p)
 
 
 def Jy2T(freqs, omega_p):
@@ -488,3 +496,194 @@ def _listify(x):
             return [x]
         else:
             return list(x)
+
+
+# TODO: docstring
+def reshape_vis(
+    vis: np.ndarray,
+    ant_1_array: np.ndarray,
+    ant_2_array: np.ndarray,
+    pol_array: np.ndarray,
+    antenna_numbers: np.ndarray,
+    n_times: int,
+    n_freqs: int,
+    n_ants: int,
+    n_pols: int,
+    invert: bool = False,
+    use_numba: bool = True,
+) -> np.ndarray:
+    """Reshaping helper for mutual coupling sims."""
+    if invert:
+        out = np.zeros((ant_1_array.size, 1, n_freqs, n_pols), dtype=complex)
+    else:
+        out = np.zeros((n_times, n_freqs, 2 * n_ants, 2 * n_ants), dtype=complex)
+
+    # If we have numba, then this is a bit faster.
+    if HAVE_NUMBA and use_numba:
+        return jit_reshape_vis(
+            vis=vis,
+            out=out,
+            ant_1_array=ant_1_array,
+            ant_2_array=ant_2_array,
+            pol_array=pol_array,
+            antenna_numbers=antenna_numbers,
+            n_ants=n_ants,
+            n_pols=n_pols,
+            invert=invert,
+        )
+
+    # We don't have numba, so we need to do this a bit more slowly.
+    pol_slices = {"x": slice(None, None, 2), "y": slice(1, None, 2)}
+    for i, ai in enumerate(antenna_numbers):
+        for j, aj in enumerate(antenna_numbers[i:]):
+            for k, pol in enumerate(pol_array):
+                uvd_inds = np.argwhere(
+                    (ant_1_array == ai) & (ant_2_array == aj)
+                ).flatten()
+                p1, p2 = uvutils.polnum2str(pol)
+                sl1, sl2 = (pol_slices[p.lower()] for p in (p1, p2))
+                ii, jj = i, j  # Don't accidentally overwrite i
+                if uvd_inds.size == 0:
+                    # We actually need the conjugate.
+                    uvd_inds = np.argwhere(
+                        (ant_2_array == ai) & (ant_1_array == aj)
+                    ).flatten()
+                    sl1, sl2 = sl2, sl1
+                    ii, jj = j, i
+
+                # Don't do anything if the baseline isn't in the data.
+                if uvd_inds.size == 0:
+                    continue
+
+                if invert:
+                    # Going back to UVData shape
+                    out[uvd_inds, 0, :, k] = vis[:, :, sl1, sl2][:, :, ii, jj]
+                else:
+                    # Changing from UVData shape
+                    out[:, :, sl1, sl2][:, :, ii, jj] = vis.squeeze()[uvd_inds, :, k]
+                    out[:, :, sl2, sl1][:, :, jj, ii] = np.conj(
+                        vis.squeeze()[uvd_inds, :, k]
+                    )
+    return out
+
+
+# TODO: docstring
+def matmul(left, right, use_numba=False):
+    """"""
+    if HAVE_NUMBA and use_numba:
+        if left.shape[0] == 1:
+            return _left_matmul(left, right)
+        elif right.shape[0] == 1:
+            return _right_matmul(left, right)
+        elif left.shape == right.shape:
+            return _matmul(left, right)
+        else:
+            raise ValueError("Inputs cannot be broadcast to a common shape.")
+    else:
+        return left @ right
+
+
+# TODO: docstring
+def find_baseline_orientations(antenna_numbers, enu_antpos):
+    """"""
+    groups, baselines = uvutils.get_antenna_redundancies(
+        antenna_numbers, enu_antpos, include_autos=False
+    )[:2]
+    antpair2angle = {}
+    for group, (e, n, _u) in zip(groups, baselines):
+        angle = Longitude(np.arctan2(n, e) * units.rad).value
+        conj_angle = Longitude((angle + np.pi) * units.rad).value
+        for blnum in group:
+            ai, aj = uvutils.baseline_to_antnums(blnum, antenna_numbers.size)
+            antpair2angle[(ai, aj)] = angle
+            antpair2angle[(aj, ai)] = conj_angle
+    return antpair2angle
+
+
+# Just some numba-fied helpful functions.
+if HAVE_NUMBA:
+    # TODO: docstring
+    @numba.njit
+    def jit_reshape_vis(
+        vis,
+        out,
+        ant_1_array,
+        ant_2_array,
+        pol_array,
+        antenna_numbers,
+        n_ants,
+        n_pols,
+        invert=False,
+    ):
+        # This is basically the same as the non-numba reshape function,
+        # but it's not as pretty.
+        x_sl = 2 * np.arange(n_ants)
+        y_sl = 1 + 2 * np.arange(n_ants)
+        for i, ai in enumerate(antenna_numbers):
+            for j, aj in enumerate(antenna_numbers[i:]):
+                uvd_inds = np.argwhere(
+                    (ant_1_array == ai) & (ant_2_array == aj)
+                ).flatten()
+
+                flipped = False
+                ii, jj = i, j
+                if uvd_inds.size == 0:
+                    uvd_inds = np.argwhere(
+                        (ant_2_array == ai) & (ant_1_array == aj)
+                    ).flatten()
+                    flipped = True
+                    ii, jj = j, i
+
+                # Don't do anything if this baseline isn't present.
+                if uvd_inds.size == 0:
+                    continue
+
+                for k, pol in enumerate(pol_array):
+                    if pol == -5:
+                        p1, p2 = x_sl, x_sl
+                    elif pol == -6:
+                        p1, p2 = y_sl, y_sl
+                    elif pol == -7:
+                        p1, p2 = x_sl, y_sl
+                    else:
+                        p1, p2 = y_sl, x_sl
+
+                    if flipped:
+                        p1, p2 = p2, p1
+
+                    if invert:
+                        # Go back to UVData shape
+                        out[uvd_inds, 0, :, k] = vis[:, :, p1, p2][:, :, ii, jj]
+                    else:
+                        out[:, :, p1, p2][:, :, ii, jj] = vis.squeeze()[uvd_inds, :, k]
+                        out[:, :, p2, p1][:, :, jj, ii] = np.conj(
+                            vis.squeeze()[uvd_inds, :, k]
+                        )
+        return out
+
+    # TODO: docstring
+    @numba.njit
+    def _left_matmul(left, right):
+        out = np.zeros_like(right)
+        for i in range(out.shape[0]):
+            for j in range(out.shape[1]):
+                out[i, j] = left[0, j] @ right[i, j]
+        return out
+
+    # TODO: docstring
+    @numba.njit
+    def _right_matmul(left, right):
+        out = np.zeros_like(left)
+        for i in range(out.shape[0]):
+            for j in range(out.shape[1]):
+                out[i, j] = left[i, j] @ right[0, j]
+        return out
+
+    # TODO: docstring
+    @numba.njit
+    def _matmul(left, right):
+        out = np.zeros_like(left)
+        for i in range(out.shape[0]):
+            for j in range(out.shape[1]):
+                out[i, j] = left[i, j] @ right[i, j]
+        return out
