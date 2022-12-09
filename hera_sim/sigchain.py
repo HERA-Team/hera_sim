@@ -9,6 +9,7 @@ import warnings
 from astropy import constants
 from pathlib import Path
 from pyuvdata import UVBeam
+from pyuvsim import AnalyticBeam
 from scipy import stats
 from scipy.signal import blackmanharris
 from typing import Dict, Optional, Sequence, Tuple, Union
@@ -627,6 +628,7 @@ class MutualCoupling(Crosstalk):
         pol_array: np.ndarray | None = None,
         array_layout: dict | None = None,
         coupling_matrix: np.ndarray | None = None,
+        beam_type: str | None = None,
         pixel_interp: str = "az_za_simple",
         freq_interp: str = "cubic",
     ):
@@ -639,6 +641,7 @@ class MutualCoupling(Crosstalk):
             pol_array=pol_array,
             array_layout=array_layout,
             coupling_matrix=coupling_matrix,
+            beam_type=beam_type,
             pixel_interp=pixel_interp,
             freq_interp=freq_interp,
         )
@@ -655,6 +658,7 @@ class MutualCoupling(Crosstalk):
             pol_array,
             array_layout,
             coupling_matrix,
+            beam_type,
             pixel_interp,
             freq_interp,
         ) = self._extract_kwarg_values(**kwargs)
@@ -677,6 +681,12 @@ class MutualCoupling(Crosstalk):
                 raise ValueError(
                     "Insufficient information to calculate coupling matrix."
                 )
+
+            # Read in the beam if it's not already a UVBeam object
+            if uvbeam == "analytic":
+                uvbeam = AnalyticBeam(beam_type)
+            elif not isinstance(uvbeam, UVBeam):
+                uvbeam = UVBeam.from_file(uvbeam)
 
             # This already happens in build_coupling_matrix, but the reshape
             # step is not a trivial amount of time, so it's better to do it
