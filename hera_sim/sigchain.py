@@ -614,15 +614,129 @@ class CrossCouplingSpectrum(Crosstalk):
 
 
 class MutualCoupling(Crosstalk):
-    r""" """
+    r"""Simulate mutual coupling according to Josaitis+ 2022.
+
+    This class simulates the "first-order coupling" between visibilities in an
+    array. The model assumes that coupling is induced via re-radiation of
+    incident astrophysical radiation due to an impedance mismatch at the
+    antenna feed, and that the re-radiated signal is in the far-field of every
+    other antenna in the array. Full details can be found here:
+
+        `MNRAS<https://doi.org/10.1093/mnras/stac916>`
+        `arXiv<https://arxiv.org/abs/2110.10879>`
+
+    The essential equations from the paper are Equations 9 and 19. The
+    implementation here effectively calculates Equation 19 for every
+    visibility in the provided data. The original publication contains an
+    error in Equation 9 (the effective height in transmission should have a
+    complex conjugation applied), which we correct for in our implementation.
+    In addition to this, we assume that every antenna feed has the same
+    impedance, reflection coefficient, and effective height. Applying the
+    correct conjugation, and enforcing these assumptions, the first-order
+    correction to the visibility :math:`{\bf V}_{ij}` can be written as:
+
+    ..math::
+
+        {\bf V}_{ij}^{\rm xt} = \sum_k \Bigl[ (1-\delta_{kj}) {\bf V}_{ik}^0
+        {\bf X}_{jk}^\dagger + (1-\delta_{ik}) {\bf X}_{ik} {\bf V}_{kj}^0
+        \Bigr],
+
+    where the "xt" superscript is shorthand for "crosstalk", the "0"
+    superscript refers to the "zeroth-order" visibilities, :math:`\delta_{ij}`
+    is the Kronecker delta, and :math:`{\bf X}_{ij}` is a "coupling matrix"
+    that describes how radiation emitted from antenna :math:`j` is received by
+    antenna :math:`i`. The coupling matrix can be written as
+
+    ..math::
+
+        {\bf X}_{jk} \equiv \frac{i\eta_0}{4\lambda} \frac{\Gamma_k}{R_k}
+        \frac{e^{i2\pi\nu\tau_{jk}}}{b_{jk}} {\bf J}_j (\hat{\bf b}_{jk})
+        {\bf J}_k(\hat{\bf b}_{kj})^\dagger,
+
+    where :math:`\Gamma` is the reflection coefficient, :math:`R` is the real
+    part of the impedance, :math:`\eta_0` is the impedance of free space,
+    :math:`\lambda` is the wavelength of the radiation, :math:`\nu` is the
+    frequency of the radiation, :math:`\tau=b/c` is the delay of the baseline,
+    :math:`b` is the baseline length, :math:`\hat{\bf b}_{ij}` is a unit
+    vector pointing from antenna :math:`i` to antenna :math:`j`, and
+    :math:`{\bf J}` is the Jones matrix describing the fully-polarized
+    response of the antenna to incident radiation.
+
+    The boldfaced variables without any overhead decorations indicate 2x2
+    matrices:
+
+    ..math::
+
+        {\bf V} = \begin{pmatrix}
+            V_{XX} & V_{XY} \\ V_{YX} & V_{YY}
+        \end{pmatrix},
+        \quad
+        {\bf J} = \begin{pmatrix}
+            h_{X\theta} & h_{X\phi} \\ h_{Y\theta} & h_{Y\phi}
+        \end{pmatrix}
+
+    In order to efficiently simulate the mutual coupling, the antenna and
+    polarization axes of the visibilities and coupling matrix are combined
+    into a single "antenna-polarization" axis, and the problem is recast as a
+    simple matrix multiplication.
+
+    Parameters
+    ==========
+    uvbeam
+        The beam (i.e. Jones matrix) to be used for calculating the coupling
+        matrix. This may either be a :class:`pyuvdata.UVBeam` object, a path
+        to a file that may be read into a :class:`pyuvdata.UVBeam` object, or
+        a string identifying which :class:`pyuvsim.AnalyticBeam` to use. Not
+        required if providing a pre-calculated coupling matrix.
+    reflection
+        The reflection coefficient to use for calculating the coupling matrix.
+        Should be either a :class:`np.ndarray` or an interpolation object that
+        gives the reflection coefficient as a function of frequency (in GHz).
+        Not required if providing a pre-calculated coupling matrix.
+    resistance
+        The real part of the impedance to use for calculating the coupling
+        matrix. Has the same requirements as the `reflection` parameter,
+        and the resistance should be measured in Ohms.
+    ant_1_array
+        Array of integers specifying the number of the first antenna in each
+        visibility. Required for calculating the coupling matrix and the
+        coupled visibilities.
+    ant_2_array
+        Array of integers specifying the number of the second antenna in each
+        visibility.
+    pol_array
+        Array of integers representing polarization numbers, following the
+        convention used for :class:`pyuvdata.UVData` objects. Required for
+        calculating the coupled visibilities.
+    array_layout
+        Dictionary mapping antenna numbers to their positions in local East-
+        North-Up coordinates, expressed in meters. Not required if providing
+        a pre-calculated coupling matrix.
+    coupling_matrix
+        Matrix describing how radiation is coupled between antennas in the
+        array. Should have shape `(1, n_freqs, 2*n_ants, 2*n_ants)`. The even
+        elements along the "antenna-polarization" axes correspond to the "X"
+        polarization; the odd elements correspond to the "Y" polarization.
+    pixel_interp
+        The name of the spatial interpolation method used for the beam. Not
+        required if using an analytic beam or if providing a pre-computed
+        coupling matrix.
+    freq_interp
+        The order of the spline to be used for interpolating the beam in
+        frequency. Not required if using an analytic beam or if providing a
+        pre-computed coupling matrix.
+    beam_kwargs
+        Additional keywords used for either reading in a beam or creating an
+        analytic beam.
+    """
 
     _alias = ("mutual_coupling", "first_order_coupling")
 
     def __init__(
         self,
         uvbeam: UVBeam | str | Path | None,
-        reflection_coeff: dict | callable | None = None,
-        resistance: dict | callable | None = None,
+        reflection: np.ndarray | callable | None = None,
+        resistance: np.ndarray | callable | None = None,
         ant_1_array: np.ndarray | None = None,
         ant_2_array: np.ndarray | None = None,
         pol_array: np.ndarray | None = None,
@@ -631,10 +745,11 @@ class MutualCoupling(Crosstalk):
         beam_type: str | None = None,
         pixel_interp: str = "az_za_simple",
         freq_interp: str = "cubic",
+        beam_kwargs: dict | None = None,
     ):
         super().__init__(
             uvbeam=uvbeam,
-            reflection_coeff=reflection_coeff,
+            reflection=reflection,
             resistance=resistance,
             ant_1_array=ant_1_array,
             ant_2_array=ant_2_array,
@@ -644,14 +759,45 @@ class MutualCoupling(Crosstalk):
             beam_type=beam_type,
             pixel_interp=pixel_interp,
             freq_interp=freq_interp,
+            beam_kwargs=beam_kwargs or {},
         )
 
-    def __call__(self, freqs, visibilities, **kwargs) -> np.ndarray:
-        """ """
+    def __call__(
+        self,
+        freqs: np.ndarray,
+        visibilities: np.ndarray,
+        **kwargs,
+    ) -> np.ndarray:
+        """Calculate the first-order coupled visibilities.
+
+        Parameters
+        ==========
+        freqs
+            The observed frequencies, in GHz.
+        visibilities
+            The full set of visibilities for the array. Should have shape
+            `(n_bls*n_times, n_freqs, [1,] n_pols)`.
+        kwargs
+            Additional parameters to use instead of the current attribute
+            values for the class instance. See the class docstring for details.
+
+        Returns
+        =======
+        xt_vis
+            The first-order correction to the visibilities due to mutual
+            coupling between array elements. Has the same shape as the provided
+            visibilities.
+
+        Notes
+        =====
+        This method is somewhat memory hungry, as it produces two arrays which
+        are each twice as large as the input visibility array in intermediate
+        steps of the calculation.
+        """
         self._check_kwargs(**kwargs)
         (
             uvbeam,
-            reflection_coeff,
+            reflection,
             resistance,
             ant_1_array,
             ant_2_array,
@@ -661,6 +807,7 @@ class MutualCoupling(Crosstalk):
             beam_type,
             pixel_interp,
             freq_interp,
+            beam_kwargs,
         ) = self._extract_kwarg_values(**kwargs)
 
         # Do all our sanity checks up front. First, check the array.
@@ -671,6 +818,7 @@ class MutualCoupling(Crosstalk):
 
         # Now, check that we can compute the coupling matrix if needed.
         if coupling_matrix is None:
+            uvbeam = MutualCoupling._handle_beam(uvbeam, **beam_kwargs)
             req_attrs = (
                 ant_1_array,
                 ant_2_array,
@@ -724,10 +872,11 @@ class MutualCoupling(Crosstalk):
                 ant_2_array=ant_2_array,
                 array_layout=array_layout,
                 uvbeam=uvbeam,
-                reflection_coeff=reflection_coeff,
+                reflection=reflection,
                 resistance=resistance,
                 pixel_interp=pixel_interp,
                 freq_interp=freq_interp,
+                **beam_kwargs,
             )
 
         # Now actually calculate the mutual coupling.
@@ -750,16 +899,64 @@ class MutualCoupling(Crosstalk):
 
     @staticmethod
     def build_coupling_matrix(
-        freqs,
-        ant_1_array,
-        ant_2_array,
-        array_layout,
-        uvbeam,
-        reflection=None,
-        resistance=None,
-        pixel_interp="az_za_simple",
-        freq_interp="cubic",
+        freqs: np.ndarray,
+        ant_1_array: np.ndarray,
+        ant_2_array: np.ndarray,
+        array_layout: dict,
+        uvbeam: UVBeam | str,
+        reflection: np.ndarray | callable | None = None,
+        resistance: np.ndarray | callable | None = None,
+        pixel_interp: str | None = "az_za_simple",
+        freq_interp: str | None = "cubic",
+        **beam_kwargs,
     ) -> np.ndarray:
+        """Calculate the coupling matrix used for mutual coupling simulation.
+
+        See the :class:`MutualCoupling` class docstring for a description of
+        the coupling matrix.
+
+        Parameters
+        ==========
+        freqs
+            The observed frequencies, in GHz.
+        ant_1_array
+            Array of integers specifying the number of the first antenna in each
+            visibility. Required for calculating the coupling matrix and the
+            coupled visibilities.
+        ant_2_array
+            Array of integers specifying the number of the second antenna in each
+            visibility.
+        array_layout
+            Dictionary mapping antenna numbers to their positions in local East-
+            North-Up coordinates, expressed in meters. Not required if providing
+            a pre-calculated coupling matrix.
+        uvbeam
+            The beam (i.e. Jones matrix) to be used for calculating the coupling
+            matrix. This may either be a :class:`pyuvdata.UVBeam` object, a path
+            to a file that may be read into a :class:`pyuvdata.UVBeam` object, or
+            a string identifying which :class:`pyuvsim.AnalyticBeam` to use. Not
+            required if providing a pre-calculated coupling matrix.
+        reflection
+            The reflection coefficient to use for calculating the coupling matrix.
+            Should be either a :class:`np.ndarray` or an interpolation object that
+            gives the reflection coefficient as a function of frequency (in GHz).
+            Not required if providing a pre-calculated coupling matrix.
+        resistance
+            The real part of the impedance to use for calculating the coupling
+            matrix. Has the same requirements as the `reflection` parameter,
+            and the resistance should be measured in Ohms.
+        pixel_interp
+            The name of the spatial interpolation method used for the beam. Not
+            required if using an analytic beam or if providing a pre-computed
+            coupling matrix.
+        freq_interp
+            The order of the spline to be used for interpolating the beam in
+            frequency. Not required if using an analytic beam or if providing a
+            pre-computed coupling matrix.
+        beam_kwargs
+            Additional keywords used for either reading in a beam or creating an
+            analytic beam.
+        """
         n_ants = len(array_layout)
         antenna_numbers = np.array(sorted(array_layout.keys()))
         enu_antpos = np.array([array_layout[ant] for ant in antenna_numbers])
@@ -788,6 +985,7 @@ class MutualCoupling(Crosstalk):
             raise ValueError("Resistances have the wrong shape.")
 
         # Check the beam is OK and make it smaller if it's too big.
+        uvbeam = MutualCoupling._handle_beam(uvbeam, **beam_kwargs)
         MutualCoupling._check_beam_is_ok(uvbeam)
         if uvbeam.Naxes2 > 5:
             # We only need two points on either side of the horizon.
@@ -878,6 +1076,14 @@ class MutualCoupling(Crosstalk):
             raise ValueError("Beam must be given in az/za coordinates.")
         if uvbeam.beam_type != "efield":
             raise NotImplementedError("Only E-field beams are supported.")
+
+    @staticmethod
+    def _handle_beam(uvbeam, **beam_kwargs):
+        if isinstance(uvbeam, UVBeam):
+            return uvbeam
+        if Path(uvbeam).exists():
+            return UVBeam.from_file(uvbeam, **beam_kwargs)
+        return AnalyticBeam(uvbeam, **beam_kwargs)
 
 
 class OverAirCrossCoupling(Crosstalk):
