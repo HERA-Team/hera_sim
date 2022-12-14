@@ -12,7 +12,7 @@ from pyuvdata import UVBeam
 from pyuvsim import AnalyticBeam
 from scipy import stats
 from scipy.signal import blackmanharris
-from typing import Dict, Optional, Sequence, Tuple, Union
+from typing import Callable, Dict, Optional, Sequence, Tuple, Union
 
 from . import DATA_PATH, interpolators, utils
 from .components import component
@@ -735,8 +735,8 @@ class MutualCoupling(Crosstalk):
     def __init__(
         self,
         uvbeam: UVBeam | str | Path | None,
-        reflection: np.ndarray | callable | None = None,
-        resistance: np.ndarray | callable | None = None,
+        reflection: np.ndarray | Callable | None = None,
+        resistance: np.ndarray | Callable | None = None,
         ant_1_array: np.ndarray | None = None,
         ant_2_array: np.ndarray | None = None,
         pol_array: np.ndarray | None = None,
@@ -904,8 +904,8 @@ class MutualCoupling(Crosstalk):
         ant_2_array: np.ndarray,
         array_layout: dict,
         uvbeam: UVBeam | str,
-        reflection: np.ndarray | callable | None = None,
-        resistance: np.ndarray | callable | None = None,
+        reflection: np.ndarray | Callable | None = None,
+        resistance: np.ndarray | Callable | None = None,
         pixel_interp: str | None = "az_za_simple",
         freq_interp: str | None = "cubic",
         **beam_kwargs,
