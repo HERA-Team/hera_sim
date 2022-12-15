@@ -536,6 +536,7 @@ def reshape_vis(
     pol_slices = {"x": slice(None, None, 2), "y": slice(1, None, 2)}
     for i, ai in enumerate(antenna_numbers):
         for j, aj in enumerate(antenna_numbers[i:]):
+            j += i
             for k, pol in enumerate(pol_array):
                 uvd_inds = np.argwhere(
                     (ant_1_array == ai) & (ant_2_array == aj)
@@ -560,9 +561,9 @@ def reshape_vis(
                     out[uvd_inds, 0, :, k] = vis[:, :, sl1, sl2][:, :, ii, jj]
                 else:
                     # Changing from UVData shape
-                    out[:, :, sl1, sl2][:, :, ii, jj] = vis.squeeze()[uvd_inds, :, k]
+                    out[:, :, sl1, sl2][:, :, ii, jj] = vis[uvd_inds, 0, :, k]
                     out[:, :, sl2, sl1][:, :, jj, ii] = np.conj(
-                        vis.squeeze()[uvd_inds, :, k]
+                        vis[uvd_inds, 0, :, k]
                     )
     return out
 
@@ -617,25 +618,22 @@ if HAVE_NUMBA:
     ):
         # This is basically the same as the non-numba reshape function,
         # but it's not as pretty.
-        x_sl = 2 * np.arange(n_ants)
-        y_sl = 1 + 2 * np.arange(n_ants)
+        x_sl = slice(None, None, 2)
+        y_sl = slice(1, None, 2)
         for i, ai in enumerate(antenna_numbers):
             for j, aj in enumerate(antenna_numbers[i:]):
-                uvd_inds = np.argwhere(
-                    (ant_1_array == ai) & (ant_2_array == aj)
-                ).flatten()
+                j += i
+                uvd_inds = (ant_1_array == ai) & (ant_2_array == aj)
 
                 flipped = False
                 ii, jj = i, j
-                if uvd_inds.size == 0:
-                    uvd_inds = np.argwhere(
-                        (ant_2_array == ai) & (ant_1_array == aj)
-                    ).flatten()
+                if np.all(~uvd_inds):
+                    uvd_inds = (ant_2_array == ai) & (ant_1_array == aj)
                     flipped = True
                     ii, jj = j, i
 
                 # Don't do anything if this baseline isn't present.
-                if uvd_inds.size == 0:
+                if np.all(~uvd_inds):
                     continue
 
                 for k, pol in enumerate(pol_array):
@@ -651,13 +649,14 @@ if HAVE_NUMBA:
                     if flipped:
                         p1, p2 = p2, p1
 
+                    # NOTE: This is hard-coded to use old-style UVData arrays!
                     if invert:
                         # Go back to UVData shape
                         out[uvd_inds, 0, :, k] = vis[:, :, p1, p2][:, :, ii, jj]
                     else:
-                        out[:, :, p1, p2][:, :, ii, jj] = vis.squeeze()[uvd_inds, :, k]
+                        out[:, :, p1, p2][:, :, ii, jj] = vis[uvd_inds, 0, :, k]
                         out[:, :, p2, p1][:, :, jj, ii] = np.conj(
-                            vis.squeeze()[uvd_inds, :, k]
+                            vis[uvd_inds, 0, :, k]
                         )
         return out
 

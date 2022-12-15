@@ -802,7 +802,6 @@ class MutualCoupling(Crosstalk):
             pol_array,
             array_layout,
             coupling_matrix,
-            beam_type,
             pixel_interp,
             freq_interp,
             beam_kwargs,
@@ -877,10 +876,11 @@ class MutualCoupling(Crosstalk):
         ) + utils.matmul(coupling_matrix, visibilities)
 
         # Return something with the same shape as the input data array.
-        return utils.reorder_vis(
+        return utils.reshape_vis(
             vis=xt_vis,
             ant_1_array=ant_1_array,
             ant_2_array=ant_2_array,
+            pol_array=pol_array,
             antenna_numbers=antenna_numbers,
             n_times=n_times,
             n_freqs=n_freqs,
@@ -959,7 +959,7 @@ class MutualCoupling(Crosstalk):
         antpair2angle = {
             antpair: np.round(angle, 2) for antpair, angle in antpair2angle.items()
         }
-        unique_angles = np.array(set(antpair2angle.values()))
+        unique_angles = np.array(list(set(antpair2angle.values())))
 
         # Make sure the reflection coefficients and resistances make sense.
         if reflection is None:
@@ -979,15 +979,16 @@ class MutualCoupling(Crosstalk):
         # Check the beam is OK and make it smaller if it's too big.
         uvbeam = MutualCoupling._handle_beam(uvbeam, **beam_kwargs)
         MutualCoupling._check_beam_is_ok(uvbeam)
-        if uvbeam.Naxes2 > 5:
-            # We only need two points on either side of the horizon.
-            za_array = uvbeam.axis2_array
-            horizon_ind = np.argmin(np.abs(za_array - np.pi / 2))
-            horizon_select = np.arange(horizon_ind - 2, horizon_ind + 3)
-            # Do it this way to not overwrite uvbeam in memory.
-            uvbeam = uvbeam.select(
-                axis2_inds=horizon_select, inplace=False, run_check=False
-            )
+        if isinstance(uvbeam, UVBeam):
+            if uvbeam.Naxes2 > 5:
+                # We only need two points on either side of the horizon.
+                za_array = uvbeam.axis2_array
+                horizon_ind = np.argmin(np.abs(za_array - np.pi / 2))
+                horizon_select = np.arange(horizon_ind - 2, horizon_ind + 3)
+                # Do it this way to not overwrite uvbeam in memory.
+                uvbeam = uvbeam.select(
+                    axis2_inds=horizon_select, inplace=False, run_check=False
+                )
 
         # Now make sure we're OK to interpolate the beam. AnalyticBeam makes
         # this a little annoying... but whatever.
@@ -1023,9 +1024,10 @@ class MutualCoupling(Crosstalk):
         )
         for i, ai in enumerate(antenna_numbers):
             for j, aj in enumerate(antenna_numbers[i + 1 :]):
+                j += i + 1
                 # Calculate J(b_ij)J(b_ji)^\dag
-                jones_ij = jones_matrices[antpair2angle(ai, aj)]
-                jones_ji = jones_matrices[antpair2angle(aj, ai)]
+                jones_ij = jones_matrices[antpair2angle[ai, aj]]
+                jones_ji = jones_matrices[antpair2angle[aj, ai]]
                 jones_prod = jones_ij @ jones_ji.conj().transpose(0, 2, 1)
 
                 # If we wanted to add a baseline orientation/length cut,
@@ -1064,6 +1066,8 @@ class MutualCoupling(Crosstalk):
 
     @staticmethod
     def _check_beam_is_ok(uvbeam):
+        if isinstance(uvbeam, AnalyticBeam):
+            return
         if getattr(uvbeam, "pixel_coordinate_system", "") != "az_za":
             raise ValueError("Beam must be given in az/za coordinates.")
         if uvbeam.beam_type != "efield":
@@ -1071,7 +1075,7 @@ class MutualCoupling(Crosstalk):
 
     @staticmethod
     def _handle_beam(uvbeam, **beam_kwargs):
-        if isinstance(uvbeam, UVBeam):
+        if isinstance(uvbeam, (AnalyticBeam, UVBeam)):
             return uvbeam
         if Path(uvbeam).exists():
             return UVBeam.from_file(uvbeam, **beam_kwargs)
