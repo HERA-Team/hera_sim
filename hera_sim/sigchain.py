@@ -623,8 +623,8 @@ class MutualCoupling(Crosstalk):
     antenna feed, and that the re-radiated signal is in the far-field of every
     other antenna in the array. Full details can be found here:
 
-        `MNRAS<https://doi.org/10.1093/mnras/stac916>`
-        `arXiv<https://arxiv.org/abs/2110.10879>`
+        `MNRAS <https://doi.org/10.1093/mnras/stac916>`_
+        `arXiv <https://arxiv.org/abs/2110.10879>`_
 
     The essential equations from the paper are Equations 9 and 19. The
     implementation here effectively calculates Equation 19 for every
@@ -696,7 +696,7 @@ class MutualCoupling(Crosstalk):
         Not required if providing a pre-calculated coupling matrix.
     resistance
         The real part of the impedance to use for calculating the coupling
-        matrix. Has the same requirements as the `reflection` parameter,
+        matrix. Has the same requirements as the ``reflection`` parameter,
         and the resistance should be measured in Ohms.
     ant_1_array
         Array of integers specifying the number of the first antenna in each
