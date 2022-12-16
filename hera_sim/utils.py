@@ -562,9 +562,7 @@ def reshape_vis(
                 else:
                     # Changing from UVData shape
                     out[:, :, sl1, sl2][:, :, ii, jj] = vis[uvd_inds, 0, :, k]
-                    out[:, :, sl2, sl1][:, :, jj, ii] = np.conj(
-                        vis[uvd_inds, 0, :, k]
-                    )
+                    out[:, :, sl2, sl1][:, :, jj, ii] = np.conj(vis[uvd_inds, 0, :, k])
     return out
 
 

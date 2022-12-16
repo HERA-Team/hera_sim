@@ -3,6 +3,7 @@
 This module defines several models of systematics that arise in the signal chain, for
 example bandpass gains, reflections and cross-talk.
 """
+from __future__ import annotations
 
 import numpy as np
 import warnings
@@ -350,9 +351,9 @@ class ReflectionSpectrum(Gain):
     def __init__(
         self,
         n_copies: int = 20,
-        amp_range: Tuple[float, float] = (-3, -4),
-        dly_range: Tuple[float, float] = (200, 1000),
-        phs_range: Tuple[float, float] = (-np.pi, np.pi),
+        amp_range: tuple[float, float] = (-3, -4),
+        dly_range: tuple[float, float] = (200, 1000),
+        phs_range: tuple[float, float] = (-np.pi, np.pi),
         amp_jitter: float = 0.05,
         dly_jitter: float = 30,
         amp_logbase: float = 10,
@@ -369,7 +370,7 @@ class ReflectionSpectrum(Gain):
 
     def __call__(
         self, freqs: np.ndarray, ants: Sequence[int], **kwargs
-    ) -> Dict[int, np.ndarray]:
+    ) -> dict[int, np.ndarray]:
         """
         Generate a series of reflections.
 
@@ -1163,8 +1164,8 @@ class OverAirCrossCoupling(Crosstalk):
 
     def __init__(
         self,
-        emitter_pos: Optional[Union[np.ndarray, Sequence]] = None,
-        cable_delays: Optional[Dict[int, float]] = None,
+        emitter_pos: np.ndarray | Sequence | None = None,
+        cable_delays: dict[int, float] | None = None,
         base_amp: float = 2e-5,
         amp_norm: float = 100,
         amp_slope: float = -1,
@@ -1192,8 +1193,8 @@ class OverAirCrossCoupling(Crosstalk):
     def __call__(
         self,
         freqs: np.ndarray,
-        antpair: Tuple[int, int],
-        antpos: Dict[int, np.ndarray],
+        antpair: tuple[int, int],
+        antpos: dict[int, np.ndarray],
         autovis_i: np.ndarray,
         autovis_j: np.ndarray,
         **kwargs,
@@ -1326,9 +1327,9 @@ class WhiteNoiseCrosstalk(Crosstalk):
 
 
 def apply_gains(
-    vis: Union[float, np.ndarray],
-    gains: Dict[int, Union[float, np.ndarray]],
-    bl: Tuple[int, int],
+    vis: float | np.ndarray,
+    gains: dict[int, float | np.ndarray],
+    bl: tuple[int, int],
 ) -> np.ndarray:
     """Apply antenna-based gains to a visibility.
 
