@@ -13,7 +13,7 @@ from pyuvdata import UVBeam
 from pyuvsim import AnalyticBeam
 from scipy import stats
 from scipy.signal import blackmanharris
-from typing import Callable, Dict, Optional, Sequence, Tuple, Union
+from typing import Callable, Sequence
 
 from . import DATA_PATH, interpolators, utils
 from .components import component
@@ -636,7 +636,7 @@ class MutualCoupling(Crosstalk):
     correct conjugation, and enforcing these assumptions, the first-order
     correction to the visibility :math:`{\bf V}_{ij}` can be written as:
 
-    ..math::
+    .. math::
 
         {\bf V}_{ij}^{\rm xt} = \sum_k \Bigl[ (1-\delta_{kj}) {\bf V}_{ik}^0
         {\bf X}_{jk}^\dagger + (1-\delta_{ik}) {\bf X}_{ik} {\bf V}_{kj}^0
@@ -648,7 +648,7 @@ class MutualCoupling(Crosstalk):
     that describes how radiation emitted from antenna :math:`j` is received by
     antenna :math:`i`. The coupling matrix can be written as
 
-    ..math::
+    .. math::
 
         {\bf X}_{jk} \equiv \frac{i\eta_0}{4\lambda} \frac{\Gamma_k}{R_k}
         \frac{e^{i2\pi\nu\tau_{jk}}}{b_{jk}} {\bf J}_j (\hat{\bf b}_{jk})
@@ -666,7 +666,7 @@ class MutualCoupling(Crosstalk):
     The boldfaced variables without any overhead decorations indicate 2x2
     matrices:
 
-    ..math::
+    .. math::
 
         {\bf V} = \begin{pmatrix}
             V_{XX} & V_{XY} \\ V_{YX} & V_{YY}
@@ -1096,7 +1096,7 @@ class OverAirCrossCoupling(Crosstalk):
 
         V_{ij}^{\rm cc} = \epsilon_{ij}^* V_{ii} + \epsilon_{ji} V_{jj},
 
-    where the reflection coefficient :math:`\\epsilon_{ij}` is modeled as
+    where the reflection coefficient :math:`\epsilon_{ij}` is modeled as
 
     .. math::
 
