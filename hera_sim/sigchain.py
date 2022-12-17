@@ -759,12 +759,12 @@ class MutualCoupling(Crosstalk):
     _alias = ("mutual_coupling", "first_order_coupling")
     return_type = "full_array"
     attrs_to_pull = dict(
-        ant_1_array="data.ant_1_array",
-        ant_2_array="data.ant_2_array",
-        pol_array="data.polarization_array",
+        ant_1_array="ant_1_array",
+        ant_2_array="ant_2_array",
+        pol_array="polarization_array",
         array_layout="antpos",
         freqs="freqs",
-        visibilities="data.data_array",
+        visibilities="data_array",
     )
 
     def __init__(

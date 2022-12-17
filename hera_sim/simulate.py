@@ -120,12 +120,23 @@ class Simulator:
         for param in ("Ntimes", "Nfreqs", "Nblts", "Npols", "Nbls"):
             setattr(self, param, getattr(self.data, param))
         self.Nants = len(self.antpos)
+
+        # Let's make some helpful methods from the UVData object available
         for attr in ("data", "flags", "antpairs", "antpairpols"):
             setattr(
                 self,
                 f"get_{attr}",
                 getattr(self.data, f"get_{attr}"),
             )
+
+        # Now let's expose a few more things to the Simulator
+        for attr in (
+            "ant_1_array",
+            "ant_2_array",
+            "polarization_array",
+            "data_array",
+        ):
+            setattr(self, attr, getattr(self.data, attr))
 
     @cached_property
     def antpos(self):
@@ -1037,8 +1048,9 @@ class Simulator:
         use_cached_filters &= get_delay_filter or get_fringe_filter
 
         if model.return_type == "full_array":
-            use_args = self._update_args(base_args, model)
-            data_copy += model(**use_args)
+            args = self._update_args(base_args, model)
+            args.update(kwargs)
+            data_copy += model(**args)
         else:
             # Iterate over the array and simulate the effect as-needed.
             for ant1, ant2, pol, blt_inds, pol_ind in self._iterate_antpair_pols():
