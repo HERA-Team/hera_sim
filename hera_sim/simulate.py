@@ -155,6 +155,16 @@ class Simulator:
         """Array of polarization strings."""
         return self.data.get_pols()
 
+    @cached_property
+    def integration_time(self):
+        """Integration time, assuming it's identical across baselines."""
+        return np.mean(self.data.integration_time)
+
+    @cached_property
+    def channel_width(self):
+        """Channel width, assuming each channel is the same width."""
+        return np.mean(self.data.channel_width)
+
     def apply_defaults(self, config: Optional[Union[str, dict]], refresh: bool = True):
         """
         Apply the provided default configuration.
@@ -1026,6 +1036,9 @@ class Simulator:
         )
         use_cached_filters &= get_delay_filter or get_fringe_filter
 
+        if model.return_type == "full_array":
+            use_args = self._update_args(base_args, model)
+            data_copy += model(**use_args)
         # Iterate over the array and simulate the effect as-needed.
         for ant1, ant2, pol, blt_inds, pol_ind in self._iterate_antpair_pols():
             # Determine whether or not to filter the result.
@@ -1044,7 +1057,7 @@ class Simulator:
             seed = self._seed_rng(seed, model, *key)
 
             # Prepare the actual arguments to be used.
-            use_args = self._update_args(base_args, ant1, ant2, pol)
+            use_args = self._update_args(base_args, model, ant1, ant2, pol)
             use_args.update(kwargs)
             if use_cached_filters:
                 filter_kwargs = self._get_filters(
@@ -1222,7 +1235,7 @@ class Simulator:
         else:
             raise ValueError("Seeding mode not supported.")
 
-    def _update_args(self, args, ant1=None, ant2=None, pol=None):
+    def _update_args(self, args, model, ant1=None, ant2=None, pol=None):
         """
         Scan the provided arguments and pull data as necessary.
 
@@ -1239,6 +1252,9 @@ class Simulator:
             ``inspect._empty`` object. See .. meth: _initialize_args_from_model
             for details on what to expect (these two methods are always
             called in conjunction with one another).
+        model: SimulationComponent
+            The model being simulated. The model will define which attributes
+            should be pulled from the ``Simulator``.
         ant1: int, optional
             Required parameter if an autocorrelation visibility or a baseline
             vector is in the keys of ``args``.
@@ -1247,6 +1263,26 @@ class Simulator:
         pol: str, optional
             Polarization string. Currently not used.
         """
+        # TODO: review this and see if there's a smarter way to do it.
+        new_params = {}
+        for param, attr in model.attrs_to_pull.items():
+            if param in ("autovis", "autovis_i"):
+                new_params[param] = self.data.get_data(ant1, ant1, pol)
+            elif param == "autovis_j":
+                new_params[param] = self.data.get_data(ant2, ant2, pol)
+            elif param == "bl_vec":
+                bl_vec = self.antpos[ant2] - self.antpos[ant1]
+                new_params[param] = bl_vec / const.c.to("m/ns").value
+            elif param == "antpair":
+                new_params[param] = (ant1, ant2)
+            else:
+                # The parameter can be retrieved directly from the Simulator
+                new_params[param] = getattr(self, attr)
+
+        use_args = args.copy()
+        use_args.update(new_params)
+        return use_args
+
         # Helper function for getting the correct parameter name
         def keys(requires):
             return [arg for arg, req in zip(args, requires) if req]

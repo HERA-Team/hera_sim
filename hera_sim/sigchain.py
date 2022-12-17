@@ -45,6 +45,10 @@ class Bandpass(Gain):
     _alias = ("gains", "bandpass_gain")
     is_multiplicative = True
     return_type = "per_antenna"
+    attrs_to_pull = dict(
+        freqs="freqs",
+        ants="antpos",
+    )
 
     def __init__(self, gain_spread=0.1, dly_rng=(-20, 20), bp_poly=None):
         super().__init__(gain_spread=gain_spread, dly_rng=dly_rng, bp_poly=bp_poly)
@@ -134,6 +138,10 @@ class Reflections(Gain):
     _alias = ("reflection_gains", "sigchain_reflections")
     is_multiplicative = True
     return_type = "per_antenna"
+    attrs_to_pull = dict(
+        freqs="freqs",
+        ants="antpos",
+    )
 
     def __init__(
         self, amp=None, dly=None, phs=None, conj=False, amp_jitter=0, dly_jitter=0
@@ -350,6 +358,10 @@ class ReflectionSpectrum(Gain):
     _alias = ("reflection_spectrum",)
     is_multiplicative = True
     return_type = "per_antenna"
+    attrs_to_pull = dict(
+        freqs="freqs",
+        ants="antpos",
+    )
 
     def __init__(
         self,
@@ -451,6 +463,10 @@ class CrossCouplingCrosstalk(Crosstalk, Reflections):
     _alias = ("cross_coupling_xtalk",)
     is_multiplicative = False
     return_type = "per_baseline"
+    attrs_to_pull = dict(
+        freqs="freqs",
+        autovis=None,
+    )
 
     def __init__(
         self, amp=None, dly=None, phs=None, conj=False, amp_jitter=0, dly_jitter=0
@@ -543,6 +559,10 @@ class CrossCouplingSpectrum(Crosstalk):
 
     _alias = ("cross_coupling_spectrum", "xtalk_spectrum")
     return_type = "per_baseline"
+    attrs_to_pull = dict(
+        freqs="freqs",
+        autovis=None,
+    )
 
     def __init__(
         self,
@@ -738,6 +758,14 @@ class MutualCoupling(Crosstalk):
 
     _alias = ("mutual_coupling", "first_order_coupling")
     return_type = "full_array"
+    attrs_to_pull = dict(
+        ant_1_array="data.ant_1_array",
+        ant_2_array="data.ant_2_array",
+        pol_array="data.polarization_array",
+        array_layout="antpos",
+        freqs="freqs",
+        visibilities="data.data_array",
+    )
 
     def __init__(
         self,
@@ -1169,6 +1197,12 @@ class OverAirCrossCoupling(Crosstalk):
     """
 
     return_type = "per_baseline"
+    attrs_to_pull = dict(
+        freqs="freqs",
+        antpair=None,
+        autovis_i=None,
+        autovis_j=None,
+    )
 
     def __init__(
         self,
@@ -1301,6 +1335,9 @@ class WhiteNoiseCrosstalk(Crosstalk):
         "white_noise_xtalk",
     )
     return_type = "per_baseline"
+    attrs_to_pull = dict(
+        freqs="freqs",
+    )
 
     def __init__(self, amplitude=3.0):
         super().__init__(amplitude=amplitude)
