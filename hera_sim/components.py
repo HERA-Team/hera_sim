@@ -38,11 +38,11 @@ class SimulationComponent(metaclass=ABCMeta):
     #: Whether this systematic multiplies existing visibilities
     is_multiplicative: bool = False
     return_type: str | None = None
+    # This isn't exactly safe, but different instances of a class should
+    # have the same call signature, so this should actually be OK.
+    attrs_to_pull: dict = {}
 
     _alias: tuple[str] = tuple()
-
-    # Keyword arguments for the Simulator to extract from the data
-    _extract_kwargs = set()
 
     def __init_subclass__(cls, is_abstract: bool = False):
         """Provide some useful augmentations to subclasses.

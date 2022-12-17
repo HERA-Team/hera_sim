@@ -441,7 +441,7 @@ class Simulator:
         data = np.zeros(data_shape, dtype=np.complex)
         for i, _pol in enumerate(pols):
             args = self._initialize_args_from_model(model)
-            args = self._update_args(args, ant1, ant2, pol)
+            args = self._update_args(args, model, ant1, ant2, pol)
             args.update(kwargs)
             if conj_data:
                 self._seed_rng(seed, model, ant2, ant1, _pol)
@@ -895,7 +895,7 @@ class Simulator:
         model_params = {
             k: v
             for k, v in model_params.items()
-            if v is inspect._empty or k in model._extract_kwargs
+            if v is inspect._empty or k in model.attrs_to_pull
         }
 
         # Pull the LST and frequency arrays if they are required.
@@ -1011,7 +1011,7 @@ class Simulator:
         # Pre-simulate gains.
         if is_multiplicative:
             gains = {}
-            args = self._update_args(base_args)
+            args = self._update_args(base_args, model)
             args.update(kwargs)
             for pol in self.data.get_feedpols():
                 if seed:
@@ -1039,56 +1039,57 @@ class Simulator:
         if model.return_type == "full_array":
             use_args = self._update_args(base_args, model)
             data_copy += model(**use_args)
-        # Iterate over the array and simulate the effect as-needed.
-        for ant1, ant2, pol, blt_inds, pol_ind in self._iterate_antpair_pols():
-            # Determine whether or not to filter the result.
-            apply_filter = self._apply_filter(
-                utils._listify(vis_filter), ant1, ant2, pol
-            )
-            if apply_filter:
-                continue
-
-            # Check if this antpairpol or its conjugate have been simulated.
-            bl_in_cache = (ant1, ant2, pol) in antpairpol_cache
-            conj_in_cache = (ant2, ant1, pol) in antpairpol_cache
-
-            # Seed the random number generator.
-            key = (ant2, ant1, pol) if conj_in_cache else (ant1, ant2, pol)
-            seed = self._seed_rng(seed, model, *key)
-
-            # Prepare the actual arguments to be used.
-            use_args = self._update_args(base_args, model, ant1, ant2, pol)
-            use_args.update(kwargs)
-            if use_cached_filters:
-                filter_kwargs = self._get_filters(
-                    ant1,
-                    ant2,
-                    get_delay_filter=get_delay_filter,
-                    get_fringe_filter=get_fringe_filter,
+        else:
+            # Iterate over the array and simulate the effect as-needed.
+            for ant1, ant2, pol, blt_inds, pol_ind in self._iterate_antpair_pols():
+                # Determine whether or not to filter the result.
+                apply_filter = self._apply_filter(
+                    utils._listify(vis_filter), ant1, ant2, pol
                 )
-                use_args.update(filter_kwargs)
+                if apply_filter:
+                    continue
 
-            # Cache simulated antpairpols if not filtered out.
-            if not (bl_in_cache or conj_in_cache or apply_filter):
-                antpairpol_cache.append((ant1, ant2, pol))
+                # Check if this antpairpol or its conjugate have been simulated.
+                bl_in_cache = (ant1, ant2, pol) in antpairpol_cache
+                conj_in_cache = (ant2, ant1, pol) in antpairpol_cache
 
-            # Check whether we're simulating a gain or a visibility.
-            if is_multiplicative:
-                # Calculate the complex gain, but only apply it if requested.
-                gain = gains[(ant1, pol[0])] * np.conj(gains[(ant2, pol[1])])
-                data_copy[blt_inds, 0, :, pol_ind] *= gain
-            else:
-                # I don't think this will ever be executed, but just in case...
-                if conj_in_cache and seed is None:  # pragma: no cover
-                    conj_blts = self.data.antpair2ind((ant2, ant1))
-                    vis = (data_copy - self.data.data_array)[
-                        conj_blts, 0, :, pol_ind
-                    ].conj()
+                # Seed the random number generator.
+                key = (ant2, ant1, pol) if conj_in_cache else (ant1, ant2, pol)
+                seed = self._seed_rng(seed, model, *key)
+
+                # Prepare the actual arguments to be used.
+                use_args = self._update_args(base_args, model, ant1, ant2, pol)
+                use_args.update(kwargs)
+                if use_cached_filters:
+                    filter_kwargs = self._get_filters(
+                        ant1,
+                        ant2,
+                        get_delay_filter=get_delay_filter,
+                        get_fringe_filter=get_fringe_filter,
+                    )
+                    use_args.update(filter_kwargs)
+
+                # Cache simulated antpairpols if not filtered out.
+                if not (bl_in_cache or conj_in_cache or apply_filter):
+                    antpairpol_cache.append((ant1, ant2, pol))
+
+                # Check whether we're simulating a gain or a visibility.
+                if is_multiplicative:
+                    # Calculate the complex gain, but only apply it if requested.
+                    gain = gains[(ant1, pol[0])] * np.conj(gains[(ant2, pol[1])])
+                    data_copy[blt_inds, 0, :, pol_ind] *= gain
                 else:
-                    vis = model(**use_args)
+                    # I don't think this will ever be executed, but just in case...
+                    if conj_in_cache and seed is None:  # pragma: no cover
+                        conj_blts = self.data.antpair2ind((ant2, ant1))
+                        vis = (data_copy - self.data.data_array)[
+                            conj_blts, 0, :, pol_ind
+                        ].conj()
+                    else:
+                        vis = model(**use_args)
 
-                # and add it in
-                data_copy[blt_inds, 0, :, pol_ind] += vis
+                    # and add it in
+                    data_copy[blt_inds, 0, :, pol_ind] += vis
 
         # return the component if desired
         # this is a little complicated, but it's done this way so that
@@ -1281,75 +1282,6 @@ class Simulator:
 
         use_args = args.copy()
         use_args.update(new_params)
-        return use_args
-
-        # Helper function for getting the correct parameter name
-        def keys(requires):
-            return [arg for arg, req in zip(args, requires) if req]
-
-        def key(requires):
-            return list(args)[requires.index(True)]
-
-        # Kind of a hack, this could get ugly in the future...
-        # TODO: make this somewhat more general?
-        requires_ants = [param == "ants" for param in args]
-        requires_bl_vec = [param == "bl_vec" for param in args]
-        requires_autovis = [param.startswith("autovis") for param in args]
-        requires_antpos = [param == "antpos" for param in args]
-        requires_antpair = [param == "antpair" for param in args]
-
-        # check if this is an antenna-dependent quantity; should
-        # only ever be true for gains (barring future changes)
-        new_params = {}
-        if any(requires_ants):
-            new_params[key(requires_ants)] = list(self.antpos.keys())
-        # check if this is something requiring a baseline vector
-        # current assumption is that these methods require the
-        # baseline vector to be provided in nanoseconds
-        if any(requires_bl_vec):
-            bl_vec = self.antpos[ant2] - self.antpos[ant1]
-            bl_vec_ns = bl_vec * 1e9 / const.c.value
-            new_params[key(requires_bl_vec)] = bl_vec_ns
-        # check if this is something that depends on another
-        # visibility. as of now, this should only be cross coupling
-        # crosstalk
-        # TODO: We'll need to use a somewhat strict convention for parameter
-        # names if we implement Alec and AEW's cross-coupling stuff, where one
-        # cross-correlation actually depends on another cross-correlation.
-        # (It is implicitly assumed here that the only time we need another
-        # visibility is if it's an autocorrelation.)
-        if any(requires_autovis):
-            for i, k in enumerate(keys(requires_autovis)):
-                ant = [ant1, ant2][i]
-                autovis = self.data.get_data(ant, ant, pol)
-                new_params[k] = autovis
-        if any(requires_antpos):
-            new_params[key(requires_antpos)] = self.antpos
-        if any(requires_antpair):
-            new_params[key(requires_antpair)] = (ant1, ant2)
-
-        # update appropriately and return
-        use_args = args.copy()
-        use_args.update(new_params)
-
-        # there should no longer be any unspecified, required parameters
-        # so this *shouldn't* error out
-        use_args = {
-            key: value
-            for key, value in use_args.items()
-            if not type(value) is inspect.Parameter
-        }
-
-        if any([val is inspect._empty for val in use_args.values()]):
-            warnings.warn(
-                "One of the required parameters was not extracted. "
-                "Please check that the parameters for the model you "
-                "are trying to add are detectable by the Simulator. "
-                "The Simulator will automatically find the following "
-                "required parameters: \nlsts \nfreqs \nAnything that "
-                "starts with 'ant' or 'bl'\n Anything containing 'vis'."
-            )
-
         return use_args
 
     def _get_filters(

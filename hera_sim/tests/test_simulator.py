@@ -620,21 +620,6 @@ def test_bad_seeds(base_sim, seed):
         base_sim._seed_rng(seed, None)
 
 
-def test_update_args_warning(base_sim):
-    class Test:
-        def __init__(self):
-            pass
-
-        def __call__(self, lsts, freqs, something_else):
-            pass
-
-    t = Test()
-    args = base_sim._initialize_args_from_model(t)
-    with pytest.warns(UserWarning) as warning:
-        base_sim._update_args(args)
-    assert "required parameters was not extracted." in warning.list[0].message.args[0]
-
-
 def test_get_component_with_function():
     def func():
         pass

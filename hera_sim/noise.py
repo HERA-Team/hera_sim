@@ -57,7 +57,6 @@ class ThermalNoise(Noise):
     """
 
     _alias = ("thermal_noise",)
-    _extract_kwargs = {"autovis", "antpair"}
     return_type = "per_baseline"
     attrs_to_pull = dict(
         lsts="lsts",
