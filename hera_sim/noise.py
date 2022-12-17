@@ -58,6 +58,7 @@ class ThermalNoise(Noise):
 
     _alias = ("thermal_noise",)
     _extract_kwargs = {"autovis", "antpair"}
+    return_type = "per_baseline"
 
     def __init__(
         self,

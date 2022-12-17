@@ -37,6 +37,7 @@ class SimulationComponent(metaclass=ABCMeta):
 
     #: Whether this systematic multiplies existing visibilities
     is_multiplicative: bool = False
+    return_type: str | None = None
 
     _alias: tuple[str] = tuple()
 

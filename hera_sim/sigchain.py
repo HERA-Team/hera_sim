@@ -42,8 +42,9 @@ class Bandpass(Gain):
         the bandpass gain.
     """
 
-    is_multiplicative = True
     _alias = ("gains", "bandpass_gain")
+    is_multiplicative = True
+    return_type = "per_antenna"
 
     def __init__(self, gain_spread=0.1, dly_rng=(-20, 20), bp_poly=None):
         super().__init__(gain_spread=gain_spread, dly_rng=dly_rng, bp_poly=bp_poly)
@@ -130,8 +131,9 @@ class Reflections(Gain):
         zero and standard deviation ``dly_jitter``.
     """
 
-    is_multiplicative = True
     _alias = ("reflection_gains", "sigchain_reflections")
+    is_multiplicative = True
+    return_type = "per_antenna"
 
     def __init__(
         self, amp=None, dly=None, phs=None, conj=False, amp_jitter=0, dly_jitter=0
@@ -345,8 +347,9 @@ class ReflectionSpectrum(Gain):
     ``amp_logbase ** amp_range[0]`` to ``amp_logbase ** amp_range[1]``.
     """
 
-    is_multiplicative = True
     _alias = ("reflection_spectrum",)
+    is_multiplicative = True
+    return_type = "per_antenna"
 
     def __init__(
         self,
@@ -447,6 +450,7 @@ class CrossCouplingCrosstalk(Crosstalk, Reflections):
 
     _alias = ("cross_coupling_xtalk",)
     is_multiplicative = False
+    return_type = "per_baseline"
 
     def __init__(
         self, amp=None, dly=None, phs=None, conj=False, amp_jitter=0, dly_jitter=0
@@ -538,6 +542,7 @@ class CrossCouplingSpectrum(Crosstalk):
     """
 
     _alias = ("cross_coupling_spectrum", "xtalk_spectrum")
+    return_type = "per_baseline"
 
     def __init__(
         self,
@@ -732,6 +737,7 @@ class MutualCoupling(Crosstalk):
     """
 
     _alias = ("mutual_coupling", "first_order_coupling")
+    return_type = "full_array"
 
     def __init__(
         self,
@@ -1162,6 +1168,8 @@ class OverAirCrossCoupling(Crosstalk):
     :class:`CrossCouplingSpectrum`
     """
 
+    return_type = "per_baseline"
+
     def __init__(
         self,
         emitter_pos: np.ndarray | Sequence | None = None,
@@ -1292,6 +1300,7 @@ class WhiteNoiseCrosstalk(Crosstalk):
         "whitenoise_xtalk",
         "white_noise_xtalk",
     )
+    return_type = "per_baseline"
 
     def __init__(self, amplitude=3.0):
         super().__init__(amplitude=amplitude)

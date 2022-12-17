@@ -65,6 +65,7 @@ class DiffuseForeground(Foreground):
 
     _alias = ("diffuse_foreground",)
     is_smooth_in_freq = True
+    return_type = "per_baseline"
 
     def __init__(
         self,
@@ -190,6 +191,7 @@ class PointSourceForeground(Foreground):
     """
 
     _alias = ("pntsrc_foreground",)
+    return_type = "per_baseline"
 
     def __init__(
         self,
