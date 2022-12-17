@@ -122,7 +122,7 @@ class Simulator:
         self.Nants = len(self.antpos)
 
         # Let's make some helpful methods from the UVData object available
-        for attr in ("data", "flags", "antpairs", "antpairpols"):
+        for attr in ("data", "flags", "antpairs", "antpairpols", "pols"):
             setattr(
                 self,
                 f"get_{attr}",
@@ -131,6 +131,7 @@ class Simulator:
 
         # Now let's expose a few more things to the Simulator
         for attr in (
+            "antenna_numbers",
             "ant_1_array",
             "ant_2_array",
             "polarization_array",
