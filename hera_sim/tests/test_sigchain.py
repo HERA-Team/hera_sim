@@ -4,8 +4,10 @@ import numpy as np
 import uvtools
 from astropy import constants, units
 
+import hera_sim
 from hera_sim import DATA_PATH, foregrounds, noise, sigchain
 from hera_sim.interpolators import Bandpass, Beam
+from hera_sim.io import empty_uvdata
 
 np.random.seed(0)
 
@@ -330,6 +332,136 @@ def test_over_air_xtalk_skips_autos(fqs, Tsky):
     gen_xtalk = sigchain.OverAirCrossCoupling()
     xtalk = gen_xtalk(fqs, (0, 0), range(3), Tsky, Tsky)
     assert xtalk.shape == Tsky.shape and np.all(xtalk == 0)
+
+
+def test_mutual_coupling():
+    hera_sim.defaults.deactivate()
+    array_layout = {
+        0: np.array([0, 0, 0]),
+        1: np.array([50, 0, 0]),
+        2: np.array([0, 100, 0]),
+    }
+    uvdata = empty_uvdata(
+        Nfreqs=300,
+        start_freq=140e6,
+        channel_width=100e3,
+        Ntimes=300,
+        start_time=2458091.23423,
+        integration_time=10.7,
+        array_layout=array_layout,
+        telescope_location=hera_sim.io.HERA_LAT_LON_ALT,
+    )
+
+    # Mock up visibilities that are localized in delay/frate in the same
+    # way that foregrounds are localized. First, some prep work.
+    freqs = uvdata.freq_array.squeeze()
+    times = np.unique(uvdata.time_array) * units.day.to("s")
+    freq_mesh, time_mesh = np.meshgrid(freqs, times - times.mean())
+    omega0 = units.cycle.to("rad") / units.sday.to("s")
+    omega = np.array([0, 0, omega0])
+    delay_width = 50e-9
+    ref_freq = freqs.mean()
+    enu_antpos = dict(zip(*uvdata.get_ENU_antpos()[::-1]))
+    ecef_antpos = dict(zip(uvdata.antenna_numbers, uvdata.antenna_positions))
+
+    # We'll want to keep track of where we expect the features to show up.
+    fringe_rates = {}
+    delays = {}
+
+    # Now let's actually mock up the visibilities.
+    for ai, aj in uvdata.get_antpairs():
+        if uvdata.antpair2ind(ai, aj).size == 0:
+            continue
+        ecef_bl = ecef_antpos[aj] - ecef_antpos[ai]
+        enu_bl = enu_antpos[aj] - enu_antpos[ai]
+        dbdt = np.linalg.norm(np.cross(ecef_bl, omega))
+        sign = np.sign(np.round(enu_bl[0], 3))
+        frates = sign * freq_mesh * dbdt / constants.c.si.value
+        blt_inds = uvdata.antpair2ind(ai, aj)
+
+        # Make visibilities compact in delay/freq, and localized in fringe-rate.
+        uvdata.data_array[blt_inds, 0, :, 0] = np.exp(
+            -((delay_width * (freq_mesh - ref_freq)) ** 2)
+        ) * np.exp(2j * np.pi * frates[None, :] * time_mesh)
+
+        # Let's also track the delays/fringe-rates
+        delays[(ai, aj)] = np.linalg.norm(enu_bl) / constants.c.to("m/ns").value
+        delays[(aj, ai)] = delays[(ai, aj)]
+        mean_frate = sign * dbdt * np.mean(freqs) / constants.c.si.value
+        fringe_rates[(ai, aj)] = mean_frate * units.Hz.to("mHz")
+        fringe_rates[(aj, ai)] = -fringe_rates[(ai, aj)]
+
+    # Take note of the visibility amplitudes for later comparison.
+    vis_amps = {}
+    for (ai, aj, _pol), vis in uvdata.antpairpol_iter():
+        vis_fft = uvtools.utils.FFT(
+            uvtools.utils.FFT(vis, axis=0, taper="bh"),
+            axis=1,
+            taper="bh",
+        )
+        vis_amps[(ai, aj)] = np.max(np.abs(vis_fft))
+        vis_amps[(aj, ai)] = vis_amps[(ai, aj)]
+
+    # Set the coupling parameters so that it's simple to check the amplitudes.
+    refl_amp = 1e-2
+    eta0 = np.sqrt(constants.mu0 / constants.eps0).to("ohm").value
+    resistance = eta0 * freqs / (4 * constants.c.si.value)
+
+    # Actually simulate the coupling.
+    mutual_coupling = sigchain.MutualCoupling(
+        uvbeam="uniform",
+        ant_1_array=uvdata.ant_1_array,
+        ant_2_array=uvdata.ant_2_array,
+        pol_array=uvdata.polarization_array,
+        array_layout=dict(zip(*uvdata.get_ENU_antpos()[::-1])),
+        reflection=np.ones(uvdata.Nfreqs) * refl_amp,
+        resistance=resistance,
+    )
+    uvdata.data_array += mutual_coupling(freqs / 1e9, uvdata.data_array)
+
+    # Now run the checks.
+    delay_ns = uvtools.utils.fourier_freqs(freqs) * units.s.to("ns")
+    frate_mHz = uvtools.utils.fourier_freqs(times) * units.Hz.to("mHz")
+    for (ai, aj, _pol), vis in uvdata.antpairpol_iter():
+        vis_fft = uvtools.utils.FFT(
+            uvtools.utils.FFT(vis, axis=0, taper="bh"),
+            axis=1,
+            taper="bh",
+        )
+        for ak in uvdata.antenna_numbers:
+            dly_ik = delays[(ai, ak)]
+            dly_kj = -delays[(ak, aj)]  # This coupling term is conjugated.
+            frate_ik = fringe_rates[(ai, ak)]
+            frate_kj = fringe_rates[(ak, aj)]
+
+            # Check that the coupling was performed correctly.
+            if aj != ak:
+                ik_ind = (
+                    np.argmin(np.abs(frate_ik - frate_mHz)),
+                    np.argmin(np.abs(dly_kj - delay_ns)),
+                )
+                bl_len = np.linalg.norm(enu_antpos[aj] - enu_antpos[ak])
+                exp_amp = vis_amps[(ai, ak)] * refl_amp / bl_len
+                actual_amp = np.abs(vis_fft[ik_ind])
+                print(f"{(ai,ak)} coupled into {(ai,aj)}")
+                print(f"Expected amplitude: {exp_amp}")
+                print(f"Simulated amplitude: {actual_amp}")
+                print("\n")
+                assert np.isclose(exp_amp, actual_amp, atol=1e-7, rtol=0.05)
+
+            if ai != ak:
+                kj_ind = (
+                    np.argmin(np.abs(frate_kj - frate_mHz)),
+                    np.argmin(np.abs(dly_ik - delay_ns)),
+                )
+                bl_len = np.linalg.norm(enu_antpos[ak] - enu_antpos[ai])
+                exp_amp = vis_amps[(ak, aj)] * refl_amp / bl_len
+                actual_amp = np.abs(vis_fft[kj_ind])
+                print(f"{(ak,aj)} coupled into {(ai,aj)}")
+                print(f"Expected amplitude: {exp_amp}")
+                print(f"Simulated amplitude: {actual_amp}")
+                print("\n")
+                assert np.isclose(exp_amp, actual_amp, atol=1e-7, rtol=0.05)
 
 
 @pytest.fixture(scope="function")
