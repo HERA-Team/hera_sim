@@ -498,7 +498,6 @@ def _listify(x):
             return list(x)
 
 
-# TODO: docstring
 def reshape_vis(
     vis: np.ndarray,
     ant_1_array: np.ndarray,
@@ -512,7 +511,44 @@ def reshape_vis(
     invert: bool = False,
     use_numba: bool = True,
 ) -> np.ndarray:
-    """Reshaping helper for mutual coupling sims."""
+    """Reshaping helper for mutual coupling sims.
+
+    The mutual coupling simulations take as input, and return, a data array with
+    shape ``(Nblts, 1, Nfreqs, Npols)``, but perform matrix multiplications on
+    the data array reshaped to ``(Ntimes, Nfreqs, 2*Nants, 2*Nants)``. This
+    function performs the reshaping between the matrix multiply shape and the
+    input/output array shapes.
+
+    Parameters
+    ----------
+    vis
+        Input data array.
+    ant_1_array
+        Array specifying the first antenna in each baseline.
+    ant_2_array
+        Array specifying the second antenna in each baseline.
+    pol_array
+        Array specifying the observed polarizations via polarization numbers.
+    antenna_numbers
+        Array specifying all of the antennas to include in the reshaped data.
+    n_times
+        Number of integrations in the data.
+    n_freqs
+        Number of frequency channels in the data.
+    n_ants
+        Number of antennas.
+    n_pols
+        Number of polarizations in the data.
+    invert
+        Whether to reshape to :class:`pyuvdata.UVData`'s data array shape.
+    use_numba
+        Whether to use ``numba`` to speed up the reshaping.
+
+    Returns
+    -------
+    reshaped_vis
+        Input data reshaped to desired shape.
+    """
     if invert:
         out = np.zeros((ant_1_array.size, 1, n_freqs, n_pols), dtype=complex)
     else:
@@ -566,9 +602,36 @@ def reshape_vis(
     return out
 
 
-# TODO: docstring
-def matmul(left, right, use_numba=False):
-    """"""
+def matmul(
+    left: np.ndarray,
+    right: np.ndarray,
+    use_numba: bool = False
+) -> np.ndarray:
+    """Helper function for matrix multiplies used in mutual coupling sims.
+
+    The :class:`~sigchain.MutualCoupling` class performs two matrix
+    multiplications of arrays with shapes ``(1, Nfreqs, 2*Nant, 2*Nant)``
+    and ``(Ntimes, Nfreqs, 2*Nant, 2*Nant)``. Typically the number of antennas
+    is much less than the number of frequency channels, so the parallelization
+    used by ``numpy``'s matrix multiplication routine tends to be sub-optimal.
+    This routine--when used with ``numba``--produces a substantial speedup in
+    matrix multiplication for typical HERA-sized problems.
+
+    Parameters
+    ----------
+    left, right
+        Input arrays to perform matrix multiplication left @ right.
+    use_numba
+        Whether to use ``numba`` to speed up the matrix multiplication.
+
+    Returns
+    -------
+    prod
+        Product of the matrix multiplication left @ right.
+
+    Notes
+    -----
+    """
     if HAVE_NUMBA and use_numba:
         if left.shape[0] == 1:
             return _left_matmul(left, right)
@@ -582,9 +645,27 @@ def matmul(left, right, use_numba=False):
         return left @ right
 
 
-# TODO: docstring
-def find_baseline_orientations(antenna_numbers, enu_antpos):
-    """"""
+def find_baseline_orientations(
+    antenna_numbers: np.ndarray,
+    enu_antpos: np.ndarray,
+) -> dict[tuple[int,int], float]:
+    """Find the orientation of each redundant baseline group.
+
+    Parameters
+    ----------
+    antenna_numbers
+        Array containing antenna numbers corresponding to the provided
+        antenna positions.
+    enu_antpos
+        ``(Nants,3)`` array containing the antenna positions in a local
+        topocentric frame with basis (east, north, up).
+
+    Returns
+    -------
+    antpair2angle
+        Dictionary mapping antenna pairs ``(ai,aj)`` to baseline orientations.
+        Orientations are defined on [0,2pi).
+    """
     groups, baselines = uvutils.get_antenna_redundancies(
         antenna_numbers, enu_antpos, include_autos=False
     )[:2]
@@ -601,7 +682,6 @@ def find_baseline_orientations(antenna_numbers, enu_antpos):
 
 # Just some numba-fied helpful functions.
 if HAVE_NUMBA:
-    # TODO: docstring
     @numba.njit
     def jit_reshape_vis(
         vis,
@@ -614,6 +694,10 @@ if HAVE_NUMBA:
         n_pols,
         invert=False,
     ):
+        """JIT-accelerated reshaping function.
+
+        See :func:`~reshape_vis` for parameter information.
+        """
         # This is basically the same as the non-numba reshape function,
         # but it's not as pretty.
         x_sl = slice(None, None, 2)
@@ -658,27 +742,39 @@ if HAVE_NUMBA:
                         )
         return out
 
-    # TODO: docstring
     @numba.njit
     def _left_matmul(left, right):
+        """JIT-accelerated matrix multiplication.
+
+        This multiply assumes the zeroth axis of the ``left`` array is length 1.
+        """
         out = np.zeros_like(right)
         for i in range(out.shape[0]):
             for j in range(out.shape[1]):
                 out[i, j] = left[0, j] @ right[i, j]
         return out
 
-    # TODO: docstring
     @numba.njit
     def _right_matmul(left, right):
+        """JIT-accelerated matrix multiplication.
+
+        This multiply assumes the zeroth axis of the ``right`` array is length 1.
+        """
         out = np.zeros_like(left)
         for i in range(out.shape[0]):
             for j in range(out.shape[1]):
                 out[i, j] = left[i, j] @ right[0, j]
         return out
 
-    # TODO: docstring
     @numba.njit
     def _matmul(left, right):
+        """JIT-accelerated matrix multiplication.
+
+        This multiply assumes both arrays have the same shape. It should only
+        provide a speedup over ``numpy``'s matrix multiplication for cases where
+        the first two axes of the input arrays are much larger than the last two
+        axes.
+        """
         out = np.zeros_like(left)
         for i in range(out.shape[0]):
             for j in range(out.shape[1]):
