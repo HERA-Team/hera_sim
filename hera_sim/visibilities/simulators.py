@@ -389,7 +389,7 @@ class VisibilitySimulator(metaclass=ABCMeta):
 
     def validate(self, data_model: ModelData):
         """Check that the data model complies with the assumptions of the simulator."""
-        pass
+        return
 
     @classmethod
     def from_yaml(cls, yaml_config: dict | str | Path) -> VisibilitySimulator:
