@@ -649,6 +649,7 @@ class MutualCoupling(Crosstalk):
     other antenna in the array. Full details can be found here:
 
         `MNRAS <https://doi.org/10.1093/mnras/stac916>`_
+
         `arXiv <https://arxiv.org/abs/2110.10879>`_
 
     The essential equations from the paper are Equations 9 and 19. The
