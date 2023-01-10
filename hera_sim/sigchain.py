@@ -708,7 +708,7 @@ class MutualCoupling(Crosstalk):
     simple matrix multiplication.
 
     Parameters
-    ==========
+    ----------
     uvbeam
         The beam (i.e. Jones matrix) to be used for calculating the coupling
         matrix. This may either be a :class:`pyuvdata.UVBeam` object, a path
@@ -805,7 +805,7 @@ class MutualCoupling(Crosstalk):
         """Calculate the first-order coupled visibilities.
 
         Parameters
-        ==========
+        ----------
         freqs
             The observed frequencies, in GHz.
         visibilities
@@ -816,14 +816,14 @@ class MutualCoupling(Crosstalk):
             values for the class instance. See the class docstring for details.
 
         Returns
-        =======
+        -------
         xt_vis
             The first-order correction to the visibilities due to mutual
             coupling between array elements. Has the same shape as the provided
             visibilities.
 
         Notes
-        =====
+        -----
         This method is somewhat memory hungry, as it produces two arrays which
         are each twice as large as the input visibility array in intermediate
         steps of the calculation.
@@ -849,19 +849,9 @@ class MutualCoupling(Crosstalk):
         if antpos_ants.issubset(data_ants) and antpos_ants != data_ants:
             raise ValueError("Full array layout not provided.")
 
-        # Now, check that we can compute the coupling matrix if needed.
+        # Now, check that the input beam is OK in case we need to use it.
         if coupling_matrix is None:
             uvbeam = MutualCoupling._handle_beam(uvbeam, **beam_kwargs)
-            req_attrs = (
-                ant_1_array,
-                ant_2_array,
-                array_layout,
-                uvbeam,
-            )
-            if any(attr is None for attr in req_attrs):
-                raise ValueError(
-                    "Insufficient information to calculate coupling matrix."
-                )
 
             # This already happens in build_coupling_matrix, but the reshape
             # step is not a trivial amount of time, so it's better to do it
@@ -944,7 +934,7 @@ class MutualCoupling(Crosstalk):
         the coupling matrix.
 
         Parameters
-        ==========
+        ----------
         freqs
             The observed frequencies, in GHz.
         ant_1_array
@@ -1076,7 +1066,6 @@ class MutualCoupling(Crosstalk):
 
                 # Fill in the upper-triangular part
                 # Even indices are "X" feed; odd are "Y" feed
-                # TODO: double check the off-diagonals for small matrices
                 coupling_matrix[0, :, ::2, ::2][:, i, j] = coupling[:, 0, 0]
                 coupling_matrix[0, :, 1::2, ::2][:, i, j] = coupling[:, 0, 1]
                 coupling_matrix[0, :, ::2, 1::2][:, i, j] = coupling[:, 1, 0]

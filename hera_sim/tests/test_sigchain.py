@@ -443,10 +443,6 @@ def test_mutual_coupling():
                 bl_len = np.linalg.norm(enu_antpos[aj] - enu_antpos[ak])
                 exp_amp = vis_amps[(ai, ak)] * refl_amp / bl_len
                 actual_amp = np.abs(vis_fft[ik_ind])
-                print(f"{(ai,ak)} coupled into {(ai,aj)}")
-                print(f"Expected amplitude: {exp_amp}")
-                print(f"Simulated amplitude: {actual_amp}")
-                print("\n")
                 assert np.isclose(exp_amp, actual_amp, atol=1e-7, rtol=0.05)
 
             if ai != ak:
@@ -457,11 +453,25 @@ def test_mutual_coupling():
                 bl_len = np.linalg.norm(enu_antpos[ak] - enu_antpos[ai])
                 exp_amp = vis_amps[(ak, aj)] * refl_amp / bl_len
                 actual_amp = np.abs(vis_fft[kj_ind])
-                print(f"{(ak,aj)} coupled into {(ai,aj)}")
-                print(f"Expected amplitude: {exp_amp}")
-                print(f"Simulated amplitude: {actual_amp}")
-                print("\n")
                 assert np.isclose(exp_amp, actual_amp, atol=1e-7, rtol=0.05)
+
+
+def test_mutual_coupling_bad_ants():
+    hera_sim.defaults.set("debug")
+    full_array = {0: [0,0,0], 1: [10,0,0], 2: [0,10,0]}
+    full_array = {ant: np.array(pos) for ant, pos in full_array.items()}
+    bad_array = {ant: full_array[ant] for ant in range(2)}
+    uvdata = empty_uvdata(array_layout=full_array)
+    coupling = sigchain.MutualCoupling(
+        uvbeam="uniform",
+        ant_1_array=uvdata.ant_1_array,
+        ant_2_array=uvdata.ant_2_array,
+        array_layout=bad_array,
+    )
+    hera_sim.defaults.deactivate()
+    with pytest.raises(ValueError) as err:
+        _ = coupling(uvdata.freq_array.squeeze(), uvdata.data_array)
+    assert err.value.args[0] == "Full array layout not provided."
 
 
 @pytest.fixture(scope="function")
