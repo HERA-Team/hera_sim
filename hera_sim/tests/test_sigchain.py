@@ -458,7 +458,7 @@ def test_mutual_coupling():
 
 def test_mutual_coupling_bad_ants():
     hera_sim.defaults.set("debug")
-    full_array = {0: [0,0,0], 1: [10,0,0], 2: [0,10,0]}
+    full_array = {0: [0, 0, 0], 1: [10, 0, 0], 2: [0, 10, 0]}
     full_array = {ant: np.array(pos) for ant, pos in full_array.items()}
     bad_array = {ant: full_array[ant] for ant in range(2)}
     uvdata = empty_uvdata(array_layout=full_array)

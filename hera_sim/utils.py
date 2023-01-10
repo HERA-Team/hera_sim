@@ -602,11 +602,7 @@ def reshape_vis(
     return out
 
 
-def matmul(
-    left: np.ndarray,
-    right: np.ndarray,
-    use_numba: bool = False
-) -> np.ndarray:
+def matmul(left: np.ndarray, right: np.ndarray, use_numba: bool = False) -> np.ndarray:
     """Helper function for matrix multiplies used in mutual coupling sims.
 
     The :class:`~sigchain.MutualCoupling` class performs two matrix
@@ -648,7 +644,7 @@ def matmul(
 def find_baseline_orientations(
     antenna_numbers: np.ndarray,
     enu_antpos: np.ndarray,
-) -> dict[tuple[int,int], float]:
+) -> dict[tuple[int, int], float]:
     """Find the orientation of each redundant baseline group.
 
     Parameters
@@ -682,6 +678,7 @@ def find_baseline_orientations(
 
 # Just some numba-fied helpful functions.
 if HAVE_NUMBA:
+
     @numba.njit
     def jit_reshape_vis(
         vis,
