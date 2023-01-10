@@ -1,11 +1,13 @@
 """Utility module."""
+from __future__ import annotations
+
 import numpy as np
 import pyuvdata.utils as uvutils
 import warnings
 from astropy import constants, units
 from astropy.coordinates import Longitude
 from scipy.interpolate import RectBivariateSpline
-from typing import Optional, Sequence, Tuple, Union
+from typing import Sequence
 
 from .interpolators import Beam
 
@@ -17,7 +19,7 @@ except ImportError:
     HAVE_NUMBA = False
 
 
-def _get_bl_len_vec(bl_len_ns: Union[float, np.ndarray]) -> np.ndarray:
+def _get_bl_len_vec(bl_len_ns: float | np.ndarray) -> np.ndarray:
     """
     Convert a baseline length in a variety of formats to a standard length-3 vector.
 
@@ -42,7 +44,7 @@ def _get_bl_len_vec(bl_len_ns: Union[float, np.ndarray]) -> np.ndarray:
     return bl_len_ns
 
 
-def get_bl_len_magnitude(bl_len_ns: Union[float, np.ndarray, Sequence]) -> float:
+def get_bl_len_magnitude(bl_len_ns: float | np.ndarray | Sequence) -> float:
     """
     Get the magnitude of the length of the given baseline.
 
@@ -64,12 +66,12 @@ def get_bl_len_magnitude(bl_len_ns: Union[float, np.ndarray, Sequence]) -> float
 
 def gen_delay_filter(
     freqs: np.ndarray,
-    bl_len_ns: Union[float, np.ndarray, Sequence],
+    bl_len_ns: float | np.ndarray | Sequence,
     standoff: float = 0.0,
-    delay_filter_type: Optional[str] = "gauss",
-    min_delay: Optional[float] = None,
-    max_delay: Optional[float] = None,
-    normalize: Optional[float] = None,
+    delay_filter_type: str | None = "gauss",
+    min_delay: float | None = None,
+    max_delay: float | None = None,
+    normalize: float | None = None,
 ) -> np.ndarray:
     """
     Generate a delay filter in delay space.
@@ -140,10 +142,10 @@ def gen_delay_filter(
 
 def rough_delay_filter(
     data: np.ndarray,
-    freqs: Optional[np.ndarray] = None,
-    bl_len_ns: Optional[np.ndarray] = None,
+    freqs: np.ndarray | None = None,
+    bl_len_ns: np.ndarray | None = None,
     *,
-    delay_filter: Optional[np.ndarray] = None,
+    delay_filter: np.ndarray | None = None,
     **kwargs,
 ) -> np.ndarray:
     """
@@ -196,7 +198,7 @@ def gen_fringe_filter(
     lsts: np.ndarray,
     freqs: np.ndarray,
     ew_bl_len_ns: float,
-    fringe_filter_type: Optional[str] = "tophat",
+    fringe_filter_type: str | None = "tophat",
     **filter_kwargs,
 ) -> np.ndarray:
     """
@@ -302,11 +304,11 @@ def gen_fringe_filter(
 
 def rough_fringe_filter(
     data: np.ndarray,
-    lsts: Optional[np.ndarray] = None,
-    freqs: Optional[np.ndarray] = None,
-    ew_bl_len_ns: Optional[float] = None,
+    lsts: np.ndarray | None = None,
+    freqs: np.ndarray | None = None,
+    ew_bl_len_ns: float | None = None,
     *,
-    fringe_filter: Optional[np.ndarray] = None,
+    fringe_filter: np.ndarray | None = None,
     **kwargs,
 ) -> np.ndarray:
     """
@@ -417,7 +419,7 @@ def wrap2pipi(a):
     return res
 
 
-def gen_white_noise(size: Union[int, Tuple[int]] = 1) -> np.ndarray:
+def gen_white_noise(size: int | tuple[int] = 1) -> np.ndarray:
     """Produce complex Gaussian noise with unity variance.
 
     Parameters
@@ -437,7 +439,7 @@ def gen_white_noise(size: Union[int, Tuple[int]] = 1) -> np.ndarray:
     )
 
 
-def jansky_to_kelvin(freqs: np.ndarray, omega_p: Union[Beam, np.ndarray]) -> np.ndarray:
+def jansky_to_kelvin(freqs: np.ndarray, omega_p: Beam | np.ndarray) -> np.ndarray:
     """Return Kelvin -> Jy conversion as a function of frequency.
 
     Parameters
