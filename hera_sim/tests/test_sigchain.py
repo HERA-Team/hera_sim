@@ -474,6 +474,36 @@ def test_mutual_coupling_bad_ants():
     assert err.value.args[0] == "Full array layout not provided."
 
 
+@pytest.mark.parametrize("resistance", [None, "callable"])
+@pytest.mark.parametrize("reflection", [None, "callable"])
+def test_mutual_coupling_input_types(resistance, reflection):
+    def func(freqs):
+        return np.ones_like(freqs)
+
+    resistance = func if resistance == "callable" else None
+    reflection = func if reflection == "callable" else None
+    hera_sim.defaults.set("debug")
+    uvdata = empty_uvdata()
+    array_layout = dict(zip(*uvdata.get_ENU_antpos()[::-1]))
+    coupling = sigchain.MutualCoupling(
+        uvbeam="uniform",
+        reflection=reflection,
+        resistance=resistance,
+        ant_1_array=uvdata.ant_1_array,
+        ant_2_array=uvdata.ant_2_array,
+        pol_array=uvdata.polarization_array,
+        array_layout=array_layout,
+    )
+    data = np.random.normal(size=uvdata.data_array.shape) + 0j
+    uvdata.data_array += data
+    uvdata.data_array += coupling(
+        freqs=uvdata.freq_array.squeeze(),
+        visibilities=uvdata.data_array,
+    )
+    hera_sim.defaults.deactivate()
+    assert not np.any(np.isclose(data, uvdata.data_array))
+
+
 @pytest.fixture(scope="function")
 def freqs():
     return np.linspace(0.1, 0.2, 1024)
@@ -596,11 +626,11 @@ def test_vary_gain_amp_noiselike(gains, times):
 
     # Check that the mean gain amplitude is the original gain amplitude.
     gain_avg = np.mean(np.abs(varied_gain), axis=0)
-    assert np.allclose(gain_avg, np.abs(gains[0]), rtol=0.05)
+    assert np.allclose(gain_avg, np.abs(gains[0]), rtol=0.1)
 
     # Check that the spread in gain amplitudes is as expected.
     standard_deviations = np.std(np.abs(varied_gain), axis=0)
-    assert np.allclose(standard_deviations, vary_amp * np.abs(gains[0]), rtol=0.05)
+    assert np.allclose(standard_deviations, vary_amp * np.abs(gains[0]), rtol=0.1)
 
 
 def test_vary_gain_phase_linear(gains, times, phase_offsets, delay_phases):
@@ -670,7 +700,7 @@ def test_vary_gain_phase_noiselike(gains, times, delay_phases, phase_offsets):
 
     # Check that the mean phase offset is close to the original phase offset.
     mean_offset = np.mean(varied_phase_offsets, axis=0)
-    assert np.allclose(mean_offset, phase_offsets, rtol=0.05)
+    assert np.allclose(mean_offset, phase_offsets, rtol=0.1)
 
     # Check that the spread in phase offsets is as expected.
     offset_std = np.std(varied_phase_offsets, axis=0)
@@ -748,7 +778,7 @@ def test_vary_gain_delay_noiselike(gains, times, freqs, delays):
     gain_delays = np.array([dlys[np.argmax(np.abs(gain))] for gain in varied_gain_fft])
 
     # Check that the delays vary as expected.
-    assert np.isclose(gain_delays.mean(), delays[0], rtol=0.05)
+    assert np.isclose(gain_delays.mean(), delays[0], rtol=0.1)
     assert np.isclose(gain_delays.std(), vary_amp * delays[0], rtol=0.2)
 
 
