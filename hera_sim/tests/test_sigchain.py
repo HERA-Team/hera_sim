@@ -336,7 +336,8 @@ def test_over_air_xtalk_skips_autos(fqs, Tsky):
     assert xtalk.shape == Tsky.shape and np.all(xtalk == 0)
 
 
-def test_mutual_coupling():
+@pytest.mark.parametrize("use_numba", [False, True])
+def test_mutual_coupling(use_numba):
     hera_sim.defaults.deactivate()
     array_layout = {
         0: np.array([0, 0, 0]),
@@ -419,7 +420,11 @@ def test_mutual_coupling():
         reflection=np.ones(uvdata.Nfreqs) * refl_amp,
         resistance=resistance,
     )
-    uvdata.data_array += mutual_coupling(freqs / 1e9, uvdata.data_array)
+    uvdata.data_array += mutual_coupling(
+        freqs=freqs / 1e9,
+        visibilities=uvdata.data_array,
+        use_numba=use_numba,
+    )
 
     # Now run the checks.
     delay_ns = uvtools.utils.fourier_freqs(freqs) * units.s.to("ns")

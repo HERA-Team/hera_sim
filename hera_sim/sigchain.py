@@ -755,6 +755,9 @@ class MutualCoupling(Crosstalk):
     beam_kwargs
         Additional keywords used for either reading in a beam or creating an
         analytic beam.
+    use_numba
+        Whether to use ``numba`` for accelerating the simulation. Default is
+        to use ``numba`` if it is installed.
     """
 
     _alias = ("mutual_coupling", "first_order_coupling")
@@ -781,6 +784,7 @@ class MutualCoupling(Crosstalk):
         pixel_interp: str = "az_za_simple",
         freq_interp: str = "cubic",
         beam_kwargs: dict | None = None,
+        use_numba: bool = True,
     ):
         super().__init__(
             uvbeam=uvbeam,
@@ -794,6 +798,7 @@ class MutualCoupling(Crosstalk):
             pixel_interp=pixel_interp,
             freq_interp=freq_interp,
             beam_kwargs=beam_kwargs or {},
+            use_numba=use_numba,
         )
 
     def __call__(
@@ -841,6 +846,7 @@ class MutualCoupling(Crosstalk):
             pixel_interp,
             freq_interp,
             beam_kwargs,
+            use_numba,
         ) = self._extract_kwarg_values(**kwargs)
 
         # Do all our sanity checks up front. First, check the array.
@@ -880,6 +886,7 @@ class MutualCoupling(Crosstalk):
             n_ants=n_ants,
             n_pols=n_pols,
             invert=False,
+            use_numba=use_numba,
         )
 
         if coupling_matrix is None:
@@ -898,8 +905,10 @@ class MutualCoupling(Crosstalk):
 
         # Now actually calculate the mutual coupling.
         xt_vis = utils.matmul(
-            visibilities, coupling_matrix.conj().transpose(0, 1, 3, 2).copy()
-        ) + utils.matmul(coupling_matrix, visibilities)
+            visibilities,
+            coupling_matrix.conj().transpose(0, 1, 3, 2).copy(),
+            use_numba=use_numba,
+        ) + utils.matmul(coupling_matrix, visibilities, use_numba=use_numba)
 
         # Return something with the same shape as the input data array.
         return utils.reshape_vis(
@@ -913,6 +922,7 @@ class MutualCoupling(Crosstalk):
             n_ants=n_ants,
             n_pols=n_pols,
             invert=True,
+            use_numba=use_numba,
         )
 
     @staticmethod
