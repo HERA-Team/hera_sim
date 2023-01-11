@@ -135,9 +135,13 @@ class Simulator:
             "ant_1_array",
             "ant_2_array",
             "polarization_array",
-            "data_array",
         ):
             setattr(self, attr, getattr(self.data, attr))
+
+    @property
+    def data_array(self):
+        """Array storing the visibilities."""
+        return self.data.data_array
 
     @cached_property
     def antpos(self):

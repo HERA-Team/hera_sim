@@ -149,6 +149,30 @@ def test_add_with_custom_class(base_sim, multiplicative):
         assert np.all(base_sim.data.data_array == 1)
 
 
+def test_add_with_full_array_return(base_sim):
+    @component
+    class TestBase:
+        pass
+
+    class Test(TestBase):
+        return_type = "full_array"
+        attrs_to_pull = dict(
+            freqs="freqs",
+            ant_1_array="ant_1_array",
+            pols="polarization_array",
+        )
+
+        def __init__(self):
+            pass
+
+        def __call__(self, freqs, ant_1_array, pols):
+            data_shape = (ant_1_array.size, 1, freqs.size, pols.size)
+            return np.ones(data_shape, dtype=complex)
+
+    base_sim.add(Test)
+    assert np.all(base_sim.data_array == 1)
+
+
 def test_refresh(base_sim):
     base_sim.add("noiselike_eor")
     base_sim.refresh()
