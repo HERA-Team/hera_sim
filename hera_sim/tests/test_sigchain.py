@@ -456,52 +456,70 @@ def test_mutual_coupling():
                 assert np.isclose(exp_amp, actual_amp, atol=1e-7, rtol=0.05)
 
 
-def test_mutual_coupling_bad_ants():
+@pytest.fixture
+def sample_uvdata():
     hera_sim.defaults.set("debug")
-    full_array = {0: [0, 0, 0], 1: [10, 0, 0], 2: [0, 10, 0]}
-    full_array = {ant: np.array(pos) for ant, pos in full_array.items()}
-    bad_array = {ant: full_array[ant] for ant in range(2)}
-    uvdata = empty_uvdata(array_layout=full_array)
+    uvdata = empty_uvdata()
+    hera_sim.defaults.deactivate()
+    return uvdata
+
+
+@pytest.fixture
+def sample_coupling(sample_uvdata):
     coupling = sigchain.MutualCoupling(
         uvbeam="uniform",
-        ant_1_array=uvdata.ant_1_array,
-        ant_2_array=uvdata.ant_2_array,
-        array_layout=bad_array,
+        ant_1_array=sample_uvdata.ant_1_array,
+        ant_2_array=sample_uvdata.ant_2_array,
+        pol_array=sample_uvdata.polarization_array,
+        array_layout=dict(zip(*sample_uvdata.get_ENU_antpos()[::-1])),
     )
-    hera_sim.defaults.deactivate()
-    with pytest.raises(ValueError) as err:
-        _ = coupling(uvdata.freq_array.squeeze(), uvdata.data_array)
-    assert err.value.args[0] == "Full array layout not provided."
+    return coupling
 
 
 @pytest.mark.parametrize("resistance", [None, "callable"])
 @pytest.mark.parametrize("reflection", [None, "callable"])
-def test_mutual_coupling_input_types(resistance, reflection):
+def test_mutual_coupling_input_types(
+    resistance, reflection, sample_uvdata, sample_coupling
+):
     def func(freqs):
         return np.ones_like(freqs)
 
     resistance = func if resistance == "callable" else None
     reflection = func if reflection == "callable" else None
-    hera_sim.defaults.set("debug")
-    uvdata = empty_uvdata()
-    array_layout = dict(zip(*uvdata.get_ENU_antpos()[::-1]))
-    coupling = sigchain.MutualCoupling(
-        uvbeam="uniform",
-        reflection=reflection,
+    data = np.random.normal(size=sample_uvdata.data_array.shape) + 0j
+    sample_uvdata.data_array += data
+    sample_uvdata.data_array += sample_coupling(
+        freqs=sample_uvdata.freq_array.squeeze(),
+        visibilities=sample_uvdata.data_array,
         resistance=resistance,
-        ant_1_array=uvdata.ant_1_array,
-        ant_2_array=uvdata.ant_2_array,
-        pol_array=uvdata.polarization_array,
-        array_layout=array_layout,
+        reflection=reflection,
     )
-    data = np.random.normal(size=uvdata.data_array.shape) + 0j
-    uvdata.data_array += data
-    uvdata.data_array += coupling(
-        freqs=uvdata.freq_array.squeeze(),
-        visibilities=uvdata.data_array,
-    )
-    hera_sim.defaults.deactivate()
-    assert not np.any(np.isclose(data, uvdata.data_array))
+    assert not np.any(np.isclose(data, sample_uvdata.data_array))
+
+
+def test_mutual_coupling_bad_ants(sample_uvdata, sample_coupling):
+    full_array = dict(zip(*sample_uvdata.get_ENU_antpos()[::-1]))
+    bad_array = {ant: full_array[ant] for ant in range(len(full_array)-1)}
+    with pytest.raises(ValueError) as err:
+        _ = sample_coupling(
+            freqs=sample_uvdata.freq_array.squeeze(),
+            visibilities=sample_uvdata.data_array,
+            array_layout=bad_array,
+        )
+    assert err.value.args[0] == "Full array layout not provided."
+
+
+@pytest.mark.parametrize("isbad", ["reflection", "resistance"])
+def test_mutual_coupling_bad_feed_params(isbad, sample_uvdata, sample_coupling):
+    kwargs = {"reflection": None, "resistance": None}
+    kwargs[isbad] = np.ones(sample_uvdata.Nfreqs+1)
+    with pytest.raises(ValueError) as err:
+        _ = sample_coupling(
+            freqs=sample_uvdata.freq_array.squeeze(),
+            visibilities=sample_uvdata.data_array,
+            **kwargs
+        )
+    assert "have the wrong shape" in err.value.args[0]
 
 
 @pytest.fixture(scope="function")
