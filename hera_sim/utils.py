@@ -679,7 +679,9 @@ def find_baseline_orientations(
 
 
 # Just some numba-fied helpful functions.
-if HAVE_NUMBA:
+# Note that coverage can't see that these are run without disabling JIT,
+# which kind of defeats the purpose of testing it.
+if HAVE_NUMBA:  # pragma: no cover
 
     @numba.njit
     def jit_reshape_vis(
