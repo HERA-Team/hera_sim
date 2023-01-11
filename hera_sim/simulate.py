@@ -343,6 +343,13 @@ class Simulator:
             The simulated effect appropriate for the provided key. Return type
             depends on the effect being simulated and the provided key. See the
             tutorial Jupyter notebook for the :class:`Simulator` for example usage.
+
+        Notes
+        -----
+        This will only produce the correct output if the simulated effect is
+        independent of the data itself. If the simulated effect contains a
+        randomly-generated component, then the random seed must have been set
+        when the effect was initially simulated.
         """
         # Retrieve the model and verify it has been simulated.
         if component in self._components:
