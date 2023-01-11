@@ -3,6 +3,8 @@ import pytest
 import numpy as np
 import uvtools
 from astropy import constants, units
+from pyuvdata import UVBeam
+from pyuvsim import AnalyticBeam
 
 import hera_sim
 from hera_sim import DATA_PATH, foregrounds, noise, sigchain
@@ -476,6 +478,75 @@ def sample_coupling(sample_uvdata):
     return coupling
 
 
+@pytest.fixture
+def uvbeam(tmp_path):
+    beam_fn = str(tmp_path / "test_beam.fits")
+    beam = AnalyticBeam("uniform")
+
+    # Setup some things needed to mock up the UVBeam object
+    az = np.linspace(0, 2 * np.pi, 100)
+    za = np.linspace(np.pi / 2 - np.pi / 6, np.pi / 2 + np.pi / 6, 15)
+    freqs = np.linspace(99e6, 101e6, 20)[None, :]
+    data_shape = (2, 1, 2, freqs.size, za.size, az.size)
+    basis_shape = (2, 2, za.size, az.size)
+    az_mesh, za_mesh = np.meshgrid(az, za)
+
+    # Populate a UVBeam object with everything needed to write to disk...
+    uvb = UVBeam()
+
+    # Starting with the string-type metadata
+    uvb.antenna_type = "simple"
+    uvb.beam_type = "efield"
+    uvb.data_normalization = "peak"
+    uvb.feed_name = "test"
+    uvb.feed_version = "0.0"
+    uvb.history = ""
+    uvb.model_name = ""
+    uvb.model_version = ""
+    uvb.pixel_coordinate_system = "az_za"
+    uvb.telescope_name = "test"
+
+    # Next onto the array-like objects
+    uvb.axis1_array = az
+    uvb.axis2_array = za
+    uvb.bandpass_array = np.ones_like(freqs)
+    uvb.basis_vector_array = np.zeros(basis_shape)
+    uvb.basis_vector_array[0, 0, :, :] = 1
+    uvb.basis_vector_array[1, 1, :, :] = 1
+    uvb.data_array = (
+        beam.interp(az_mesh.flatten(), za_mesh.flatten(), freqs.flatten())[0]
+        .reshape(data_shape)
+        .astype(complex)
+    )
+    uvb.freq_array = freqs
+    uvb.feed_array = np.array(["x", "y"])
+    uvb.spw_array = np.zeros(1, dtype=int)
+
+    # Finally, all the shape parameters
+    uvb.Naxes1 = az.size
+    uvb.Naxes2 = za.size
+    uvb.Naxes_vec = 2
+    uvb.Ncomponents_vec = 2
+    uvb.Nfeeds = 2
+    uvb.Nfreqs = freqs.size
+    uvb.Nspws = 1
+
+    # Finally, write it to disk.
+    uvb.write_beamfits(beam_fn)
+    return beam_fn
+
+
+def test_mutual_coupling_with_uvbeam(uvbeam, sample_uvdata, sample_coupling):
+    data = np.random.normal(size=sample_uvdata.data_array.shape) + 0j
+    sample_uvdata.data_array[...] = data[...]
+    sample_uvdata.data_array += sample_coupling(
+        freqs=sample_uvdata.freq_array.squeeze() / 1e9,
+        visibilities=sample_uvdata.data_array,
+        uvbeam=uvbeam,
+    )
+    assert not np.any(np.isclose(data, sample_uvdata.data_array))
+
+
 @pytest.mark.parametrize("resistance", [None, "callable"])
 @pytest.mark.parametrize("reflection", [None, "callable"])
 def test_mutual_coupling_input_types(
@@ -489,7 +560,7 @@ def test_mutual_coupling_input_types(
     data = np.random.normal(size=sample_uvdata.data_array.shape) + 0j
     sample_uvdata.data_array += data
     sample_uvdata.data_array += sample_coupling(
-        freqs=sample_uvdata.freq_array.squeeze(),
+        freqs=sample_uvdata.freq_array.squeeze() / 1e9,
         visibilities=sample_uvdata.data_array,
         resistance=resistance,
         reflection=reflection,
@@ -499,10 +570,10 @@ def test_mutual_coupling_input_types(
 
 def test_mutual_coupling_bad_ants(sample_uvdata, sample_coupling):
     full_array = dict(zip(*sample_uvdata.get_ENU_antpos()[::-1]))
-    bad_array = {ant: full_array[ant] for ant in range(len(full_array)-1)}
+    bad_array = {ant: full_array[ant] for ant in range(len(full_array) - 1)}
     with pytest.raises(ValueError) as err:
         _ = sample_coupling(
-            freqs=sample_uvdata.freq_array.squeeze(),
+            freqs=sample_uvdata.freq_array.squeeze() / 1e9,
             visibilities=sample_uvdata.data_array,
             array_layout=bad_array,
         )
@@ -512,10 +583,10 @@ def test_mutual_coupling_bad_ants(sample_uvdata, sample_coupling):
 @pytest.mark.parametrize("isbad", ["reflection", "resistance"])
 def test_mutual_coupling_bad_feed_params(isbad, sample_uvdata, sample_coupling):
     kwargs = {"reflection": None, "resistance": None}
-    kwargs[isbad] = np.ones(sample_uvdata.Nfreqs+1)
+    kwargs[isbad] = np.ones(sample_uvdata.Nfreqs + 1)
     with pytest.raises(ValueError) as err:
         _ = sample_coupling(
-            freqs=sample_uvdata.freq_array.squeeze(),
+            freqs=sample_uvdata.freq_array.squeeze() / 1e9,
             visibilities=sample_uvdata.data_array,
             **kwargs
         )
