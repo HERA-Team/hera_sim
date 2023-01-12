@@ -157,8 +157,6 @@ def test_add_with_full_array_return(base_sim):
     class Test(TestBase):
         return_type = "full_array"
         attrs_to_pull = dict(
-            freqs="freqs",
-            ant_1_array="ant_1_array",
             pols="polarization_array",
         )
 

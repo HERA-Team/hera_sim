@@ -928,7 +928,7 @@ class Simulator:
             if v is inspect._empty or k in model.attrs_to_pull
         }
 
-        # Pull the LST and frequency arrays if they are required.
+        # Pull any attributes from the Simulator that are required.
         args = {}
         for param, value in model_params.items():
             if hasattr(self, param) and value in (None, inspect._empty):
