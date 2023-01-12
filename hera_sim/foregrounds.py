@@ -67,8 +67,6 @@ class DiffuseForeground(Foreground):
     is_smooth_in_freq = True
     return_type = "per_baseline"
     attrs_to_pull = dict(
-        lsts="lsts",
-        freqs="freqs",
         bl_vec=None,
     )
 
@@ -198,8 +196,6 @@ class PointSourceForeground(Foreground):
     _alias = ("pntsrc_foreground",)
     return_type = "per_baseline"
     attrs_to_pull = dict(
-        lsts="lsts",
-        freqs="freqs",
         bl_vec=None,
     )
 

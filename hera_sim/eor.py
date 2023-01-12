@@ -51,8 +51,6 @@ class NoiselikeEoR(EoR):
     is_smooth_in_freq = False
     return_type = "per_baseline"
     attrs_to_pull = dict(
-        lsts="lsts",
-        freqs="freqs",
         bl_vec=None,
     )
 

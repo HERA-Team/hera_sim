@@ -129,44 +129,51 @@ class Simulator:
                 getattr(self.data, f"get_{attr}"),
             )
 
-        # Now let's expose a few more things to the Simulator
-        for attr in (
-            "antenna_numbers",
-            "ant_1_array",
-            "ant_2_array",
-            "polarization_array",
-        ):
-            setattr(self, attr, getattr(self.data, attr))
+    @property
+    def antenna_numbers(self):
+        return self.data.antenna_numbers
+
+    @property
+    def ant_1_array(self):
+        return self.data.ant_1_array
+
+    @property
+    def ant_2_array(self):
+        return self.data.ant_2_array
+
+    @property
+    def polarization_array(self):
+        return self.data.polarization_array
 
     @property
     def data_array(self):
         """Array storing the visibilities."""
         return self.data.data_array
 
-    @cached_property
+    @property
     def antpos(self):
         """Mapping between antenna numbers and ENU positions in meters."""
         antpos, ants = self.data.get_ENU_antpos(pick_data_ants=True)
         return dict(zip(ants, antpos))
 
-    @cached_property
+    @property
     def lsts(self):
         """Observed Local Sidereal Times in radians."""
         # This process retrieves the unique LSTs while respecting phase wraps.
         _, unique_inds = np.unique(self.data.time_array, return_index=True)
         return self.data.lst_array[unique_inds]
 
-    @cached_property
+    @property
     def freqs(self):
         """Frequencies in GHz."""
         return np.unique(self.data.freq_array) / 1e9
 
-    @cached_property
+    @property
     def times(self):
         """Simulation times in JD."""
         return np.unique(self.data.time_array)
 
-    @cached_property
+    @property
     def pols(self):
         """Array of polarization strings."""
         return self.data.get_pols()
@@ -922,14 +929,10 @@ class Simulator:
         }
 
         # Pull the LST and frequency arrays if they are required.
-        # TODO: update this to allow more flexibility in which arguments are
-        # looked for (this is exactly what needs to be updated to accommodate the
-        # updated crosstalk model for IDR3 validation)
-        args = {
-            param: getattr(self, param)
-            for param in model_params
-            if param in ("lsts", "freqs")
-        }
+        args = {}
+        for param, value in model_params.items():
+            if hasattr(self, param) and value in (None, inspect._empty):
+                args[param] = getattr(self, param)
 
         model_params.update(args)
 

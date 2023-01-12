@@ -131,10 +131,6 @@ class Stations(RFI):
 
     _alias = ("rfi_stations",)
     return_type = "per_baseline"
-    attrs_to_pull = dict(
-        lsts="lsts",
-        freqs="freqs",
-    )
 
     def __init__(self, stations=None):
         super().__init__(stations=stations)
@@ -207,10 +203,6 @@ class Impulse(RFI):
 
     _alias = ("rfi_impulse",)
     return_type = "per_baseline"
-    attrs_to_pull = dict(
-        lsts="lsts",
-        freqs="freqs",
-    )
 
     def __init__(self, impulse_chance=0.001, impulse_strength=20.0):
         super().__init__(
@@ -275,10 +267,6 @@ class Scatter(RFI):
 
     _alias = ("rfi_scatter",)
     return_type = "per_baseline"
-    attrs_to_pull = dict(
-        lsts="lsts",
-        freqs="freqs",
-    )
 
     def __init__(self, scatter_chance=0.0001, scatter_strength=10.0, scatter_std=10.0):
         super().__init__(
@@ -346,10 +334,6 @@ class DTV(RFI):
 
     _alias = ("rfi_dtv",)
     return_type = "per_baseline"
-    attrs_to_pull = dict(
-        lsts="lsts",
-        freqs="freqs",
-    )
 
     def __init__(
         self,

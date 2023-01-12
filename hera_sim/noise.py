@@ -59,12 +59,8 @@ class ThermalNoise(Noise):
     _alias = ("thermal_noise",)
     return_type = "per_baseline"
     attrs_to_pull = dict(
-        lsts="lsts",
-        freqs="freqs",
         autovis=None,
         antpair=None,
-        integration_time="integration_time",
-        channel_width="channel_width",
     )
 
     def __init__(
