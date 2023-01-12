@@ -572,27 +572,27 @@ def reshape_vis(
 
     # We don't have numba, so we need to do this a bit more slowly.
     pol_slices = {"x": slice(None, None, 2), "y": slice(1, None, 2)}
+    pol_inds = {pol: uvutils.polnum2str(pol) for pol in pol_array}
     for i, ai in enumerate(antenna_numbers):
         for j, aj in enumerate(antenna_numbers[i:]):
             j += i
-            for k, pol in enumerate(pol_array):
+            uvd_inds = np.argwhere((ant_1_array == ai) & (ant_2_array == aj)).flatten()
+            flipped = uvd_inds.size == 0
+            ii, jj = i, j
+            if flipped:
                 uvd_inds = np.argwhere(
-                    (ant_1_array == ai) & (ant_2_array == aj)
+                    (ant_2_array == ai) & (ant_1_array == aj)
                 ).flatten()
-                p1, p2 = uvutils.polnum2str(pol)
-                sl1, sl2 = (pol_slices[p.lower()] for p in (p1, p2))
-                ii, jj = i, j  # Don't accidentally overwrite i
-                if uvd_inds.size == 0:
-                    # We actually need the conjugate.
-                    uvd_inds = np.argwhere(
-                        (ant_2_array == ai) & (ant_1_array == aj)
-                    ).flatten()
-                    sl1, sl2 = sl2, sl1
-                    ii, jj = j, i
+                ii, jj = j, i
 
-                # Don't do anything if the baseline isn't in the data.
-                if uvd_inds.size == 0:
-                    continue
+            if uvd_inds.size == 0:
+                continue
+
+            for k, pol in enumerate(pol_array):
+                p1, p2 = pol_inds[pol]
+                if flipped:
+                    p1, p2 = p2, p1
+                sl1, sl2 = (pol_slices[p.lower()] for p in (p1, p2))
 
                 if invert:
                     # Going back to UVData shape
