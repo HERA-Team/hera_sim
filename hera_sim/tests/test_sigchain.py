@@ -576,26 +576,24 @@ def test_mutual_coupling_input_types(
 def test_mutual_coupling_bad_ants(sample_uvdata, sample_coupling):
     full_array = dict(zip(*sample_uvdata.get_ENU_antpos()[::-1]))
     bad_array = {ant: full_array[ant] for ant in range(len(full_array) - 1)}
-    with pytest.raises(ValueError) as err:
+    with pytest.raises(ValueError, match="Full array layout not provided."):
         _ = sample_coupling(
             freqs=sample_uvdata.freq_array.squeeze() / 1e9,
             visibilities=sample_uvdata.data_array,
             array_layout=bad_array,
         )
-    assert err.value.args[0] == "Full array layout not provided."
 
 
 @pytest.mark.parametrize("isbad", ["reflection", "resistance"])
 def test_mutual_coupling_bad_feed_params(isbad, sample_uvdata, sample_coupling):
     kwargs = {"reflection": None, "resistance": None}
     kwargs[isbad] = np.ones(sample_uvdata.Nfreqs + 1)
-    with pytest.raises(ValueError) as err:
+    with pytest.raises(ValueError, match="have the wrong shape"):
         _ = sample_coupling(
             freqs=sample_uvdata.freq_array.squeeze() / 1e9,
             visibilities=sample_uvdata.data_array,
             **kwargs
         )
-    assert "have the wrong shape" in err.value.args[0]
 
 
 @pytest.fixture(scope="function")

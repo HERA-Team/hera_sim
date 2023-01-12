@@ -473,8 +473,8 @@ def test_run_sim_both_args(base_sim, tmp_path):
 
 @pytest.mark.parametrize("select_param", ["freq", "time", "ants", "pols"])
 def test_params_ok_after_select(select_param):
-    array_layout = {0: [0,0,0], 1: [10,0,0], 2: [0,10,0]}
-    polarizations = np.array(['xx', 'yy', 'xy', 'yx'])
+    array_layout = {0: [0, 0, 0], 1: [10, 0, 0], 2: [0, 10, 0]}
+    polarizations = np.array(["xx", "yy", "xy", "yx"])
     sim = create_sim(
         autos=True,
         array_layout=array_layout,
@@ -490,9 +490,7 @@ def test_params_ok_after_select(select_param):
         assert np.all(select_times == sim.times)
     elif select_param == "ants":
         sim.data.select(antenna_nums=np.arange(2))
-        assert (
-            2 not in set(sim.ant_1_array).union(sim.ant_2_array)
-        ) and (
+        assert (2 not in set(sim.ant_1_array).union(sim.ant_2_array)) and (
             2 not in sim.antpos
         )
     else:
