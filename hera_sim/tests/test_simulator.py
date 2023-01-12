@@ -471,6 +471,36 @@ def test_run_sim_both_args(base_sim, tmp_path):
     assert "Please only pass one of the two." in err.value.args[0]
 
 
+@pytest.mark.parametrize("select_param", ["freq", "time", "ants", "pols"])
+def test_params_ok_after_select(select_param):
+    array_layout = {0: [0,0,0], 1: [10,0,0], 2: [0,10,0]}
+    polarizations = np.array(['xx', 'yy', 'xy', 'yx'])
+    sim = create_sim(
+        autos=True,
+        array_layout=array_layout,
+        polarizations=polarizations,
+    )
+    if select_param == "freq":
+        select_freqs = sim.freqs[:5]
+        sim.data.select(freq_chans=np.arange(select_freqs.size))
+        assert np.all(select_freqs == sim.freqs)
+    elif select_param == "time":
+        select_times = sim.times[:5]
+        sim.data.select(times=select_times)
+        assert np.all(select_times == sim.times)
+    elif select_param == "ants":
+        sim.data.select(antenna_nums=np.arange(2))
+        assert (
+            2 not in set(sim.ant_1_array).union(sim.ant_2_array)
+        ) and (
+            2 not in sim.antpos
+        )
+    else:
+        select_pols = sim.polarization_array[:2]
+        sim.data.select(polarizations=select_pols)
+        assert np.all(select_pols == sim.polarization_array)
+
+
 def test_bad_yaml_config(base_sim, tmp_path):
     # make a bad config file
     tmp_sim_file = tmp_path / "bad_config.yaml"
