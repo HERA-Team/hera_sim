@@ -125,8 +125,9 @@ def main(args, profiler, simulator):
     beam_array_sizes = [
         b.data_array.nbytes for b in data_model.beams if hasattr(b, "data_array")
     ]
-    cns.print(f"Largest Beam Array: {max(beam_array_sizes) / 1024**2:.2f} MB")
-    cns.print(f"Total Beam Arrays : {sum(beam_array_sizes) / 1024**2:.2f} MB")
+    if beam_array_sizes:
+        cns.print(f"Largest Beam Array: {max(beam_array_sizes) / 1024**2:.2f} MB")
+        cns.print(f"Total Beam Arrays : {sum(beam_array_sizes) / 1024**2:.2f} MB")
 
     ram = simulator.estimate_memory(data_model)
     ram_avail = psutil.virtual_memory().available / 1024**3
