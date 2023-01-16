@@ -758,6 +758,8 @@ class MutualCoupling(Crosstalk):
     _alias = ("mutual_coupling", "first_order_coupling")
     return_type = "full_array"
     attrs_to_pull = dict(
+        ant_1_array="ant_1_array",
+        ant_2_array="ant_2_array",
         pol_array="polarization_array",
         array_layout="antpos",
         visibilities="data_array",
