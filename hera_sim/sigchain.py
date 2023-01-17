@@ -1551,7 +1551,7 @@ def vary_gains_in_time(
         elif mode == "noiselike":
             envelope *= stats.norm.rvs(1, amp, times.size)
         else:
-            raise NotImplementedError(f"Variation mode '{mode}' not supported.")
+            raise NotImplementedError(f"Variation mode {mode!r} not supported.")
 
     if parameter in ("amp", "phs"):
         envelope = np.outer(envelope, np.ones(gain_shape[-1]))

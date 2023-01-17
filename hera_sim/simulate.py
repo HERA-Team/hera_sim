@@ -1390,7 +1390,7 @@ class Simulator:
                 return get_model(component)
             except KeyError:
                 raise ValueError(
-                    f"The model '{component}' does not exist. The following models are "
+                    f"The model {component!r} does not exist. The following models are "
                     f"available: \n{list_all_components()}."
                 )
         elif isinstance(component, SimulationComponent):

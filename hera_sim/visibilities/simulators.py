@@ -439,7 +439,7 @@ def load_simulator_from_yaml(config: Path | str) -> VisibilitySimulator:
             simulator_cls = getattr(vis, simulator_cls)
         except AttributeError:
             raise AttributeError(
-                f"The given simulator '{simulator_cls}' is not available in hera_sim."
+                f"The given simulator {simulator_cls!r} is not available in hera_sim."
             )
     else:  # pragma: nocover
         module = ".".join(simulator_cls.split(".")[:-1])

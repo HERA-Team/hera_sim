@@ -170,7 +170,7 @@ def test_1d_interpolators_bad_file_ext(freqs, model, interpolator, tmp_path):
     with pytest.raises(AssertionError) as err:
         INTERPOLATORS[model](data_file, interpolator=interpolator)
     article = {"poly1d": "a", "interp1d": "an"}[interpolator]
-    assert f"In order to use {article} '{interpolator}' object" in err.value.args[0]
+    assert f"In order to use {article} {interpolator!r} object" in err.value.args[0]
 
 
 @pytest.mark.parametrize("model", ["beam", "bandpass"])

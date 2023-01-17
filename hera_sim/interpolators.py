@@ -48,7 +48,7 @@ def _read(datafile):
     elif ext == ".npz":
         return _read_npz(datafile)
     else:
-        raise ValueError(f"File type '{ext}' not supported.")
+        raise ValueError(f"File type {ext!r} not supported.")
 
 
 class Interpolator:
