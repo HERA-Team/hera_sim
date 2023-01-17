@@ -5,6 +5,24 @@ Changelog
 dev-version
 ===========
 
+v3.1.0 [2023.01.17]
+===================
+
+Added
+-----
+- :class:`~.sigchain.MutualCoupling` class that simulates the systematic described in Josaitis
+  et al. 2021.
+- New class attributes for the :class:`~.SimulationComponent` class:
+    - ``return_type`` specifies what type of return value to expect;
+    - ``attrs_to_pull`` specifies which ``Simulator`` attributes to use.
+- Some helper functions for :class:`~.sigchain.MutualCoupling` matrix multiplications.
+- More attributes from the underlying ``UVData`` object exposed to the :class:`~.Simulator`.
+
+Changed
+-------
+- ``Simulator._update_args`` logic has been improved.
+- :class:`~.Simulator` attributes ``lsts``, ``times``, and ``freqs`` are no longer cached.
+
 v3.0.0
 ======
 
@@ -142,7 +160,7 @@ Added
 
 Fixed
 -----
-- default ``feed_array` for ``PolyBeam`` fixed.
+- default ``feed_array`` for ``PolyBeam`` fixed.
 
 Changed
 -------

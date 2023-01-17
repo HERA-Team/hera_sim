@@ -149,6 +149,28 @@ def test_add_with_custom_class(base_sim, multiplicative):
         assert np.all(base_sim.data.data_array == 1)
 
 
+def test_add_with_full_array_return(base_sim):
+    @component
+    class TestBase:
+        pass
+
+    class Test(TestBase):
+        return_type = "full_array"
+        attrs_to_pull = dict(
+            pols="polarization_array",
+        )
+
+        def __init__(self):
+            pass
+
+        def __call__(self, freqs, ant_1_array, pols):
+            data_shape = (ant_1_array.size, 1, freqs.size, pols.size)
+            return np.ones(data_shape, dtype=complex)
+
+    base_sim.add(Test)
+    assert np.all(base_sim.data_array == 1)
+
+
 def test_refresh(base_sim):
     base_sim.add("noiselike_eor")
     base_sim.refresh()
@@ -449,6 +471,34 @@ def test_run_sim_both_args(base_sim, tmp_path):
     assert "Please only pass one of the two." in err.value.args[0]
 
 
+@pytest.mark.parametrize("select_param", ["freq", "time", "ants", "pols"])
+def test_params_ok_after_select(select_param):
+    array_layout = {0: [0, 0, 0], 1: [10, 0, 0], 2: [0, 10, 0]}
+    polarizations = np.array(["xx", "yy", "xy", "yx"])
+    sim = create_sim(
+        autos=True,
+        array_layout=array_layout,
+        polarizations=polarizations,
+    )
+    if select_param == "freq":
+        select_freqs = sim.freqs[:5]
+        sim.data.select(freq_chans=np.arange(select_freqs.size))
+        assert np.all(select_freqs == sim.freqs)
+    elif select_param == "time":
+        select_times = sim.times[:5]
+        sim.data.select(times=select_times)
+        assert np.all(select_times == sim.times)
+    elif select_param == "ants":
+        sim.data.select(antenna_nums=np.arange(2))
+        assert (2 not in set(sim.ant_1_array).union(sim.ant_2_array)) and (
+            2 not in sim.antpos
+        )
+    else:
+        select_pols = sim.polarization_array[:2]
+        sim.data.select(polarizations=select_pols)
+        assert np.all(select_pols == sim.polarization_array)
+
+
 def test_bad_yaml_config(base_sim, tmp_path):
     # make a bad config file
     tmp_sim_file = tmp_path / "bad_config.yaml"
@@ -618,21 +668,6 @@ def test_bad_seeds(base_sim, seed):
     }[seed]
     with pytest.raises(err, match=match):
         base_sim._seed_rng(seed, None)
-
-
-def test_update_args_warning(base_sim):
-    class Test:
-        def __init__(self):
-            pass
-
-        def __call__(self, lsts, freqs, something_else):
-            pass
-
-    t = Test()
-    args = base_sim._initialize_args_from_model(t)
-    with pytest.warns(UserWarning) as warning:
-        base_sim._update_args(args)
-    assert "required parameters was not extracted." in warning.list[0].message.args[0]
 
 
 def test_get_component_with_function():

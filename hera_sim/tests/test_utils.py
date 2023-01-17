@@ -2,8 +2,10 @@ import pytest
 
 import numpy as np
 from astropy import units
+from itertools import combinations
+from pyuvdata import utils as uvutils
 
-from hera_sim import DATA_PATH, utils
+from hera_sim import DATA_PATH, Simulator, defaults, utils
 from hera_sim.interpolators import Beam
 
 
@@ -383,3 +385,59 @@ def test_Jy2T(freqs, omega_p):
 @pytest.mark.parametrize("obj", [1, (1, 2), "abc", np.array([13])])
 def test_listify(obj):
     assert type(utils._listify(obj)) is list
+
+
+@pytest.mark.parametrize("jit", [True, False])
+@pytest.mark.parametrize(
+    "pols",
+    [
+        sorted(pols)[::-1]
+        for i in range(1, 5)
+        for pols in combinations(range(-8, -4), i)
+    ],
+)
+def test_reshape_vis(jit, pols):
+    # Mock up some data real quick
+    defaults.set("debug")
+    pols = [uvutils.polnum2str(pol) for pol in pols]
+    sim = Simulator(polarization_array=np.array(pols))
+    data_shape = sim.data_array.shape
+    sim.data.data_array = np.random.normal(size=data_shape) + 1j * np.random.normal(
+        size=data_shape
+    )
+    # Make the autos real otherwise we're going to have problems
+    for ai, aj, pol in sim.get_antpairpols():
+        if ai != aj:
+            continue
+        inds = sim.data.antpair2ind(ai, ai)
+        p = list(sim.polarization_array).index(uvutils.polstr2num(pol))
+        sim.data.data_array[inds, 0, :, p] = np.random.normal(
+            size=(sim.Ntimes, sim.Nfreqs)
+        ).astype(complex)
+
+    if "xy" in sim.get_pols() and "yx" in sim.get_pols():
+        # Need to fix these autos as well
+        for ai in sim.antenna_numbers:
+            inds = sim.data.antpair2ind(ai, ai)
+            p1 = list(sim.get_pols()).index("xy")
+            p2 = list(sim.get_pols()).index("yx")
+            sim.data.data_array[inds, 0, :, p1] = sim.data_array[inds, 0, :, p2].conj()
+
+    reshape_args = [
+        sim.data.data_array,
+        sim.ant_1_array,
+        sim.ant_2_array,
+        sim.polarization_array,
+        sim.antenna_numbers,
+        sim.Ntimes,
+        sim.Nfreqs,
+        sim.Nants,
+        sim.Npols,
+    ]
+    vis = utils.reshape_vis(
+        utils.reshape_vis(*reshape_args, invert=False, use_numba=jit),
+        *reshape_args[1:],
+        invert=True,
+        use_numba=jit,
+    )
+    assert np.all(sim.data_array == vis)
