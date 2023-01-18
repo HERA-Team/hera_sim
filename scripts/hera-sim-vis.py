@@ -58,8 +58,9 @@ logging.basicConfig(
     ],
 )
 
-if HAVE_MPI and not MPI.Is_initialized():
-    MPI.Init()
+if HAVE_MPI:
+    if not MPI.Is_initialized():
+        MPI.Init()
     comm = MPI.COMM_WORLD
     myid = comm.Get_rank()
 else:
