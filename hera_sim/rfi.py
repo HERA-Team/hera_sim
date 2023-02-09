@@ -53,7 +53,6 @@ class RfiStation:
         std: float = 10.0,
         timescale: float = 100.0,
     ):
-
         self.f0 = f0
         self.duty_cycle = duty_cycle
         self.strength = strength
