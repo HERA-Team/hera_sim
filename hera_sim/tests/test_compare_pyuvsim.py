@@ -3,6 +3,7 @@ import pytest
 
 import copy
 import numpy as np
+from astropy import units
 from astropy.coordinates import Latitude, Longitude
 from astropy.time import Time
 from astropy.units import Quantity
