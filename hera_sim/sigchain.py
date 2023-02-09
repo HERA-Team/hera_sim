@@ -704,7 +704,7 @@ class MutualCoupling(Crosstalk):
 
     .. math::
 
-        X_{jk}^{rs} = \frac{\lambda}{b_{jk}} \frac{\Gamma}{\Omega_p^2}
+        X_{jk}^{rs} = \frac{i\lambda}{b_{jk}} \frac{\Gamma}{\Omega_p^2}
             \frac{\vec{E}_r(\hat{\bf b}_{jk}) \cdot \vec{E}_s(\hat{\bf b}_{kj})}
             {E_0^r E_0^s}\exp(i2\pi\nu\tau_{jk}),
 
