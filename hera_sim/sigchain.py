@@ -1090,7 +1090,7 @@ class MutualCoupling(Crosstalk):
                 freq_array=freqs * units.GHz.to("Hz"),
             )[0]
             .squeeze()
-            .transpose(3, 2, 0, 1)
+            .transpose(3, 2, 1, 0)
         )
         jones_matrices = {
             angle: jones_matrices[i] for i, angle in enumerate(unique_angles)
@@ -1131,7 +1131,10 @@ class MutualCoupling(Crosstalk):
                 coupling_matrix[0, :, 1::2, 1::2][:, j, i] = coupling[:, 1, 1]
 
         # Now let's tack on the prefactor
-        coupling_matrix *= (1j * reflection * freqs / omega_p**2).reshape(1, -1, 1, 1)
+        wavelengths = constants.c.si.value / (freqs * units.GHz.to("Hz"))
+        coupling_matrix *= (1j * reflection * wavelengths / omega_p**2).reshape(
+            1, -1, 1, 1
+        )
         return coupling_matrix
 
     @staticmethod
