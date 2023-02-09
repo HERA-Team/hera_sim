@@ -248,10 +248,10 @@ def make_point_sky(uvdata, ra: np.ndarray, dec: np.ndarray, align=True):
                 np.zeros((len(freqs), len(ra))),
                 np.zeros((len(freqs), len(ra))),
             ]
-        ),
+        )*units.Jy,
         name=np.array(["derp"] * len(ra)),
         spectral_type="full",
-        freq_array=freqs,
+        freq_array=freqs*units.Hz,
     )
 
 
@@ -322,7 +322,7 @@ def create_uniform_sky(freq, nbase=4, scale=1) -> SkyModel:
         * units.Jy
         / units.sr,
         spectral_type="full",
-        freq_array=freq,
+        freq_array=freq*units.Hz,
         name=np.array([str(i) for i in range(npix)]),
     )
 
