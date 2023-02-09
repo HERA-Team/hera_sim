@@ -74,7 +74,6 @@ class ModelData:
         beams: BeamListType | None = None,
         normalize_beams: bool = False,
     ):
-
         self.uvdata = self._process_uvdata(uvdata)
 
         # NOT Nants because we only want ants with data
@@ -92,7 +91,6 @@ class ModelData:
         self._validate()
 
     def _process_uvdata(self, uvdata: UVData | str | Path):
-
         if isinstance(uvdata, (str, Path)):
             out = UVData()
             out.read(str(uvdata))

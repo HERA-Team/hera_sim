@@ -129,7 +129,7 @@ def run_sim(
         uvdata=uvdata,
         beams=beams,
         sky_model=SkyModel(
-            freq_array=freqs*units.Hz,
+            freq_array=freqs * units.Hz,
             ra=Longitude(ra_dec[:, 0] * units.rad),
             dec=Latitude(ra_dec[:, 1] * units.rad),
             spectral_type="full",
@@ -214,7 +214,6 @@ class TestPerturbedPolyBeam:
         return beams
 
     def test_rotations(self, antennas, sources):
-
         # Rotate the beam from 0 to 180 degrees, and check that autocorrelation
         # of antenna 0 has approximately the same value when pixel beams are
         # used, and when pixel beams not used (direct beam calculation).

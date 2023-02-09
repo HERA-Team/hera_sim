@@ -90,7 +90,7 @@ def get_sky_model(uvdata, nsource):
         dec=Latitude(ra_dec[:, 1], "rad"),
         spectral_type="spectral_index",
         spectral_index=sources[:, 3],
-        stokes=stokes*units.Jy,
+        stokes=stokes * units.Jy,
         reference_frequency=Quantity(reference_frequency, "Hz"),
     )
 
