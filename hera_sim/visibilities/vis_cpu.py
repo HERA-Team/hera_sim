@@ -163,7 +163,7 @@ class VisCPU(VisibilitySimulator):
         if do_pol:
             # Number of feeds must be two if doing polarized
             try:
-                nfeeds = uvbeam.data_array.shape[2 if uvbeam.future_array_shapes else 1]
+                nfeeds = uvbeam.data_array.shape[1 if uvbeam.future_array_shapes else 2]
             except AttributeError:
                 # TODO: the following assumes that analytic beams are 2 feeds unless
                 # otherwise specified. This should be fixed at the AnalyticBeam API
