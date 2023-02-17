@@ -223,6 +223,7 @@ def main(args, profiler, simulator):
                     lst_range=None,
                     polarizations=None,
                     blt_inds=None,
+                    phase_center_ids=None,
                 )[0]
 
                 np.save(args.compress, blt_inds)
