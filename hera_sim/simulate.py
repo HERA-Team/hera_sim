@@ -289,7 +289,8 @@ class Simulator:
         if seed is None and add_vis:
             warnings.warn(
                 "You have not specified how to seed the random state. "
-                "This effect might not be exactly recoverable."
+                "This effect might not be exactly recoverable.",
+                stacklevel=2,
             )
 
         # Simulate the effect by iterating over baselines and polarizations.
@@ -1007,7 +1008,8 @@ class Simulator:
             warnings.warn(
                 "You have chosen to neither add nor return the effect "
                 "you are trying to simulate, so nothing will be "
-                f"computed. This warning was raised for the model: {model}"
+                f"computed. This warning was raised for the model: {model}",
+                stacklevel=2,
             )
             return
 
@@ -1030,7 +1032,8 @@ class Simulator:
                 "You are attempting to compute a component but have "
                 "not specified an ``is_multiplicative`` attribute for "
                 "the component. The component will be added under "
-                "the assumption that it is *not* multiplicative."
+                "the assumption that it is *not* multiplicative.",
+                stacklevel=2,
             )
             is_multiplicative = False
 
@@ -1487,14 +1490,14 @@ class Simulator:
         if is_multiplicative and not has_data:
             warnings.warn(
                 "You are trying to compute a multiplicative "
-                "effect, but no visibilities have been "
-                "simulated yet."
+                "effect, but no visibilities have been simulated yet.",
+                stacklevel=1,
             )
         elif not is_multiplicative and contains_multiplicative_effect:
             warnings.warn(
                 "You are adding visibilities to a data array "
-                "*after* multiplicative effects have been "
-                "introduced."
+                "*after* multiplicative effects have been introduced.",
+                stacklevel=1,
             )
 
     def _update_history(self, model, **kwargs):

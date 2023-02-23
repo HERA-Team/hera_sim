@@ -1,14 +1,14 @@
 [flake8]
 ignore =
     # No space before colon
-    E203, 
+    E203,
     W503,
     # Ignore using dict() function.
     C408,
     # Missing docstring in __init__ (we do it in the class)
     D107,
     # "First line should be in imperative mood" -- this doesn't work for properties, see https://github.com/PyCQA/pydocstyle/issues/301
-    D401, 
+    D401,
     # allow method names to be the same as python builtins
     A003,
     # inline strong start-string without end-string. This is OK in the case of **kwargs in parameters.

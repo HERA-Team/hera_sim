@@ -295,7 +295,7 @@ class Defaults(metaclass=_Singleton):
                 "Please check your configuration, as only the last "
                 "value specified for each parameter will be used."
             )
-            warnings.warn(warning)
+            warnings.warn(warning, stacklevel=1)
 
     def _handler(self, func, *args, **kwargs):
         """Decorator for applying new function parameter defaults."""

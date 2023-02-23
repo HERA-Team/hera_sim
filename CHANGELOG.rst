@@ -5,6 +5,14 @@ Changelog
 dev-version
 ===========
 
+v3.1.1 [2023.02.23]
+===================
+
+Changed
+-------
+- Coupling matrix calculation in :class:`~.sigchain.MutualCoupling` has been updated
+  to correctly calculate the coupling coefficients from the provided E-field beam.
+
 v3.1.0 [2023.01.17]
 ===================
 

@@ -243,5 +243,9 @@ def white_noise(*args, **kwargs):
 
     Deprecated. Use ``utils.gen_white_noise`` instead.
     """
-    warnings.warn("white_noise is being deprecated. Use utils.gen_white_noise instead.")
+    warnings.warn(
+        "white_noise is being deprecated. Use utils.gen_white_noise instead.",
+        category=DeprecationWarning,
+        stacklevel=2,
+    )
     return utils.gen_white_noise(*args, **kwargs)
