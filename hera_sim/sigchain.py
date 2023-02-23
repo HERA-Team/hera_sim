@@ -233,7 +233,8 @@ class Reflections(Gain):
                     if arr.shape[0] == Nfreqs:
                         warnings.warn(
                             "The input array had lengths Nfreqs "
-                            "and is being reshaped as (Ntimes,1)."
+                            "and is being reshaped as (Ntimes,1).",
+                            stacklevel=1,
                         )
                 elif arr.ndim > 1:
                     assert arr.shape[1] in (1, Nfreqs), (
@@ -674,17 +675,18 @@ class MutualCoupling(Crosstalk):
     .. math::
 
         {\bf X}_{jk} \equiv \frac{i\eta_0}{4\lambda} \frac{\Gamma_k}{R_k}
-        \frac{e^{i2\pi\nu\tau_{jk}}}{b_{jk}} {\bf J}_j (\hat{\bf b}_{jk})
-        {\bf J}_k(\hat{\bf b}_{kj})^\dagger,
+        \frac{e^{-i2\pi\nu\tau_{jk}}}{b_{jk}} {\bf J}_j (\hat{\bf b}_{jk})
+        {\bf J}_k(\hat{\bf b}_{kj})^\dagger h_0^2,
 
     where :math:`\Gamma` is the reflection coefficient, :math:`R` is the real
     part of the impedance, :math:`\eta_0` is the impedance of free space,
     :math:`\lambda` is the wavelength of the radiation, :math:`\nu` is the
     frequency of the radiation, :math:`\tau=b/c` is the delay of the baseline,
     :math:`b` is the baseline length, :math:`\hat{\bf b}_{ij}` is a unit
-    vector pointing from antenna :math:`i` to antenna :math:`j`, and
-    :math:`{\bf J}` is the Jones matrix describing the fully-polarized
-    response of the antenna to incident radiation.
+    vector pointing from antenna :math:`i` to antenna :math:`j`, :math:`{\bf J}`
+    is the Jones matrix describing the antenna's peak-normalized far-field
+    radiation pattern, and :math:`h_0` is the amplitude of the antenna's
+    effective height.
 
     The boldfaced variables without any overhead decorations indicate 2x2
     matrices:
@@ -695,21 +697,24 @@ class MutualCoupling(Crosstalk):
             V_{XX} & V_{XY} \\ V_{YX} & V_{YY}
         \end{pmatrix},
         \quad
-        {\bf J} = \begin{pmatrix}
+        {\bf J} = \frac{1}{h_0} \begin{pmatrix}
             h_{X\theta} & h_{X\phi} \\ h_{Y\theta} & h_{Y\phi}
         \end{pmatrix}
 
-    In terms of the E-field beam and auxiliary parameters, the coupling between
-    polarizations :math:`r,s` of antennas :math:`j,k` can be written as
+    The effective height can be rewritten as
 
     .. math::
 
-        X_{jk}^{rs} = \frac{i\lambda}{b_{jk}} \frac{\Gamma}{\Omega_p^2}
-            \frac{\vec{E}_r(\hat{\bf b}_{jk}) \cdot \vec{E}_s(\hat{\bf b}_{kj})}
-            {E_0^r E_0^s}\exp(i2\pi\nu\tau_{jk}),
+        h_0^2 = \frac{4\lambda^2 R}{\eta_0 \Omega_p}
 
     where :math:`\Omega_p` is the beam area (i.e. integral of the peak-normalized
-    power beam) and :math:`E_0` is the E-field beam response at boresight.
+    power beam). Substituting this in to the previous expression for the coupling
+    coefficient and taking antennas to be identical gives
+
+    .. math::
+
+        {\bf X}_{jk} = \frac{i\Gamma}{\Omega_p} \frac{e^{-i2\pi\nu\tau_{jk}}}
+        {b_{jk}/\lambda} {\bf J}(\hat{\bf b}_{jk}) {\bf J}(\hat{\bf b}_{kj})^\dagger.
 
     In order to efficiently simulate the mutual coupling, the antenna and
     polarization axes of the visibilities and coupling matrix are combined
@@ -1012,7 +1017,10 @@ class MutualCoupling(Crosstalk):
             raise ValueError("Reflection coefficients have the wrong shape.")
 
         if omega_p is None:
-            warnings.warn("Calculating the power beam integral; this may take a while.")
+            warnings.warn(
+                "Calculating the power beam integral; this may take a while.",
+                stacklevel=1,
+            )
             # Since AnalyticBeam doesn't have a method for calculating the
             # beam integral, we need to do it manually.
             if isinstance(uvbeam, AnalyticBeam):
@@ -1132,7 +1140,7 @@ class MutualCoupling(Crosstalk):
 
         # Now let's tack on the prefactor
         wavelengths = constants.c.si.value / (freqs * units.GHz.to("Hz"))
-        coupling_matrix *= (1j * reflection * wavelengths / omega_p**2).reshape(
+        coupling_matrix *= (1j * reflection * wavelengths / omega_p).reshape(
             1, -1, 1, 1
         )
         return coupling_matrix

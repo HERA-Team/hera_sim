@@ -416,7 +416,7 @@ def test_mutual_coupling(use_numba):
         pol_array=uvdata.polarization_array,
         array_layout=dict(zip(*uvdata.get_ENU_antpos()[::-1])),
         reflection=np.ones(uvdata.Nfreqs) * refl_amp,
-        omega_p=np.sqrt(constants.c.si.value / uvdata.freq_array[0]),
+        omega_p=constants.c.si.value / uvdata.freq_array[0],
     )
     uvdata.data_array += mutual_coupling(
         freqs=freqs / 1e9,
