@@ -5,9 +5,11 @@ example bandpass gains, reflections and cross-talk.
 """
 from __future__ import annotations
 
+import astropy_healpix as aph
+import copy
 import numpy as np
 import warnings
-from astropy import constants
+from astropy import constants, units
 from pathlib import Path
 from pyuvdata import UVBeam
 from pyuvsim import AnalyticBeam
@@ -231,7 +233,8 @@ class Reflections(Gain):
                     if arr.shape[0] == Nfreqs:
                         warnings.warn(
                             "The input array had lengths Nfreqs "
-                            "and is being reshaped as (Ntimes,1)."
+                            "and is being reshaped as (Ntimes,1).",
+                            stacklevel=1,
                         )
                 elif arr.ndim > 1:
                     assert arr.shape[1] in (1, Nfreqs), (
@@ -672,17 +675,18 @@ class MutualCoupling(Crosstalk):
     .. math::
 
         {\bf X}_{jk} \equiv \frac{i\eta_0}{4\lambda} \frac{\Gamma_k}{R_k}
-        \frac{e^{i2\pi\nu\tau_{jk}}}{b_{jk}} {\bf J}_j (\hat{\bf b}_{jk})
-        {\bf J}_k(\hat{\bf b}_{kj})^\dagger,
+        \frac{e^{-i2\pi\nu\tau_{jk}}}{b_{jk}} {\bf J}_j (\hat{\bf b}_{jk})
+        {\bf J}_k(\hat{\bf b}_{kj})^\dagger h_0^2,
 
     where :math:`\Gamma` is the reflection coefficient, :math:`R` is the real
     part of the impedance, :math:`\eta_0` is the impedance of free space,
     :math:`\lambda` is the wavelength of the radiation, :math:`\nu` is the
     frequency of the radiation, :math:`\tau=b/c` is the delay of the baseline,
     :math:`b` is the baseline length, :math:`\hat{\bf b}_{ij}` is a unit
-    vector pointing from antenna :math:`i` to antenna :math:`j`, and
-    :math:`{\bf J}` is the Jones matrix describing the fully-polarized
-    response of the antenna to incident radiation.
+    vector pointing from antenna :math:`i` to antenna :math:`j`, :math:`{\bf J}`
+    is the Jones matrix describing the antenna's peak-normalized far-field
+    radiation pattern, and :math:`h_0` is the amplitude of the antenna's
+    effective height.
 
     The boldfaced variables without any overhead decorations indicate 2x2
     matrices:
@@ -693,9 +697,24 @@ class MutualCoupling(Crosstalk):
             V_{XX} & V_{XY} \\ V_{YX} & V_{YY}
         \end{pmatrix},
         \quad
-        {\bf J} = \begin{pmatrix}
+        {\bf J} = \frac{1}{h_0} \begin{pmatrix}
             h_{X\theta} & h_{X\phi} \\ h_{Y\theta} & h_{Y\phi}
         \end{pmatrix}
+
+    The effective height can be rewritten as
+
+    .. math::
+
+        h_0^2 = \frac{4\lambda^2 R}{\eta_0 \Omega_p}
+
+    where :math:`\Omega_p` is the beam area (i.e. integral of the peak-normalized
+    power beam). Substituting this in to the previous expression for the coupling
+    coefficient and taking antennas to be identical gives
+
+    .. math::
+
+        {\bf X}_{jk} = \frac{i\Gamma}{\Omega_p} \frac{e^{-i2\pi\nu\tau_{jk}}}
+        {b_{jk}/\lambda} {\bf J}(\hat{\bf b}_{jk}) {\bf J}(\hat{\bf b}_{kj})^\dagger.
 
     In order to efficiently simulate the mutual coupling, the antenna and
     polarization axes of the visibilities and coupling matrix are combined
@@ -715,10 +734,9 @@ class MutualCoupling(Crosstalk):
         Should be either a :class:`np.ndarray` or an interpolation object that
         gives the reflection coefficient as a function of frequency (in GHz).
         Not required if providing a pre-calculated coupling matrix.
-    resistance
-        The real part of the impedance to use for calculating the coupling
-        matrix. Has the same requirements as the ``reflection`` parameter,
-        and the resistance should be measured in Ohms.
+    omega_p
+        The integral of the peak-normalized power beam as a function of frequency
+        (in GHz). Not required if providing a pre-calculated coupling matrix.
     ant_1_array
         Array of integers specifying the number of the first antenna in each
         visibility. Required for calculating the coupling matrix and the
@@ -769,7 +787,7 @@ class MutualCoupling(Crosstalk):
         self,
         uvbeam: UVBeam | str | Path | None,
         reflection: np.ndarray | Callable | None = None,
-        resistance: np.ndarray | Callable | None = None,
+        omega_p: np.ndarray | Callable | None = None,
         ant_1_array: np.ndarray | None = None,
         ant_2_array: np.ndarray | None = None,
         pol_array: np.ndarray | None = None,
@@ -783,7 +801,7 @@ class MutualCoupling(Crosstalk):
         super().__init__(
             uvbeam=uvbeam,
             reflection=reflection,
-            resistance=resistance,
+            omega_p=omega_p,
             ant_1_array=ant_1_array,
             ant_2_array=ant_2_array,
             pol_array=pol_array,
@@ -831,7 +849,7 @@ class MutualCoupling(Crosstalk):
         (
             uvbeam,
             reflection,
-            resistance,
+            omega_p,
             ant_1_array,
             ant_2_array,
             pol_array,
@@ -891,7 +909,7 @@ class MutualCoupling(Crosstalk):
                 array_layout=array_layout,
                 uvbeam=uvbeam,
                 reflection=reflection,
-                resistance=resistance,
+                omega_p=omega_p,
                 pixel_interp=pixel_interp,
                 freq_interp=freq_interp,
                 **beam_kwargs,
@@ -927,7 +945,7 @@ class MutualCoupling(Crosstalk):
         array_layout: dict,
         uvbeam: UVBeam | str,
         reflection: np.ndarray | Callable | None = None,
-        resistance: np.ndarray | Callable | None = None,
+        omega_p: np.ndarray | Callable | None = None,
         pixel_interp: str | None = "az_za_simple",
         freq_interp: str | None = "cubic",
         **beam_kwargs,
@@ -962,11 +980,10 @@ class MutualCoupling(Crosstalk):
             The reflection coefficient to use for calculating the coupling matrix.
             Should be either a :class:`np.ndarray` or an interpolation object that
             gives the reflection coefficient as a function of frequency (in GHz).
-            Not required if providing a pre-calculated coupling matrix.
-        resistance
-            The real part of the impedance to use for calculating the coupling
-            matrix. Has the same requirements as the `reflection` parameter,
-            and the resistance should be measured in Ohms.
+        omega_p
+            The integral of the peak-normalized power beam as a function of frequency
+            (in GHz). If this is not provided, then it will be calculated from the
+            provided beam model.
         pixel_interp
             The name of the spatial interpolation method used for the beam. Not
             required if using an analytic beam or if providing a pre-computed
@@ -999,17 +1016,56 @@ class MutualCoupling(Crosstalk):
         if reflection.size != freqs.size:
             raise ValueError("Reflection coefficients have the wrong shape.")
 
-        if resistance is None:
-            resistance = np.ones_like(freqs)
-        elif callable(resistance):
-            resistance = resistance(freqs)
-        if resistance.size != freqs.size:
-            raise ValueError("Resistances have the wrong shape.")
+        if omega_p is None:
+            warnings.warn(
+                "Calculating the power beam integral; this may take a while.",
+                stacklevel=1,
+            )
+            # Since AnalyticBeam doesn't have a method for calculating the
+            # beam integral, we need to do it manually.
+            if isinstance(uvbeam, AnalyticBeam):
+                power_beam = copy.deepcopy(uvbeam)
+                power_beam.efield_to_power()
+                nside = 128
+                npix = aph.nside_to_npix(nside)
+                pix_area = aph.nside_to_pixel_area(nside).to("sr").value
+                pix_inds = np.arange(npix)
+                lon, lat = aph.healpix_to_lonlat(pix_inds, nside)
+                above_horizon = lat.value > 0
+                beam_vals = power_beam.interp(
+                    az_array=lon.to("rad").value,
+                    za_array=np.pi / 2 - lat.to("rad").value,
+                    freq_array=freqs * units.GHz.to("Hz"),
+                )[0][
+                    0, 0, 0
+                ]  # Just take the XX polarization
+                beam_vals[:, ~above_horizon] = 0  # Apply horizon cut
+                omega_p = beam_vals.sum(axis=1).real * pix_area
+            else:
+                power_beam = uvbeam.copy()
+                power_beam.efield_to_power()
+                if power_beam.interpolation_function is None:
+                    power_beam.interpolation_function = pixel_interp
+                if power_beam.freq_interp_kind is None:
+                    power_beam.freq_interp_kind = freq_interp
+                power_beam = power_beam.interp(
+                    freq_array=freqs * units.GHz.to("Hz"), new_object=True
+                )  # Interpolate to the desired frequencies
+                power_beam.to_healpix()
+                power_beam.peak_normalize()
+                omega_p = power_beam.get_beam_area(pol="xx").real
+            del power_beam
+        elif callable(omega_p):
+            omega_p = omega_p(freqs)
+        if omega_p.size != freqs.size:
+            raise ValueError("Beam integral has the wrong shape.")
 
         # Check the beam is OK and make it smaller if it's too big.
         uvbeam = MutualCoupling._handle_beam(uvbeam, **beam_kwargs)
         MutualCoupling._check_beam_is_ok(uvbeam)
         if isinstance(uvbeam, UVBeam):
+            uvbeam = uvbeam.copy()
+            uvbeam.peak_normalize()
             if uvbeam.Naxes2 > 5:
                 # We only need two points on either side of the horizon.
                 za_array = uvbeam.axis2_array
@@ -1039,10 +1095,10 @@ class MutualCoupling(Crosstalk):
             uvbeam.interp(
                 az_array=unique_angles,
                 za_array=np.ones_like(unique_angles) * np.pi / 2,
-                freq_array=freqs * 1e9,  # Since we default to GHz...
+                freq_array=freqs * units.GHz.to("Hz"),
             )[0]
             .squeeze()
-            .transpose(3, 2, 0, 1)
+            .transpose(3, 2, 1, 0)
         )
         jones_matrices = {
             angle: jones_matrices[i] for i, angle in enumerate(unique_angles)
@@ -1083,14 +1139,10 @@ class MutualCoupling(Crosstalk):
                 coupling_matrix[0, :, 1::2, 1::2][:, j, i] = coupling[:, 1, 1]
 
         # Now let's tack on the prefactor
-        eta0 = np.sqrt(constants.mu0.value / constants.eps0.value)
-        coupling_matrix *= (
-            1j
-            * eta0
-            * reflection
-            * freqs
-            / (4 * constants.c.to("m/ns").value * resistance)
-        ).reshape(1, -1, 1, 1)
+        wavelengths = constants.c.si.value / (freqs * units.GHz.to("Hz"))
+        coupling_matrix *= (1j * reflection * wavelengths / omega_p).reshape(
+            1, -1, 1, 1
+        )
         return coupling_matrix
 
     @staticmethod

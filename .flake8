@@ -1,20 +1,28 @@
 [flake8]
 ignore =
-    E203  # No space before colon
-    W503
-    C408  # Ignore using dict() function.
-    D107  # Missing docstring in __init__ (we do it in the class)
-    D401  # "First line should be in imperative mood" -- this doesn't work for properties, see https://github.com/PyCQA/pydocstyle/issues/301
-    A003  # allow method names to be the same as python builtins
-    RST210  # inline strong start-string without end-string. This is OK in the case of **kwargs in parameters.
-    G004  # Logging statement uses f-string.
+    # No space before colon
+    E203,
+    W503,
+    # Ignore using dict() function.
+    C408,
+    # Missing docstring in __init__ (we do it in the class)
+    D107,
+    # "First line should be in imperative mood" -- this doesn't work for properties, see https://github.com/PyCQA/pydocstyle/issues/301
+    D401,
+    # allow method names to be the same as python builtins
+    A003,
+    # inline strong start-string without end-string. This is OK in the case of **kwargs in parameters.
+    RST210,
+    # Logging statement uses f-string.
+    G004,
 max-line-length = 88
 # Should be 18.
 max-complexity = 35
 exclude =
     development/*
 per-file-ignores =
-    hera_sim/tests/*:D,RST,T001,T201   # print statements allowed in tests
+    # print statements allowed in tests
+    hera_sim/tests/*:D,RST,T001,T201
     docs/conf.py:D,A
     */__init__.py:F401
     scripts/*:T001,T201

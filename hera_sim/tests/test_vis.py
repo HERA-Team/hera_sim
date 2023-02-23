@@ -248,10 +248,11 @@ def make_point_sky(uvdata, ra: np.ndarray, dec: np.ndarray, align=True):
                 np.zeros((len(freqs), len(ra))),
                 np.zeros((len(freqs), len(ra))),
             ]
-        ),
+        )
+        * units.Jy,
         name=np.array(["derp"] * len(ra)),
         spectral_type="full",
-        freq_array=freqs,
+        freq_array=freqs * units.Hz,
     )
 
 
@@ -322,7 +323,7 @@ def create_uniform_sky(freq, nbase=4, scale=1) -> SkyModel:
         * units.Jy
         / units.sr,
         spectral_type="full",
-        freq_array=freq,
+        freq_array=freq * units.Hz,
         name=np.array([str(i) for i in range(npix)]),
     )
 
@@ -516,7 +517,6 @@ def test_comparison(simulator, uvdata2, sky_model, beam_model):
 @pytest.mark.parametrize("order", ["time", "baseline", "ant1", "ant2"])
 @pytest.mark.parametrize("conj", ["ant1<ant2", "ant2<ant1"])
 def test_ordering(uvdata_linear, simulator, order, conj):
-
     uvdata_linear.reorder_blts(order=order, conj_convention=conj)
 
     sky_model = make_point_sky(

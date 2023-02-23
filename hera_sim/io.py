@@ -69,7 +69,8 @@ def empty_uvdata(
             "deprecated and will be removed in the future. Please "
             "update your code to use the Nfreqs, Ntimes, and "
             "array_layout parameters instead.",
-            DeprecationWarning,
+            category=DeprecationWarning,
+            stacklevel=2,
         )
 
     # for backwards compatability

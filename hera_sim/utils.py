@@ -471,8 +471,8 @@ def Jy2T(freqs, omega_p):
     Deprecated in v1.0.0. Will be removed in v1.1.0
     """
     warnings.warn(
-        "The function Jy2T has been renamed 'jansky_to_kelvin'. It will be removed in "
-        "v1.1."
+        "This function has been deprecated. Please use `jansky_to_kelvin` instead.",
+        stacklevel=1,
     )
     return jansky_to_kelvin(freqs, omega_p)
 

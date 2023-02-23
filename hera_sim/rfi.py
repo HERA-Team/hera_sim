@@ -53,7 +53,6 @@ class RfiStation:
         std: float = 10.0,
         timescale: float = 100.0,
     ):
-
         self.f0 = f0
         self.duty_cycle = duty_cycle
         self.strength = strength
@@ -165,7 +164,10 @@ class Stations(RFI):
         rfi = np.zeros((lsts.size, freqs.size), dtype=complex)
 
         if stations is None:
-            warnings.warn("You did not specify any stations to simulate.")
+            warnings.warn(
+                "You did not specify any stations to simulate.",
+                stacklevel=2,
+            )
             return rfi
         elif isinstance(stations, (str, Path)):
             # assume that it's a path to a npy file
@@ -411,7 +413,8 @@ class DTV(RFI):
             warnings.warn(
                 "The DTV band does not overlap with any of the passed "
                 "frequencies. Please ensure that you are passing the "
-                "correct set of parameters."
+                "correct set of parameters.",
+                stacklevel=2,
             )
 
         # define an iterator, just to keep things neat

@@ -181,7 +181,8 @@ class Tsky(Interpolator):
             warnings.warn(
                 "The provided LSTs do not sufficiently cover [0, 2*pi). "
                 "The interpolated sky temperature may have unexpected behavior "
-                "near 0 and 2*pi."
+                "near 0 and 2*pi.",
+                stacklevel=1,
             )
 
         lsts = np.concatenate(

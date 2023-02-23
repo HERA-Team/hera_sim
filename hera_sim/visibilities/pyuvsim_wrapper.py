@@ -34,7 +34,8 @@ class UVSim(VisibilitySimulator):
             data_model.sky_model.name = np.array(data_model.sky_model.name)
 
         warnings.warn(
-            "UVSim requires time-ordered data. Ensuring that order in UVData..."
+            "UVSim requires time-ordered data. Ensuring that order in UVData...",
+            stacklevel=1,
         )
         data_model.uvdata.reorder_blts("time")
 
@@ -44,7 +45,8 @@ class UVSim(VisibilitySimulator):
         # at least check whether reordering is necessary once uvdata has that ability.
         if np.any(data_model.uvdata.polarization_array != np.array([-5, -6, -7, -8])):
             warnings.warn(
-                "In UVSim, polarization array must be in AIPS order. Reordering..."
+                "In UVSim, polarization array must be in AIPS order. Reordering...",
+                stacklevel=1,
             )
             data_model.uvdata.reorder_pols("AIPS")
 

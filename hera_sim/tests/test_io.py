@@ -64,7 +64,7 @@ def test_conj_convention(time_params, freq_params, array_layout):
         **time_params,
         **freq_params,
     )
-    for (ai, aj) in uvd.get_antpairs():
+    for ai, aj in uvd.get_antpairs():
         assert ai <= aj
 
 

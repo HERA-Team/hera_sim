@@ -6,7 +6,6 @@ from astropy.utils import iers
 
 @pytest.fixture(autouse=True, scope="session")
 def setup_and_teardown_package():
-
     # Try to download the latest IERS table. If the download succeeds, run a
     # computation that requires the values, so they are cached for all future
     # tests. If it fails, turn off auto downloading for the tests and turn it

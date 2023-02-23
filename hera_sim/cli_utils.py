@@ -137,7 +137,8 @@ def write_calfits(
         if sim_x_orientation is None:
             warnings.warn(
                 "x_orientation not specified in simulation object."
-                "Assuming that the x-direction points north."
+                "Assuming that the x-direction points north.",
+                stacklevel=1,
             )
         else:
             x_orientation = sim_x_orientation

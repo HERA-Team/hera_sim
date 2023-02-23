@@ -406,9 +406,7 @@ def test_mutual_coupling(use_numba):
         vis_amps[(aj, ai)] = vis_amps[(ai, aj)]
 
     # Set the coupling parameters so that it's simple to check the amplitudes.
-    refl_amp = 1e-2
-    eta0 = np.sqrt(constants.mu0 / constants.eps0).to("ohm").value
-    resistance = eta0 * freqs / (4 * constants.c.si.value)
+    refl_amp = 1
 
     # Actually simulate the coupling.
     mutual_coupling = sigchain.MutualCoupling(
@@ -418,7 +416,7 @@ def test_mutual_coupling(use_numba):
         pol_array=uvdata.polarization_array,
         array_layout=dict(zip(*uvdata.get_ENU_antpos()[::-1])),
         reflection=np.ones(uvdata.Nfreqs) * refl_amp,
-        resistance=resistance,
+        omega_p=constants.c.si.value / uvdata.freq_array[0],
     )
     uvdata.data_array += mutual_coupling(
         freqs=freqs / 1e9,
@@ -542,33 +540,35 @@ def uvbeam(tmp_path):
 
 
 def test_mutual_coupling_with_uvbeam(uvbeam, sample_uvdata, sample_coupling):
+    np.random.seed(0)
     data = np.random.normal(size=sample_uvdata.data_array.shape) + 0j
     sample_uvdata.data_array[...] = data[...]
     sample_uvdata.data_array += sample_coupling(
         freqs=sample_uvdata.freq_array.squeeze() / 1e9,
         visibilities=sample_uvdata.data_array,
+        reflection=np.ones(sample_uvdata.Nfreqs) * 10,
         uvbeam=uvbeam,
     )
     assert not np.any(np.isclose(data, sample_uvdata.data_array))
 
 
-@pytest.mark.parametrize("resistance", [None, "callable"])
+@pytest.mark.parametrize("omega_p", [None, "callable"])
 @pytest.mark.parametrize("reflection", [None, "callable"])
 def test_mutual_coupling_input_types(
-    resistance, reflection, sample_uvdata, sample_coupling
+    omega_p, reflection, sample_uvdata, sample_coupling
 ):
     def func(freqs):
         return np.ones_like(freqs)
 
-    resistance = func if resistance == "callable" else None
+    omega_p = func if omega_p == "callable" else None
     reflection = func if reflection == "callable" else None
     data = np.random.normal(size=sample_uvdata.data_array.shape) + 0j
     sample_uvdata.data_array += data
     sample_uvdata.data_array += sample_coupling(
         freqs=sample_uvdata.freq_array.squeeze() / 1e9,
         visibilities=sample_uvdata.data_array,
-        resistance=resistance,
         reflection=reflection,
+        omega_p=omega_p,
     )
     assert not np.any(np.isclose(data, sample_uvdata.data_array))
 
@@ -584,11 +584,11 @@ def test_mutual_coupling_bad_ants(sample_uvdata, sample_coupling):
         )
 
 
-@pytest.mark.parametrize("isbad", ["reflection", "resistance"])
+@pytest.mark.parametrize("isbad", ["reflection", "omega_p"])
 def test_mutual_coupling_bad_feed_params(isbad, sample_uvdata, sample_coupling):
-    kwargs = {"reflection": None, "resistance": None}
+    kwargs = {"omega_p": None, "reflection": None}
     kwargs[isbad] = np.ones(sample_uvdata.Nfreqs + 1)
-    with pytest.raises(ValueError, match="have the wrong shape"):
+    with pytest.raises(ValueError, match="the wrong shape"):
         _ = sample_coupling(
             freqs=sample_uvdata.freq_array.squeeze() / 1e9,
             visibilities=sample_uvdata.data_array,

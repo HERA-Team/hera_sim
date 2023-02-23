@@ -209,7 +209,6 @@ class PointSourceForeground(Foreground):
         spectral_index_std=0.5,
         reference_freq=0.15,
     ):
-
         super().__init__(
             nsrcs=nsrcs,
             Smin=Smin,
