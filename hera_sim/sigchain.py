@@ -785,7 +785,7 @@ class MutualCoupling(Crosstalk):
 
     def __init__(
         self,
-        uvbeam: UVBeam | str | Path | None,
+        uvbeam: UVBeam | str | Path | None = None,
         reflection: np.ndarray | Callable | None = None,
         omega_p: np.ndarray | Callable | None = None,
         ant_1_array: np.ndarray | None = None,
@@ -1120,7 +1120,7 @@ class MutualCoupling(Crosstalk):
                 # then this is where we would do it.
                 bl_len = np.linalg.norm(enu_antpos[j] - enu_antpos[i])
                 delay = np.exp(
-                    2j * np.pi * freqs * bl_len / constants.c.to("m/ns").value
+                    -2j * np.pi * freqs * bl_len / constants.c.to("m/ns").value
                 ).reshape(-1, 1, 1)
                 coupling = delay * jones_prod / bl_len
 
