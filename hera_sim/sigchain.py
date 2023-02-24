@@ -1120,7 +1120,7 @@ class MutualCoupling(Crosstalk):
                 # then this is where we would do it.
                 bl_len = np.linalg.norm(enu_antpos[j] - enu_antpos[i])
                 delay = np.exp(
-                    2j * np.pi * freqs * bl_len / constants.c.to("m/ns").value
+                    -2j * np.pi * freqs * bl_len / constants.c.to("m/ns").value
                 ).reshape(-1, 1, 1)
                 coupling = delay * jones_prod / bl_len
 
