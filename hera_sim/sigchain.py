@@ -785,7 +785,7 @@ class MutualCoupling(Crosstalk):
 
     def __init__(
         self,
-        uvbeam: UVBeam | str | Path | None,
+        uvbeam: UVBeam | str | Path | None = None,
         reflection: np.ndarray | Callable | None = None,
         omega_p: np.ndarray | Callable | None = None,
         ant_1_array: np.ndarray | None = None,
