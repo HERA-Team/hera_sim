@@ -11,6 +11,7 @@ INTERP_OBJECTS = {
     "1d": (
         "beam",
         "bandpass",
+        "reflection",
     ),
     "2d": ("Tsky_mdl",),
 }
