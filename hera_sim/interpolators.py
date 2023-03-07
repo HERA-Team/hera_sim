@@ -360,3 +360,31 @@ class Bandpass(FreqInterpolator):
         super().__init__(datafile, **interp_kwargs)
         self._obj = "bandpass"
         self._check_format()
+
+
+class Reflection(FreqInterpolator):
+    """Complex reflection coefficient interpolator."""
+
+    def __init__(self, datafile, **interp_kwargs):
+        super().__init__(datafile, **interp_kwargs)
+        self._obj = "reflection"
+        self._check_format()
+
+    @cached_property
+    def _re_interp(self):
+        interp_kwargs = {"kind": "cubic"}
+        interp_kwargs.update(self._interp_kwargs)
+        return interp1d(
+            self._data["freqs"], self._data[self._obj].real, **interp_kwargs
+        )
+
+    @cached_property
+    def _im_interp(self):
+        interp_kwargs = {"kind": "cubic"}
+        interp_kwargs.update(self._interp_kwargs)
+        return interp1d(
+            self._data["freqs"], self._data[self._obj].imag, **interp_kwargs
+        )
+
+    def __call__(self, freqs):
+        return self._re_interp(freqs) + 1j * self._im_interp(freqs)
