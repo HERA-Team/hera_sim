@@ -115,15 +115,22 @@ def test_bandpass_with_taper(fqs, taper):
     if taper == "custom":
         taper = np.linspace(0, 1, fqs.size)
     elif taper == "callable":
+
         def taper(freqs):
-            return np.sin(np.pi * (freqs-freqs.mean() / freqs.max()))
+            return np.sin(np.pi * (freqs - freqs.mean() / freqs.max()))
+
     elif taper == "tanh":
         taper_kwds["x_min"] = fqs[10]
         taper_kwds["x_max"] = fqs[-10]
 
-    base_bandpass = sigchain.gen_gains(fqs, [0], gain_spread=0, dly_rng=(0,0))[0]
+    base_bandpass = sigchain.gen_gains(fqs, [0], gain_spread=0, dly_rng=(0, 0))[0]
     bandpass = sigchain.gen_gains(
-        fqs, [0], gain_spread=0, dly_rng=(0,0), taper=taper, taper_kwds=taper_kwds,
+        fqs,
+        [0],
+        gain_spread=0,
+        dly_rng=(0, 0),
+        taper=taper,
+        taper_kwds=taper_kwds,
     )[0]
     assert not np.allclose(base_bandpass, bandpass)
 
