@@ -681,7 +681,8 @@ def find_baseline_orientations(
 def tanh_window(x, x_min=None, x_max=None, scale_low=1, scale_high=1):
     if x_min is None and x_max is None:
         warnings.warn(
-            "Insufficient information provided. Returning uniform window.",
+            "Insufficient information provided; you must provide either x_min or "
+            "x_max. Returning uniform window.",
             stacklevel=1,
         )
         return np.ones(x.size)
