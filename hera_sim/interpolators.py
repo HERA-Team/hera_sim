@@ -367,6 +367,8 @@ class Reflection(FreqInterpolator):
     """Complex reflection coefficient interpolator."""
 
     def __init__(self, datafile, **interp_kwargs):
+        if "interpolator" not in interp_kwargs:
+            interp_kwargs["interpolator"] = "interp1d"
         super().__init__(datafile, **interp_kwargs)
         self._obj = "reflection"
         self._check_format()
