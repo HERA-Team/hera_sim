@@ -14,49 +14,6 @@ from hera_sim.io import empty_uvdata
 np.random.seed(0)
 
 
-def test_gen_bandpass():
-    fqs = np.linspace(0.1, 0.2, 1024, endpoint=False)
-    g = sigchain.gen_bandpass(fqs, [1, 2], gain_spread=0)
-    assert 1 in g
-    assert 2 in g
-    assert g[1].size == fqs.size
-    assert np.all(g[1] == g[2])
-    g = sigchain.gen_bandpass(fqs, list(range(10)), 0.2)
-    assert not np.all(g[1] == g[2])
-
-
-def test_gen_delay_phs():
-    fqs = np.linspace(0.12, 0.18, 1024, endpoint=False)
-    phs = sigchain.gen_delay_phs(fqs, [1, 2], dly_rng=(0, 20))
-    assert len(phs) == 2
-    assert 1 in phs
-    assert 2 in phs
-    assert np.allclose(np.abs(phs[1]), 1)
-    p = np.polyfit(fqs, np.unwrap(np.angle(phs[1])), deg=1)
-    assert np.any(np.isclose(p[-1] % (2 * np.pi), (0, 2 * np.pi), atol=1e-2))
-    assert p[0] <= 20 * 2 * np.pi
-    assert p[0] >= 0
-
-
-def test_gen_gains():
-    fqs = np.linspace(0.12, 0.18, 1024, endpoint=False)
-    g = sigchain.gen_gains(fqs, [1, 2], gain_spread=0, dly_rng=(10, 20))
-    assert np.allclose(np.abs(g[1]), np.abs(g[2]), rtol=1e-5)
-    for i in g:
-        p = np.polyfit(fqs, np.unwrap(np.angle(g[i])), deg=1)
-        assert np.any(np.isclose(p[-1] % (2 * np.pi), (0, 2 * np.pi), atol=1e-2))
-        assert p[0] <= 20 * 2 * np.pi
-        assert p[0] >= 10 * 2 * np.pi
-
-
-def test_apply_gains():
-    fqs = np.linspace(0.12, 0.18, 1024, endpoint=False)
-    vis = np.ones((100, fqs.size), dtype=complex)
-    g = sigchain.gen_gains(fqs, [1, 2], gain_spread=0, dly_rng=(10, 10))
-    gvis = sigchain.apply_gains(vis, g, (1, 2))
-    assert np.allclose(np.angle(gvis), 0, rtol=1e-5)
-
-
 @pytest.fixture(scope="function")
 def fqs():
     return np.linspace(0.1, 0.2, 100, endpoint=False)
@@ -107,6 +64,73 @@ def dlys(fqs):
 @pytest.fixture(scope="function")
 def vfft(vis):
     return uvtools.utils.FFT(vis, axis=1)
+
+
+def test_gen_bandpass():
+    fqs = np.linspace(0.1, 0.2, 1024, endpoint=False)
+    g = sigchain.gen_bandpass(fqs, [1, 2], gain_spread=0)
+    assert 1 in g
+    assert 2 in g
+    assert g[1].size == fqs.size
+    assert np.all(g[1] == g[2])
+    g = sigchain.gen_bandpass(fqs, list(range(10)), 0.2)
+    assert not np.all(g[1] == g[2])
+
+
+def test_gen_delay_phs():
+    fqs = np.linspace(0.12, 0.18, 1024, endpoint=False)
+    phs = sigchain.gen_delay_phs(fqs, [1, 2], dly_rng=(0, 20))
+    assert len(phs) == 2
+    assert 1 in phs
+    assert 2 in phs
+    assert np.allclose(np.abs(phs[1]), 1)
+    p = np.polyfit(fqs, np.unwrap(np.angle(phs[1])), deg=1)
+    assert np.any(np.isclose(p[-1] % (2 * np.pi), (0, 2 * np.pi), atol=1e-2))
+    assert p[0] <= 20 * 2 * np.pi
+    assert p[0] >= 0
+
+
+def test_gen_gains():
+    fqs = np.linspace(0.12, 0.18, 1024, endpoint=False)
+    g = sigchain.gen_gains(fqs, [1, 2], gain_spread=0, dly_rng=(10, 20))
+    assert np.allclose(np.abs(g[1]), np.abs(g[2]), rtol=1e-5)
+    for i in g:
+        p = np.polyfit(fqs, np.unwrap(np.angle(g[i])), deg=1)
+        assert np.any(np.isclose(p[-1] % (2 * np.pi), (0, 2 * np.pi), atol=1e-2))
+        assert p[0] <= 20 * 2 * np.pi
+        assert p[0] >= 10 * 2 * np.pi
+
+
+def test_apply_gains():
+    fqs = np.linspace(0.12, 0.18, 1024, endpoint=False)
+    vis = np.ones((100, fqs.size), dtype=complex)
+    g = sigchain.gen_gains(fqs, [1, 2], gain_spread=0, dly_rng=(10, 10))
+    gvis = sigchain.apply_gains(vis, g, (1, 2))
+    assert np.allclose(np.angle(gvis), 0, rtol=1e-5)
+
+
+@pytest.mark.parametrize("taper", ["tanh", "bh", "custom", "callable"])
+def test_bandpass_with_taper(fqs, taper):
+    taper_kwds = {}
+    if taper == "custom":
+        taper = np.linspace(0, 1, fqs.size)
+    elif taper == "callable":
+        def taper(freqs):
+            return np.sin(np.pi * (freqs-freqs.mean() / freqs.max()))
+    elif taper == "tanh":
+        taper_kwds["x_min"] = fqs[10]
+        taper_kwds["x_max"] = fqs[-10]
+
+    base_bandpass = sigchain.gen_gains(fqs, [0], gain_spread=0, dly_rng=(0,0))[0]
+    bandpass = sigchain.gen_gains(
+        fqs, [0], gain_spread=0, dly_rng=(0,0), taper=taper, taper_kwds=taper_kwds,
+    )[0]
+    assert not np.allclose(base_bandpass, bandpass)
+
+
+def test_bandpass_bad_taper(fqs):
+    with pytest.raises(ValueError, match="Unsupported choice of taper."):
+        sigchain.gen_gains(fqs, [0], taper=13)
 
 
 def test_reflection_gains_correct_delays(
