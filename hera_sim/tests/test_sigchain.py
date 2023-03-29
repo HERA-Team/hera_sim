@@ -111,7 +111,7 @@ def test_apply_gains():
 
 @pytest.mark.parametrize("taper", ["tanh", "bh", "custom", "callable"])
 def test_bandpass_with_taper(fqs, taper):
-    taper_kwds = {}
+    taper_kwds = None
     if taper == "custom":
         taper = np.linspace(0, 1, fqs.size)
     elif taper == "callable":
@@ -120,8 +120,7 @@ def test_bandpass_with_taper(fqs, taper):
             return np.sin(np.pi * (freqs - freqs.mean() / freqs.max()))
 
     elif taper == "tanh":
-        taper_kwds["x_min"] = fqs[10]
-        taper_kwds["x_max"] = fqs[-10]
+        taper_kwds = dict(x_min=fqs[10], x_max=fqs[-10])
 
     base_bandpass = sigchain.gen_gains(fqs, [0], gain_spread=0, dly_rng=(0, 0))[0]
     bandpass = sigchain.gen_gains(
