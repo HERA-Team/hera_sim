@@ -3,7 +3,7 @@ import pytest
 import numpy as np
 from scipy.interpolate import RectBivariateSpline, interp1d
 
-from hera_sim.interpolators import Bandpass, Beam, Tsky, _check_path, _read
+from hera_sim.interpolators import Bandpass, Beam, Reflection, Tsky, _check_path, _read
 
 INTERPOLATORS = {"beam": Beam, "bandpass": Bandpass, "tsky": Tsky}
 
@@ -87,6 +87,16 @@ def test_1d_interpolator_shape(freqs, model, interpolator, tmp_path):
     new_freqs = np.linspace(0.12, 0.18, 720)
     resampled_data = interpolator(new_freqs)
     assert resampled_data.size == new_freqs.size
+
+
+def test_reflection_interpolator(freqs, tmp_path):
+    data_file = str(tmp_path / "sample_reflections.npz")
+    mock_data = np.exp(2j * np.pi * (freqs - freqs.mean()) / freqs.max())
+    np.savez(data_file, freqs=freqs[::2], reflection=mock_data[::2])
+    interpolator = Reflection(data_file)
+    interp_data = interpolator(freqs[1:-2:2])
+    assert np.allclose(interp_data.real, mock_data[1:-2:2].real)
+    assert np.allclose(interp_data.imag, mock_data[1:-2:2].imag)
 
 
 def test_tsky_exception_no_freqs(lsts, Tsky_mdl, tmp_path):
