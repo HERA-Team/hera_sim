@@ -275,10 +275,11 @@ class FreqInterpolator(Interpolator):
         correct arrays in its archive.
     """
 
-    def __init__(self, datafile, **interp_kwargs):
+    def __init__(self, datafile, obj_type=None, **interp_kwargs):
         super().__init__(datafile, **interp_kwargs)
         self._interp_type = self._interp_kwargs.pop("interpolator", "poly1d")
-        self._obj = None
+        self._obj = obj_type
+        self._check_format()
 
     def __call__(self, freqs):
         """Evaluate the interpolation object at the given frequencies."""
@@ -341,9 +342,7 @@ class Beam(FreqInterpolator):
     """
 
     def __init__(self, datafile, **interp_kwargs):
-        super().__init__(datafile, **interp_kwargs)
-        self._obj = "beam"
-        self._check_format()
+        super().__init__(datafile, obj_type="beam", **interp_kwargs)
 
 
 class Bandpass(FreqInterpolator):
@@ -358,9 +357,7 @@ class Bandpass(FreqInterpolator):
     """
 
     def __init__(self, datafile, **interp_kwargs):
-        super().__init__(datafile, **interp_kwargs)
-        self._obj = "bandpass"
-        self._check_format()
+        super().__init__(datafile, obj_type="bandpass", **interp_kwargs)
 
 
 class Reflection(FreqInterpolator):
@@ -369,9 +366,7 @@ class Reflection(FreqInterpolator):
     def __init__(self, datafile, **interp_kwargs):
         if "interpolator" not in interp_kwargs:
             interp_kwargs["interpolator"] = "interp1d"
-        super().__init__(datafile, **interp_kwargs)
-        self._obj = "reflection"
-        self._check_format()
+        super().__init__(datafile, obj_type="reflection", **interp_kwargs)
 
     @cached_property
     def _re_interp(self):
