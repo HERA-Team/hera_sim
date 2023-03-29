@@ -441,3 +441,9 @@ def test_reshape_vis(jit, pols):
         use_numba=jit,
     )
     assert np.all(sim.data_array == vis)
+
+
+def test_tanh_window_warning():
+    with pytest.warns(UserWarning, match="Insufficient information"):
+        window = utils.tanh_window(np.linspace(0, 1, 100))
+    assert np.all(window == 1)
