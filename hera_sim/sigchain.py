@@ -979,8 +979,6 @@ class MutualCoupling(Crosstalk):
     @staticmethod
     def build_coupling_matrix(
         freqs: np.ndarray,
-        ant_1_array: np.ndarray,
-        ant_2_array: np.ndarray,
         array_layout: dict,
         uvbeam: UVBeam | str,
         reflection: np.ndarray | Callable | None = None,
@@ -998,13 +996,6 @@ class MutualCoupling(Crosstalk):
         ----------
         freqs
             The observed frequencies, in GHz.
-        ant_1_array
-            Array of integers specifying the number of the first antenna in each
-            visibility. Required for calculating the coupling matrix and the
-            coupled visibilities.
-        ant_2_array
-            Array of integers specifying the number of the second antenna in each
-            visibility.
         array_layout
             Dictionary mapping antenna numbers to their positions in local East-
             North-Up coordinates, expressed in meters. Not required if providing
