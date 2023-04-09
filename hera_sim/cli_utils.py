@@ -150,7 +150,8 @@ def write_calfits(
         if sim_x_orientation is None:
             warnings.warn(
                 "x_orientation not specified in simulation object."
-                "Assuming that the x-direction points north."
+                "Assuming that the x-direction points north.",
+                stacklevel=1,
             )
         else:
             x_orientation = sim_x_orientation
@@ -216,7 +217,7 @@ def _format_gain_dict(gains, x_orientation):
         )
         for pol in pol_array
     ]
-    mapping = {pol: jpol for pol, jpol in zip(pol_array, jones_array)}
+    mapping = dict(zip(pol_array, jones_array))
     return {(antpol[0], mapping[antpol[1]]): gain for antpol, gain in gains.items()}
 
 
@@ -381,7 +382,6 @@ class LogRender:
         line_no: int | None = None,
         link_path: str | None = None,
     ) -> Table:
-
         output = Table.grid(padding=(0, 1))
         output.expand = True
         if self.show_time:

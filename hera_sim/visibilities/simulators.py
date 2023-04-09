@@ -76,7 +76,6 @@ class ModelData:
         beams: BeamListType | None = None,
         normalize_beams: bool = False,
     ):
-
         self.uvdata = self._process_uvdata(uvdata)
 
         # NOT Nants because we only want ants with data
@@ -94,7 +93,6 @@ class ModelData:
         self._validate()
 
     def _process_uvdata(self, uvdata: UVData | str | Path):
-
         if isinstance(uvdata, (str, Path)):
             out = UVData()
             out.read(str(uvdata))
@@ -419,7 +417,7 @@ class VisibilitySimulator(metaclass=ABCMeta):
 
     def validate(self, data_model: ModelData):
         """Check that the data model complies with the assumptions of the simulator."""
-        pass
+        return
 
     @classmethod
     def from_yaml(cls, yaml_config: dict | str | Path) -> VisibilitySimulator:
@@ -455,14 +453,14 @@ class VisibilitySimulator(metaclass=ABCMeta):
         """
         return data_model.uvdata.data_array.nbytes / 1024**3
 
-    def compress_data_model(self, data_model):
+    def compress_data_model(self, data_model):  # noqa: B027
         """Temporarily delete/remove data from the model to reduce memory usage.
 
         Anything that is removed here should be restored after the simulation.
         """
         pass
 
-    def restore_data_model(self, data_model):
+    def restore_data_model(self, data_model):  # noqa: B027
         """Restore data from the model removed by :func:`compress_data_model`."""
         pass
 
@@ -480,7 +478,7 @@ def load_simulator_from_yaml(config: Path | str) -> VisibilitySimulator:
             simulator_cls = getattr(vis, simulator_cls)
         except AttributeError:
             raise AttributeError(
-                f"The given simulator '{simulator_cls}' is not available in hera_sim."
+                f"The given simulator {simulator_cls!r} is not available in hera_sim."
             )
     else:  # pragma: nocover
         module = ".".join(simulator_cls.split(".")[:-1])

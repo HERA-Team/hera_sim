@@ -46,11 +46,10 @@ class HealVis(VisibilitySimulator):
             raise ImportError("to use the healvis wrapper, you must install healvis!")
 
         warnings.warn(
-            (
-                "The healvis package is deprecated. Please use pyuvsim instead. "
-                "The healvis wrapper will be removed from hera_sim in version 4",
-            ),
+            "The healvis package is deprecated. Please use pyuvsim instead. "
+            "The healvis wrapper will be removed from hera_sim in version 4",
             category=DeprecationWarning,
+            stacklevel=2,
         )
 
         self.fov = fov
@@ -72,7 +71,8 @@ class HealVis(VisibilitySimulator):
             warnings.warn(
                 "Using pyuvsim.AnalyticBeam for healvis is not really supported. "
                 "model_data.beams is being automatically modified to be a single "
-                "healvis.AnalyticBeam of the same type."
+                "healvis.AnalyticBeam of the same type.",
+                stacklevel=1,
             )
             old_args = model_data.beams[0].__dict__
 
