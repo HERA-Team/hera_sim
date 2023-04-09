@@ -683,10 +683,7 @@ def rephase_to_reference(
             except TypeError:
                 raise TypeError("reference must be convertible to a UVData object.")
 
-        ref_time_to_lst_map = {
-            ref_time: ref_lst
-            for ref_time, ref_lst in zip(reference.time_array, reference.lst_array)
-        }
+        ref_time_to_lst_map = dict(zip(reference.time_array, reference.lst_array))
         ref_times = np.array(list(ref_time_to_lst_map.keys()))
         ref_lsts = np.array(list(ref_time_to_lst_map.values()))
     else:
@@ -701,10 +698,7 @@ def rephase_to_reference(
         ref_time_to_lst_map = dict(zip(ref_times, ref_lsts))
 
     # Construct the reference -> target time map.
-    target_time_to_lst_map = {
-        target_time: target_lst
-        for target_time, target_lst in zip(target.time_array, target.lst_array)
-    }
+    target_time_to_lst_map = dict(zip(target.time_array, target.lst_array))
     target_times = np.array(list(target_time_to_lst_map.keys()))
     target_lsts = np.array(list(target_time_to_lst_map.values()))
     ref_to_target_time_map = get_d2m_time_map(
