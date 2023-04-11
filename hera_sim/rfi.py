@@ -53,7 +53,6 @@ class RfiStation:
         std: float = 10.0,
         timescale: float = 100.0,
     ):
-
         self.f0 = f0
         self.duty_cycle = duty_cycle
         self.strength = strength
@@ -130,6 +129,7 @@ class Stations(RFI):
     """
 
     _alias = ("rfi_stations",)
+    return_type = "per_baseline"
 
     def __init__(self, stations=None):
         super().__init__(stations=stations)
@@ -164,7 +164,10 @@ class Stations(RFI):
         rfi = np.zeros((lsts.size, freqs.size), dtype=complex)
 
         if stations is None:
-            warnings.warn("You did not specify any stations to simulate.")
+            warnings.warn(
+                "You did not specify any stations to simulate.",
+                stacklevel=2,
+            )
             return rfi
         elif isinstance(stations, (str, Path)):
             # assume that it's a path to a npy file
@@ -201,6 +204,7 @@ class Impulse(RFI):
     """
 
     _alias = ("rfi_impulse",)
+    return_type = "per_baseline"
 
     def __init__(self, impulse_chance=0.001, impulse_strength=20.0):
         super().__init__(
@@ -264,6 +268,7 @@ class Scatter(RFI):
     """
 
     _alias = ("rfi_scatter",)
+    return_type = "per_baseline"
 
     def __init__(self, scatter_chance=0.0001, scatter_strength=10.0, scatter_std=10.0):
         super().__init__(
@@ -330,6 +335,7 @@ class DTV(RFI):
     """
 
     _alias = ("rfi_dtv",)
+    return_type = "per_baseline"
 
     def __init__(
         self,
@@ -407,7 +413,8 @@ class DTV(RFI):
             warnings.warn(
                 "The DTV band does not overlap with any of the passed "
                 "frequencies. Please ensure that you are passing the "
-                "correct set of parameters."
+                "correct set of parameters.",
+                stacklevel=2,
             )
 
         # define an iterator, just to keep things neat

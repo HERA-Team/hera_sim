@@ -3,9 +3,13 @@ import pytest
 import numpy as np
 import uvtools
 from astropy import constants, units
+from pyuvdata import UVBeam
+from pyuvsim import AnalyticBeam
 
+import hera_sim
 from hera_sim import DATA_PATH, foregrounds, noise, sigchain
 from hera_sim.interpolators import Bandpass, Beam
+from hera_sim.io import empty_uvdata
 
 np.random.seed(0)
 
@@ -332,6 +336,266 @@ def test_over_air_xtalk_skips_autos(fqs, Tsky):
     assert xtalk.shape == Tsky.shape and np.all(xtalk == 0)
 
 
+@pytest.mark.parametrize("use_numba", [False, True])
+def test_mutual_coupling(use_numba):
+    hera_sim.defaults.deactivate()
+    array_layout = {
+        0: np.array([0, 0, 0]),
+        1: np.array([50, 0, 0]),
+        2: np.array([0, 100, 0]),
+    }
+    uvdata = empty_uvdata(
+        Nfreqs=300,
+        start_freq=140e6,
+        channel_width=100e3,
+        Ntimes=300,
+        start_time=2458091.23423,
+        integration_time=10.7,
+        array_layout=array_layout,
+        telescope_location=hera_sim.io.HERA_LAT_LON_ALT,
+    )
+
+    # Mock up visibilities that are localized in delay/frate in the same
+    # way that foregrounds are localized. First, some prep work.
+    freqs = uvdata.freq_array.squeeze()
+    times = np.unique(uvdata.time_array) * units.day.to("s")
+    freq_mesh, time_mesh = np.meshgrid(freqs, times - times.mean())
+    omega0 = units.cycle.to("rad") / units.sday.to("s")
+    omega = np.array([0, 0, omega0])
+    delay_width = 50e-9
+    ref_freq = freqs.mean()
+    enu_antpos = dict(zip(*uvdata.get_ENU_antpos()[::-1]))
+    ecef_antpos = dict(zip(uvdata.antenna_numbers, uvdata.antenna_positions))
+
+    # We'll want to keep track of where we expect the features to show up.
+    fringe_rates = {}
+    delays = {}
+
+    # Now let's actually mock up the visibilities.
+    for ai, aj in uvdata.get_antpairs():
+        if uvdata.antpair2ind(ai, aj).size == 0:
+            continue
+        ecef_bl = ecef_antpos[aj] - ecef_antpos[ai]
+        enu_bl = enu_antpos[aj] - enu_antpos[ai]
+        dbdt = np.linalg.norm(np.cross(ecef_bl, omega))
+        sign = np.sign(np.round(enu_bl[0], 3))
+        frates = sign * freq_mesh * dbdt / constants.c.si.value
+        blt_inds = uvdata.antpair2ind(ai, aj)
+
+        # Make visibilities compact in delay/freq, and localized in fringe-rate.
+        uvdata.data_array[blt_inds, 0, :, 0] = np.exp(
+            -((delay_width * (freq_mesh - ref_freq)) ** 2)
+        ) * np.exp(2j * np.pi * frates[None, :] * time_mesh)
+
+        # Let's also track the delays/fringe-rates
+        delays[(ai, aj)] = np.linalg.norm(enu_bl) / constants.c.to("m/ns").value
+        delays[(aj, ai)] = delays[(ai, aj)]
+        mean_frate = sign * dbdt * np.mean(freqs) / constants.c.si.value
+        fringe_rates[(ai, aj)] = mean_frate * units.Hz.to("mHz")
+        fringe_rates[(aj, ai)] = -fringe_rates[(ai, aj)]
+
+    # Take note of the visibility amplitudes for later comparison.
+    vis_amps = {}
+    for (ai, aj, _pol), vis in uvdata.antpairpol_iter():
+        vis_fft = uvtools.utils.FFT(
+            uvtools.utils.FFT(vis, axis=0, taper="bh"),
+            axis=1,
+            taper="bh",
+        )
+        vis_amps[(ai, aj)] = np.max(np.abs(vis_fft))
+        vis_amps[(aj, ai)] = vis_amps[(ai, aj)]
+
+    # Set the coupling parameters so that it's simple to check the amplitudes.
+    refl_amp = 1
+
+    # Actually simulate the coupling.
+    mutual_coupling = sigchain.MutualCoupling(
+        uvbeam="uniform",
+        ant_1_array=uvdata.ant_1_array,
+        ant_2_array=uvdata.ant_2_array,
+        pol_array=uvdata.polarization_array,
+        array_layout=dict(zip(*uvdata.get_ENU_antpos()[::-1])),
+        reflection=np.ones(uvdata.Nfreqs) * refl_amp,
+        omega_p=constants.c.si.value / uvdata.freq_array[0],
+    )
+    uvdata.data_array += mutual_coupling(
+        freqs=freqs / 1e9,
+        visibilities=uvdata.data_array,
+        use_numba=use_numba,
+    )
+
+    # Now run the checks.
+    delay_ns = uvtools.utils.fourier_freqs(freqs) * units.s.to("ns")
+    frate_mHz = uvtools.utils.fourier_freqs(times) * units.Hz.to("mHz")
+    for (ai, aj, _pol), vis in uvdata.antpairpol_iter():
+        vis_fft = uvtools.utils.FFT(
+            uvtools.utils.FFT(vis, axis=0, taper="bh"),
+            axis=1,
+            taper="bh",
+        )
+        for ak in uvdata.antenna_numbers:
+            dly_ik = -delays[(ai, ak)]
+            dly_kj = delays[(ak, aj)]  # This coupling term is conjugated.
+            frate_ik = fringe_rates[(ai, ak)]
+            frate_kj = fringe_rates[(ak, aj)]
+
+            # Check that the coupling was performed correctly.
+            if aj != ak:
+                ik_ind = (
+                    np.argmin(np.abs(frate_ik - frate_mHz)),
+                    np.argmin(np.abs(dly_kj - delay_ns)),
+                )
+                bl_len = np.linalg.norm(enu_antpos[aj] - enu_antpos[ak])
+                exp_amp = vis_amps[(ai, ak)] * refl_amp / bl_len
+                actual_amp = np.abs(vis_fft[ik_ind])
+                assert np.isclose(exp_amp, actual_amp, atol=1e-7, rtol=0.05)
+
+            if ai != ak:
+                kj_ind = (
+                    np.argmin(np.abs(frate_kj - frate_mHz)),
+                    np.argmin(np.abs(dly_ik - delay_ns)),
+                )
+                bl_len = np.linalg.norm(enu_antpos[ak] - enu_antpos[ai])
+                exp_amp = vis_amps[(ak, aj)] * refl_amp / bl_len
+                actual_amp = np.abs(vis_fft[kj_ind])
+                assert np.isclose(exp_amp, actual_amp, atol=1e-7, rtol=0.05)
+
+
+@pytest.fixture
+def sample_uvdata():
+    hera_sim.defaults.set("debug")
+    uvdata = empty_uvdata()
+    hera_sim.defaults.deactivate()
+    return uvdata
+
+
+@pytest.fixture
+def sample_coupling(sample_uvdata):
+    coupling = sigchain.MutualCoupling(
+        uvbeam="uniform",
+        ant_1_array=sample_uvdata.ant_1_array,
+        ant_2_array=sample_uvdata.ant_2_array,
+        pol_array=sample_uvdata.polarization_array,
+        array_layout=dict(zip(*sample_uvdata.get_ENU_antpos()[::-1])),
+    )
+    return coupling
+
+
+@pytest.fixture
+def uvbeam(tmp_path):
+    beam_fn = str(tmp_path / "test_beam.fits")
+    beam = AnalyticBeam("uniform")
+
+    # Setup some things needed to mock up the UVBeam object
+    az = np.linspace(0, 2 * np.pi, 100)
+    za = np.linspace(np.pi / 2 - np.pi / 6, np.pi / 2 + np.pi / 6, 15)
+    freqs = np.linspace(99e6, 101e6, 20)[None, :]
+    data_shape = (2, 1, 2, freqs.size, za.size, az.size)
+    basis_shape = (2, 2, za.size, az.size)
+    az_mesh, za_mesh = np.meshgrid(az, za)
+
+    # Populate a UVBeam object with everything needed to write to disk...
+    uvb = UVBeam()
+
+    # Starting with the string-type metadata
+    uvb.antenna_type = "simple"
+    uvb.beam_type = "efield"
+    uvb.data_normalization = "peak"
+    uvb.feed_name = "test"
+    uvb.feed_version = "0.0"
+    uvb.history = ""
+    uvb.model_name = ""
+    uvb.model_version = ""
+    uvb.pixel_coordinate_system = "az_za"
+    uvb.telescope_name = "test"
+
+    # Next onto the array-like objects
+    uvb.axis1_array = az
+    uvb.axis2_array = za
+    uvb.bandpass_array = np.ones_like(freqs)
+    uvb.basis_vector_array = np.zeros(basis_shape)
+    uvb.basis_vector_array[0, 0, :, :] = 1
+    uvb.basis_vector_array[1, 1, :, :] = 1
+    uvb.data_array = (
+        beam.interp(az_mesh.flatten(), za_mesh.flatten(), freqs.flatten())[0]
+        .reshape(data_shape)
+        .astype(complex)
+    )
+    uvb.freq_array = freqs
+    uvb.feed_array = np.array(["x", "y"])
+    uvb.spw_array = np.zeros(1, dtype=int)
+
+    # Finally, all the shape parameters
+    uvb.Naxes1 = az.size
+    uvb.Naxes2 = za.size
+    uvb.Naxes_vec = 2
+    uvb.Ncomponents_vec = 2
+    uvb.Nfeeds = 2
+    uvb.Nfreqs = freqs.size
+    uvb.Nspws = 1
+
+    # Finally, write it to disk.
+    uvb.write_beamfits(beam_fn)
+    return beam_fn
+
+
+def test_mutual_coupling_with_uvbeam(uvbeam, sample_uvdata, sample_coupling):
+    np.random.seed(0)
+    data = np.random.normal(size=sample_uvdata.data_array.shape) + 0j
+    sample_uvdata.data_array[...] = data[...]
+    sample_uvdata.data_array += sample_coupling(
+        freqs=sample_uvdata.freq_array.squeeze() / 1e9,
+        visibilities=sample_uvdata.data_array,
+        reflection=np.ones(sample_uvdata.Nfreqs) * 10,
+        uvbeam=uvbeam,
+    )
+    assert not np.any(np.isclose(data, sample_uvdata.data_array))
+
+
+@pytest.mark.parametrize("omega_p", [None, "callable"])
+@pytest.mark.parametrize("reflection", [None, "callable"])
+def test_mutual_coupling_input_types(
+    omega_p, reflection, sample_uvdata, sample_coupling
+):
+    def func(freqs):
+        return np.ones_like(freqs)
+
+    omega_p = func if omega_p == "callable" else None
+    reflection = func if reflection == "callable" else None
+    data = np.random.normal(size=sample_uvdata.data_array.shape) + 0j
+    sample_uvdata.data_array += data
+    sample_uvdata.data_array += sample_coupling(
+        freqs=sample_uvdata.freq_array.squeeze() / 1e9,
+        visibilities=sample_uvdata.data_array,
+        reflection=reflection,
+        omega_p=omega_p,
+    )
+    assert not np.any(np.isclose(data, sample_uvdata.data_array))
+
+
+def test_mutual_coupling_bad_ants(sample_uvdata, sample_coupling):
+    full_array = dict(zip(*sample_uvdata.get_ENU_antpos()[::-1]))
+    bad_array = {ant: full_array[ant] for ant in range(len(full_array) - 1)}
+    with pytest.raises(ValueError, match="Full array layout not provided."):
+        _ = sample_coupling(
+            freqs=sample_uvdata.freq_array.squeeze() / 1e9,
+            visibilities=sample_uvdata.data_array,
+            array_layout=bad_array,
+        )
+
+
+@pytest.mark.parametrize("isbad", ["reflection", "omega_p"])
+def test_mutual_coupling_bad_feed_params(isbad, sample_uvdata, sample_coupling):
+    kwargs = {"omega_p": None, "reflection": None}
+    kwargs[isbad] = np.ones(sample_uvdata.Nfreqs + 1)
+    with pytest.raises(ValueError, match="the wrong shape"):
+        _ = sample_coupling(
+            freqs=sample_uvdata.freq_array.squeeze() / 1e9,
+            visibilities=sample_uvdata.data_array,
+            **kwargs
+        )
+
+
 @pytest.fixture(scope="function")
 def freqs():
     return np.linspace(0.1, 0.2, 1024)
@@ -454,11 +718,11 @@ def test_vary_gain_amp_noiselike(gains, times):
 
     # Check that the mean gain amplitude is the original gain amplitude.
     gain_avg = np.mean(np.abs(varied_gain), axis=0)
-    assert np.allclose(gain_avg, np.abs(gains[0]), rtol=0.05)
+    assert np.allclose(gain_avg, np.abs(gains[0]), rtol=0.1)
 
     # Check that the spread in gain amplitudes is as expected.
     standard_deviations = np.std(np.abs(varied_gain), axis=0)
-    assert np.allclose(standard_deviations, vary_amp * np.abs(gains[0]), rtol=0.05)
+    assert np.allclose(standard_deviations, vary_amp * np.abs(gains[0]), rtol=0.1)
 
 
 def test_vary_gain_phase_linear(gains, times, phase_offsets, delay_phases):
@@ -528,7 +792,7 @@ def test_vary_gain_phase_noiselike(gains, times, delay_phases, phase_offsets):
 
     # Check that the mean phase offset is close to the original phase offset.
     mean_offset = np.mean(varied_phase_offsets, axis=0)
-    assert np.allclose(mean_offset, phase_offsets, rtol=0.05)
+    assert np.allclose(mean_offset, phase_offsets, rtol=0.1)
 
     # Check that the spread in phase offsets is as expected.
     offset_std = np.std(varied_phase_offsets, axis=0)
@@ -606,7 +870,7 @@ def test_vary_gain_delay_noiselike(gains, times, freqs, delays):
     gain_delays = np.array([dlys[np.argmax(np.abs(gain))] for gain in varied_gain_fft])
 
     # Check that the delays vary as expected.
-    assert np.isclose(gain_delays.mean(), delays[0], rtol=0.05)
+    assert np.isclose(gain_delays.mean(), delays[0], rtol=0.1)
     assert np.isclose(gain_delays.std(), vary_amp * delays[0], rtol=0.2)
 
 

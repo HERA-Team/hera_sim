@@ -285,7 +285,6 @@ class PolyBeam(AnalyticBeam):
         ref_freq=1e8,
         polarized=False,
     ):
-
         self.ref_freq = ref_freq
         self.spectral_index = spectral_index
         self.polarized = polarized
@@ -483,7 +482,6 @@ class PerturbedPolyBeam(PolyBeam):
         perturb_zeropoint=None,
         **kwargs
     ):
-
         # Initialize base class
         super().__init__(beam_coeffs=beam_coeffs, **kwargs)
 

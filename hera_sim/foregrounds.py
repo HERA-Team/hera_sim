@@ -65,6 +65,10 @@ class DiffuseForeground(Foreground):
 
     _alias = ("diffuse_foreground",)
     is_smooth_in_freq = True
+    return_type = "per_baseline"
+    attrs_to_pull = dict(
+        bl_vec=None,
+    )
 
     def __init__(
         self,
@@ -190,6 +194,10 @@ class PointSourceForeground(Foreground):
     """
 
     _alias = ("pntsrc_foreground",)
+    return_type = "per_baseline"
+    attrs_to_pull = dict(
+        bl_vec=None,
+    )
 
     def __init__(
         self,
@@ -201,7 +209,6 @@ class PointSourceForeground(Foreground):
         spectral_index_std=0.5,
         reference_freq=0.15,
     ):
-
         super().__init__(
             nsrcs=nsrcs,
             Smin=Smin,

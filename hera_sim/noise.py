@@ -57,7 +57,11 @@ class ThermalNoise(Noise):
     """
 
     _alias = ("thermal_noise",)
-    _extract_kwargs = {"autovis", "antpair"}
+    return_type = "per_baseline"
+    attrs_to_pull = dict(
+        autovis=None,
+        antpair=None,
+    )
 
     def __init__(
         self,
@@ -239,5 +243,9 @@ def white_noise(*args, **kwargs):
 
     Deprecated. Use ``utils.gen_white_noise`` instead.
     """
-    warnings.warn("white_noise is being deprecated. Use utils.gen_white_noise instead.")
+    warnings.warn(
+        "white_noise is being deprecated. Use utils.gen_white_noise instead.",
+        category=DeprecationWarning,
+        stacklevel=2,
+    )
     return utils.gen_white_noise(*args, **kwargs)

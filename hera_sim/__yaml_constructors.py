@@ -41,7 +41,10 @@ def astropy_unit_constructor(loader, node):
     if value is None:
         return None
     elif units is None:
-        warnings.warn("You have not specified the units for this item. Returning None.")
+        warnings.warn(
+            "You have not specified the units for this item. Returning None.",
+            stacklevel=2,
+        )
         return None
     else:
         try:
