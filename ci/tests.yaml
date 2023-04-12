@@ -9,7 +9,7 @@ dependencies:
   - h5py>=2.10
   - hdf5>=1.10.4
   - healpy>=1.13.0
-  - numpy>=1.18
+  - numpy>=1.18<1.24  # <1.24 required by numba (https://github.com/numba/numba/issues/8615) remove when numba is updated
   - pip>=20.0
   - pytest-cov>=2.7.1
   - scipy>=1.4.1
@@ -24,7 +24,7 @@ dependencies:
   - git
   - pip:
     - cached-property
-    - pyuvsim[sim]>=1.2
+    - pyuvsim[sim]>=1.2.5
     - vis_cpu>=0.2.2
     - deprecation
     - pyradiosky
