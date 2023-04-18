@@ -6,8 +6,8 @@ Command-line interface for simulating visibilities with ``hera_sim``.
 This script may be used to run a visibility simulation from a configuration file and
 write the result to disk.
 """
-import atexit
 import argparse
+import atexit
 import importlib
 import logging
 import numpy as np
