@@ -353,7 +353,7 @@ class PolyBeam(AnalyticBeam):
 
         # Empty data array
         interp_data = np.zeros(
-            (2, 1, 2, freq_array.size, az_array.size), dtype=np.complex128
+            (2, 2, freq_array.size, az_array.size), dtype=np.complex128
         )
 
         # Frequency scaling
@@ -375,28 +375,30 @@ class PolyBeam(AnalyticBeam):
                 az_array, za_array, freq_array, self.ref_freq, beam_values, fscale
             )
         else:
-            interp_data[1, 0, 0, :, :] = beam_values  # (theta, n)
-            interp_data[0, 0, 1, :, :] = beam_values  # (phi, e)
+            interp_data[1, 0, :, :] = beam_values  # (theta, n)
+            interp_data[0, 1, :, :] = beam_values  # (phi, e)
 
         interp_basis_vector = None
 
         if self.beam_type == "power":
             # Cross-multiplying feeds, adding vector components
             pairs = [(i, j) for i in range(2) for j in range(2)]
-            power_data = np.zeros((1, 1, 4) + beam_values.shape, dtype=float)
+            power_data = np.zeros((1, 4) + beam_values.shape, dtype=float)
             for pol_i, pair in enumerate(pairs):
-                power_data[:, :, pol_i] = (
-                    interp_data[0, :, pair[0]] * np.conj(interp_data[0, :, pair[1]])
-                ) + (interp_data[1, :, pair[0]] * np.conj(interp_data[1, :, pair[1]]))
+                power_data[:, pol_i] = (
+                    interp_data[0, pair[0]] * np.conj(interp_data[0, pair[1]])
+                ) + (interp_data[1, pair[0]] * np.conj(interp_data[1, pair[1]]))
             interp_data = power_data
 
         return interp_data, interp_basis_vector
 
     def __eq__(self, other):
         """Evaluate equality with another object."""
-        if not isinstance(other, self.__class__):
-            return False
-        return self.beam_coeffs == other.beam_coeffs
+        return (
+            self.beam_coeffs == other.beam_coeffs
+            if isinstance(other, self.__class__)
+            else False
+        )
 
 
 class PerturbedPolyBeam(PolyBeam):
@@ -751,27 +753,29 @@ class ZernikeBeam(AnalyticBeam):
             values /= central_val  # ensure normalized to 1 at za=0
 
         # Set values
-        interp_data[1, 0, 0, :, :] = values
-        interp_data[0, 0, 1, :, :] = values
+        interp_data[1, 0] = values
+        interp_data[0, 1] = values
         interp_basis_vector = None
 
         if self.beam_type == "power":
             # Cross-multiplying feeds, adding vector components
             pairs = [(i, j) for i in range(2) for j in range(2)]
-            power_data = np.zeros((1, 1, 4) + values.shape, dtype=float)
+            power_data = np.zeros((1, 4) + values.shape, dtype=float)
             for pol_i, pair in enumerate(pairs):
-                power_data[:, :, pol_i] = (
-                    interp_data[0, :, pair[0]] * np.conj(interp_data[0, :, pair[1]])
-                ) + (interp_data[1, :, pair[0]] * np.conj(interp_data[1, :, pair[1]]))
+                power_data[:, pol_i] = (
+                    interp_data[0, pair[0]] * np.conj(interp_data[0, pair[1]])
+                ) + (interp_data[1, pair[0]] * np.conj(interp_data[1, pair[1]]))
             interp_data = power_data
 
         return interp_data, interp_basis_vector
 
     def __eq__(self, other):
         """Evaluate equality with another object."""
-        if not isinstance(other, self.__class__):
-            return False
-        return self.beam_coeffs == other.beam_coeffs
+        return (
+            self.beam_coeffs == other.beam_coeffs
+            if isinstance(other, self.__class__)
+            else False
+        )
 
     @staticmethod
     def zernike(coeffs, x, y):

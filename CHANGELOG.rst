@@ -5,6 +5,10 @@ Changelog
 dev-version
 ===========
 
+Changed
+-------
+- Updated ``PolyBeam`` to use future array shapes.
+
 v3.1.1 [2023.02.23]
 ===================
 
