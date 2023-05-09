@@ -25,7 +25,7 @@ dependencies:
   - pip:
     - cached-property
     - pyuvsim[sim]>=1.2.5
-    - vis_cpu>=1.1.0
+    - vis-cpu>=1.1.0
     - deprecation
     - pyradiosky
     - uvtools
