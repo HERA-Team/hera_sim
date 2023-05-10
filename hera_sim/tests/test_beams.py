@@ -81,8 +81,8 @@ def convert_to_pStokes(eval_beam, az, za, Nfreq):
     pixel_indices_test = hp.ang2pix(nside_test, za, az)
     npix_test = hp.nside2npix(nside_test)
 
-    pol_efield_beam_plot = np.zeros((2, 1, 2, Nfreq, npix_test), dtype=np.complex128)
-    pol_efield_beam_plot[:, :, :, :, pixel_indices_test] = eval_beam[:, :, :, :]
+    pol_efield_beam_plot = np.zeros((2, 2, Nfreq, npix_test), dtype=np.complex128)
+    pol_efield_beam_plot[:, :, :, pixel_indices_test] = eval_beam[:, :, :, :]
     return efield_to_pstokes(pol_efield_beam_plot, npix_test, Nfreq)
 
 
@@ -401,7 +401,7 @@ class TestPolarizedPolyBeam:
         for vec in [0, 1]:
             for feed in [0, 1]:
                 for freq in [0, 5, 10, 15, 20, 25]:
-                    modulus = np.abs(eval_beam[vec, 0, feed, freq])
+                    modulus = np.abs(eval_beam[vec, feed, freq])
                     M = np.max(modulus)
                     m = np.min(modulus)
                     assert M <= 1 and M == pytest.approx(
