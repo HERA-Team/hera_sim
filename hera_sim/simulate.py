@@ -14,10 +14,11 @@ import warnings
 import yaml
 from astropy import constants as const
 from cached_property import cached_property
+from collections.abc import Sequence
 from deprecation import deprecated
 from pathlib import Path
 from pyuvdata import UVData
-from typing import Dict, Optional, Sequence, Tuple, Type, Union
+from typing import Optional, Union
 
 from . import __version__, io, utils
 from .components import SimulationComponent, get_model, list_all_components
@@ -28,10 +29,10 @@ _add_depr = deprecated(
 )
 
 # Define some commonly used types for typing purposes.
-AntPairPol = Tuple[int, int, str]
-AntPair = Tuple[int, int]
-AntPol = Tuple[int, str]
-Component = Union[str, Type[SimulationComponent], SimulationComponent]
+AntPairPol = tuple[int, int, str]
+AntPair = tuple[int, int]
+AntPol = tuple[int, str]
+Component = Union[str, type[SimulationComponent], SimulationComponent]
 
 
 # wrapper for the run_sim method, necessary for part of the CLI
@@ -209,8 +210,8 @@ class Simulator:
     def calculate_filters(
         self,
         *,
-        delay_filter_kwargs: Optional[Dict[str, Union[float, str]]] = None,
-        fringe_filter_kwargs: Optional[Dict[str, Union[float, str, np.ndarray]]] = None,
+        delay_filter_kwargs: Optional[dict[str, Union[float, str]]] = None,
+        fringe_filter_kwargs: Optional[dict[str, Union[float, str, np.ndarray]]] = None,
     ):
         """
         Pre-compute fringe-rate and delay filters for the entire array.
@@ -239,7 +240,7 @@ class Simulator:
         vis_filter: Optional[Sequence] = None,
         component_name: Optional[str] = None,
         **kwargs,
-    ) -> Optional[Union[np.ndarray, Dict[int, np.ndarray]]]:
+    ) -> Optional[Union[np.ndarray, dict[int, np.ndarray]]]:
         """
         Simulate an effect then apply and/or return the result.
 
@@ -327,7 +328,7 @@ class Simulator:
         self,
         component: Component,
         key: Optional[Union[int, str, AntPair, AntPairPol]] = None,
-    ) -> Union[np.ndarray, Dict[int, np.ndarray]]:
+    ) -> Union[np.ndarray, dict[int, np.ndarray]]:
         """
         Retrieve an effect that was previously simulated.
 
@@ -957,7 +958,7 @@ class Simulator:
         vis_filter: Optional[Sequence] = None,
         antpairpol_cache: Optional[Sequence[AntPairPol]] = None,
         **kwargs,
-    ) -> Optional[Union[np.ndarray, Dict[int, np.ndarray]]]:
+    ) -> Optional[Union[np.ndarray, dict[int, np.ndarray]]]:
         """
         Simulate an effect for an entire array.
 
@@ -1321,7 +1322,7 @@ class Simulator:
         *,
         get_delay_filter: bool = True,
         get_fringe_filter: bool = True,
-    ) -> Dict[str, np.ndarray]:
+    ) -> dict[str, np.ndarray]:
         """
         Retrieve delay and fringe filters from the cache.
 
@@ -1383,8 +1384,8 @@ class Simulator:
 
     @staticmethod
     def _get_component(
-        component: Union[str, Type[SimulationComponent], SimulationComponent]
-    ) -> Union[SimulationComponent, Type[SimulationComponent]]:
+        component: Union[str, type[SimulationComponent], SimulationComponent]
+    ) -> Union[SimulationComponent, type[SimulationComponent]]:
         """Normalize a component to be either a class or instance."""
         if np.issubclass_(component, SimulationComponent):
             return component

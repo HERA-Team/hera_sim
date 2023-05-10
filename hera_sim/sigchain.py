@@ -10,12 +10,13 @@ import copy
 import numpy as np
 import warnings
 from astropy import constants, units
+from collections.abc import Sequence
 from pathlib import Path
 from pyuvdata import UVBeam
 from pyuvsim import AnalyticBeam
 from scipy import stats
 from scipy.signal import blackmanharris
-from typing import Callable, Sequence
+from typing import Callable
 
 from . import DATA_PATH, interpolators, utils
 from .components import component

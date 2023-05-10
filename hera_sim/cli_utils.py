@@ -204,7 +204,7 @@ def _format_gain_dict(gains, x_orientation):
         )
         for pol in pol_array
     ]
-    mapping = {pol: jpol for pol, jpol in zip(pol_array, jones_array)}
+    mapping = dict(zip(pol_array, jones_array))
     return {(antpol[0], mapping[antpol[1]]): gain for antpol, gain in gains.items()}
 
 

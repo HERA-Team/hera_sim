@@ -167,7 +167,7 @@ class HexArray(Array):
                                 - 3 * (up_right + up_left) / 3
                             )
 
-        antpos = {j: pos for j, pos in enumerate(np.array(positions))}
+        antpos = dict(enumerate(np.array(positions)))
 
         return dict(antpos)
 

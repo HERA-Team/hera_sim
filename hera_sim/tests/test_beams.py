@@ -6,7 +6,6 @@ import numpy as np
 from astropy import units
 from astropy.coordinates import Latitude, Longitude
 from pyradiosky import SkyModel
-from typing import List
 
 from hera_sim import io
 from hera_sim.beams import (
@@ -152,7 +151,7 @@ def run_sim(
 class TestPerturbedPolyBeam:
     def get_perturbed_beams(
         self, rotation, polarized=False, power_beam=False
-    ) -> List[PerturbedPolyBeam]:
+    ) -> list[PerturbedPolyBeam]:
         """
         Elliptical PerturbedPolyBeam.
 

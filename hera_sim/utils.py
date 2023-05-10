@@ -6,8 +6,8 @@ import pyuvdata.utils as uvutils
 import warnings
 from astropy import constants, units
 from astropy.coordinates import Longitude
+from collections.abc import Sequence
 from scipy.interpolate import RectBivariateSpline
-from typing import Sequence
 
 from .interpolators import Beam
 
