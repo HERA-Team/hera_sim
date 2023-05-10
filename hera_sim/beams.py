@@ -182,10 +182,7 @@ def modulate_with_dipole(az, za, freqs, ref_freq, beam_vals, fscale):
     # shape (2, 2, 1, az.size)
     dipole_mod = ph[np.newaxis, np.newaxis, ...] * dipole[:, :, np.newaxis, :]
     # shape (2, 1, 2, Nfreq, az.size)
-    pol_efield_beam = (
-        dipole_mod[:, np.newaxis, ...]
-        * beam_vals[np.newaxis, np.newaxis, np.newaxis, ...]
-    )
+    pol_efield_beam = dipole_mod[:, ...] * beam_vals[np.newaxis, np.newaxis, ...]
 
     # Correct it for frequency dependency.
     # extract modulus and phase of the beams
@@ -194,7 +191,7 @@ def modulate_with_dipole(az, za, freqs, ref_freq, beam_vals, fscale):
     # assume linear shift of phase along frequency
     shift = -np.pi / 18e6 * (freqs[:, np.newaxis] - ref_freq)  # shape (Nfreq, 1)
     # shift the phase
-    phase += shift[np.newaxis, np.newaxis, np.newaxis, :, :]
+    phase += shift[np.newaxis, np.newaxis, :, :]
     # upscale the modulus
     modulus = np.power(modulus, 0.6)  # ad-hoc
     # map the phase to [-pi; +pi]
@@ -735,7 +732,7 @@ class ZernikeBeam(AnalyticBeam):
             Npixels/(Naxis1, Naxis2) or az_array.size if az/za_arrays are passed)
         """
         # Empty data array
-        interp_data = np.zeros((2, 1, 2, freq_array.size, az_array.size), dtype=float)
+        interp_data = np.zeros((2, 2, freq_array.size, az_array.size), dtype=float)
 
         # Frequency scaling
         fscale = (freq_array / self.ref_freq) ** self.spectral_index
