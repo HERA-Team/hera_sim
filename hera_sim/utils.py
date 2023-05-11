@@ -554,11 +554,12 @@ def reshape_vis(
     if invert:
         out = np.zeros((ant_1_array.size, 1, n_freqs, n_pols), dtype=complex)
     else:
+        vis = vis[:, None, :, :]
         out = np.zeros((n_times, n_freqs, 2 * n_ants, 2 * n_ants), dtype=complex)
 
     # If we have numba, then this is a bit faster.
     if HAVE_NUMBA and use_numba:
-        return jit_reshape_vis(
+        out = jit_reshape_vis(
             vis=vis,
             out=out,
             ant_1_array=ant_1_array,
@@ -569,6 +570,8 @@ def reshape_vis(
             n_pols=n_pols,
             invert=invert,
         )
+        if invert:
+            return out[:, 0, :, :]
 
     # We don't have numba, so we need to do this a bit more slowly.
     pol_slices = {"x": slice(None, None, 2), "y": slice(1, None, 2)}
@@ -594,6 +597,7 @@ def reshape_vis(
                     p1, p2 = p2, p1
                 sl1, sl2 = (pol_slices[p.lower()] for p in (p1, p2))
 
+                # NOTE: this is hard-coded to use the new-style UVData shapes!
                 if invert:
                     # Going back to UVData shape
                     out[uvd_inds, 0, :, k] = vis[:, :, sl1, sl2][:, :, ii, jj]
@@ -601,7 +605,7 @@ def reshape_vis(
                     # Changing from UVData shape
                     out[:, :, sl1, sl2][:, :, ii, jj] = vis[uvd_inds, 0, :, k]
                     out[:, :, sl2, sl1][:, :, jj, ii] = np.conj(vis[uvd_inds, 0, :, k])
-    return out
+    return out[:, 0, :, :] if invert else out
 
 
 def matmul(left: np.ndarray, right: np.ndarray, use_numba: bool = False) -> np.ndarray:
@@ -732,11 +736,10 @@ if HAVE_NUMBA:  # pragma: no cover
                     if flipped:
                         p1, p2 = p2, p1
 
-                    # NOTE: This is hard-coded to use old-style UVData arrays!
+                    # NOTE: This is hard-coded to use new-style UVData arrays!
                     if invert:
                         # Go back to UVData shape
-                        tmp = vis[:, :, p1, p2]
-                        out[uvd_inds, 0, :, k] = tmp[:, :, ii, jj]
+                        out[uvd_inds, 0, :, k] = vis[:, :, p1, p2][:, :, ii, jj]
                     else:
                         out[:, :, p1, p2][:, :, ii, jj] = vis[uvd_inds, 0, :, k]
                         out[:, :, p2, p1][:, :, jj, ii] = np.conj(

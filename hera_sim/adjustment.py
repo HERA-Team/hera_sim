@@ -610,9 +610,9 @@ def interpolate_to_reference(
             else:
                 re_spline = interp1d(target_lsts, vis.real, axis=0, kind=kind)
                 im_spline = interp1d(target_lsts, vis.imag, axis=0, kind=kind)
-                new_data[this_slice, :, pol_ind] = re_spline(
+                new_data[this_slice, :, pol_ind] = re_spline(ref_lsts) + 1j * im_spline(
                     ref_lsts
-                ) + 1j * im_spline(ref_lsts)
+                )
 
     # Finally, update all of the metadata.
     if axis in ("freq", "both"):
