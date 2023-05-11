@@ -570,8 +570,7 @@ def reshape_vis(
             n_pols=n_pols,
             invert=invert,
         )
-        if invert:
-            return out[:, 0, :, :]
+        return out[:, 0, :, :] if invert else out
 
     # We don't have numba, so we need to do this a bit more slowly.
     pol_slices = {"x": slice(None, None, 2), "y": slice(1, None, 2)}

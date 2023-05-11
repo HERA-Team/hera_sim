@@ -886,7 +886,7 @@ class MutualCoupling(Crosstalk):
         n_bls = np.unique(np.vstack([ant_1_array, ant_2_array]), axis=1).shape[1]
         n_ants = antenna_numbers.size
         n_times = ant_1_array.size // n_bls
-        n_freqs = visibilities.squeeze().shape[1]
+        n_freqs = visibilities.shape[1]
         n_pols = visibilities.shape[-1]
         visibilities = utils.reshape_vis(
             vis=visibilities,
