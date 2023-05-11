@@ -27,6 +27,8 @@ jobs:
         with:
           fetch-depth: 1
 
+      - uses: mpi4py/setup-mpi@v1
+
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
