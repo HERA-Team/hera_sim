@@ -383,7 +383,7 @@ def test_mutual_coupling(use_numba):
         blt_inds = uvdata.antpair2ind(ai, aj)
 
         # Make visibilities compact in delay/freq, and localized in fringe-rate.
-        uvdata.data_array[blt_inds, 0, :, 0] = np.exp(
+        uvdata.data_array[blt_inds, :, 0] = np.exp(
             -((delay_width * (freq_mesh - ref_freq)) ** 2)
         ) * np.exp(2j * np.pi * frates[None, :] * time_mesh)
 
@@ -416,7 +416,7 @@ def test_mutual_coupling(use_numba):
         pol_array=uvdata.polarization_array,
         array_layout=dict(zip(*uvdata.get_ENU_antpos()[::-1])),
         reflection=np.ones(uvdata.Nfreqs) * refl_amp,
-        omega_p=constants.c.si.value / uvdata.freq_array[0],
+        omega_p=constants.c.si.value / uvdata.freq_array,
     )
     uvdata.data_array += mutual_coupling(
         freqs=freqs / 1e9,
