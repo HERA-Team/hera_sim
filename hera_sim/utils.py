@@ -735,7 +735,8 @@ if HAVE_NUMBA:  # pragma: no cover
                     # NOTE: This is hard-coded to use old-style UVData arrays!
                     if invert:
                         # Go back to UVData shape
-                        out[uvd_inds, 0, :, k] = vis[:, :, p1, p2][:, :, ii, jj]
+                        tmp = vis[:, :, p1, p2]
+                        out[uvd_inds, 0, :, k] = tmp[:, :, ii, jj]
                     else:
                         out[:, :, p1, p2][:, :, ii, jj] = vis[uvd_inds, 0, :, k]
                         out[:, :, p2, p1][:, :, jj, ii] = np.conj(
