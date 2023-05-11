@@ -422,7 +422,7 @@ class Simulator:
             if pol is None:
                 return data
             pol_ind = self.pols.index(pol)
-            return data[:, 0, :, pol_ind]
+            return data[:, :, pol_ind]
 
         # We're only simulating for a particular baseline.
         # First, find out if it needs to be conjugated.
@@ -446,7 +446,7 @@ class Simulator:
                 vis_filter=vis_filter,
                 antpairpol_cache=None,
                 **kwargs,
-            )[blt_inds, 0, :, :]
+            )[blt_inds, :, :]
             if conj_data:  # pragma: no cover
                 data = np.conj(data)
             if pol is None:
@@ -893,6 +893,9 @@ class Simulator:
                 "Otherwise, keywords must be provided to build a UVData object."
             )
 
+        if not self.data.future_array_shapes:
+            self.data.use_future_array_shapes()
+
     def _initialize_args_from_model(self, model):
         """
         Retrieve the LSTs and/or frequencies required for a model.
@@ -1108,19 +1111,19 @@ class Simulator:
                 if is_multiplicative:
                     # Calculate the complex gain, but only apply it if requested.
                     gain = gains[(ant1, pol[0])] * np.conj(gains[(ant2, pol[1])])
-                    data_copy[blt_inds, 0, :, pol_ind] *= gain
+                    data_copy[blt_inds, :, pol_ind] *= gain
                 else:
                     # I don't think this will ever be executed, but just in case...
                     if conj_in_cache and seed is None:  # pragma: no cover
                         conj_blts = self.data.antpair2ind((ant2, ant1))
                         vis = (data_copy - self.data.data_array)[
-                            conj_blts, 0, :, pol_ind
+                            conj_blts, :, pol_ind
                         ].conj()
                     else:
                         vis = model(**use_args)
 
                     # and add it in
-                    data_copy[blt_inds, 0, :, pol_ind] += vis
+                    data_copy[blt_inds, :, pol_ind] += vis
 
         # return the component if desired
         # this is a little complicated, but it's done this way so that
