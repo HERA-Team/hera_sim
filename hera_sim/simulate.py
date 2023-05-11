@@ -470,7 +470,7 @@ class Simulator:
             data_shape = (self.lsts.size, self.freqs.size, 1)
             pols = (pol,)
             return_slice = (slice(None), slice(None), 0)
-        data = np.zeros(data_shape, dtype=np.complex)
+        data = np.zeros(data_shape, dtype=complex)
         for i, _pol in enumerate(pols):
             args = self._initialize_args_from_model(model)
             args = self._update_args(args, model, ant1, ant2, pol)
