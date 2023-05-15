@@ -694,7 +694,6 @@ if HAVE_NUMBA:  # pragma: no cover
         ant_2_array,
         pol_array,
         antenna_numbers,
-        invert=False,
     ):
         """JIT-accelerated reshaping function.
 
@@ -720,6 +719,7 @@ if HAVE_NUMBA:  # pragma: no cover
                 if np.all(~uvd_inds):
                     continue
 
+                uvd_inds = np.argwhere(uvd_inds).flatten()
                 for k, pol in enumerate(pol_array):
                     if pol == -5:
                         p1, p2 = x_sl, x_sl
@@ -734,12 +734,9 @@ if HAVE_NUMBA:  # pragma: no cover
                         p1, p2 = p2, p1
 
                     _p = out[:, :, p1, p2]
-                    tidx = 0
-                    for uvd_ind, x in enumerate(uvd_inds):
-                        if x:
-                            _p[tidx, :, ii, jj] = vis[uvd_ind, :, k]
-                            _p[tidx, :, jj, ii] = np.conj(vis[uvd_ind, :, k])
-                            tidx += 1
+                    for tidx, uvd_ind in enumerate(uvd_inds):
+                        _p[tidx, :, ii, jj] = vis[uvd_ind, :, k]
+                        _p[tidx, :, jj, ii] = np.conj(vis[uvd_ind, :, k])
         return out
 
     @numba.njit
@@ -775,6 +772,7 @@ if HAVE_NUMBA:  # pragma: no cover
                 if np.all(~uvd_inds):
                     continue
 
+                uvd_inds = np.argwhere(uvd_inds).flatten()
                 for k, pol in enumerate(pol_array):
                     if pol == -5:
                         p1, p2 = x_sl, x_sl
@@ -791,11 +789,9 @@ if HAVE_NUMBA:  # pragma: no cover
                     # NOTE: This is hard-coded to use new-style UVData arrays!
                     # Go back to UVData shape
                     _p = vis[:, :, p1, p2]
-                    tidx = 0
-                    for uvd_ind, x in enumerate(uvd_inds):
-                        if x:
-                            out[uvd_ind, :, k] = _p[tidx, :, ii, jj]
-                            tidx += 1
+                    for tidx, uvd_ind in enumerate(uvd_inds):
+                        out[uvd_ind, :, k] = _p[tidx, :, ii, jj]
+                        tidx += 1
         return out
 
     @numba.njit
