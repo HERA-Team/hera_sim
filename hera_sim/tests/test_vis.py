@@ -30,7 +30,7 @@ SIMULATORS = (VisCPU, UVSim)
 try:
     from hera_sim.visibilities import HealVis
 
-    SIMULATORS = SIMULATORS + (HealVis,)
+    SIMULATORS = SIMULATORS  # + (HealVis,)
 except ImportError:
     pass
 
