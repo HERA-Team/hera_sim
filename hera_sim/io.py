@@ -117,7 +117,7 @@ def empty_uvdata(
         uvd.conjugate_bls(convention=conjugation)
 
     # Ensure we're using future array shapes
-    if not uvd.future_array_shapes:
+    if not uvd.future_array_shapes:  # pragma: no cover
         uvd.use_future_array_shapes()
 
     return uvd

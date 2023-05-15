@@ -273,11 +273,11 @@ def match_antennas(
     # is pretty unrealistic.
     target_is_simulator = isinstance(target, Simulator)
     target = _to_uvdata(target)
-    if not target.future_array_shapes:
+    if not target.future_array_shapes:  # pragma: nocover
         target.use_future_array_shapes()
     target_copy = copy.deepcopy(target)
     reference = _to_uvdata(reference)
-    if not reference.future_array_shapes:
+    if not reference.future_array_shapes:  # pragma: nocover
         reference.use_future_array_shapes()
     reference_metadata = reference.copy(metadata_only=True)
 
@@ -383,7 +383,7 @@ def match_antennas(
         if len(blts) > 0:
             # The new baseline has the same conjugation as the old one.
             this_slice = (blts, slice(None), pol_inds[0])
-        else:
+        else:  # pragma: no cover
             # The new baseline is conjugated relative to the old one.
             # Given the handling of the antenna relabeling, this might not actually
             # ever be called.
