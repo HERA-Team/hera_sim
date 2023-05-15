@@ -37,7 +37,6 @@ jobs:
       - name: Install
         run: |
           pip install .[tests]
-          pip install git+https://github.com/rasg-affiliates/healvis
 
       - name: Run Tests
         run: |

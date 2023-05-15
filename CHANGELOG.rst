@@ -5,6 +5,9 @@ Changelog
 dev-version
 ===========
 
+Breaking Changes
+----------------
+- Removed the ``HealVis`` wrapper. Use ``pyuvsim`` instead.
 Changed
 -------
 - Updated ``PolyBeam`` to use future array shapes.
