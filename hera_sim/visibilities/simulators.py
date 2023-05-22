@@ -9,6 +9,7 @@ import yaml
 from abc import ABCMeta, abstractmethod
 from astropy import units
 from cached_property import cached_property
+from collections.abc import Sequence
 from dataclasses import dataclass
 from os import path
 from pathlib import Path
@@ -22,12 +23,12 @@ from pyuvsim.simsetup import (
     initialize_uvdata_from_params,
     uvdata_to_telescope_config,
 )
-from typing import List, Sequence, Union
+from typing import Union
 
 from .. import __version__
 from .. import visibilities as vis
 
-BeamListType = Union[BeamList, List[Union[ab.AnalyticBeam, UVBeam]]]
+BeamListType = Union[BeamList, list[Union[ab.AnalyticBeam, UVBeam]]]
 logger = logging.getLogger(__name__)
 
 

@@ -123,6 +123,10 @@ def efield_to_pstokes(efield_beam, npix, Nfreqs):
         jones[:, 0, 1] = efield_beam[0, 1, fq_i, :]
         jones[:, 1, 0] = efield_beam[1, 0, fq_i, :]
         jones[:, 1, 1] = efield_beam[1, 1, fq_i, :]
+        jones[:, 0, 0] = efield_beam[0, 0, fq_i, :]
+        jones[:, 0, 1] = efield_beam[0, 1, fq_i, :]
+        jones[:, 1, 0] = efield_beam[1, 0, fq_i, :]
+        jones[:, 1, 1] = efield_beam[1, 1, fq_i, :]
 
         for pol_i in range(len(pol_strings)):
             power_data[:, :, pol_i, fq_i, :] = construct_mueller(jones, pol_i, pol_i)
@@ -391,9 +395,11 @@ class PolyBeam(AnalyticBeam):
 
     def __eq__(self, other):
         """Evaluate equality with another object."""
-        if not isinstance(other, self.__class__):
-            return False
-        return self.beam_coeffs == other.beam_coeffs
+        return (
+            self.beam_coeffs == other.beam_coeffs
+            if isinstance(other, self.__class__)
+            else False
+        )
 
 
 class PerturbedPolyBeam(PolyBeam):
@@ -728,7 +734,7 @@ class ZernikeBeam(AnalyticBeam):
             Npixels/(Naxis1, Naxis2) or az_array.size if az/za_arrays are passed)
         """
         # Empty data array
-        interp_data = np.zeros((2, 1, 2, freq_array.size, az_array.size), dtype=float)
+        interp_data = np.zeros((2, 2, freq_array.size, az_array.size), dtype=float)
 
         # Frequency scaling
         fscale = (freq_array / self.ref_freq) ** self.spectral_index
@@ -746,16 +752,16 @@ class ZernikeBeam(AnalyticBeam):
             values /= central_val  # ensure normalized to 1 at za=0
 
         # Set values
-        interp_data[1, 0, :, :] = values
-        interp_data[0, 1, :, :] = values
+        interp_data[1, 0] = values
+        interp_data[0, 1] = values
         interp_basis_vector = None
 
         if self.beam_type == "power":
             # Cross-multiplying feeds, adding vector components
             pairs = [(i, j) for i in range(2) for j in range(2)]
-            power_data = np.zeros((1, 1, 4) + values.shape, dtype=float)
+            power_data = np.zeros((1, 4) + values.shape, dtype=float)
             for pol_i, pair in enumerate(pairs):
-                power_data[:, :, pol_i] = (
+                power_data[:, pol_i] = (
                     interp_data[0, pair[0]] * np.conj(interp_data[0, pair[1]])
                 ) + (interp_data[1, pair[0]] * np.conj(interp_data[1, pair[1]]))
             interp_data = power_data
@@ -765,7 +771,9 @@ class ZernikeBeam(AnalyticBeam):
     def __eq__(self, other):
         """Evaluate equality with another object."""
         return (
-            isinstance(other, self.__class__) and self.beam_coeffs == other.beam_coeffs
+            self.beam_coeffs == other.beam_coeffs
+            if isinstance(other, self.__class__)
+            else False
         )
 
     @staticmethod

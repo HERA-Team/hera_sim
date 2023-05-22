@@ -2,7 +2,6 @@ import pytest
 
 import astropy_healpix as aph
 import copy
-import healvis
 import numpy as np
 from astropy import time as apt
 from astropy import units
@@ -26,13 +25,6 @@ from hera_sim.visibilities import (
 from vis_cpu import HAVE_GPU
 
 SIMULATORS = (VisCPU, UVSim)
-
-try:
-    from hera_sim.visibilities import HealVis
-
-    SIMULATORS = SIMULATORS + (HealVis,)
-except ImportError:
-    pass
 
 if HAVE_GPU:
 
@@ -114,82 +106,6 @@ def sky_modelJD(uvdataJD):
         dec=np.array(uvdata.telescope_location_lat_lon_alt[0]) * rad,
         align=False,
     )
-
-
-def test_healvis_beam(uvdata, sky_model):
-    pytest.importorskip("healvis")
-    sim = VisibilitySimulation(
-        simulator=HealVis(),
-        data_model=ModelData(
-            uvdata=uvdata,
-            sky_model=sky_model,
-        ),
-        n_side=2**4,
-    )
-
-    assert len(sim.data_model.beams) == 1
-    assert isinstance(sim.data_model.beams[0], healvis.beam_model.AnalyticBeam)
-
-
-def test_healvis_beam_obsparams(tmpdir):
-    # Now try creating with an obsparam file
-    pytest.importorskip("healvis")
-    direc = tmpdir.mkdir("test_healvis_beam")
-
-    with open(Path(__file__).parent / "testdata" / "healvis_catalog.txt") as fl:
-        txt = fl.read()
-
-    with open(direc.join("catalog.txt"), "w") as fl:
-        fl.write(txt)
-
-    with open(direc.join("telescope_config.yml"), "w") as fl:
-        fl.write(
-            """
-    beam_paths:
-        0 : 'uniform'
-    telescope_location: (-30.72152777777791, 21.428305555555557, 1073.0000000093132)
-    telescope_name: MWA
-    """
-        )
-
-    with open(direc.join("layout.csv"), "w") as fl:
-        fl.write(
-            """Name     Number   BeamID   E          N          U
-
-    Tile061        40        0   -34.8010   -41.7365     1.5010
-    Tile062        41        0   -28.0500   -28.7545     1.5060
-    Tile063        42        0   -11.3650   -29.5795     1.5160
-    Tile064        43        0    -9.0610   -20.7885     1.5160
-    """
-        )
-
-    with open(direc.join("obsparams.yml"), "w") as fl:
-        fl.write(
-            """
-    freq:
-      Nfreqs: 1
-      channel_width: 80000.0
-      start_freq: 100000000.0
-    sources:
-      catalog: {0}/catalog.txt
-    telescope:
-      array_layout: {0}/layout.csv
-      telescope_config_name: {0}/telescope_config.yml
-    time:
-      Ntimes: 1
-      integration_time: 11.0
-      start_time: 2458098.38824015
-    """.format(
-                direc.strpath
-            )
-        )
-
-    sim = VisibilitySimulation(
-        data_model=ModelData.from_config(direc.join("obsparams.yml").strpath),
-        simulator=HealVis(),
-    )
-    beam = sim.data_model.beams[0]
-    assert isinstance(beam, healvis.beam_model.AnalyticBeam)
 
 
 def test_JD(uvdata, uvdataJD, sky_model):
@@ -665,23 +581,6 @@ def test_str_uvdata(uvdata, sky_model, tmp_path):
 
     model_data = ModelData(uvdata=pth, sky_model=sky_model)
     assert model_data.uvdata.Nants_data == uvdata.Nants_data
-
-
-def test_bad_healvis_skymodel(sky_model):
-    pytest.importorskip("healvis")
-    hv = HealVis()
-    sky_model.stokes *= units.sr  # something stupid
-    with pytest.raises(ValueError, match="not compatible with healvis"):
-        hv.get_sky_model(sky_model)
-
-
-def test_mK_healvis_skymodel(sky_model):
-    pytest.importorskip("healvis")
-    hv = HealVis()
-    sky_model.stokes = sky_model.stokes.value * units.mK
-    sky_model.nside = 2**3
-    sky = hv.get_sky_model(sky_model)
-    assert np.isclose(np.sum(sky.data), np.sum(sky_model.stokes[0].value / 1000))
 
 
 def test_ref_time_viscpu(uvdata2):
