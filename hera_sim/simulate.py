@@ -14,10 +14,11 @@ import warnings
 import yaml
 from astropy import constants as const
 from cached_property import cached_property
+from collections.abc import Sequence
 from deprecation import deprecated
 from pathlib import Path
 from pyuvdata import UVData
-from typing import Dict, Optional, Sequence, Tuple, Type, Union
+from typing import Optional, Union
 
 from . import __version__, io, utils
 from .components import SimulationComponent, get_model, list_all_components
@@ -28,10 +29,10 @@ _add_depr = deprecated(
 )
 
 # Define some commonly used types for typing purposes.
-AntPairPol = Tuple[int, int, str]
-AntPair = Tuple[int, int]
-AntPol = Tuple[int, str]
-Component = Union[str, Type[SimulationComponent], SimulationComponent]
+AntPairPol = tuple[int, int, str]
+AntPair = tuple[int, int]
+AntPol = tuple[int, str]
+Component = Union[str, type[SimulationComponent], SimulationComponent]
 
 
 # wrapper for the run_sim method, necessary for part of the CLI
@@ -209,8 +210,8 @@ class Simulator:
     def calculate_filters(
         self,
         *,
-        delay_filter_kwargs: Optional[Dict[str, Union[float, str]]] = None,
-        fringe_filter_kwargs: Optional[Dict[str, Union[float, str, np.ndarray]]] = None,
+        delay_filter_kwargs: Optional[dict[str, Union[float, str]]] = None,
+        fringe_filter_kwargs: Optional[dict[str, Union[float, str, np.ndarray]]] = None,
     ):
         """
         Pre-compute fringe-rate and delay filters for the entire array.
@@ -239,7 +240,7 @@ class Simulator:
         vis_filter: Optional[Sequence] = None,
         component_name: Optional[str] = None,
         **kwargs,
-    ) -> Optional[Union[np.ndarray, Dict[int, np.ndarray]]]:
+    ) -> Optional[Union[np.ndarray, dict[int, np.ndarray]]]:
         """
         Simulate an effect then apply and/or return the result.
 
@@ -327,7 +328,7 @@ class Simulator:
         self,
         component: Component,
         key: Optional[Union[int, str, AntPair, AntPairPol]] = None,
-    ) -> Union[np.ndarray, Dict[int, np.ndarray]]:
+    ) -> Union[np.ndarray, dict[int, np.ndarray]]:
         """
         Retrieve an effect that was previously simulated.
 
@@ -421,7 +422,7 @@ class Simulator:
             if pol is None:
                 return data
             pol_ind = self.pols.index(pol)
-            return data[:, 0, :, pol_ind]
+            return data[:, :, pol_ind]
 
         # We're only simulating for a particular baseline.
         # First, find out if it needs to be conjugated.
@@ -445,7 +446,7 @@ class Simulator:
                 vis_filter=vis_filter,
                 antpairpol_cache=None,
                 **kwargs,
-            )[blt_inds, 0, :, :]
+            )[blt_inds, :, :]
             if conj_data:  # pragma: no cover
                 data = np.conj(data)
             if pol is None:
@@ -469,7 +470,7 @@ class Simulator:
             data_shape = (self.lsts.size, self.freqs.size, 1)
             pols = (pol,)
             return_slice = (slice(None), slice(None), 0)
-        data = np.zeros(data_shape, dtype=np.complex)
+        data = np.zeros(data_shape, dtype=complex)
         for i, _pol in enumerate(pols):
             args = self._initialize_args_from_model(model)
             args = self._update_args(args, model, ant1, ant2, pol)
@@ -892,6 +893,9 @@ class Simulator:
                 "Otherwise, keywords must be provided to build a UVData object."
             )
 
+        if not self.data.future_array_shapes:  # pragma: nocover
+            self.data.use_future_array_shapes()
+
     def _initialize_args_from_model(self, model):
         """
         Retrieve the LSTs and/or frequencies required for a model.
@@ -957,7 +961,7 @@ class Simulator:
         vis_filter: Optional[Sequence] = None,
         antpairpol_cache: Optional[Sequence[AntPairPol]] = None,
         **kwargs,
-    ) -> Optional[Union[np.ndarray, Dict[int, np.ndarray]]]:
+    ) -> Optional[Union[np.ndarray, dict[int, np.ndarray]]]:
         """
         Simulate an effect for an entire array.
 
@@ -1107,19 +1111,19 @@ class Simulator:
                 if is_multiplicative:
                     # Calculate the complex gain, but only apply it if requested.
                     gain = gains[(ant1, pol[0])] * np.conj(gains[(ant2, pol[1])])
-                    data_copy[blt_inds, 0, :, pol_ind] *= gain
+                    data_copy[blt_inds, :, pol_ind] *= gain
                 else:
                     # I don't think this will ever be executed, but just in case...
                     if conj_in_cache and seed is None:  # pragma: no cover
                         conj_blts = self.data.antpair2ind((ant2, ant1))
                         vis = (data_copy - self.data.data_array)[
-                            conj_blts, 0, :, pol_ind
+                            conj_blts, :, pol_ind
                         ].conj()
                     else:
                         vis = model(**use_args)
 
                     # and add it in
-                    data_copy[blt_inds, 0, :, pol_ind] += vis
+                    data_copy[blt_inds, :, pol_ind] += vis
 
         # return the component if desired
         # this is a little complicated, but it's done this way so that
@@ -1321,7 +1325,7 @@ class Simulator:
         *,
         get_delay_filter: bool = True,
         get_fringe_filter: bool = True,
-    ) -> Dict[str, np.ndarray]:
+    ) -> dict[str, np.ndarray]:
         """
         Retrieve delay and fringe filters from the cache.
 
@@ -1383,8 +1387,8 @@ class Simulator:
 
     @staticmethod
     def _get_component(
-        component: Union[str, Type[SimulationComponent], SimulationComponent]
-    ) -> Union[SimulationComponent, Type[SimulationComponent]]:
+        component: Union[str, type[SimulationComponent], SimulationComponent]
+    ) -> Union[SimulationComponent, type[SimulationComponent]]:
         """Normalize a component to be either a class or instance."""
         if np.issubclass_(component, SimulationComponent):
             return component
