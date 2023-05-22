@@ -7,6 +7,7 @@ import numpy as np
 import os
 import tracemalloc as tr
 import warnings
+from collections.abc import Iterable
 from datetime import datetime
 from pyuvdata import UVData
 from rich._log_render import FormatTimeCallable
@@ -17,7 +18,6 @@ from rich.table import Table
 from rich.text import Text, TextType
 from string import Template
 from typing import Literal
-from collections.abc import Iterable
 
 from .defaults import SEASON_CONFIGS
 from .simulate import Simulator
