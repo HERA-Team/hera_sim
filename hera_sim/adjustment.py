@@ -144,7 +144,7 @@ def adjust_to_reference(
     # Check if the target object is a Simulator, but work with a UVData object.
     target_is_simulator = isinstance(target, Simulator)
     target = _to_uvdata(target)
-    if not target.future_array_shapes:
+    if not target.future_array_shapes:  # pragma: no cover
         target.use_future_array_shapes()
 
     # Pull the reference metadata.

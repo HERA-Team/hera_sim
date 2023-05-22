@@ -2,15 +2,17 @@
 Changelog
 =========
 
-dev-version
-===========
+v4.0.0 [2023.05.22]
+===================
 
 Breaking Changes
 ----------------
 - Removed the ``HealVis`` wrapper. Use ``pyuvsim`` instead.
+
 Changed
 -------
-- Updated ``PolyBeam`` to use future array shapes.
+- Updated package to always use future array shapes for ``pyuvdata`` objects (this
+  includes updates to ``PolyBeam`` and ``Simulator`` objects amongst others).
 
 v3.1.1 [2023.02.23]
 ===================

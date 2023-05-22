@@ -557,7 +557,7 @@ def reshape_vis(
         out = np.zeros((n_times, n_freqs, 2 * n_ants, 2 * n_ants), dtype=complex)
 
     # If we have numba, then this is a bit faster.
-    if HAVE_NUMBA and use_numba:
+    if HAVE_NUMBA and use_numba:  # pragma: no cover
         if invert:
             fnc = jit_reshape_vis_invert
         else:

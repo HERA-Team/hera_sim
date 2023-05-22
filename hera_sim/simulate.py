@@ -893,7 +893,7 @@ class Simulator:
                 "Otherwise, keywords must be provided to build a UVData object."
             )
 
-        if not self.data.future_array_shapes:
+        if not self.data.future_array_shapes:  # pragma: nocover
             self.data.use_future_array_shapes()
 
     def _initialize_args_from_model(self, model):
