@@ -164,7 +164,7 @@ def test_add_with_full_array_return(base_sim):
             pass
 
         def __call__(self, freqs, ant_1_array, pols):
-            data_shape = (ant_1_array.size, 1, freqs.size, pols.size)
+            data_shape = (ant_1_array.size, freqs.size, pols.size)
             return np.ones(data_shape, dtype=complex)
 
     base_sim.add(Test)

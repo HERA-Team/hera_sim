@@ -308,10 +308,7 @@ class Defaults(metaclass=_Singleton):
             # get dictionary of kwargs and their defaults
             try:
                 offset = len(argspec.args) - len(argspec.defaults)
-                old_kwargs = {
-                    arg: default
-                    for arg, default in zip(argspec.args[offset:], argspec.defaults)
-                }
+                old_kwargs = dict(zip(argspec.args[offset:], argspec.defaults))
             except TypeError:
                 # if there are no defaults in the argspec
                 old_kwargs = {}

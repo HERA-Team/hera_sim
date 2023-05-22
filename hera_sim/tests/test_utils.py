@@ -411,7 +411,7 @@ def test_reshape_vis(jit, pols):
             continue
         inds = sim.data.antpair2ind(ai, ai)
         p = list(sim.polarization_array).index(uvutils.polstr2num(pol))
-        sim.data.data_array[inds, 0, :, p] = np.random.normal(
+        sim.data.data_array[inds, :, p] = np.random.normal(
             size=(sim.Ntimes, sim.Nfreqs)
         ).astype(complex)
 
@@ -421,7 +421,7 @@ def test_reshape_vis(jit, pols):
             inds = sim.data.antpair2ind(ai, ai)
             p1 = list(sim.get_pols()).index("xy")
             p2 = list(sim.get_pols()).index("yx")
-            sim.data.data_array[inds, 0, :, p1] = sim.data_array[inds, 0, :, p2].conj()
+            sim.data.data_array[inds, :, p1] = sim.data_array[inds, :, p2].conj()
 
     reshape_args = [
         sim.data.data_array,

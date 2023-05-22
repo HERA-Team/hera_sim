@@ -45,6 +45,5 @@ Built-In Simulators
     :toctree: _autosummary
     :template: class.rst
 
-    hera_sim.visibilities.healvis_wrapper.HealVis
     hera_sim.visibilities.vis_cpu.VisCPU
     hera_sim.visibilities.pyuvsim_wrapper.UVSim
