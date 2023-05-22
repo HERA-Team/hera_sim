@@ -123,10 +123,6 @@ def efield_to_pstokes(efield_beam, npix, Nfreqs):
         jones[:, 0, 1] = efield_beam[0, 1, fq_i, :]
         jones[:, 1, 0] = efield_beam[1, 0, fq_i, :]
         jones[:, 1, 1] = efield_beam[1, 1, fq_i, :]
-        jones[:, 0, 0] = efield_beam[0, 0, fq_i, :]
-        jones[:, 0, 1] = efield_beam[0, 1, fq_i, :]
-        jones[:, 1, 0] = efield_beam[1, 0, fq_i, :]
-        jones[:, 1, 1] = efield_beam[1, 1, fq_i, :]
 
         for pol_i in range(len(pol_strings)):
             power_data[:, :, pol_i, fq_i, :] = construct_mueller(jones, pol_i, pol_i)
