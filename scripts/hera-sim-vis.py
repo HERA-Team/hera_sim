@@ -7,6 +7,7 @@ This script may be used to run a visibility simulation from a configuration file
 write the result to disk.
 """
 import argparse
+import atexit
 import importlib
 import logging
 import numpy as np
@@ -61,6 +62,7 @@ logging.basicConfig(
 if HAVE_MPI:
     if not MPI.Is_initialized():
         MPI.Init()
+        atexit.register(MPI.Finalize)
     comm = MPI.COMM_WORLD
     myid = comm.Get_rank()
 else:

@@ -185,7 +185,7 @@ class ModelData:
         logger.info("Initializing UVData object...")
         uvdata, beams, beam_ids = initialize_uvdata_from_params(
             config_file,
-            reorder_kw={},
+            reorder_blt_kw={},
             check_kw={"run_check_acceptability": False},
         )
 
