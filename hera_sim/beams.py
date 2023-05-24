@@ -2,6 +2,7 @@
 import numpy as np
 from numpy.polynomial.chebyshev import chebval
 from pyuvsim import AnalyticBeam
+from scipy.special import jn
 
 from . import utils
 
@@ -462,16 +463,39 @@ class BesselBeam(AnalyticBeam):
         """Dummy select method."""
         pass
 
+    def get_design_matr(self, phig, rhog):
+        zeros = jn_zeros(0, self.nmodes.max())
+        zeros_use = zeros[self.nmodes]
+        # Reshape things for outer product
+        if self.freq_pol_dep:
+            rhog_use = rhog[:, :, np.newaxis, np.newaxis, np.newaxis, np.newaxis]
+            phig_use = phig[:, :, np.newaxis, np.newaxis, np.newaxis, np.newaxis]
+        else:
+            rhog_use = rhog[:, :, np.newaxis]
+            phig_use = phig[:, :, np.newaxis]
+        zeros_use = zeros_use[np.newaxis, np.newaxis]
+        m_use = self.mmodes[np.newaxis, np.newaxis]
+
+        bess = jn(0, rhog_use * zeros_use) / jn(1, zeros_use)
+        trig = np.exp(1.0j * phig_use * m_use) / np.sqrt(np.pi)
+
+        # Will be shape (Naz, Nza) + self.nmodes.shape
+        bess_matr = bess * trig
+
+        return bess_matr
+
     def interp(self, az_array, za_array):
         rho_arr = np.sqrt(1 - np.cos(za_array))
-        rhog, phig = np.meshgrid(rho_arr, az_array)
+        phig, rhog = np.meshgrid(az_array, rho_arr)
 
-        dmatr = self.get_design_matr(rhog, phig)
+        dmatr = self.get_design_matr(phig, rhog)
         if self.freq_pol_dep:
-            # dmatr shape Naxes_vec, Nfeed, Nfreq, len(az_array), len(za_array), Ncoeff
-            beam_vals = (dmatr * self.beam_coeffs).sum(axis=-1)
+            # dmatr shape Naz, Nza, Naxes_vec, Nfeed, Nfreq, Ncoeff
+            beam_vals = (dmatr * self.beam_coeffs[np.newaxis, np.newaxis]).sum(axis=-1)
+            # Permute to Naxes_vec, Nfeed, Nfreq, Naz, Nza,
+            beam_vals = beam_vals.transpose(2, 3, 4, 0, 1)
         else:
-            # dmatr shape len(az_array), len(za_array), Ncoeff
+            # dmatr shape Naz, Nza, Ncoeff
             beam_vals = np.tensordot(self.beam_coeffs, dmatr, axes=((-1,),(-1,)))
 
         if self.beam_type == "power":
