@@ -399,6 +399,91 @@ class PolyBeam(AnalyticBeam):
         return self.beam_coeffs == other.beam_coeffs
 
 
+class BesselBeam(AnalyticBeam):
+    """
+    Analytic beam model using a linear Fourier-Bessel basis in an area-preserving
+    projection of az/za to the unit disc.
+
+    Assumes coefficients on per pol/feed/frequency. May use different modes
+    along each of these three axes, which is useful for sparse representations.
+
+    Parameters:
+        beam_coeffs : array_like
+            Coefficients of the Fourier-Bessl modes per polarization, feed, and
+            frequency.
+        nmodes : array_like
+            Array of radial modes with shape (Nmodes,) if freq_pol_dependence is
+            False, otherwise (Naxes_vec, Nfeed, Nfreqs, Nmodes)
+        mmodes : array_like
+            Array of azimuthal modes with shape (Nmodes,) if freq_pol_dependence is
+            False, otherwise (Naxes_vec, Nfeed, Nfreqs, Nmodes)
+        bandpass: array_like
+            Array of direction-independent frequency gain information
+        freq_pol_dep : bool
+            Whether the choice of basis functions depends on polarization/frequency
+    """
+
+    def __init__(
+        self,
+        beam_coeffs,
+        nmodes,
+        mmodes,
+        bandpass,
+        polarized = True,
+        freq_pol_dep = False,
+    ):
+        self.beam_coeffs = beam_coeffs
+        self.Ncoeff = len(beam_coeffs)
+        self.bandpass = bandpass
+        self.nmodes = nmodes
+        self.mmodes = mmodes
+        self.freq_pol_dep = freq_pol_dep
+
+        self.ref_freq = None
+        self.spectral_index = None
+        self.data_normalization = "peak"
+        self.freq_interp_kind = None
+        self.Nspws = 1
+
+        # Polarization conventions
+        self.beam_type = "efield"
+        self.polarized = True
+        self.Nfeeds = 2  # n and e feeds
+        self.pixel_coordinate_system = "az_za"  # az runs from East to North
+        self.feed_array = ["n", "e"]
+        self.x_orientation = "east"
+
+    def peak_normalize(self):
+        """Normalize beam to have a peak of unity"""
+        # Assume coefficients produce peak-normalized beam
+        pass
+
+    def select(self, **kwargs):
+        """Dummy select method."""
+        pass
+
+    def interp(self, az_array, za_array):
+        rho_arr = np.sqrt(1 - np.cos(za_array))
+        rhog, phig = np.meshgrid(rho_arr, az_array)
+
+        dmatr = self.get_design_matr(rhog, phig)
+        if self.freq_pol_dep:
+            # dmatr shape Naxes_vec, Nfeed, Nfreq, len(az_array), len(za_array), Ncoeff
+            beam_vals = (dmatr * self.beam_coeffs).sum(axis=-1)
+        else:
+            # dmatr shape len(az_array), len(za_array), Ncoeff
+            beam_vals = np.tensordot(self.beam_coeffs, dmatr, axes=((-1,),(-1,)))
+
+        if self.beam_type == "power":
+            # einsum version: ijklm,inklm->jnklm
+            power_vals = (beam_vals[:, :, np.newaxis] * beam_vals.conj()[:, np.newaxis]).sum(axis=0)
+            interp_data = np.reshape(power_vals, (1, 1, 4, ) + power_vals.shape[2:])
+        else:
+            interp_data = beam_vals
+
+        return interp_data
+
+
 class PerturbedPolyBeam(PolyBeam):
     """A :class:`PolyBeam` in which the shape of the beam has been modified.
 
