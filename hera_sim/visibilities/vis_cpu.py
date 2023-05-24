@@ -390,6 +390,7 @@ class VisCPU(VisibilitySimulator):
                 I_sky=data_model.sky_model.stokes[0, i].to("Jy").value,
                 beam_list=beam_list,
                 beam_idx=beam_ids,
+                beam_spline_opts=data_model.beams.spline_interp_opts,
                 precision=self._precision,
                 polarized=polarized,
                 **self.kwargs,
