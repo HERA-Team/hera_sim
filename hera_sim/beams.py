@@ -2,7 +2,7 @@
 import numpy as np
 from numpy.polynomial.chebyshev import chebval
 from pyuvsim import AnalyticBeam
-from scipy.special import jn
+from scipy.special import jn, jn_zeros
 
 from . import utils
 
@@ -464,7 +464,7 @@ class BesselBeam(AnalyticBeam):
         pass
 
     def get_design_matr(self, phig, rhog):
-        zeros = jn_zeros(0, self.nmodes.max())
+        zeros = jn_zeros(0, self.nmodes.max() + 1)
         zeros_use = zeros[self.nmodes]
         # Reshape things for outer product
         if self.freq_pol_dep:
