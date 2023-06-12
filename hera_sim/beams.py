@@ -463,43 +463,43 @@ class BesselBeam(AnalyticBeam):
         """Dummy select method."""
         pass
 
-    def get_design_matr(self, phig, rhog):
+    def get_design_matr(self, phi_array, rho_array):
         zeros = jn_zeros(0, self.nmodes.max() + 1)
         zeros_use = zeros[self.nmodes]
         # Reshape things for outer product
         if self.freq_pol_dep:
-            rhog_use = rhog[:, :, np.newaxis, np.newaxis, np.newaxis, np.newaxis]
-            phig_use = phig[:, :, np.newaxis, np.newaxis, np.newaxis, np.newaxis]
+            rho_arr_use = rho_array[:, np.newaxis, np.newaxis, np.newaxis, np.newaxis]
+            phi_arr_use = phi_array[:, np.newaxis, np.newaxis, np.newaxis, np.newaxis]
         else:
-            rhog_use = rhog[:, :, np.newaxis]
-            phig_use = phig[:, :, np.newaxis]
-        zeros_use = zeros_use[np.newaxis, np.newaxis]
-        m_use = self.mmodes[np.newaxis, np.newaxis]
+            rho_arr_use = rho_array[:, np.newaxis]
+            phi_arr_use = phi_array[:, np.newaxis]
+        zeros_use = zeros_use[np.newaxis]
+        m_use = self.mmodes[np.newaxis]
 
-        bess = jn(0, rhog_use * zeros_use) / jn(1, zeros_use)
-        trig = np.exp(1.0j * phig_use * m_use) / np.sqrt(np.pi)
+        bess = jn(0, rho_arr_use * zeros_use) / jn(1, zeros_use)
+        trig = np.exp(1.0j * phi_arr_use * m_use) / np.sqrt(np.pi)
 
-        # Will be shape (Naz, Nza) + self.nmodes.shape
+        # Will be shape (Nsource) + self.nmodes.shape
         bess_matr = bess * trig
 
         return bess_matr
 
     def interp(self, az_array, za_array):
-        rho_arr = np.sqrt(1 - np.cos(za_array))
-        phig, rhog = np.meshgrid(az_array, rho_arr)
+        rho_array = np.sqrt(1 - np.cos(za_array))
 
-        dmatr = self.get_design_matr(phig, rhog)
+        dmatr = self.get_design_matr(az_array, rho_array)
         if self.freq_pol_dep:
-            # dmatr shape Naz, Nza, Naxes_vec, Nfeed, Nfreq, Ncoeff
-            beam_vals = (dmatr * self.beam_coeffs[np.newaxis, np.newaxis]).sum(axis=-1)
-            # Permute to Naxes_vec, Nfeed, Nfreq, Naz, Nza,
-            beam_vals = beam_vals.transpose(2, 3, 4, 0, 1)
+            # dmatr shape Nsource Naxes_vec, Nfeed, Nfreq, Ncoeff
+            beam_vals = (dmatr * self.beam_coeffs[np.newaxis]).sum(axis=-1)
+            # Permute to Naxes_vec, Nfeed, Nfreq, Nsource
+            beam_vals = beam_vals.transpose(1, 2, 3, 0)
         else:
-            # dmatr shape Naz, Nza, Ncoeff
+            # dmatr shape Nsource, Ncoeff
+            # Resulting shape Naxes_vec, Nfeed, Nfreq, Nsource
             beam_vals = np.tensordot(self.beam_coeffs, dmatr, axes=((-1,),(-1,)))
 
         if self.beam_type == "power":
-            # einsum version: ijklm,inklm->jnklm
+            # einsum version: ijkl,inkl->jnkl
             power_vals = (beam_vals[:, :, np.newaxis] * beam_vals.conj()[:, np.newaxis]).sum(axis=0)
             interp_data = np.reshape(power_vals, (1, 1, 4, ) + power_vals.shape[2:])
         else:
