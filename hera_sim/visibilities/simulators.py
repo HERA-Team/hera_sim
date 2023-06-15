@@ -191,7 +191,7 @@ class ModelData:
         )
 
         logger.info("Initializing Sky Model...")
-        catalog = initialize_catalog_from_params(config_file, return_recarray=False)[0]
+        catalog = initialize_catalog_from_params(config_file)[0]
 
         logger.info("COmpleting UVData object...")
         _complete_uvdata(
