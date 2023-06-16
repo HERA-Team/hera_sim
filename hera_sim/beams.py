@@ -422,6 +422,9 @@ class BesselBeam(AnalyticBeam):
             Array of direction-independent frequency gain information
         freq_pol_dep : bool
             Whether the choice of basis functions depends on polarization/frequency
+        alpha: float
+            An adjustment to the projection so that the horizon can be modeled
+            better.
     """
 
     def __init__(
@@ -432,6 +435,7 @@ class BesselBeam(AnalyticBeam):
         bandpass,
         polarized = True,
         freq_pol_dep = False,
+        alpha = np.sqrt(1 - np.cos(46 * np.pi / 90))
     ):
         self.beam_coeffs = beam_coeffs
         self.Ncoeff = len(beam_coeffs)
@@ -453,6 +457,7 @@ class BesselBeam(AnalyticBeam):
         self.pixel_coordinate_system = "az_za"  # az runs from East to North
         self.feed_array = ["n", "e"]
         self.x_orientation = "east"
+        self.alpha = alpha
 
     def peak_normalize(self):
         """Normalize beam to have a peak of unity"""
@@ -485,7 +490,7 @@ class BesselBeam(AnalyticBeam):
         return bess_matr
 
     def interp(self, az_array, za_array):
-        rho_array = np.sqrt(1 - np.cos(za_array))
+        rho_array = np.sqrt(1 - np.cos(za_array)) / self.alpha
 
         dmatr = self.get_design_matr(az_array, rho_array)
         if self.freq_pol_dep:
