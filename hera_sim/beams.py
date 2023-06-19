@@ -510,7 +510,7 @@ class BesselBeam(AnalyticBeam):
         else:
             interp_data = beam_vals
 
-        return interp_data
+        return interp_data, None
 
 
 class PerturbedPolyBeam(PolyBeam):
