@@ -510,6 +510,13 @@ class BesselBeam(AnalyticBeam):
         else:
             interp_data = beam_vals
 
+        # FIXME: pyuvsim.AnalyticBeam.interp returns two values (interp_data 
+        # and interp_basis_vector).  We are not generating the second return
+        # value and as such have added a None as a placeholder.  Without this
+        # second return value, when pyuvsim calls the interpolation function in
+        # `pyuvsim.antenna.get_beam_jones` via
+        # `interp_data, _ = beam.interp(...)`, the zeroth axis of interp_data
+        # gets stripped.
         return interp_data, None
 
 
