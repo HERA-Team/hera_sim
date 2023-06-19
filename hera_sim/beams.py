@@ -489,7 +489,7 @@ class BesselBeam(AnalyticBeam):
 
         return bess_matr
 
-    def interp(self, az_array, za_array):
+    def interp(self, az_array, za_array, freq_array, **kwargs):
         rho_array = np.sqrt(1 - np.cos(za_array)) / self.alpha
 
         dmatr = self.get_design_matr(az_array, rho_array)
