@@ -193,7 +193,7 @@ class ModelData:
         )
 
         logger.info("Initializing Sky Model...")
-        if uvsimv >= "1.2.4":
+        if uvsimv > "1.2.5":
             catalog = initialize_catalog_from_params(config_file)[0]
         else:
             catalog = initialize_catalog_from_params(
