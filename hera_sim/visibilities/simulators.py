@@ -16,6 +16,7 @@ from pathlib import Path
 from pyradiosky import SkyModel
 from pyuvdata import UVBeam, UVData
 from pyuvsim import BeamList
+from pyuvsim import __version__ as uvsimv
 from pyuvsim import analyticbeam as ab
 from pyuvsim.simsetup import (
     _complete_uvdata,
@@ -88,6 +89,7 @@ class ModelData:
 
         self.sky_model = sky_model
         self.sky_model.at_frequencies(self.freqs * units.Hz)
+
         if not isinstance(self.sky_model, SkyModel):
             raise TypeError("sky_model must be a SkyModel instance.")
 
@@ -191,7 +193,12 @@ class ModelData:
         )
 
         logger.info("Initializing Sky Model...")
-        catalog = initialize_catalog_from_params(config_file)[0]
+        if uvsimv >= "1.2.4":
+            catalog = initialize_catalog_from_params(config_file)[0]
+        else:
+            catalog = initialize_catalog_from_params(
+                config_file, return_recarray=False
+            )[0]
 
         logger.info("COmpleting UVData object...")
         _complete_uvdata(
