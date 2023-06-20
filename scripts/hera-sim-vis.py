@@ -28,11 +28,11 @@ try:
 except ImportError:
     HAVE_MPI = False
 
+from hera_cli_utils import RicherHandler
 from rich.console import Console
 from rich.panel import Panel
 from rich.rule import Rule
 
-from hera_sim.cli_utils import RicherHandler
 from hera_sim.visibilities import (
     ModelData,
     VisibilitySimulation,

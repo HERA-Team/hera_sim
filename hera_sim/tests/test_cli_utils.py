@@ -2,7 +2,6 @@
 
 import pytest
 
-import logging
 import numpy as np
 import os
 from astropy import units
@@ -210,35 +209,3 @@ def test_write_calfits_no_kwargs(gains, tmp_path):
     with pytest.raises(ValueError) as err:
         cli_utils.write_calfits(gains, cal_file)
     assert "frequencies and times must be specified" in err.value.args[0]
-
-
-class TestRicherHandler:
-    def get_logger(self, **kwargs):
-        logger = logging.getLogger("this")
-        logger.setLevel("INFO")
-        logger.addHandler(cli_utils.RicherHandler(**kwargs))
-        return logger
-
-    def test_no_args(self, caplog):
-        logger = self.get_logger()
-        caplog.set_level("INFO", logger="this")
-        logger.info("foo")
-
-        assert "foo" in caplog.text
-
-    def test_psutil(self, caplog):
-        logger = self.get_logger(mem_backend="psutil")
-        caplog.set_level("INFO", logger="this")
-        logger.info("foo")
-        assert "foo" in caplog.text
-
-    def test_bad_mem_backend(self, caplog):
-        with pytest.raises(ValueError, match="Invalid memory backend"):
-            cli_utils.RicherHandler(mem_backend="bad")
-
-    def test_not_show_time(self, caplog):
-        logger = logging.getLogger("this")
-        caplog.set_level("INFO", logger="this")
-        logger.setLevel("INFO")
-
-        logger.addHandler(cli_utils.RicherHandler(mem_backend="psutil"))
