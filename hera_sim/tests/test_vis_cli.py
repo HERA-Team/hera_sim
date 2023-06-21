@@ -1,5 +1,8 @@
 import os
+from hera_cli_utils import parse_args
 from pathlib import Path
+
+from hera_sim.visibilities.cli import run_vis_sim, vis_cli_argparser
 
 DATA_PATH = Path(__file__).parent / "testdata" / "hera-sim-vis-config"
 
@@ -52,8 +55,19 @@ def test_vis_cli(tmp_path_factory):
     outdir = tmp_path_factory.mktemp("vis-sim")
     cfg = get_config_files(outdir, 5, 2)
 
-    args = f"--compress {outdir/'compression-cache.npy'} --normalize_beams --fix_autos"
-    args += f" --profile {outdir}/profile.txt --log-level INFO"
-    os.system(f"hera-sim-vis.py {str(cfg)} {DATA_PATH/'viscpu.yaml'} {args}")
+    parser = vis_cli_argparser()
+    args = parse_args(
+        parser,
+        [
+            str(cfg),
+            str(DATA_PATH / "viscpu.yaml"),
+            "--compress",
+            str(outdir / "compression-cache.npy"),
+            "--normalize_beams",
+            "--fix_autos",
+        ],
+    )
+
+    run_vis_sim(args)
     contents = os.listdir(outdir)
     assert "out.uvh5" in contents

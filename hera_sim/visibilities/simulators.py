@@ -200,7 +200,7 @@ class ModelData:
                 config_file, return_recarray=False
             )[0]
 
-        logger.info("COmpleting UVData object...")
+        logger.info("Completing UVData object...")
         _complete_uvdata(
             uvdata, inplace=True, check_kw={"run_check_acceptability": False}
         )
