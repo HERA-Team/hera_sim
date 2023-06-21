@@ -24,7 +24,7 @@ try:
     from mpi4py import MPI
 
     HAVE_MPI = True
-except ImportError:
+except ImportError:  # pragma: no cover
     HAVE_MPI = False
 
 from hera_cli_utils.logging import RicherHandler
@@ -64,7 +64,7 @@ if HAVE_MPI:
         atexit.register(MPI.Finalize)
     comm = MPI.COMM_WORLD
     myid = comm.Get_rank()
-else:
+else:  # pragma: no cover
     myid = 0
 
 
@@ -162,7 +162,7 @@ def run_vis_sim(args):
     logger.info("Simulation Complete")
     cprint(Rule())
 
-    if myid != 0:
+    if myid != 0:  # pragma: no cover
         # Wait for root worker to finish IO before ending all other worker procs
         comm.Barrier()
         sys.exit(0)

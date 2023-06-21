@@ -71,3 +71,29 @@ def test_vis_cli(tmp_path_factory):
     run_vis_sim(args)
     contents = os.listdir(outdir)
     assert "out.uvh5" in contents
+
+    # Run again to use the compression cache.
+    run_vis_sim(args)
+
+
+def test_vis_cli_dry(tmp_path_factory):
+    outdir = tmp_path_factory.mktemp("vis-sim")
+    cfg = get_config_files(outdir, 5, 2)
+
+    parser = vis_cli_argparser()
+    args = parse_args(
+        parser,
+        [
+            str(cfg),
+            str(DATA_PATH / "viscpu.yaml"),
+            "--compress",
+            str(outdir / "compression-cache.npy"),
+            "--dry",
+            "--object_name",
+            "viscpu",
+        ],
+    )
+
+    run_vis_sim(args)
+    contents = os.listdir(outdir)
+    assert "out.uvh5" not in contents
