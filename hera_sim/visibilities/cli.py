@@ -150,7 +150,7 @@ def run_vis_sim(args):
 
     if args.dry_run:
         cprint("Dry run finished.")
-        sys.exit()
+        return
 
     simulation = VisibilitySimulation(data_model=data_model, simulator=simulator)
 
