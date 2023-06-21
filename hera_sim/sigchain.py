@@ -15,7 +15,8 @@ from pyuvdata import UVBeam
 from pyuvsim import AnalyticBeam
 from scipy import stats
 from scipy.signal import blackmanharris
-from typing import Callable, Sequence
+from typing import Callable
+from collections.abc import Sequence
 from uvtools.dspec import gen_window
 
 from . import DATA_PATH, interpolators, utils
