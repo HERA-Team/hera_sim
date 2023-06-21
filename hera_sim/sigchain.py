@@ -924,7 +924,7 @@ class MutualCoupling(Crosstalk):
         n_bls = np.unique(np.vstack([ant_1_array, ant_2_array]), axis=1).shape[1]
         n_ants = antenna_numbers.size
         n_times = ant_1_array.size // n_bls
-        n_freqs = visibilities.squeeze().shape[1]
+        n_freqs = visibilities.shape[1]
         n_pols = visibilities.shape[-1]
         visibilities = utils.reshape_vis(
             vis=visibilities,
@@ -1062,13 +1062,12 @@ class MutualCoupling(Crosstalk):
                 pix_inds = np.arange(npix)
                 lon, lat = aph.healpix_to_lonlat(pix_inds, nside)
                 above_horizon = lat.value > 0
+                # Just take the XX polarization
                 beam_vals = power_beam.interp(
                     az_array=lon.to("rad").value,
                     za_array=np.pi / 2 - lat.to("rad").value,
                     freq_array=freqs * units.GHz.to("Hz"),
-                )[0][
-                    0, 0, 0
-                ]  # Just take the XX polarization
+                )[0][0, 0]
                 beam_vals[:, ~above_horizon] = 0  # Apply horizon cut
                 omega_p = beam_vals.sum(axis=1).real * pix_area
             else:

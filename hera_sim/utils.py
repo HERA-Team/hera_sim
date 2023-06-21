@@ -6,8 +6,8 @@ import pyuvdata.utils as uvutils
 import warnings
 from astropy import constants, units
 from astropy.coordinates import Longitude
+from collections.abc import Sequence
 from scipy.interpolate import RectBivariateSpline
-from typing import Sequence
 
 from .interpolators import Beam
 
@@ -516,7 +516,7 @@ def reshape_vis(
     """Reshaping helper for mutual coupling sims.
 
     The mutual coupling simulations take as input, and return, a data array with
-    shape ``(Nblts, 1, Nfreqs, Npols)``, but perform matrix multiplications on
+    shape ``(Nblts, Nfreqs, Npols)``, but perform matrix multiplications on
     the data array reshaped to ``(Ntimes, Nfreqs, 2*Nants, 2*Nants)``. This
     function performs the reshaping between the matrix multiply shape and the
     input/output array shapes.
@@ -552,23 +552,25 @@ def reshape_vis(
         Input data reshaped to desired shape.
     """
     if invert:
-        out = np.zeros((ant_1_array.size, 1, n_freqs, n_pols), dtype=complex)
+        out = np.zeros((ant_1_array.size, n_freqs, n_pols), dtype=complex)
     else:
         out = np.zeros((n_times, n_freqs, 2 * n_ants, 2 * n_ants), dtype=complex)
 
     # If we have numba, then this is a bit faster.
-    if HAVE_NUMBA and use_numba:
-        return jit_reshape_vis(
+    if HAVE_NUMBA and use_numba:  # pragma: no cover
+        if invert:
+            fnc = jit_reshape_vis_invert
+        else:
+            fnc = jit_reshape_vis
+        fnc(
             vis=vis,
             out=out,
             ant_1_array=ant_1_array,
             ant_2_array=ant_2_array,
             pol_array=pol_array,
             antenna_numbers=antenna_numbers,
-            n_ants=n_ants,
-            n_pols=n_pols,
-            invert=invert,
         )
+        return out
 
     # We don't have numba, so we need to do this a bit more slowly.
     pol_slices = {"x": slice(None, None, 2), "y": slice(1, None, 2)}
@@ -594,13 +596,14 @@ def reshape_vis(
                     p1, p2 = p2, p1
                 sl1, sl2 = (pol_slices[p.lower()] for p in (p1, p2))
 
+                # NOTE: this is hard-coded to use the new-style UVData shapes!
                 if invert:
                     # Going back to UVData shape
-                    out[uvd_inds, 0, :, k] = vis[:, :, sl1, sl2][:, :, ii, jj]
+                    out[uvd_inds, :, k] = vis[:, :, sl1, sl2][:, :, ii, jj]
                 else:
                     # Changing from UVData shape
-                    out[:, :, sl1, sl2][:, :, ii, jj] = vis[uvd_inds, 0, :, k]
-                    out[:, :, sl2, sl1][:, :, jj, ii] = np.conj(vis[uvd_inds, 0, :, k])
+                    out[:, :, sl1, sl2][:, :, ii, jj] = vis[uvd_inds, :, k]
+                    out[:, :, sl2, sl1][:, :, jj, ii] = np.conj(vis[uvd_inds, :, k])
     return out
 
 
@@ -710,9 +713,6 @@ if HAVE_NUMBA:  # pragma: no cover
         ant_2_array,
         pol_array,
         antenna_numbers,
-        n_ants,
-        n_pols,
-        invert=False,
     ):
         """JIT-accelerated reshaping function.
 
@@ -738,6 +738,7 @@ if HAVE_NUMBA:  # pragma: no cover
                 if np.all(~uvd_inds):
                     continue
 
+                uvd_inds = np.argwhere(uvd_inds).flatten()
                 for k, pol in enumerate(pol_array):
                     if pol == -5:
                         p1, p2 = x_sl, x_sl
@@ -751,15 +752,65 @@ if HAVE_NUMBA:  # pragma: no cover
                     if flipped:
                         p1, p2 = p2, p1
 
-                    # NOTE: This is hard-coded to use old-style UVData arrays!
-                    if invert:
-                        # Go back to UVData shape
-                        out[uvd_inds, 0, :, k] = vis[:, :, p1, p2][:, :, ii, jj]
+                    _p = out[:, :, p1, p2]
+                    for tidx, uvd_ind in enumerate(uvd_inds):
+                        _p[tidx, :, ii, jj] = vis[uvd_ind, :, k]
+                        _p[tidx, :, jj, ii] = np.conj(vis[uvd_ind, :, k])
+        return out
+
+    @numba.njit
+    def jit_reshape_vis_invert(
+        vis,
+        out,
+        ant_1_array,
+        ant_2_array,
+        pol_array,
+        antenna_numbers,
+    ):
+        """JIT-accelerated reshaping function.
+
+        See :func:`~reshape_vis` for parameter information.
+        """
+        # This is basically the same as the non-numba reshape function,
+        # but it's not as pretty.
+        x_sl = slice(None, None, 2)
+        y_sl = slice(1, None, 2)
+        for i, ai in enumerate(antenna_numbers):
+            for j, aj in enumerate(antenna_numbers[i:]):
+                j += i
+                uvd_inds = (ant_1_array == ai) & (ant_2_array == aj)
+
+                flipped = False
+                ii, jj = i, j
+                if np.all(~uvd_inds):
+                    uvd_inds = (ant_2_array == ai) & (ant_1_array == aj)
+                    flipped = True
+                    ii, jj = j, i
+
+                # Don't do anything if this baseline isn't present.
+                if np.all(~uvd_inds):
+                    continue
+
+                uvd_inds = np.argwhere(uvd_inds).flatten()
+                for k, pol in enumerate(pol_array):
+                    if pol == -5:
+                        p1, p2 = x_sl, x_sl
+                    elif pol == -6:
+                        p1, p2 = y_sl, y_sl
+                    elif pol == -7:
+                        p1, p2 = x_sl, y_sl
                     else:
-                        out[:, :, p1, p2][:, :, ii, jj] = vis[uvd_inds, 0, :, k]
-                        out[:, :, p2, p1][:, :, jj, ii] = np.conj(
-                            vis[uvd_inds, 0, :, k]
-                        )
+                        p1, p2 = y_sl, x_sl
+
+                    if flipped:
+                        p1, p2 = p2, p1
+
+                    # NOTE: This is hard-coded to use new-style UVData arrays!
+                    # Go back to UVData shape
+                    _p = vis[:, :, p1, p2]
+                    for tidx, uvd_ind in enumerate(uvd_inds):
+                        out[uvd_ind, :, k] = _p[tidx, :, ii, jj]
+                        tidx += 1
         return out
 
     @numba.njit
