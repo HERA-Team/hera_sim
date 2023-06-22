@@ -23,7 +23,8 @@ class UVSim(VisibilitySimulator):
     def simulate(self, data_model: ModelData):
         """Simulate the visibilities."""
         beam_dict = {
-            ant: data_model.beam_ids[str(idx)]
+            # ant: data_model.beam_ids[str(idx)]
+            ant: data_model.beam_ids[ant]
             for idx, ant in enumerate(data_model.uvdata.antenna_names)
         }
 
