@@ -81,7 +81,9 @@ class ModelData:
 
         self.beams = self._process_beams(beams, normalize_beams)
         self.beam_ids = self._process_beam_ids(beam_ids, self.beams)
-        self._validate_beam_ids(self.beam_ids, self.beams)
+        # Temporary fix to account for len(beam_ids) != uvdata.Nants_data
+        # which arises when using the `bls` kwarg in a pyuvsim config file
+        # self._validate_beam_ids(self.beam_ids, self.beams)
 
         self.sky_model = sky_model
         self.sky_model.at_frequencies(self.freqs * units.Hz)
