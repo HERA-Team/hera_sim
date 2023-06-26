@@ -304,38 +304,3 @@ def vis_cli_argparser():
     )
 
     return parser
-
-    # args = parser.parse_args()
-
-    # logger.setLevel(args.log_level.upper())
-    # if args.profile and not logger.isEnabledFor(logging.INFO):
-    #     logger.setLevel(logging.INFO)
-
-    # if args.profile:
-    #     cprint(f"Profiling simulation. Output to {args.profile}")
-    #     from line_profiler import LineProfiler
-
-    #     profiler = LineProfiler()
-    #     profiler.add_function(main)
-
-    #     profiler.add_function(simulator.simulate)
-    #     for fnc in simulator._functions_to_profile:
-    #         profiler.add_function(fnc)
-
-    #     # Now add any user-defined functions that they want to be profiled.
-    #     # Functions must be sent in as "path.to.module:function_name" or
-    #     # "path.to.module:Class.method".
-    #     for fnc in args.profile_funcs:
-    #         module = importlib.import_module(fnc.split(":")[0])
-    #         _fnc = module
-    #         for att in fnc.split(":")[-1].split("."):
-    #             _fnc = getattr(_fnc, att)
-    #         profiler.add_function(_fnc)
-
-    # else:
-    #     profiler = None
-
-    # if args.profile:
-    #     profiler.runcall(main, args, profiler, simulator)
-    # else:
-    #     main(args, profiler, simulator)
