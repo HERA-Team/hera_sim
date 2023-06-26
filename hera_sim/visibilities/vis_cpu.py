@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import astropy.units as u
 import itertools
+import logging
 import numpy as np
 from astropy.coordinates import EarthLocation
 from astropy.time import Time
@@ -15,6 +16,8 @@ from vis_cpu import vis_cpu, vis_gpu
 from vis_cpu.cpu import _evaluate_beam_cpu, _wrangle_beams
 
 from .simulators import ModelData, VisibilitySimulator
+
+logger = logging.getLogger(__name__)
 
 
 class VisCPU(VisibilitySimulator):
@@ -56,6 +59,10 @@ class VisCPU(VisibilitySimulator):
     correct_source_positions
         Whether to correct the source positions using astropy and the reference time.
         Default is True if `ref_time` is given otherwise False.
+    check_antenna_conjugation
+        Whether to check the antenna conjugation. Default is True. This is a fairly
+        heavy operation if there are many antennas and/or many times, and can be
+        safely ignored if the data_model was created from a config file.
     **kwargs
         Passed through to :class:`~.simulators.VisibilitySimulator`.
 
@@ -74,6 +81,8 @@ class VisCPU(VisibilitySimulator):
         mpi_comm=None,
         ref_time: str | Time | None = None,
         correct_source_positions: bool | None = None,
+        check_antenna_conjugation: bool = True,
+        **kwargs,
     ):
         assert precision in {1, 2}
         self._precision = precision
@@ -102,8 +111,9 @@ class VisCPU(VisibilitySimulator):
             if correct_source_positions is None
             else correct_source_positions
         )
-
+        self.check_antenna_conjugation = check_antenna_conjugation
         self._functions_to_profile = (self._vis_cpu, _wrangle_beams, _evaluate_beam_cpu)
+        self.kwargs = kwargs
 
     def validate(self, data_model: ModelData):
         """Checks for correct input format."""
@@ -114,21 +124,26 @@ class VisCPU(VisibilitySimulator):
                 "but the UVData object does not comply."
             )
 
+        logger.info("Checking baseline-time axis shape")
         if len(data_model.uvdata.data_array) != len(
             data_model.uvdata.get_antpairs()
         ) * len(data_model.lsts):
             raise ValueError("VisCPU requires that every baseline uses the same LSTS.")
 
-        if any(
-            len(data_model.uvdata.antpair2ind(ai, aj)) > 0
-            and len(data_model.uvdata.antpair2ind(aj, ai)) > 0
-            for ai, aj in data_model.uvdata.get_antpairs()
-            if ai != aj
-        ):
-            raise ValueError(
-                "VisCPU requires that baselines be in a conjugation in which antenna "
-                "order doesn't change with time!"
-            )
+        if self.check_antenna_conjugation:
+            logger.info("Checking antenna conjugation")
+            # TODO: the following is extremely slow. If possible, it would be good to
+            # find a better way to do it.
+            if any(
+                len(data_model.uvdata.antpair2ind(ai, aj)) > 0
+                and len(data_model.uvdata.antpair2ind(aj, ai)) > 0
+                for ai, aj in data_model.uvdata.get_antpairs()
+                if ai != aj
+            ):
+                raise ValueError(
+                    "VisCPU requires that baselines be in a conjugation in which "
+                    "antenna order doesn't change with time!"
+                )
 
         uvbeam = data_model.beams[0]  # Representative beam
         uvdata = data_model.uvdata
@@ -148,7 +163,7 @@ class VisCPU(VisibilitySimulator):
         if do_pol:
             # Number of feeds must be two if doing polarized
             try:
-                nfeeds = uvbeam.data_array.shape[2]
+                nfeeds = uvbeam.data_array.shape[1 if uvbeam.future_array_shapes else 2]
             except AttributeError:
                 # TODO: the following assumes that analytic beams are 2 feeds unless
                 # otherwise specified. This should be fixed at the AnalyticBeam API
@@ -253,6 +268,7 @@ class VisCPU(VisibilitySimulator):
         )
 
         # Apply correction to point source positions
+        logger.info("Correcting Source Positions...")
         ra, dec = data_model.sky_model.ra, data_model.sky_model.dec
         return convs.equatorial_to_eci_coords(
             ra, dec, obstime, location, unit="rad", frame=frame
@@ -306,16 +322,16 @@ class VisCPU(VisibilitySimulator):
             nproc = self.mpi_comm.Get_size()
 
         if self.correct_source_positions:
-            # TODO: check if this is the right time to be using...
-            ra, dec = self.correct_point_source_pos(
-                data_model, obstime=Time(data_model.uvdata.time_array[0], format="jd")
-            )
+            ra, dec = self.correct_point_source_pos(data_model)
+            logger.info("Done correcting source positions.")
         else:
             ra, dec = data_model.sky_model.ra, data_model.sky_model.dec
 
+        logger.info("Getting Equatorial Coordinates")
         crd_eq = convs.point_source_crd_eq(ra, dec)
 
         # Convert equatorial to topocentric coords
+        logger.info("Getting Rotation Matrices")
         eq2tops = self.get_eq2tops(data_model.uvdata, data_model.lsts)
 
         # The following are antenna positions in the order that they are
@@ -323,7 +339,7 @@ class VisCPU(VisibilitySimulator):
         active_antpos, ant_list = data_model.uvdata.get_ENU_antpos(pick_data_ants=True)
 
         # Get pixelized beams if required
-
+        logger.info("Preparing Beams...")
         beam_list = [
             convs.prepare_beam(
                 beam,
@@ -348,12 +364,22 @@ class VisCPU(VisibilitySimulator):
         )
 
         # Empty visibility array
-        visfull = np.zeros_like(data_model.uvdata.data_array, dtype=self._complex_dtype)
+        if np.all(data_model.uvdata.data_array == 0):
+            # Here, we don't make new memory, because that is just a whole extra copy
+            # of the largest array in the calculation. Instead we fill the data_array
+            # directly.
+            visfull = data_model.uvdata.data_array
+        else:
+            visfull = np.zeros_like(
+                data_model.uvdata.data_array, dtype=self._complex_dtype
+            )
 
         for i, freq in enumerate(data_model.freqs):
             # Divide tasks between MPI workers if needed
             if self.mpi_comm is not None and i % nproc != myid:
                 continue
+
+            logger.info(f"Simulating Frequency {i+1}/{len(data_model.freqs)}")
 
             # Call vis_cpu function to simulate visibilities
             vis = self._vis_cpu(
@@ -364,10 +390,13 @@ class VisCPU(VisibilitySimulator):
                 I_sky=data_model.sky_model.stokes[0, i].to("Jy").value,
                 beam_list=beam_list,
                 beam_idx=beam_ids,
+                beam_spline_opts=data_model.beams.spline_interp_opts,
                 precision=self._precision,
                 polarized=polarized,
+                **self.kwargs,
             )
 
+            logger.info("... re-ordering visibilities...")
             self._reorder_vis(
                 req_pols, data_model.uvdata, visfull[:, 0, i], vis, ant_list, polarized
             )
@@ -376,28 +405,65 @@ class VisCPU(VisibilitySimulator):
         if self.mpi_comm is not None:
             visfull = self._reduce_mpi(visfull, myid)
 
-        return visfull
+        if visfull is data_model.uvdata.data_array:
+            # In the case that we were just fulling up the data array the whole time,
+            # we return zero, because this will be added to the data_array in the
+            # wrapper simulate() function.
+            return 0
+        else:
+            return visfull
 
     def _reorder_vis(self, req_pols, uvdata, visfull, vis, ant_list, polarized):
-        indices = np.triu_indices(vis.shape[-1])
+        ant1idx, ant2idx = np.triu_indices(vis.shape[-1])
 
-        for p, (p1, p2) in enumerate(req_pols):
-            for ant1, ant2 in zip(*indices):  # go through indices in output
-                vis_here = (
-                    vis[:, p1, p2, ant1, ant2] if polarized else vis[:, ant1, ant2]
-                )
-                # get official "antenna numbers" corresponding to these indices
-                antnum1, antnum2 = ant_list[ant1], ant_list[ant2]
+        try:
+            if (
+                getattr(uvdata, "blt_order", None) == ("time", "ant1")
+                and sorted(req_pols) == req_pols
+            ):
+                logger.info("Using direct setting of data without reordering")
+                # This is the best case scenario -- no need to reorder anything.
+                # It is also MUCH MUCH faster!
+                start_shape = visfull.shape
+                visfull.shape = (np.prod(visfull.shape),)  # flatten without copying
+                n = (uvdata.Nblts // vis.shape[0]) * len(req_pols)
+                for i, vis_here in enumerate(vis):
+                    if polarized:
+                        vis_here = vis_here.transpose(2, 3, 0, 1)[
+                            ant1idx, ant2idx
+                        ].reshape((-1,))
+                    else:
+                        vis_here = vis_here[:, ant1idx, ant2idx].reshape((-1,))
 
-                # get all blt indices corresponding to this antpair
-                indx = uvdata.antpair2ind(antnum1, antnum2)
-                if len(indx) == 0:
-                    # maybe we chose the wrong ordering according to the data. Then
-                    # we just conjugate.
-                    indx = uvdata.antpair2ind(antnum2, antnum1)
-                    vis_here = np.conj(vis_here)
+                    visfull[(i * n) : ((i + 1) * n)] = vis_here
+                visfull.shape = start_shape
+                return
+        except AttributeError:
+            pass
 
-                visfull[indx, p] = vis_here
+        logger.info(
+            f"Reordering baselines. Pols sorted: {sorted(req_pols) == req_pols}. "
+            f"Pols = {req_pols}. blt_order = {uvdata.blt_order}"
+        )
+        for ant1, ant2 in zip(ant1idx, ant2idx):  # go through indices in output
+            # get official "antenna numbers" corresponding to these indices
+            antnum1, antnum2 = ant_list[ant1], ant_list[ant2]
+
+            # get all blt indices corresponding to this antpair
+            indx = uvdata.antpair2ind(antnum1, antnum2)
+            if len(indx) == 0:
+                # maybe we chose the wrong ordering according to the data. Then
+                # we just conjugate.
+                indx = uvdata.antpair2ind(antnum2, antnum1)
+                vis_here = vis[..., ant2, ant1]
+            else:
+                vis_here = vis[..., ant1, ant2]
+
+            if polarized:
+                for p, (p1, p2) in enumerate(req_pols):
+                    visfull[indx, p] = vis_here[:, p1, p2]
+            else:
+                visfull[indx, 0] = vis_here
 
     def _get_req_pols(self, uvdata, uvbeam, polarized: bool) -> list[tuple[int, int]]:
         if not polarized:
@@ -439,3 +505,15 @@ class VisCPU(VisibilitySimulator):
             return _visfull
         else:
             return 0  # workers return 0
+
+    def compress_data_model(self, data_model: ModelData):
+        data_model.uvdata.uvw_array = 0
+        # data_model.uvdata.baseline_array = 0
+        data_model.uvdata.integration_time = data_model.uvdata.integration_time.item(0)
+
+    def restore_data_model(self, data_model: ModelData):
+        uv_obj = data_model.uvdata
+        uv_obj.integration_time = np.repeat(
+            uv_obj.integration_time, uv_obj.Nbls * uv_obj.Ntimes
+        )
+        uv_obj.set_uvws_from_antenna_positions()

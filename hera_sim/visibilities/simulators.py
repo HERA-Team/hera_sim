@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import astropy_healpix as aph
 import importlib
+import logging
 import numpy as np
 import yaml
 from abc import ABCMeta, abstractmethod
@@ -15,6 +16,7 @@ from pathlib import Path
 from pyradiosky import SkyModel
 from pyuvdata import UVBeam, UVData
 from pyuvsim import BeamList
+from pyuvsim import __version__ as uvsimv
 from pyuvsim import analyticbeam as ab
 from pyuvsim.simsetup import (
     _complete_uvdata,
@@ -28,6 +30,7 @@ from .. import __version__
 from .. import visibilities as vis
 
 BeamListType = Union[BeamList, list[Union[ab.AnalyticBeam, UVBeam]]]
+logger = logging.getLogger(__name__)
 
 
 class ModelData:
@@ -86,6 +89,7 @@ class ModelData:
 
         self.sky_model = sky_model
         self.sky_model.at_frequencies(self.freqs * units.Hz)
+
         if not isinstance(self.sky_model, SkyModel):
             raise TypeError("sky_model must be a SkyModel instance.")
 
@@ -180,10 +184,26 @@ class ModelData:
         cls, config_file: str | Path, normalize_beams: bool = False
     ) -> ModelData:
         """Initialize the :class:`ModelData` from a pyuvsim-compatible config."""
-        uvdata, beams, beam_ids = initialize_uvdata_from_params(config_file)
-        catalog = initialize_catalog_from_params(config_file, return_recarray=False)[0]
+        # Don't reorder the blt axis, because each simulator might do it differently.
+        logger.info("Initializing UVData object...")
+        uvdata, beams, beam_ids = initialize_uvdata_from_params(
+            config_file,
+            reorder_blt_kw={},
+            check_kw={"run_check_acceptability": False},
+        )
 
-        _complete_uvdata(uvdata, inplace=True)
+        logger.info("Initializing Sky Model...")
+        if uvsimv > "1.2.5":
+            catalog = initialize_catalog_from_params(config_file)[0]
+        else:
+            catalog = initialize_catalog_from_params(
+                config_file, return_recarray=False
+            )[0]
+
+        logger.info("Completing UVData object...")
+        _complete_uvdata(
+            uvdata, inplace=True, check_kw={"run_check_acceptability": False}
+        )
 
         return ModelData(
             uvdata=uvdata,
@@ -270,7 +290,17 @@ class VisibilitySimulation:
 
     def __post_init__(self):
         """Perform simple validation on combined attributes."""
+        logging.info("blt_order vissim: {data_model.uvdata.blt_order}")
+        if self.simulator._blt_order_kws is not None:
+            logger.info(
+                "Re-ordering baseline-time axis with params: "
+                f"{self.simulator._blt_order_kws}"
+            )
+            self.data_model.uvdata.reorder_blts(**self.simulator._blt_order_kws)
+
+        logger.info("Validating data model")
         self.simulator.validate(self.data_model)
+        logger.info("Done validation.")
 
         # Convert the sky model to either point source or healpix depending on the
         # simulator's capabilities.
@@ -329,13 +359,16 @@ class VisibilitySimulation:
 
     def simulate(self):
         """Perform the visibility simulation."""
-        # Order the baselines/times in the order expected by the simulator.
+        self.simulator.compress_data_model(self.data_model)
         vis = self.simulator.simulate(self.data_model)
-
         self.uvdata.data_array += vis
         self._write_history()
+        self.simulator.restore_data_model(self.data_model)
 
-        return vis
+        if isinstance(vis, np.ndarray):
+            return vis
+        else:
+            return self.uvdata.data_array
 
     @property
     def uvdata(self) -> UVData:
@@ -378,6 +411,10 @@ class VisibilitySimulator(metaclass=ABCMeta):
 
     #: Any underlying functions that are called and we may want to do profiling on.
     _functions_to_profile = ()
+
+    #: Keyword arguments to use in ordering the baseline-time axis of the incoming
+    #: UVData object, if necessasry. A dict, or None.
+    _blt_order_kws = None
 
     __version__ = "unknown"
 
@@ -423,6 +460,17 @@ class VisibilitySimulator(metaclass=ABCMeta):
           more accurate estimate.
         """
         return data_model.uvdata.data_array.nbytes / 1024**3
+
+    def compress_data_model(self, data_model):  # noqa: B027
+        """Temporarily delete/remove data from the model to reduce memory usage.
+
+        Anything that is removed here should be restored after the simulation.
+        """
+        pass
+
+    def restore_data_model(self, data_model):  # noqa: B027
+        """Restore data from the model removed by :func:`compress_data_model`."""
+        pass
 
 
 def load_simulator_from_yaml(config: Path | str) -> VisibilitySimulator:

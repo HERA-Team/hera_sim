@@ -1,4 +1,4 @@
-exclude: 'config.yaml|config_examples/.*.yaml|hera_sim/config/H1C.yaml|hera_sim/config/H2C.yaml|setup.py'
+exclude: 'config.yaml|config_examples/.*.yaml|hera_sim/config/H1C.yaml|hera_sim/config/H2C.yaml|setup.py|hera_sim/tests/testdata/hera-sim-vis-config/NF_HERA_Dipole_small.fits'
 
 repos:
 - repo: https://github.com/pre-commit/pre-commit-hooks

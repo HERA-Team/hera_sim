@@ -15,6 +15,8 @@ class UVSim(VisibilitySimulator):
         If True, don't print anything.
     """
 
+    _blt_order_kws = {"order": "time", "minor_order": "baseline"}
+
     _functions_to_profile = (pyuvsim.uvsim.run_uvdata_uvsim,)
 
     def __init__(self, quiet: bool = False):
@@ -23,8 +25,7 @@ class UVSim(VisibilitySimulator):
     def simulate(self, data_model: ModelData):
         """Simulate the visibilities."""
         beam_dict = {
-            ant: data_model.beam_ids[str(idx)]
-            for idx, ant in enumerate(data_model.uvdata.antenna_names)
+            ant: data_model.beam_ids[ant] for ant in data_model.uvdata.antenna_names
         }
 
         # TODO: this can be removed once

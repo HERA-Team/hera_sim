@@ -189,9 +189,9 @@ def modulate_with_dipole(az, za, freqs, ref_freq, beam_vals, fscale):
     modulus = np.abs(pol_efield_beam)
     phase = np.angle(pol_efield_beam)
     # assume linear shift of phase along frequency
-    shift = -np.pi / 18e6 * (freqs[:, np.newaxis] - ref_freq)  # shape (Nfreq, 1)
+    shift = -np.pi / 18e6 * (freqs - ref_freq)  # shape (Nfreq, )
     # shift the phase
-    phase += shift[np.newaxis, np.newaxis, :, :]
+    phase += shift[np.newaxis, np.newaxis, :, np.newaxis]
     # upscale the modulus
     modulus = np.power(modulus, 0.6)  # ad-hoc
     # map the phase to [-pi; +pi]
@@ -640,7 +640,6 @@ class PerturbedPolyBeam(PolyBeam):
             freq_array=freq_array,
             reuse_spline=reuse_spline,
         )
-
         # Smooth step function
         step = 0.5 * (
             1.0 + np.tanh((za_array - self.mainlobe_width) / self.transition_width)
@@ -657,9 +656,7 @@ class PerturbedPolyBeam(PolyBeam):
         p_freq = np.atleast_1d(self.freq_perturb_scale * p_freq)
 
         # Modulate primary beam by sidelobe perturbation function
-        interp_data *= 1.0 + (step * p_za)[np.newaxis, :] * (
-            1.0 + p_freq[:, np.newaxis]
-        )
+        interp_data *= 1.0 + np.outer(1.0 + p_freq, step * p_za)
 
         # Add mainlobe stretch factor
         if self.mainlobe_scale != 1.0:
@@ -736,8 +733,8 @@ class ZernikeBeam(AnalyticBeam):
 
         # Frequency scaling
         fscale = (freq_array / self.ref_freq) ** self.spectral_index
-        radial_coord = za_array[np.newaxis, ...] / fscale[:, np.newaxis]
-        axial_coord = az_array[np.newaxis, ...]
+        radial_coord = za_array / fscale
+        axial_coord = az_array
 
         # Primary beam values from Zernike polynomial
         values = self.zernike(
