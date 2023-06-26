@@ -2,6 +2,43 @@
 Changelog
 =========
 
+v4.1.0 [2023.06.26]
+===================
+This release heavily focuses on performance of the visibility simulators, and in
+particular the ``VisCPU`` simulator.
+
+Fixed
+-----
+- Passing ``spline_interp_opts`` now correctly pipes these options through to the
+  visibility simulators.
+
+Added
+-----
+- New ``_blt_order_kws`` class-attribute for ``VisibilitySimulator`` subclasses, that
+  can be used to create the mock metadata in an order corresponding to that required
+  by the simulator (instead of re-ordering after data creation, which can take some
+  time).
+- New optional ``compress_data_model()`` method on ``VisibilitySimulator`` subclasses
+  that allows unnecessary metadata in the ``UVData`` object to be dropped before
+  simulation (can be restored afterwards with the associated ``restore_data_model()``).
+  This can reduce peak memory usage.
+- New ``check_antenna_conjugation`` parameter for the ``VisCPU`` simulator, to allow
+  turning off checks for antenna conjugation, which takes time and is unnecessary for
+  mock datasets.
+- Dependency on ``hera-cli-utils`` which adds options like ``--log-level`` and ``--profile``
+  to ``hera-sim-vis.py``.
+
+Changed
+-------
+- ``run_check_acceptability`` is now ``False`` by default when constructing simulations
+  from obsparams configuration files, to improve performance.
+- For ``VisCPU`` simulator, we no longer copy the whole data array when simulating, but
+  instead just fill the existing one, to save on peak RAM.
+- Made ``VisCPU._reorder_vis()`` much faster (like 99% time reduction).
+- The ``--compress`` option to ``hera-sim-vis.py`` is no longer a boolean flag but
+  takes a file argument. This file will be written as a cache of the baseline-time indices
+  required to keep when compressing by redundancy.
+
 v4.0.0 [2023.05.22]
 ===================
 
