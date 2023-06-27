@@ -2,6 +2,18 @@
 Changelog
 =========
 
+v4.0.1 [2023.06.27]
+===================
+
+Added
+-----
+- Option to use a taper in generating a bandpass.
+- ``utils.tanh_window`` function for generating a two-sided tanh window.
+- ``interpolators.Reflection`` class for building a complex reflection
+  coefficient interpolator from a ``npz`` archive.
+- Reflection coefficient and beam integral ``npz`` archives for the phase 1
+  and phase 4 systems (i.e., dipole feed and Vivaldi feed).
+
 v4.0.0 [2023.05.22]
 ===================
 
