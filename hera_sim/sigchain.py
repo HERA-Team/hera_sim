@@ -22,6 +22,13 @@ from . import DATA_PATH, interpolators, utils
 from .components import component
 from .defaults import _defaults
 
+try:
+    from uvtools.dspec import gen_window
+
+    HAVE_UVTOOLS = True
+except ModuleNotFoundError:
+    HAVE_UVTOOLS = False
+
 
 @component
 class Gain:
@@ -35,14 +42,21 @@ class Bandpass(Gain):
 
     Parameters
     ----------
-    gain_spread : float, optional
-        Standard deviation of random gains.
-    dly_rng : tuple, optional
-        Lower and upper range of delays which are uniformly sampled.
-    bp_poly : callable or array_like, optional
-        If an array, polynomial coefficients to evaluate. Otherwise, a function
-        of frequency that can be evaluated to generate real numbers giving
-        the bandpass gain.
+    gain_spread
+        Standard deviation of random gains. Default is about 10% variation across
+        antennas.
+    dly_rng
+        Lower and upper range of delays which are uniformly sampled, in nanoseconds.
+        Default is -20 ns to +20 ns.
+    bp_poly
+        Either an array of polynomial coefficients, a callable object that provides
+        the bandpass amplitude as a function of frequency (in GHz), or a string
+        providing a path to a file that can be read into an interpolation object.
+        By default, the HERA Phase One bandpass is used.
+    taper
+        Taper to apply to the simulated gains. Default is to not apply a taper.
+    taper_kwds
+        Keyword arguments used in generating the taper.
     """
 
     _alias = ("gains", "bandpass_gain")
@@ -52,8 +66,21 @@ class Bandpass(Gain):
         ants="antpos",
     )
 
-    def __init__(self, gain_spread=0.1, dly_rng=(-20, 20), bp_poly=None):
-        super().__init__(gain_spread=gain_spread, dly_rng=dly_rng, bp_poly=bp_poly)
+    def __init__(
+        self,
+        gain_spread: float | np.ndarray = 0.1,
+        dly_rng: tuple = (-20, 20),
+        bp_poly: str | callable | np.ndarray | None = None,
+        taper: str | callable | np.ndarray | None = None,
+        taper_kwds: dict | None = None,
+    ):
+        super().__init__(
+            gain_spread=gain_spread,
+            dly_rng=dly_rng,
+            bp_poly=bp_poly,
+            taper=taper,
+            taper_kwds=taper_kwds,
+        )
 
     def __call__(self, freqs, ants, **kwargs):
         """Generate the bandpass.
@@ -75,7 +102,9 @@ class Bandpass(Gain):
         self._check_kwargs(**kwargs)
 
         # unpack the kwargs
-        (gain_spread, dly_rng, bp_poly) = self._extract_kwarg_values(**kwargs)
+        (gain_spread, dly_rng, bp_poly, taper, taper_kwds) = self._extract_kwarg_values(
+            **kwargs
+        )
 
         # get the bandpass gains
         bandpass = self._gen_bandpass(freqs, ants, gain_spread, bp_poly)
@@ -83,7 +112,29 @@ class Bandpass(Gain):
         # get the delay phases
         phase = self._gen_delay_phase(freqs, ants, dly_rng)
 
-        return {ant: bandpass[ant] * phase[ant] for ant in ants}
+        if taper is None:
+            taper = np.ones(freqs.size)
+        elif isinstance(taper, str):
+            if taper_kwds is None:
+                taper_kwds = {}
+            if taper == "tanh":
+                taper = utils.tanh_window(freqs, **taper_kwds)
+            elif HAVE_UVTOOLS:
+                taper = gen_window(taper, freqs.size, **taper_kwds)
+            else:  # pragma: no cover
+                taper = np.ones(freqs.size)
+                warnings.warn(
+                    "uvtools is not installed, so you must provide the taper.",
+                    stacklevel=1,
+                )
+        elif callable(taper):
+            if taper_kwds is None:
+                taper_kwds = {}
+            taper = taper(freqs, **taper_kwds)
+        elif not isinstance(taper, np.ndarray):
+            raise ValueError("Unsupported choice of taper.")
+
+        return {ant: bandpass[ant] * phase[ant] * taper for ant in ants}
 
     @_defaults
     def _gen_bandpass(self, freqs, ants, gain_spread=0.1, bp_poly=None):
@@ -941,8 +992,6 @@ class MutualCoupling(Crosstalk):
     @staticmethod
     def build_coupling_matrix(
         freqs: np.ndarray,
-        ant_1_array: np.ndarray,
-        ant_2_array: np.ndarray,
         array_layout: dict,
         uvbeam: UVBeam | str,
         reflection: np.ndarray | Callable | None = None,
@@ -960,13 +1009,6 @@ class MutualCoupling(Crosstalk):
         ----------
         freqs
             The observed frequencies, in GHz.
-        ant_1_array
-            Array of integers specifying the number of the first antenna in each
-            visibility. Required for calculating the coupling matrix and the
-            coupled visibilities.
-        ant_2_array
-            Array of integers specifying the number of the second antenna in each
-            visibility.
         array_layout
             Dictionary mapping antenna numbers to their positions in local East-
             North-Up coordinates, expressed in meters. Not required if providing
