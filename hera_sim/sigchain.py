@@ -17,11 +17,17 @@ from pyuvsim import AnalyticBeam
 from scipy import stats
 from scipy.signal import blackmanharris
 from typing import Callable
-from uvtools.dspec import gen_window
 
 from . import DATA_PATH, interpolators, utils
 from .components import component
 from .defaults import _defaults
+
+try:
+    from uvtools.dspec import gen_window
+
+    HAVE_UVTOOLS = True
+except ModuleNotFoundError:
+    HAVE_UVTOOLS = False
 
 
 @component
@@ -113,8 +119,14 @@ class Bandpass(Gain):
                 taper_kwds = {}
             if taper == "tanh":
                 taper = utils.tanh_window(freqs, **taper_kwds)
-            else:
+            elif HAVE_UVTOOLS:
                 taper = gen_window(taper, freqs.size, **taper_kwds)
+            else:  # pragma: no cover
+                taper = np.ones(freqs.size)
+                warnings.warn(
+                    "uvtools is not installed, so you must provide the taper.",
+                    stacklevel=1,
+                )
         elif callable(taper):
             if taper_kwds is None:
                 taper_kwds = {}
