@@ -1,4 +1,6 @@
 """Useful helper functions and argparsers for running simulations via CLI."""
+from __future__ import annotations
+
 import itertools
 import numpy as np
 import os

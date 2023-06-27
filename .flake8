@@ -15,6 +15,8 @@ ignore =
     RST210,
     # Logging statement uses f-string.
     G004,
+    # Logging statement uses + (this makes no sense...)
+    G003,
 max-line-length = 88
 # Should be 18.
 max-complexity = 35

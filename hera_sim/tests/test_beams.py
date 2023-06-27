@@ -61,7 +61,7 @@ def evaluate_polybeam(polybeam):
     za = np.pi / 2 - np.arcsin(n)
 
     freqs = np.arange(1e8, 2.01e8, 0.04e8)
-
+    print(len(freqs))
     eval_beam = polybeam.interp(az, za, freqs)
 
     # Check that calling the interp() method with wrongly sized
