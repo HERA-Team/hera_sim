@@ -304,3 +304,47 @@ def vis_cli_argparser():
     )
 
     return parser
+
+
+def init_vis_outfiles(
+    obsparam: str | Path,
+    nchans: int | None = None,
+    ntimes: int | None = None,
+    nbls: int | None = None,
+    npols: int | None = None,
+) -> None:
+    """Initialize output files for hera-sim-vis.
+
+    This function takes an obsparam configuration a full simulation, and decides on how
+    to write these to files (and also initializes these files). It has an advantage over
+    the basic write from pyuvsim in that it can split the simulation into multiple
+    files, and also the other way: write multiple simulations into a single file.
+
+    Parameters
+    ----------
+    obsparam : str or Path
+        Path to obsparam file to configure the output.
+    nchans : int, optional
+        Number of channels for each output file (regardless of how many channels
+        are in the simulation).
+    ntimes : int, optional
+        Number of times for each output file (regardless of how many times
+        are in the simulation).
+    nbls : int, optional
+        Number of baselines for each output file (regardless of how many baselines
+        are in the simulation).
+    npols : int, optional
+        Number of polarizations for each output file (regardless of how many
+        polarizations are in the simulation).
+    """
+    # Read obsparams to get filing config
+    with open(obsparam) as fl:
+        obsparam_dict = yaml.safe_load(fl)
+
+    cfg_filing = obsparam_dict["filing"]
+    base_path = Path(cfg_filing["outdir"])
+    base_path.mkdir(parents=True, exist_ok=True)
+    outfile = base_path / f"{cfg_filing['outfile_name']}.{cfg_filing['output_format']}"
+    clobber = cfg_filing.get("clobber", False)
+
+    return outfile, clobber
