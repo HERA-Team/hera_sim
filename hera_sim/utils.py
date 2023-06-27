@@ -681,6 +681,25 @@ def find_baseline_orientations(
     return antpair2angle
 
 
+def tanh_window(x, x_min=None, x_max=None, scale_low=1, scale_high=1):
+    if x_min is None and x_max is None:
+        warnings.warn(
+            "Insufficient information provided; you must provide either x_min or "
+            "x_max. Returning uniform window.",
+            stacklevel=1,
+        )
+        return np.ones(x.size)
+
+    window = np.ones(x.size)
+    if x_min is not None:
+        window *= 0.5 * (1 + np.tanh((x - x_min) / scale_low))
+
+    if x_max is not None:
+        window *= 0.5 * (1 + np.tanh((x_max - x) / scale_high))
+
+    return window
+
+
 # Just some numba-fied helpful functions.
 # Note that coverage can't see that these are run without disabling JIT,
 # which kind of defeats the purpose of testing it.

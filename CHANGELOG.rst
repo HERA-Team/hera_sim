@@ -27,6 +27,12 @@ Added
   mock datasets.
 - Dependency on ``hera-cli-utils`` which adds options like ``--log-level`` and ``--profile``
   to ``hera-sim-vis.py``.
+- Option to use a taper in generating a bandpass.
+- ``utils.tanh_window`` function for generating a two-sided tanh window.
+- ``interpolators.Reflection`` class for building a complex reflection
+  coefficient interpolator from a ``npz`` archive.
+- Reflection coefficient and beam integral ``npz`` archives for the phase 1
+  and phase 4 systems (i.e., dipole feed and Vivaldi feed).
 
 Changed
 -------
