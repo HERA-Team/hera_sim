@@ -14,6 +14,12 @@
 from pkg_resources import get_distribution
 
 __version__ = get_distribution("hera_sim").version
+
+# Do the following to see if hera_sim can be imported properly, and throw a reasonable
+# error with traceback if not.
+import hera_sim
+
+del hera_sim
 # -- Project information -----------------------------------------------------
 
 project = "hera_sim"
