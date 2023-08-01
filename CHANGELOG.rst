@@ -2,6 +2,13 @@
 Changelog
 =========
 
+dev
+===
+
+Fixed
+-----
+- API calls for pyuvdata v2.4.0.
+
 v4.1.0 [2023.06.26]
 ===================
 This release heavily focuses on performance of the visibility simulators, and in
