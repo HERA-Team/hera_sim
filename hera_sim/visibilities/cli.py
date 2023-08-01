@@ -228,6 +228,8 @@ def run_vis_sim(args):
                     lst_range=None,
                     polarizations=None,
                     blt_inds=None,
+                    phase_center_ids=None,
+                    catalog_names=None,
                 )[0]
 
                 np.save(args.compress, blt_inds)

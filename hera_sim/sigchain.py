@@ -1086,12 +1086,15 @@ class MutualCoupling(Crosstalk):
             else:
                 power_beam = uvbeam.copy()
                 power_beam.efield_to_power()
-                if power_beam.interpolation_function is None:
-                    power_beam.interpolation_function = pixel_interp
+                # if power_beam.interpolation_function is None:
+                #    power_beam.interpolation_function = pixel_interp
                 if power_beam.freq_interp_kind is None:
                     power_beam.freq_interp_kind = freq_interp
                 power_beam = power_beam.interp(
-                    freq_array=freqs * units.GHz.to("Hz"), new_object=True
+                    freq_array=freqs * units.GHz.to("Hz"),
+                    new_object=True,
+                    interpolation_function=pixel_interp,
+                    #                    freq_interp_func=freq_interp,
                 )  # Interpolate to the desired frequencies
                 power_beam.to_healpix()
                 power_beam.peak_normalize()
