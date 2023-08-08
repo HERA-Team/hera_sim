@@ -464,8 +464,8 @@ def test_mutual_coupling(use_numba):
             taper="bh",
         )
         for ak in uvdata.antenna_numbers:
-            dly_ik = -delays[(ai, ak)]
-            dly_kj = delays[(ak, aj)]  # This coupling term is conjugated.
+            dly_ik = delays[(ai, ak)]
+            dly_kj = -delays[(ak, aj)]
             frate_ik = fringe_rates[(ai, ak)]
             frate_kj = fringe_rates[(ak, aj)]
 
