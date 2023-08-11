@@ -789,7 +789,7 @@ def rephase_to_reference(
             vis = data[antpairpol]
             bl = bls[antpairpol]
             new_data[this_slice, :, pol_ind] = lst_rephase(
-                vis, bl, data.freqs, dlst, lat=lat, array=True
+                vis, bl, data.freqs, dlst, lat=lat, inplace=False, array=True
             )
 
     # Convert from HERAData object to UVData object
