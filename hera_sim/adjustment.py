@@ -1,6 +1,5 @@
 """Module providing tools for adjusting simulation data/metadata to a reference."""
 
-import copy
 import logging
 import numpy as np
 import os
@@ -274,7 +273,7 @@ def match_antennas(
     target = _to_uvdata(target)
     if not target.future_array_shapes:  # pragma: nocover
         target.use_future_array_shapes()
-    target_copy = copy.deepcopy(target)
+    target_copy = target.copy()
     reference = _to_uvdata(reference)
     if not reference.future_array_shapes:  # pragma: nocover
         reference.use_future_array_shapes()
@@ -517,6 +516,12 @@ def interpolate_to_reference(
 
     # Ensure reference parameters are a subset of target parameters.
     if axis in ("time", "both"):
+        # Raise an error if the phasing isn't trivial
+        if not target._check_for_cat_type("unprojected").all():
+            raise ValueError(
+                "Time interpolation only supported for unprojected telescopes."
+            )
+
         # Unwrap the LST axis if we have a phase wrap.
         if iswrapped(target_lsts):
             target_lsts[target_lsts < target_lsts[0]] += 2 * np.pi
@@ -546,6 +551,12 @@ def interpolate_to_reference(
         new_baseline_array = np.empty(new_Nblts, dtype=int)
         new_uvw_array = np.empty((new_Nblts, 3), dtype=float)
         new_integration_times = np.empty(new_Nblts, dtype=float)
+        new_phase_center_id_array = np.zeros(new_Nblts, dtype=int)
+        new_phase_center_app_ra = np.empty(new_Nblts, dtype=float)
+        new_phase_center_app_dec = (
+            np.ones(new_Nblts, dtype=float) * target.phase_center_app_dec[0]
+        )
+        new_phase_center_frame_pa = np.zeros(new_Nblts, dtype=float)
         if axis == "both":
             new_data_shape = (new_Nblts, ref_freqs.size, target.Npols)
         else:
@@ -556,6 +567,7 @@ def interpolate_to_reference(
 
     # Actually update metadata and interpolate the data.
     new_data = np.empty(new_data_shape, dtype=complex)
+    history_update = "" if target.history.endswith("\n") else "\n"
     for i, antpair in enumerate(target.get_antpairs()):
         if axis == "freq":
             for pol_ind, pol in enumerate(target.polarization_array):
@@ -571,10 +583,10 @@ def interpolate_to_reference(
         # Preparation for updating metadata.
         ant1, ant2 = antpair
         this_slice = slice(i, None, target.Nbls)
-        old_blt = target._key2inds(antpair)[0][0]  # As a reference
-        this_uvw = target.uvw_array[old_blt]
-        this_baseline = target.baseline_array[old_blt]
-        this_integration_time = target.integration_time[old_blt]
+        old_blts = target._key2inds(antpair)[0]  # As a reference
+        this_uvw = target.uvw_array[old_blts[0]]
+        this_baseline = target.baseline_array[old_blts[0]]
+        this_integration_time = target.integration_time[old_blts[0]]
 
         # Now actually update the metadata.
         new_ant_1_array[this_slice] = ant1
@@ -584,6 +596,10 @@ def interpolate_to_reference(
         new_time_array[this_slice] = ref_times
         new_lst_array[this_slice] = ref_lsts
         new_integration_times[this_slice] = this_integration_time
+        phase_center_interp = interp1d(
+            target_lsts, target.phase_center_app_ra[old_blts], kind="linear"
+        )
+        new_phase_center_app_dec[this_slice] = phase_center_interp(ref_lsts)
 
         # Update the data.
         for pol_ind, pol in enumerate(target.polarization_array):
@@ -617,6 +633,7 @@ def interpolate_to_reference(
     if axis in ("freq", "both"):
         target.Nfreqs = ref_freqs.size
         target.freq_array = ref_freqs
+        history_update += "Data interpolated in frequency with hera_sim.\n"
     if axis in ("time", "both"):
         target.Nblts = ref_times.size * target.Nbls
         target.Ntimes = ref_times.size
@@ -627,9 +644,14 @@ def interpolate_to_reference(
         target.baseline_array = new_baseline_array
         target.uvw_array = new_uvw_array
         target.integration_time = new_integration_times
+        target.phase_center_app_dec = new_phase_center_app_dec
+        target.phase_center_app_ra = new_phase_center_app_ra
+        target.phase_center_id_array = new_phase_center_id_array
+        target.phase_center_frame_pa = new_phase_center_frame_pa
         target.blt_order = None
+        history_update += "Data interpolated in time with hera_sim.\n"
 
-    # Now update the data-like attributes
+    # Now update the data-like attributes; assumes input is unflagged, unavged
     target.flag_array = np.zeros(new_data.shape, dtype=bool)
     target.nsample_array = np.ones(new_data.shape, dtype=float)
     target.data_array = new_data
