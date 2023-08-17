@@ -106,7 +106,7 @@ def empty_uvdata(
     # This is a bit of a hack, but this seems like the only way?
     if pyuvdata.__version__ < "2.2.0":
         uvd.set_drift()
-    else:
+    elif next(iter(uvd.phase_center_catalog.values()))["cat_type"] != "unprojected":
         uvd.fix_phase()
 
     # TODO: the following is a hack patch for pyuvsim which should be fixed there.

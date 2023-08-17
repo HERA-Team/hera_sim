@@ -449,6 +449,27 @@ def test_interpolation_in_frequency_with_simulators(base_config, base_sim):
     assert interpolated_sim.data.Nfreqs == base_config["Nfreqs"]
 
 
+def test_interpolation_phased(base_config, base_sim):
+    base_config["Nfreqs"] = 200  # Increase frequency resolution.
+    base_config["start_freq"] = 105e6  # Ensure reference sim freqs contained in target.
+    base_config["bandwidth"] = 40e6
+    ref_sim = Simulator(**base_config)
+
+    # Simulate foregrounds.
+    base_sim.add("diffuse_foreground", Tsky_mdl=Tsky_mdl, omega_p=omega_p)
+    base_sim.data.phase_center_catalog[0]["cat_type"] = "sidereal"
+
+    # Interpolate base_sim to ref_sim along the frequency axis.
+    with pytest.raises(
+        ValueError, match="Time interpolation only supported for unprojected telescopes"
+    ):
+        adjustment.interpolate_to_reference(
+            target=base_sim,
+            reference=ref_sim,
+            axis="time",
+        )
+
+
 def test_interpolation_in_frequency_with_array(base_config, base_sim):
     # Do the same as above, but this time pass a frequency array.
     ref_freqs = np.linspace(105e6, 145e6, 200)  # Hz
