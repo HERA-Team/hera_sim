@@ -92,6 +92,7 @@ def get_sky_model(uvdata, nsource):
         spectral_index=sources[:, 3],
         stokes=stokes * units.Jy,
         reference_frequency=Quantity(reference_frequency, "Hz"),
+        frame="icrs",
     )
 
     # Calculate stokes at all the frequencies.
