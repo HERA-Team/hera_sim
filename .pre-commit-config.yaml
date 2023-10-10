@@ -2,7 +2,7 @@ exclude: 'config.yaml|config_examples/.*.yaml|hera_sim/config/H1C.yaml|hera_sim/
 
 repos:
 - repo: https://github.com/pre-commit/pre-commit-hooks
-  rev: v4.4.0
+  rev: v4.5.0
   hooks:
   - id: trailing-whitespace
   - id: check-added-large-files
@@ -47,7 +47,7 @@ repos:
   - id: isort
 
 - repo: https://github.com/asottile/pyupgrade
-  rev: v3.14.0
+  rev: v3.15.0
   hooks:
   - id: pyupgrade
     args: [--py39-plus]
