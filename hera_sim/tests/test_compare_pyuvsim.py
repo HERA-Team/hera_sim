@@ -151,7 +151,7 @@ def get_beams(beam_type, polarized):
     ],
 )
 def test_compare_matvis_with_pyuvsim(uvdata_allpols, nsource, beam_type, polarized):
-    """Compare vis_cpu and pyuvsim simulated visibilities."""
+    """Compare matvis and pyuvsim simulated visibilities."""
     sky_model = get_sky_model(uvdata_allpols, nsource)
 
     # Beam models
@@ -159,7 +159,7 @@ def test_compare_matvis_with_pyuvsim(uvdata_allpols, nsource, beam_type, polariz
     beam_dict = {str(i): 0 for i in range(nants)}
 
     # ---------------------------------------------------------------------------
-    # (1) Run vis_cpu
+    # (1) Run matvis
     # ---------------------------------------------------------------------------
     # Trim unwanted polarizations
     uvdata_matvis = copy.deepcopy(uvdata_allpols)
