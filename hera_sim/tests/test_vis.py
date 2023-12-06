@@ -7,6 +7,7 @@ from astropy import time as apt
 from astropy import units
 from astropy.coordinates.angles import Latitude, Longitude
 from astropy.units import rad, sday
+from matvis import HAVE_GPU
 from pathlib import Path
 from pyradiosky import SkyModel
 from pyuvsim.analyticbeam import AnalyticBeam
@@ -22,7 +23,6 @@ from hera_sim.visibilities import (
     VisibilitySimulation,
     load_simulator_from_yaml,
 )
-from vis_cpu import HAVE_GPU
 
 SIMULATORS = (MatVis, UVSim)
 
