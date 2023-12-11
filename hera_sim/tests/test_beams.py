@@ -16,7 +16,7 @@ from hera_sim.beams import (
     stokes_matrix,
 )
 from hera_sim.defaults import defaults
-from hera_sim.visibilities import ModelData, VisCPU, VisibilitySimulation
+from hera_sim.visibilities import MatVis, ModelData, VisibilitySimulation
 
 np.seterr(invalid="ignore")
 
@@ -118,7 +118,7 @@ def run_sim(
     # calculate source fluxes for hera_sim
     flux = (freqs[:, np.newaxis] / freqs[0]) ** spectral_index * flux
 
-    simulator = VisCPU(
+    simulator = MatVis(
         use_gpu=use_gpu,
         mpi_comm=DummyMPIComm() if use_mpi else None,
         precision=2,

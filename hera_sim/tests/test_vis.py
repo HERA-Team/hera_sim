@@ -7,6 +7,7 @@ from astropy import time as apt
 from astropy import units
 from astropy.coordinates.angles import Latitude, Longitude
 from astropy.units import rad, sday
+from matvis import HAVE_GPU
 from pathlib import Path
 from pyradiosky import SkyModel
 from pyuvsim.analyticbeam import AnalyticBeam
@@ -16,20 +17,19 @@ from hera_sim import io
 from hera_sim.beams import PolyBeam
 from hera_sim.defaults import defaults
 from hera_sim.visibilities import (
+    MatVis,
     ModelData,
     UVSim,
-    VisCPU,
     VisibilitySimulation,
     load_simulator_from_yaml,
 )
-from vis_cpu import HAVE_GPU
 
-SIMULATORS = (VisCPU, UVSim)
+SIMULATORS = (MatVis, UVSim)
 
 if HAVE_GPU:
 
-    class VisGPU(VisCPU):
-        """Simple mock class to make testing VisCPU with use_gpu=True easier"""
+    class VisGPU(MatVis):
+        """Simple mock class to make testing MatVis with use_gpu=True easier"""
 
         def __init__(self, *args, **kwargs):
             super().__init__(*args, use_gpu=True, ref_time="min", **kwargs)
@@ -111,7 +111,7 @@ def sky_modelJD(uvdataJD):
 def test_JD(uvdata, uvdataJD, sky_model):
     model_data = ModelData(sky_model=sky_model, uvdata=uvdata)
 
-    vis = VisCPU()
+    vis = MatVis()
 
     sim1 = VisibilitySimulation(data_model=model_data, simulator=vis).simulate()
 
@@ -125,7 +125,7 @@ def test_JD(uvdata, uvdataJD, sky_model):
 
 def test_vis_cpu_estimate_memory(uvdata, uvdataJD, sky_model):
     model_data = ModelData(sky_model=sky_model, uvdata=uvdata)
-    vis = VisCPU()
+    vis = MatVis()
     mem = vis.estimate_memory(model_data)
     assert mem > 0
 
@@ -262,7 +262,7 @@ def test_shapes(uvdata, simulator):
 @pytest.mark.parametrize("precision, cdtype", [(1, np.complex64), (2, complex)])
 def test_dtypes(uvdata, precision, cdtype):
     sky = create_uniform_sky(np.unique(uvdata.freq_array))
-    vis = VisCPU(precision=precision)
+    vis = MatVis(precision=precision)
 
     # If data_array is empty, then we never create new vis, and the returned value
     # is literally the data array, so we should expect to get complex128 regardless.
@@ -356,19 +356,19 @@ def test_single_source_autocorr_past_horizon(uvdata, simulator):
     assert np.abs(np.mean(v)) == 0
 
 
-def test_viscpu_coordinate_correction(uvdata2):
+def test_matvis_coordinate_correction(uvdata2):
     sim = VisibilitySimulation(
         data_model=ModelData(
             uvdata=uvdata2,
             sky_model=zenith_sky_model(uvdata2),
         ),
-        simulator=VisCPU(
+        simulator=MatVis(
             correct_source_positions=True, ref_time="2018-08-31T04:02:30.11"
         ),
     )
 
     # Apply correction
-    # viscpu.correct_point_source_pos(obstime="2018-08-31T04:02:30.11", frame="icrs")
+    # matvis.correct_point_source_pos(obstime="2018-08-31T04:02:30.11", frame="icrs")
     v = sim.simulate().copy()
     assert np.all(~np.isnan(v))
 
@@ -377,7 +377,7 @@ def test_viscpu_coordinate_correction(uvdata2):
             uvdata=uvdata2,
             sky_model=zenith_sky_model(uvdata2),
         ),
-        simulator=VisCPU(
+        simulator=MatVis(
             correct_source_positions=True,
             ref_time=apt.Time("2018-08-31T04:02:30.11", format="isot", scale="utc"),
         ),
@@ -526,7 +526,7 @@ def test_vis_cpu_pol(polarization_array, xfail):
     )
 
     beam = PolyBeam(polarized=False)
-    simulator = VisCPU()
+    simulator = MatVis()
 
     if xfail:
         with pytest.raises(KeyError):
@@ -567,7 +567,7 @@ def test_vis_cpu_stokespol(uvdata_linear, sky_model):
     with pytest.raises(ValueError):
         VisibilitySimulation(
             data_model=ModelData(uvdata=uvdata_linear, sky_model=sky_model),
-            simulator=VisCPU(),
+            simulator=MatVis(),
         )
 
 
@@ -585,10 +585,10 @@ def test_str_uvdata(uvdata, sky_model, tmp_path):
     assert model_data.uvdata.Nants_data == uvdata.Nants_data
 
 
-def test_ref_time_viscpu(uvdata2):
-    vc_mean = VisCPU(ref_time="mean")
-    vc_min = VisCPU(ref_time="min")
-    vc_max = VisCPU(ref_time="max")
+def test_ref_time_matvis(uvdata2):
+    vc_mean = MatVis(ref_time="mean")
+    vc_min = MatVis(ref_time="min")
+    vc_max = MatVis(ref_time="max")
 
     sky_model = half_sky_model(uvdata2)
 
@@ -615,10 +615,10 @@ def test_load_from_yaml(tmpdir):
     example_dir = Path(__file__).parent.parent.parent / "config_examples"
 
     simulator = load_simulator_from_yaml(example_dir / "simulator.yaml")
-    assert isinstance(simulator, VisCPU)
+    assert isinstance(simulator, MatVis)
     assert simulator.ref_time == "mean"
 
-    sim2 = VisCPU.from_yaml(example_dir / "simulator.yaml")
+    sim2 = MatVis.from_yaml(example_dir / "simulator.yaml")
 
     assert sim2.ref_time == simulator.ref_time
     assert sim2.diffuse_ability == simulator.diffuse_ability

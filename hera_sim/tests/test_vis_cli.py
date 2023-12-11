@@ -60,7 +60,7 @@ def test_vis_cli(tmp_path_factory):
         parser,
         [
             str(cfg),
-            str(DATA_PATH / "viscpu.yaml"),
+            str(DATA_PATH / "matvis_cpu.yaml"),
             "--compress",
             str(outdir / "compression-cache.npy"),
             "--normalize_beams",
@@ -85,12 +85,12 @@ def test_vis_cli_dry(tmp_path_factory):
         parser,
         [
             str(cfg),
-            str(DATA_PATH / "viscpu.yaml"),
+            str(DATA_PATH / "matvis_cpu.yaml"),
             "--compress",
             str(outdir / "compression-cache.npy"),
             "--dry",
             "--object_name",
-            "viscpu",
+            "matvis",
         ],
     )
 
