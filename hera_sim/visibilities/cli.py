@@ -167,7 +167,7 @@ def run_vis_sim(args):
         comm.Barrier()
         sys.exit(0)
 
-    if myid == 0:
+    if args.run_auto_check:
         # Check imaginary of xx/yy autos and fix non-real values if the option is
         # selected in the arguments
         # xxpol = data_model.uvdata.get_data("xx")
@@ -204,64 +204,60 @@ def run_vis_sim(args):
                 f"{max_xx_autos_to_abs:1.2e}."
             )
 
-        if args.compress:
-            logger.info("Compressing data by redundancy... ")
-            # Here, we don't call the convenience function directly, because we want to
-            # be able to short-circuit the process by reading in a file.
-            if not Path(args.compress).exists():
-                red_gps = data_model.uvdata.get_redundancies(
-                    tol=1.0, include_conjugates=True
-                )[0]
-                bl_ants = [
-                    data_model.uvdata.baseline_to_antnums(gp[0]) for gp in red_gps
-                ]
-                blt_inds = data_model.uvdata._select_preprocess(
-                    antenna_nums=None,
-                    antenna_names=None,
-                    ant_str=None,
-                    bls=bl_ants,
-                    frequencies=None,
-                    freq_chans=None,
-                    times=None,
-                    time_range=None,
-                    lsts=None,
-                    lst_range=None,
-                    polarizations=None,
-                    blt_inds=None,
-                    phase_center_ids=None,
-                    catalog_names=None,
-                )[0]
+    if args.compress:
+        logger.info("Compressing data by redundancy... ")
+        # Here, we don't call the convenience function directly, because we want to
+        # be able to short-circuit the process by reading in a file.
+        if not Path(args.compress).exists():
+            red_gps = data_model.uvdata.get_redundancies(
+                tol=1.0, include_conjugates=True
+            )[0]
+            bl_ants = [data_model.uvdata.baseline_to_antnums(gp[0]) for gp in red_gps]
+            blt_inds = data_model.uvdata._select_preprocess(
+                antenna_nums=None,
+                antenna_names=None,
+                ant_str=None,
+                bls=bl_ants,
+                frequencies=None,
+                freq_chans=None,
+                times=None,
+                time_range=None,
+                lsts=None,
+                lst_range=None,
+                polarizations=None,
+                blt_inds=None,
+                phase_center_ids=None,
+                catalog_names=None,
+            )[0]
 
-                np.save(args.compress, blt_inds)
-            else:
-                blt_inds = np.load(args.compress)
+            np.save(args.compress, blt_inds)
+        else:
+            blt_inds = np.load(args.compress)
 
-            data_model.uvdata._select_by_index(
-                blt_inds, None, None, "Compressed by redundancy", keep_all_metadata=True
-            )
-
-            logger.info("Done with compression.")
-
-        # Read obsparams to get filing config
-        with open(args.obsparam) as file:
-            obsparam_dict = yaml.safe_load(file)
-        cfg_filing = obsparam_dict["filing"]
-        base_path = Path(cfg_filing["outdir"])
-        base_path.mkdir(parents=True, exist_ok=True)
-        outfile = (
-            base_path / f"{cfg_filing['outfile_name']}.{cfg_filing['output_format']}"
+        data_model.uvdata._select_by_index(
+            blt_inds, None, None, "Compressed by redundancy", keep_all_metadata=True
         )
-        clobber = cfg_filing.get("clobber", False)
 
-        # Write output
-        logger.info("Writing output... ")
-        data_model.uvdata.write_uvh5(
-            outfile.as_posix(),
-            clobber=clobber,
-            run_check=False,
-            run_check_acceptability=False,
-        )
-        logger.info("Done Writing.")
+        logger.info("Done with compression.")
+
+    # Read obsparams to get filing config
+    with open(args.obsparam) as file:
+        obsparam_dict = yaml.safe_load(file)
+    cfg_filing = obsparam_dict["filing"]
+    base_path = Path(cfg_filing["outdir"])
+    base_path.mkdir(parents=True, exist_ok=True)
+    outfile = base_path / f"{cfg_filing['outfile_name']}.{cfg_filing['output_format']}"
+    clobber = cfg_filing.get("clobber", False)
+
+    # Write output
+    logger.info("Writing output... ")
+    data_model.uvdata.write_uvh5(
+        outfile.as_posix(),
+        clobber=clobber,
+        run_check=False,
+        run_check_acceptability=False,
+    )
+    logger.info("Done Writing.")
 
     # Sync with other workers and finalise
     if HAVE_MPI:
@@ -303,6 +299,9 @@ def vis_cli_argparser():
         "--dry-run",
         action="store_true",
         help="If set, create the simulator and data model but don't run simulation.",
+    )
+    parser.add_argument(
+        "--run-auto-check", action="store_true", help="whether to check autos are real"
     )
 
     return parser
