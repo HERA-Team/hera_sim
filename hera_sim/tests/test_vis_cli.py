@@ -73,6 +73,8 @@ def test_vis_cli(tmp_path_factory):
     assert "out.uvh5" in contents
 
     # Run again to use the compression cache.
+    # But this time, check the autos...
+    args.run_auto_check = True
     run_vis_sim(args)
 
 
