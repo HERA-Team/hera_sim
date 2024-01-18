@@ -14,4 +14,4 @@ if __name__ == "__main__":
     parser = vis_cli_argparser()
     args = parse_args(parser)
 
-    run_with_profiling(run_vis_sim, args)
+    run_with_profiling(run_vis_sim, args, args)

@@ -16,7 +16,7 @@ from hera_sim.beams import (
     stokes_matrix,
 )
 from hera_sim.defaults import defaults
-from hera_sim.visibilities import ModelData, VisCPU, VisibilitySimulation
+from hera_sim.visibilities import MatVis, ModelData, VisibilitySimulation
 
 np.seterr(invalid="ignore")
 
@@ -61,7 +61,7 @@ def evaluate_polybeam(polybeam):
     za = np.pi / 2 - np.arcsin(n)
 
     freqs = np.arange(1e8, 2.01e8, 0.04e8)
-    print(len(freqs))
+
     eval_beam = polybeam.interp(az, za, freqs)
 
     # Check that calling the interp() method with wrongly sized
@@ -118,7 +118,7 @@ def run_sim(
     # calculate source fluxes for hera_sim
     flux = (freqs[:, np.newaxis] / freqs[0]) ** spectral_index * flux
 
-    simulator = VisCPU(
+    simulator = MatVis(
         use_gpu=use_gpu,
         mpi_comm=DummyMPIComm() if use_mpi else None,
         precision=2,
@@ -137,6 +137,7 @@ def run_sim(
             )
             * units.Jy,
             name=["derp"] * flux.shape[1],
+            frame="icrs",
         ),
     )
     simulation = VisibilitySimulation(

@@ -302,7 +302,7 @@ def list_all_components(with_aliases: bool = True) -> str:
     for cmp, models in cmps.items():
         out += f"{cmp}:\n"
 
-        model_to_name = defaultdict(lambda: [])
+        model_to_name = defaultdict(list)
         for name, model in models.items():
             model_to_name[model].append(name)
 

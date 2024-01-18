@@ -13,7 +13,7 @@ from pyuvsim.telescope import BeamList
 
 from hera_sim import io
 from hera_sim.beams import PolyBeam
-from hera_sim.visibilities import ModelData, VisCPU, VisibilitySimulation
+from hera_sim.visibilities import MatVis, ModelData, VisibilitySimulation
 
 nfreq = 3
 ntime = 20
@@ -92,6 +92,7 @@ def get_sky_model(uvdata, nsource):
         spectral_index=sources[:, 3],
         stokes=stokes * units.Jy,
         reference_frequency=Quantity(reference_frequency, "Hz"),
+        frame="icrs",
     )
 
     # Calculate stokes at all the frequencies.
@@ -149,8 +150,8 @@ def get_beams(beam_type, polarized):
         (100, "PolyBeam", True),
     ],
 )
-def test_compare_viscpu_with_pyuvsim(uvdata_allpols, nsource, beam_type, polarized):
-    """Compare vis_cpu and pyuvsim simulated visibilities."""
+def test_compare_matvis_with_pyuvsim(uvdata_allpols, nsource, beam_type, polarized):
+    """Compare matvis and pyuvsim simulated visibilities."""
     sky_model = get_sky_model(uvdata_allpols, nsource)
 
     # Beam models
@@ -158,16 +159,16 @@ def test_compare_viscpu_with_pyuvsim(uvdata_allpols, nsource, beam_type, polariz
     beam_dict = {str(i): 0 for i in range(nants)}
 
     # ---------------------------------------------------------------------------
-    # (1) Run vis_cpu
+    # (1) Run matvis
     # ---------------------------------------------------------------------------
     # Trim unwanted polarizations
-    uvdata_viscpu = copy.deepcopy(uvdata_allpols)
+    uvdata_matvis = copy.deepcopy(uvdata_allpols)
 
     if not polarized:
-        uvdata_viscpu.select(polarizations=["ee"], inplace=True)
+        uvdata_matvis.select(polarizations=["ee"], inplace=True)
 
     # Construct simulator object and run
-    simulator = VisCPU(
+    simulator = MatVis(
         ref_time=Time("2018-08-31T04:02:30.11", format="isot", scale="utc"),
         use_gpu=False,
     )
@@ -181,13 +182,13 @@ def test_compare_viscpu_with_pyuvsim(uvdata_allpols, nsource, beam_type, polariz
 
     sim = VisibilitySimulation(
         data_model=ModelData(
-            uvdata=uvdata_viscpu, sky_model=sky_model, beams=vis_cpu_beams
+            uvdata=uvdata_matvis, sky_model=sky_model, beams=vis_cpu_beams
         ),
         simulator=simulator,
     )
 
     sim.simulate()
-    uvd_viscpu = sim.uvdata
+    uvd_matvis = sim.uvdata
 
     # ---------------------------------------------------------------------------
     # (2) Run pyuvsim
@@ -219,7 +220,7 @@ def test_compare_viscpu_with_pyuvsim(uvdata_allpols, nsource, beam_type, polariz
             print("Baseline: ", i, j)
             np.testing.assert_allclose(
                 uvd_uvsim.get_data((i, j, "xx")),
-                uvd_viscpu.get_data((i, j, "xx")),
+                uvd_matvis.get_data((i, j, "xx")),
                 atol=atol,
                 rtol=rtol,
             )

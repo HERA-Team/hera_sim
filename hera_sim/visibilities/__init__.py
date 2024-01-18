@@ -20,7 +20,7 @@ from .simulators import (
 
 
 try:
-    from .vis_cpu import VisCPU
+    from .matvis import MatVis
 except (ImportError, NameError):  # pragma: no cover
     pass
 

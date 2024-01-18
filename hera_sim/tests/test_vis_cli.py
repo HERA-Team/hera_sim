@@ -60,7 +60,7 @@ def test_vis_cli(tmp_path_factory):
         parser,
         [
             str(cfg),
-            str(DATA_PATH / "viscpu.yaml"),
+            str(DATA_PATH / "matvis_cpu.yaml"),
             "--compress",
             str(outdir / "compression-cache.npy"),
             "--normalize_beams",
@@ -73,6 +73,8 @@ def test_vis_cli(tmp_path_factory):
     assert "out.uvh5" in contents
 
     # Run again to use the compression cache.
+    # But this time, check the autos...
+    args.run_auto_check = True
     run_vis_sim(args)
 
 
@@ -85,12 +87,12 @@ def test_vis_cli_dry(tmp_path_factory):
         parser,
         [
             str(cfg),
-            str(DATA_PATH / "viscpu.yaml"),
+            str(DATA_PATH / "matvis_cpu.yaml"),
             "--compress",
             str(outdir / "compression-cache.npy"),
             "--dry",
             "--object_name",
-            "viscpu",
+            "matvis",
         ],
     )
 
