@@ -727,7 +727,7 @@ class MutualCoupling(Crosstalk):
     .. math::
 
         {\bf X}_{jk} \equiv \frac{i\eta_0}{4\lambda} \frac{\Gamma_k}{R_k}
-        \frac{e^{-i2\pi\nu\tau_{jk}}}{b_{jk}} {\bf J}_j (\hat{\bf b}_{jk})
+        \frac{e^{i2\pi\nu\tau_{jk}}}{b_{jk}} {\bf J}_j (\hat{\bf b}_{jk})
         {\bf J}_k(\hat{\bf b}_{kj})^\dagger h_0^2,
 
     where :math:`\Gamma` is the reflection coefficient, :math:`R` is the real
@@ -765,7 +765,7 @@ class MutualCoupling(Crosstalk):
 
     .. math::
 
-        {\bf X}_{jk} = \frac{i\Gamma}{\Omega_p} \frac{e^{-i2\pi\nu\tau_{jk}}}
+        {\bf X}_{jk} = \frac{i\Gamma}{\Omega_p} \frac{e^{i2\pi\nu\tau_{jk}}}
         {b_{jk}/\lambda} {\bf J}(\hat{\bf b}_{jk}) {\bf J}(\hat{\bf b}_{kj})^\dagger.
 
     In order to efficiently simulate the mutual coupling, the antenna and
@@ -969,10 +969,11 @@ class MutualCoupling(Crosstalk):
 
         # Now actually calculate the mutual coupling.
         xt_vis = utils.matmul(
+            coupling_matrix,
             visibilities,
-            coupling_matrix.conj().transpose(0, 1, 3, 2).copy(),
             use_numba=use_numba,
-        ) + utils.matmul(coupling_matrix, visibilities, use_numba=use_numba)
+        )
+        xt_vis += xt_vis.conj().transpose(0, 1, 3, 2)
 
         # Return something with the same shape as the input data array.
         return utils.reshape_vis(
@@ -1162,7 +1163,7 @@ class MutualCoupling(Crosstalk):
                 # then this is where we would do it.
                 bl_len = np.linalg.norm(enu_antpos[j] - enu_antpos[i])
                 delay = np.exp(
-                    -2j * np.pi * freqs * bl_len / constants.c.to("m/ns").value
+                    2j * np.pi * freqs * bl_len / constants.c.to("m/ns").value
                 ).reshape(-1, 1, 1)
                 coupling = delay * jones_prod / bl_len
 
