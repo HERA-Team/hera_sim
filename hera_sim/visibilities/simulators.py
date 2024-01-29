@@ -1,4 +1,5 @@
 """Module defining a high-level visibility simulator wrapper."""
+
 from __future__ import annotations
 
 import astropy_healpix as aph

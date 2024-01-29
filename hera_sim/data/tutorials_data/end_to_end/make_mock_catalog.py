@@ -1,4 +1,5 @@
 """Script for making a mock point source catalog."""
+
 import argparse
 import numpy as np
 from astropy import units

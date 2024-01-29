@@ -403,9 +403,9 @@ def match_antennas(
         # Update the baseline array in case the antenna numbers got jumbled.
         old_bl_int = target.antnums_to_baseline(ant1, ant2)
         new_bl_int = target.antnums_to_baseline(*new_antpairpol[:2])
-        target_copy.baseline_array[
-            target_copy.baseline_array == old_bl_int
-        ] = new_bl_int
+        target_copy.baseline_array[target_copy.baseline_array == old_bl_int] = (
+            new_bl_int
+        )
 
     # Update the uvw array just to be safe.
     target_copy.set_uvws_from_antenna_positions()
