@@ -1,4 +1,5 @@
 """Compare vis_cpu with pyuvsim visibilities."""
+
 import pytest
 
 import copy

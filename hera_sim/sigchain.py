@@ -3,6 +3,7 @@
 This module defines several models of systematics that arise in the signal chain, for
 example bandpass gains, reflections and cross-talk.
 """
+
 from __future__ import annotations
 
 import astropy_healpix as aph

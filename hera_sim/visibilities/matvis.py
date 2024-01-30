@@ -1,4 +1,5 @@
 """Wrapper for matvis visibility simulator."""
+
 from __future__ import annotations
 
 import astropy.units as u

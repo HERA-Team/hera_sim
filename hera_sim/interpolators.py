@@ -1,4 +1,5 @@
 """This module provides interfaces to different interpolation classes."""
+
 import numpy as np
 import warnings
 from cached_property import cached_property

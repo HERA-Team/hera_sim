@@ -345,9 +345,7 @@ class Defaults(metaclass=_Singleton):
                 arg: (
                     passed_args[arg]
                     if arg in passed_args
-                    else new_args[arg]
-                    if self._override_defaults
-                    else old_kwargs[arg]
+                    else new_args[arg] if self._override_defaults else old_kwargs[arg]
                 )
                 for arg in keys
             }

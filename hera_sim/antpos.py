@@ -4,6 +4,7 @@ Input parameters vary between functions, but all functions return a
 dictionary whose keys refer to antenna numbers and whose values refer
 to the ENU position of the antennas.
 """
+
 import numpy as np
 
 from .components import component

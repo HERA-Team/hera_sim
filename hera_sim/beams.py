@@ -1,4 +1,5 @@
 """Module defining analytic polynomial beams."""
+
 import numpy as np
 from numpy.polynomial.chebyshev import chebval
 from pyuvsim import AnalyticBeam
