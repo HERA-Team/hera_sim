@@ -413,7 +413,7 @@ class MatVis(VisibilitySimulator):
             return visfull
 
     def _reorder_vis(self, req_pols, uvdata, visfull, vis, ant_list, polarized):
-        ant1idx, ant2idx = np.triu_indices(vis.shape[-1])
+        ant1idx, ant2idx = np.tril_indices(vis.shape[-1])
 
         try:
             if (
