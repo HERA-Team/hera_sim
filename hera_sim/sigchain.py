@@ -16,7 +16,7 @@ from pathlib import Path
 from pyuvdata import UVBeam
 from pyuvsim import AnalyticBeam
 from scipy import stats
-from scipy.signal import blackmanharris
+from scipy.signal.windows import blackmanharris
 from typing import Callable
 
 from . import DATA_PATH, interpolators, utils
