@@ -6,6 +6,7 @@ For detailed instructions on how to manage a simulation using the
 :class:`Simulator`, please refer to the tutorials.
 """
 
+import contextlib
 import functools
 import inspect
 import numpy as np
@@ -1390,9 +1391,7 @@ class Simulator:
         component: Union[str, type[SimulationComponent], SimulationComponent]
     ) -> Union[SimulationComponent, type[SimulationComponent]]:
         """Normalize a component to be either a class or instance."""
-        if issubclass(component, SimulationComponent):
-            return component
-        elif isinstance(component, str):
+        if isinstance(component, str):
             try:
                 return get_model(component)
             except KeyError:
@@ -1403,6 +1402,9 @@ class Simulator:
         elif isinstance(component, SimulationComponent):
             return component
         else:
+            with contextlib.suppress(TypeError):
+                if issubclass(component, SimulationComponent):
+                    return component
             raise TypeError(
                 "The input type for the component was not understood. "
                 "Must be a string, or a class/instance of type 'SimulationComponent'. "
@@ -1435,11 +1437,13 @@ class Simulator:
         """Find out the (lowercase) name of a provided model."""
         if isinstance(model, str):
             return model.lower()
-        elif issubclass(model, SimulationComponent):
-            return model.__name__.lower()
         elif isinstance(model, SimulationComponent):
             return model.__class__.__name__.lower()
         else:
+            with contextlib.suppress(TypeError):
+                if issubclass(model, SimulationComponent):
+                    return model.__name__.lower()
+
             raise TypeError(
                 "You are trying to simulate an effect using a custom function. "
                 "Please refer to the tutorial for instructions regarding how "

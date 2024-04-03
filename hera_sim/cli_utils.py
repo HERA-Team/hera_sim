@@ -155,7 +155,7 @@ def write_calfits(
     # Update gain keys to conform to write_cal assumptions.
     # New Simulator gains have keys (ant, pol), so shouldn't need
     # special pre-processing.
-    if all(issubclass(type(ant), np.generic) for ant in gains.keys()):
+    if all(np.isscalar(ant) for ant in gains.keys()):
         # Old-style, single polarization assumption.
         gains = {(ant, "Jee"): gain for ant, gain in gains.items()}
 
