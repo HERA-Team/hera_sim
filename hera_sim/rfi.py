@@ -96,14 +96,15 @@ class RfiStation:
         ch2 = ch1 + 1 if self.f0 > freqs[ch1] else ch1 - 1
 
         # generate some random phases
-        phs1, phs2 = np.random.uniform(0, 2 * np.pi, size=2)
+        rng = np.random.default_rng()
+        phs1, phs2 = rng.uniform(0, 2 * np.pi, size=2)
 
         # find out when the station is broadcasting
         is_on = 0.999 * np.cos(lsts * u.sday.to("s") / self.timescale + phs1)
         is_on = is_on > (1 - 2 * self.duty_cycle)
 
         # generate a signal and filter it according to when it's on
-        signal = np.random.normal(self.strength, self.std, lsts.size)
+        signal = rng.normal(self.strength, self.std, lsts.size)
         signal = np.where(is_on, signal, 0) * np.exp(1j * phs2)
 
         # now add the signal to the rfi array
@@ -484,8 +485,8 @@ class DTV(RFI):
                     "values with the same length as the number of DTV "
                     "bands specified. For reference, the DTV bands you "
                     "specified have the following characteristics: \n"
-                    "f_min : {fmin} \nf_max : {fmax}\n N_bands : "
-                    "{Nchan}".format(fmin=bands[0], fmax=bands[-1], Nchan=Nchan)
+                    f"f_min : {bands[0]} \nf_max : {bands[-1]}\n N_bands : "
+                    f"{Nchan}"
                 )
 
             # everything should be in order now, so

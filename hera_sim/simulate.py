@@ -727,7 +727,7 @@ class Simulator:
                 return not pol == vis_filter[0]
             # Otherwise, assume that this specifies an antenna.
             else:
-                return not vis_filter[0] in (ant1, ant2)
+                return vis_filter[0] not in (ant1, ant2)
         elif len(vis_filter) == 2:
             # TODO: This will need to be updated when we support ant strings.
             # Three cases: two pols; an ant+pol; a baseline.
@@ -756,7 +756,7 @@ class Simulator:
             for key in vis_filter:
                 if isinstance(key, str):
                     pols.append(key)
-                elif type(key) is int:
+                elif isinstance(key, int):
                     ants.append(key)
             # We want polarization and ant1 or ant2 in the filter.
             # This would be used in simulating e.g. a few feeds that have an
@@ -1228,7 +1228,7 @@ class Simulator:
         """
         if seed is None:
             return
-        if type(seed) is int:
+        if isinstance(seed, int):
             np.random.seed(seed)
             return seed
         if not isinstance(seed, str):
@@ -1390,7 +1390,7 @@ class Simulator:
         component: Union[str, type[SimulationComponent], SimulationComponent]
     ) -> Union[SimulationComponent, type[SimulationComponent]]:
         """Normalize a component to be either a class or instance."""
-        if np.issubclass_(component, SimulationComponent):
+        if issubclass(component, SimulationComponent):
             return component
         elif isinstance(component, str):
             try:
@@ -1435,7 +1435,7 @@ class Simulator:
         """Find out the (lowercase) name of a provided model."""
         if isinstance(model, str):
             return model.lower()
-        elif np.issubclass_(model, SimulationComponent):
+        elif issubclass(model, SimulationComponent):
             return model.__name__.lower()
         elif isinstance(model, SimulationComponent):
             return model.__class__.__name__.lower()
@@ -1472,7 +1472,7 @@ class Simulator:
                     "pair with a polarization string."
                 )
             if len(key) == 2:
-                if all(type(val) is int for val in key):
+                if all(isinstance(val, int) for val in key):
                     ant1, ant2 = key
                     pol = None
                 else:

@@ -61,7 +61,7 @@ def validate_config(config: dict):
         is not valid.
     """
     if config.get("defaults") is not None:
-        if type(config["defaults"]) is not str:
+        if not isinstance(config["defaults"], str):
             raise ValueError(
                 "Defaults in the CLI may only be specified using a string. "
                 "The string used may specify either a path to a configuration "
@@ -155,7 +155,7 @@ def write_calfits(
     # Update gain keys to conform to write_cal assumptions.
     # New Simulator gains have keys (ant, pol), so shouldn't need
     # special pre-processing.
-    if all(np.issctype(type(ant)) for ant in gains.keys()):
+    if all(issubclass(type(ant), np.generic) for ant in gains.keys()):
         # Old-style, single polarization assumption.
         gains = {(ant, "Jee"): gain for ant, gain in gains.items()}
 

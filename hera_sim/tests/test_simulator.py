@@ -418,10 +418,10 @@ def test_run_sim():
     # write something to it
     with open(tmp_sim_file, "w") as sim_file:
         sim_file.write(
-            """
+            f"""
             diffuse_foreground:
                 Tsky_mdl: !Tsky
-                    datafile: {}/HERA_Tsky_Reformatted.npz
+                    datafile: {DATA_PATH}/HERA_Tsky_Reformatted.npz
                     pol: yy
             pntsrc_foreground:
                 nsrcs: 500
@@ -436,16 +436,14 @@ def test_run_sim():
                 phs: 2.1123
             thermal_noise:
                 Tsky_mdl: !Tsky
-                    datafile: {}/HERA_Tsky_Reformatted.npz
+                    datafile: {DATA_PATH}/HERA_Tsky_Reformatted.npz
                     pol: xx
                 integration_time: 9.72
             rfi_scatter:
                 scatter_chance: 0.99
                 scatter_strength: 5.7
                 scatter_std: 2.2
-                """.format(
-                DATA_PATH, DATA_PATH
-            )
+                """
         )
     sim = create_sim(autos=True)
     sim.run_sim(tmp_sim_file)
