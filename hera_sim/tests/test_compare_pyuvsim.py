@@ -14,7 +14,7 @@ from pyuvsim.telescope import BeamList
 
 from hera_sim import io
 from hera_sim.beams import PolyBeam
-from hera_sim.visibilities import MatVis, FFTVis, ModelData, VisibilitySimulation
+from hera_sim.visibilities import FFTVis, MatVis, ModelData, VisibilitySimulation
 
 nfreq = 3
 ntime = 20

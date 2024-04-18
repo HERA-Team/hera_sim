@@ -2,17 +2,16 @@
 
 from __future__ import annotations
 
-
+import fftvis
 import logging
 import numpy as np
 from astropy.time import Time
-import fftvis
-from matvis import conversions as convs
 from fftvis.beams import _evaluate_beam
 from fftvis.utils import get_pos_reds
+from matvis import conversions as convs
 
-from .simulators import ModelData, VisibilitySimulator
 from .matvis import MatVis
+from .simulators import ModelData, VisibilitySimulator
 
 logger = logging.getLogger(__name__)
 
