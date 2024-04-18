@@ -29,3 +29,8 @@ try:
     from .healvis_wrapper import HealVis
 except (ImportError, NameError):  # pragma: no cover
     pass
+
+try:
+    from .fftvis import FFTVis
+except (ImportError, NameError):  # pragma: no cover
+    pass
