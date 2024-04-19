@@ -19,7 +19,8 @@ class FFTVis(MatVis):
     """
     fftvis visibility simulator.
 
-    This is a fast, non-uniform FFT-based visibility simulator.
+    This is a fast visibility simulator based on the Flatiron Non-Uniform Fast Fourier
+    Transform (finufft). 
 
     Parameters
     ----------
@@ -40,8 +41,6 @@ class FFTVis(MatVis):
         Allowed values:
         - 1: float32, complex64
         - 2: float64, complex128
-    use_gpu : bool, optional
-        Whether to use the GPU version of fftvis or not. Default: False.
     mpi_comm : MPI communicator
         MPI communicator, for parallelization.
     ref_time
@@ -66,12 +65,12 @@ class FFTVis(MatVis):
     time_ordering = "time"
 
     diffuse_ability = False
-    # __version__ = __version__ # Fill in the version number here
+    __version__ = "1.0.0"  # Fill in the version number here
 
     def __init__(
         self,
+        *,
         precision: int = 1,
-        use_gpu: bool = False,
         mpi_comm=None,
         ref_time: str | Time | None = None,
         correct_source_positions: bool | None = None,
@@ -87,11 +86,6 @@ class FFTVis(MatVis):
             self._real_dtype = float
             self._complex_dtype = complex
 
-        if use_gpu:
-            raise ImportError("GPU acceleration is currently not supported for fftvis.")
-
-        self._fftvis = fftvis.simulate.simulate
-
         self.mpi_comm = mpi_comm
         self.ref_time = ref_time
         self.correct_source_positions = (
@@ -105,17 +99,8 @@ class FFTVis(MatVis):
 
     def validate(self, data_model: ModelData):
         """Checks for correct input format."""
-        # N(N-1)/2 unique cross-correlations + N autocorrelations.
-        # if data_model.uvdata.Nbls != data_model.n_ant * (data_model.n_ant + 1) / 2:
-        #    raise ValueError(
-        #        "FFTVis requires using every pair of antennas, "
-        #        "but the UVData object does not comply."
-        #    )
-
         logger.info("Checking baseline-time axis shape")
-        if len(data_model.uvdata.data_array) != len(
-            data_model.uvdata.get_antpairs()
-        ) * len(data_model.lsts):
+        if not data_model.uvdata.blts_are_rectangular:
             raise ValueError("FFTVis requires that every baseline uses the same LSTS.")
 
         if self.check_antenna_conjugation:
@@ -129,7 +114,7 @@ class FFTVis(MatVis):
                 if ai != aj
             ):
                 raise ValueError(
-                    "MatVis requires that baselines be in a conjugation in which "
+                    "FFTVis requires that baselines be in a conjugation in which "
                     "antenna order doesn't change with time!"
                 )
 
@@ -217,7 +202,7 @@ class FFTVis(MatVis):
 
     def simulate(self, data_model):
         """
-        Calls :func:fftvis to perform the visibility calculation.
+        Calls :func:`fftvis` to perform the visibility calculation.
 
         Returns
         -------
@@ -255,6 +240,9 @@ class FFTVis(MatVis):
             for ant_index, antpos in zip(ant_list, active_antpos_array)
         }
 
+        # Get all the antenna pairs
+        antpairs = data_model.uvdata.get_antpairs()
+
         # Get pixelized beams if required
         logger.info("Preparing Beams...")
         beam = convs.prepare_beam(
@@ -287,7 +275,7 @@ class FFTVis(MatVis):
             logger.info(f"Simulating Frequency {i+1}/{len(data_model.freqs)}")
 
             # Call fftvis function to simulate visibilities
-            vis = self._fftvis(
+            vis = fftvis.simulate.simulate(
                 ants=active_antpos,
                 freqs=np.array([freq]),
                 eq2tops=eq2tops,
@@ -297,12 +285,20 @@ class FFTVis(MatVis):
                 beam_spline_opts=data_model.beams.spline_interp_opts,
                 precision=self._precision,
                 polarized=polarized,
+                baselines=antpairs,
                 **self.kwargs,
             )[0]
 
+            # Fill in the full visibility array
+            # if polarized:
+            #    for p, (p1, p2) in enumerate(req_pols):
+            #        visfull[:, 0, i, p] = vis[:, p1, p2].reshape(-1)
+            # else:
+            #   visfull[:, 0, i, 0] = vis.reshape(-1)
+
             logger.info("... re-ordering visibilities...")
             self._reorder_vis(
-                req_pols, data_model.uvdata, visfull[:, 0, i], vis, ant_list, polarized
+                req_pols, data_model.uvdata, visfull[:, 0, i], vis, antpairs, polarized
             )
 
         # Reduce visfull array if in MPI mode
@@ -316,3 +312,42 @@ class FFTVis(MatVis):
             return 0
         else:
             return visfull
+
+    def _reorder_vis(self, req_pols, uvdata, visfull, vis, antpairs, polarized):
+        try:
+            if getattr(uvdata, "blt_order", None)[0] == "time":
+                logger.info("Using direct setting of data without reordering")
+                # This is the best case scenario -- no need to reorder anything.
+                # It is also MUCH MUCH faster!
+                if polarized:
+                    for p, (p1, p2) in enumerate(req_pols):
+                        visfull[:, p] = vis[:, p1, p2].reshape(-1)
+                else:
+                    visfull[:, 0] = vis.reshape(-1)
+                return
+        except AttributeError:
+            pass
+
+        logger.info(
+            f"Reordering baselines. Pols sorted: {sorted(req_pols) == req_pols}. "
+            f"Pols = {req_pols}. blt_order = {uvdata.blt_order}"
+        )
+
+        for index, (antnum1, antnum2) in enumerate(
+            antpairs
+        ):  # go through indices in output
+            # get all blt indices corresponding to this antpair
+            indx = uvdata.antpair2ind(antnum1, antnum2)
+            if len(indx) == 0:
+                # maybe we chose the wrong ordering according to the data. Then
+                # we just conjugate.
+                indx = uvdata.antpair2ind(antnum2, antnum1)
+                vis_here = vis[..., index]
+            else:
+                vis_here = vis[..., index]
+
+            if polarized:
+                for p, (p1, p2) in enumerate(req_pols):
+                    visfull[indx, p] = vis_here[:, p1, p2]
+            else:
+                visfull[indx, 0] = vis_here

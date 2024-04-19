@@ -124,9 +124,7 @@ class MatVis(VisibilitySimulator):
             )
 
         logger.info("Checking baseline-time axis shape")
-        if len(data_model.uvdata.data_array) != len(
-            data_model.uvdata.get_antpairs()
-        ) * len(data_model.lsts):
+        if not data_model.uvdata.blts_are_rectangular:
             raise ValueError("MatVis requires that every baseline uses the same LSTS.")
 
         if self.check_antenna_conjugation:
