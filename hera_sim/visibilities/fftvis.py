@@ -33,7 +33,7 @@ class FFTVis(MatVis):
         in the UVdata object. Conversely, if polarization is not requested and multiple
         polarizations are present on the UVData object, it will error unless
         ``allow_empty_pols`` is set to True (in which case it will warn but continue).
-        The "unpolarized" output of ``matvis`` is expected to be XX polarization, which
+        The "unpolarized" output of ``fftvis`` is expected to be XX polarization, which
         corresponds to whatever the UVData object considers to be the x-direction
         (default East).
     precision : int, optional
@@ -109,7 +109,7 @@ class FFTVis(MatVis):
         # N(N-1)/2 unique cross-correlations + N autocorrelations.
         # if data_model.uvdata.Nbls != data_model.n_ant * (data_model.n_ant + 1) / 2:
         #    raise ValueError(
-        #        "MatVis requires using every pair of antennas, "
+        #        "FFTVis requires using every pair of antennas, "
         #        "but the UVData object does not comply."
         #    )
 
@@ -117,7 +117,7 @@ class FFTVis(MatVis):
         if len(data_model.uvdata.data_array) != len(
             data_model.uvdata.get_antpairs()
         ) * len(data_model.lsts):
-            raise ValueError("MatVis requires that every baseline uses the same LSTS.")
+            raise ValueError("FFTVis requires that every baseline uses the same LSTS.")
 
         if self.check_antenna_conjugation:
             logger.info("Checking antenna conjugation")
@@ -212,14 +212,13 @@ class FFTVis(MatVis):
             + nt * 9  # rotation matrices
             + 3 * nsrc
             + 3 * nsrc  # source positions (topo and eq)
-            + nant * nsrc / 2  # tau.
         )
 
         return all_floats * self._precision * 4 / 1024**3
 
     def simulate(self, data_model):
         """
-        Calls :func:matvis to perform the visibility calculation.
+        Calls :func:fftvis to perform the visibility calculation.
 
         Returns
         -------
@@ -288,7 +287,7 @@ class FFTVis(MatVis):
 
             logger.info(f"Simulating Frequency {i+1}/{len(data_model.freqs)}")
 
-            # Call matvis function to simulate visibilities
+            # Call fftvis function to simulate visibilities
             vis = self._fftvis(
                 ants=active_antpos,
                 freqs=np.array([freq]),
