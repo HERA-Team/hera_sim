@@ -20,7 +20,12 @@ class FFTVis(MatVis):
     fftvis visibility simulator.
 
     This is a fast visibility simulator based on the Flatiron Non-Uniform Fast Fourier
-    Transform (finufft). 
+    Transform (https://github.com/flatironinstitute/finufft). This class calls the fftvis
+    package (https://github.com/tyler-a-cox/fftvis) which utilizes the finufft algorithm
+    to evaluate the measurement equation by gridding and fourier transforming an input sky model.
+    The simulated visibilities agree with matvis to high precision, and are often computed
+    more quickly than matvis. FFTVis is particularly well-suited for simulations with compact arrays
+    with large numbers of antennas, and sky models with many sources.
 
     Parameters
     ----------
