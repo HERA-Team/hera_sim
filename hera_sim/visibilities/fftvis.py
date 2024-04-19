@@ -294,13 +294,6 @@ class FFTVis(MatVis):
                 **self.kwargs,
             )[0]
 
-            # Fill in the full visibility array
-            # if polarized:
-            #    for p, (p1, p2) in enumerate(req_pols):
-            #        visfull[:, 0, i, p] = vis[:, p1, p2].reshape(-1)
-            # else:
-            #   visfull[:, 0, i, 0] = vis.reshape(-1)
-
             logger.info("... re-ordering visibilities...")
             self._reorder_vis(
                 req_pols, data_model.uvdata, visfull[:, 0, i], vis, antpairs, polarized
