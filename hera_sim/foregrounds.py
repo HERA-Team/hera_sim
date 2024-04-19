@@ -264,13 +264,13 @@ class PointSourceForeground(Foreground):
         # get baseline length (it should already be in ns)
         bl_len_ns = np.linalg.norm(bl_vec)
 
-        rng = np.random.default_rng()
-
         # randomly generate source RAs
-        ras = rng.uniform(0, 2 * np.pi, nsrcs)
+        ras = np.random.uniform(0, 2 * np.pi, nsrcs)
 
         # draw spectral indices from normal distribution
-        spec_indices = rng.normal(spectral_index_mean, spectral_index_std, size=nsrcs)
+        spec_indices = np.random.normal(
+            spectral_index_mean, spectral_index_std, size=nsrcs
+        )
 
         # calculate beam width, hardcoded for HERA
         beam_width = (40 * 60) * (f0 / freqs) / units.sday.to("s") * 2 * np.pi
@@ -278,7 +278,7 @@ class PointSourceForeground(Foreground):
         # draw flux densities from a power law
         alpha = beta + 1
         flux_densities = (
-            Smax**alpha + Smin**alpha * (1 - rng.uniform(size=nsrcs))
+            Smax**alpha + Smin**alpha * (1 - np.random.uniform(size=nsrcs))
         ) ** (1 / alpha)
 
         # initialize the visibility array
@@ -290,7 +290,7 @@ class PointSourceForeground(Foreground):
             lst_ind = np.argmin(np.abs(utils.compute_ha(lsts, ra)))
 
             # slight offset in delay? why??
-            dtau = rng.uniform(-1, 1) * 0.1 * bl_len_ns
+            dtau = np.random.uniform(-1, 1) * 0.1 * bl_len_ns
 
             # fill in the corresponding region of the visibility array
             vis[lst_ind, :] += flux * (freqs / f0) ** index

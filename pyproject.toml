@@ -32,3 +32,7 @@ select = [
   "W",    # pycodestyle warning
   "NPY",  # numpy-specific rules
 ]
+
+ignore = [
+  "NPY002",  # RNG -- fix soon!
+]
