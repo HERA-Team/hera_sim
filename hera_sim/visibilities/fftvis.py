@@ -7,7 +7,6 @@ import logging
 import numpy as np
 from astropy.time import Time
 from fftvis.beams import _evaluate_beam
-from fftvis.utils import get_pos_reds
 from matvis import conversions as convs
 
 from .matvis import MatVis
@@ -188,11 +187,11 @@ class FFTVis(MatVis):
         nf = len(data_model.freqs)
 
         # Estimate size of the FFT grid used to compute the visibilities
-        active_antpos, _ = data_model.uvdata.get_ENU_antpos(pick_data_ants=True)
-        reds = get_pos_reds(active_antpos)
-        max_blx = max([np.abs(red[0][0] - red[1][0]) for red in reds])
-        max_bly = max([np.abs(red[0][1] - red[1][1]) for red in reds])
-
+        active_antpos_array, _ = data_model.uvdata.get_ENU_antpos(pick_data_ants=True)
+        # Estimate the size of the grid used to compute the visibilities
+        max_blx, max_bly, _ = np.abs(
+            active_antpos_array.max(axis=0) - active_antpos_array.min(axis=0)
+        )
         avg_freq = np.mean(data_model.freqs)
         n_gridx = int(8 * avg_freq * max_blx / 3e8)  # number of grid points in u/l axis
         n_gridy = int(8 * avg_freq * max_bly / 3e8)  # number of grid points in v/m axis
