@@ -129,6 +129,10 @@ class FFTVis(MatVis):
         uvbeam = data_model.beams[0]  # Representative beam
         uvdata = data_model.uvdata
 
+        # Check that the UVData object is in the correct format
+        # if not uvdata.future_array_shapes:
+        #    uvdata.use_future_array_shapes()
+
         # Now check that we only have linear polarizations (don't allow pseudo-stokes)
         if any(pol not in [-5, -6, -7, -8] for pol in uvdata.polarization_array):
             raise ValueError(
@@ -321,10 +325,12 @@ class FFTVis(MatVis):
             return visfull
 
     def _reorder_vis(self, req_pols, uvdata, visfull, vis, antpairs, polarized):
-        if uvdata.time_axis_faster_than_bls:
-            vis = vis.transpose((3, 0, 1, 2))
-        else:
-            vis = vis.transpose((0, 3, 1, 2))
+
+        if polarized:
+            if uvdata.time_axis_faster_than_bls:
+                vis = vis.transpose((3, 0, 1, 2))
+            else:
+                vis = vis.transpose((0, 3, 1, 2))
 
         if polarized:
             for p, (p1, p2) in enumerate(req_pols):
