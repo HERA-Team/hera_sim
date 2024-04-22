@@ -258,7 +258,6 @@ def test_compare_fftvis_with_pyuvsim(uvdata_allpols, nsource, beam_type, polariz
     # Construct simulator object and run
     simulator = FFTVis(
         ref_time=Time("2018-08-31T04:02:30.11", format="isot", scale="utc"),
-        use_gpu=False,
         precision=2,
     )
 
