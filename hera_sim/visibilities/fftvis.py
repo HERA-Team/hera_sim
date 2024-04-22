@@ -99,7 +99,7 @@ class FFTVis(MatVis):
             else correct_source_positions
         )
         self.check_antenna_conjugation = check_antenna_conjugation
-        self._functions_to_profile = (self._fftvis, _evaluate_beam)
+        self._functions_to_profile = (fftvis.simulate.simulate, _evaluate_beam)
         self.kwargs = kwargs
 
     def validate(self, data_model: ModelData):
@@ -245,8 +245,17 @@ class FFTVis(MatVis):
             for ant_index, antpos in zip(ant_list, active_antpos_array)
         }
 
-        # Get all the antenna pairs
-        antpairs = data_model.uvdata.get_antpairs()
+        # Get antpairs in the order that they appear in the uvdata.data_array
+        # In certain cases, uvdata.get_antpairs() will return a different order
+        # than the order in the data_array
+        antpair_dict = {}
+        for ant1, ant2 in zip(
+            data_model.uvdata.ant_1_array, data_model.uvdata.ant_2_array
+        ):
+            if (ant1, ant2) not in antpair_dict:
+                antpair_dict[(ant1, ant2)] = None
+
+        antpairs = list(antpair_dict.keys())
 
         # Get pixelized beams if required
         logger.info("Preparing Beams...")
@@ -312,40 +321,13 @@ class FFTVis(MatVis):
             return visfull
 
     def _reorder_vis(self, req_pols, uvdata, visfull, vis, antpairs, polarized):
-        try:
-            if getattr(uvdata, "blt_order", None)[0] == "time":
-                logger.info("Using direct setting of data without reordering")
-                # This is the best case scenario -- no need to reorder anything.
-                # It is also MUCH MUCH faster!
-                if polarized:
-                    for p, (p1, p2) in enumerate(req_pols):
-                        visfull[:, p] = vis[:, p1, p2].reshape(-1)
-                else:
-                    visfull[:, 0] = vis.reshape(-1)
-                return
-        except AttributeError:
-            pass
+        if uvdata.time_axis_faster_than_bls:
+            vis = vis.transpose((3, 0, 1, 2))
+        else:
+            vis = vis.transpose((0, 3, 1, 2))
 
-        logger.info(
-            f"Reordering baselines. Pols sorted: {sorted(req_pols) == req_pols}. "
-            f"Pols = {req_pols}. blt_order = {uvdata.blt_order}"
-        )
-
-        for index, (antnum1, antnum2) in enumerate(
-            antpairs
-        ):  # go through indices in output
-            # get all blt indices corresponding to this antpair
-            indx = uvdata.antpair2ind(antnum1, antnum2)
-            if len(indx) == 0:
-                # maybe we chose the wrong ordering according to the data. Then
-                # we just conjugate.
-                indx = uvdata.antpair2ind(antnum2, antnum1)
-                vis_here = vis[..., index]
-            else:
-                vis_here = vis[..., index]
-
-            if polarized:
-                for p, (p1, p2) in enumerate(req_pols):
-                    visfull[indx, p] = vis_here[:, p1, p2]
-            else:
-                visfull[indx, 0] = vis_here
+        if polarized:
+            for p, (p1, p2) in enumerate(req_pols):
+                visfull[:, p] = vis[..., p1, p2].reshape(-1)
+        else:
+            visfull[:, 0] = vis.reshape(-1)
