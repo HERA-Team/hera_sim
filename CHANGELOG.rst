@@ -5,6 +5,11 @@ Changelog
 dev
 ===
 
+Deprecated
+----------
+
+- Support for Python 3.9 has been dropped.
+
 Fixed
 -----
 - API calls for pyuvdata v2.4.0.
