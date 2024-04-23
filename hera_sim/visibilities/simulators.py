@@ -496,8 +496,8 @@ def load_simulator_from_yaml(config: Path | str) -> VisibilitySimulator:
 
     try:
         if not issubclass(simulator_cls, VisibilitySimulator):
-            raise TypeError(
-                f"Specified simulator {simulator_cls} is not a subclass of"
+            raise ValueError(
+                f"Specified simulator {simulator_cls} is not a subclass of "
                 "VisibilitySimulator!"
             )
     except TypeError as e:
