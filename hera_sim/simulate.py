@@ -1478,9 +1478,9 @@ class Simulator:
                 if len(key) not in (2, 3) or (
                     len(key) == 3
                     and not (
-                        isinstance(key[0], int)
-                        and isinstance(key[1], int)
-                        and isinstance(key[2], str)
+                        isinstance(key[0], (int, None))
+                        and isinstance(key[1], (int, None))
+                        and isinstance(key[2], (str, None))
                     )
                 ):
                     raise TypeError
