@@ -1453,6 +1453,28 @@ class Simulator:
 
     def _parse_key(self, key: Union[int, str, AntPair, AntPairPol]) -> AntPairPol:
         """Convert a key of at-most length-3 to an (ant1, ant2, pol) tuple."""
+        valid_pols = {
+            k.lower()
+            for k in {
+                **uvutils.POL_STR2NUM_DICT,
+                **uvutils.JONES_STR2NUM_DICT,
+                **uvutils.CONJ_POL_DICT,
+            }
+        }
+        valid_pols.update({"jee", "jen", "jne", "jnn"})
+
+        def checkpol(pol):
+            if pol is None:
+                return None
+
+            if not isinstance(pol, str):
+                raise TypeError(f"Invalid polarization type: {type(pol)}.")
+
+            if pol.lower() not in valid_pols:
+                raise ValueError(f"Invalid polarization string: {pol}.")
+
+            return pol
+
         if key is None:
             ant1, ant2, pol = None, None, None
         elif np.issubdtype(type(key), int):
@@ -1465,40 +1487,33 @@ class Simulator:
         elif isinstance(key, str):
             if key.lower() in ("auto", "cross"):
                 raise NotImplementedError("Functionality not yet supported.")
-            if key.lower() not in {
-                **uvutils.POL_STR2NUM_DICT,
-                **uvutils.JONES_STR2NUM_DICT,
-                **uvutils.CONJ_POL_DICT,
-            }:
-                raise ValueError(f"Invalid polarization string: {key}.")
+            key = checkpol(key)
             ant1, ant2, pol = None, None, key
         else:
+
+            def intify(x):
+                return x if x is None else int(x)
+
             try:
-                iter(key)
-                if len(key) not in (2, 3) or (
-                    len(key) == 3
-                    and not (
-                        isinstance(key[0], (int, None))
-                        and isinstance(key[1], (int, None))
-                        and isinstance(key[2], (str, None))
-                    )
-                ):
+                iter(key)  # ensure it's iterable
+                if len(key) not in (2, 3):
                     raise TypeError
+
+                if len(key) == 2:
+                    if all(isinstance(val, int) for val in key):
+                        ant1, ant2 = key
+                        pol = None
+                    else:
+                        ant1, pol = intify(key[0]), checkpol(key[1])
+                        ant2 = None
+                else:
+                    ant1, ant2, pol = intify(key[0]), intify(key[1]), checkpol(key[2])
 
             except TypeError:
                 raise ValueError(
                     "Key must be an integer, string, antenna pair, or antenna "
-                    f"pair with a polarization string. Got {key}"
+                    f"pair with a polarization string. Got {key}."
                 )
-            if len(key) == 2:
-                if all(isinstance(val, int) for val in key):
-                    ant1, ant2 = key
-                    pol = None
-                else:
-                    ant1, pol = key
-                    ant2 = None
-            else:
-                ant1, ant2, pol = key
         return ant1, ant2, pol
 
     def _sanity_check(self, model):
