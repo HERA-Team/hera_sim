@@ -58,6 +58,8 @@ class Bandpass(Gain):
         Taper to apply to the simulated gains. Default is to not apply a taper.
     taper_kwds
         Keyword arguments used in generating the taper.
+    rng
+        Random number generator.
     """
 
     _alias = ("gains", "bandpass_gain")
@@ -74,6 +76,7 @@ class Bandpass(Gain):
         bp_poly: str | callable | np.ndarray | None = None,
         taper: str | callable | np.ndarray | None = None,
         taper_kwds: dict | None = None,
+        rng: np.random.Generator | None = None,
     ):
         super().__init__(
             gain_spread=gain_spread,
@@ -81,6 +84,7 @@ class Bandpass(Gain):
             bp_poly=bp_poly,
             taper=taper,
             taper_kwds=taper_kwds,
+            rng=rng,
         )
 
     def __call__(self, freqs, ants, **kwargs):
@@ -103,15 +107,21 @@ class Bandpass(Gain):
         self._check_kwargs(**kwargs)
 
         # unpack the kwargs
-        (gain_spread, dly_rng, bp_poly, taper, taper_kwds) = self._extract_kwarg_values(
-            **kwargs
-        )
+        (
+            gain_spread,
+            dly_rng,
+            bp_poly,
+            taper,
+            taper_kwds,
+            rng,
+        ) = self._extract_kwarg_values(**kwargs)
+        rng = rng or np.random.default_rng()
 
         # get the bandpass gains
-        bandpass = self._gen_bandpass(freqs, ants, gain_spread, bp_poly)
+        bandpass = self._gen_bandpass(freqs, ants, gain_spread, bp_poly, rng=rng)
 
         # get the delay phases
-        phase = self._gen_delay_phase(freqs, ants, dly_rng)
+        phase = self._gen_delay_phase(freqs, ants, dly_rng, rng=rng)
 
         if taper is None:
             taper = np.ones(freqs.size)
@@ -138,7 +148,7 @@ class Bandpass(Gain):
         return {ant: bandpass[ant] * phase[ant] * taper for ant in ants}
 
     @_defaults
-    def _gen_bandpass(self, freqs, ants, gain_spread=0.1, bp_poly=None):
+    def _gen_bandpass(self, freqs, ants, gain_spread=0.1, bp_poly=None, rng=None):
         if bp_poly is None:
             # default to the H1C bandpass
             bp_poly = np.load(DATA_PATH / "HERA_H1C_BANDPASS.npy")
@@ -155,15 +165,16 @@ class Bandpass(Gain):
         gains = {}
         for ant in ants:
             delta_bp = np.fft.ifft(
-                utils.gen_white_noise(freqs.size) * modes * gain_spread
+                utils.gen_white_noise(freqs.size, rng=rng) * modes * gain_spread
             )
             gains[ant] = bp_base + delta_bp
         return gains
 
-    def _gen_delay_phase(self, freqs, ants, dly_rng=(-20, 20)):
+    def _gen_delay_phase(self, freqs, ants, dly_rng=(-20, 20), rng=None):
         phases = {}
+        rng = rng or np.random.default_rng()
         for ant in ants:
-            delay = np.random.uniform(*dly_rng)
+            delay = rng.uniform(*dly_rng)
             phases[ant] = np.exp(2j * np.pi * delay * freqs)
         return phases
 
@@ -187,6 +198,8 @@ class Reflections(Gain):
     dly_jitter : float, optional
         Final delays are offset by a normal variable with mean
         zero and standard deviation ``dly_jitter``.
+    rng: np.random.Generator, optional
+        Random number generator.
     """
 
     _alias = ("reflection_gains", "sigchain_reflections")
@@ -197,7 +210,14 @@ class Reflections(Gain):
     )
 
     def __init__(
-        self, amp=None, dly=None, phs=None, conj=False, amp_jitter=0, dly_jitter=0
+        self,
+        amp=None,
+        dly=None,
+        phs=None,
+        conj=False,
+        amp_jitter=0,
+        dly_jitter=0,
+        rng=None,
     ):
         super().__init__(
             amp=amp,
@@ -206,6 +226,7 @@ class Reflections(Gain):
             conj=conj,
             amp_jitter=amp_jitter,
             dly_jitter=dly_jitter,
+            rng=rng,
         )
 
     def __call__(self, freqs, ants, **kwargs):
@@ -228,13 +249,13 @@ class Reflections(Gain):
         self._check_kwargs(**kwargs)
 
         # unpack the kwargs
-        amp, dly, phs, conj, amp_jitter, dly_jitter = self._extract_kwarg_values(
+        amp, dly, phs, conj, amp_jitter, dly_jitter, rng = self._extract_kwarg_values(
             **kwargs
         )
 
         # fill in missing kwargs
         amp, dly, phs = self._complete_params(
-            ants, amp, dly, phs, amp_jitter, dly_jitter
+            ants, amp, dly, phs, amp_jitter, dly_jitter, rng=rng
         )
 
         # determine gains iteratively
@@ -309,7 +330,7 @@ class Reflections(Gain):
 
     @staticmethod
     def _complete_params(
-        ants, amp=None, dly=None, phs=None, amp_jitter=0, dly_jitter=0
+        ants, amp=None, dly=None, phs=None, amp_jitter=0, dly_jitter=0, rng=None
     ):
         # TODO: docstring isn't exactly accurate, should be updated
         """
@@ -344,6 +365,8 @@ class Reflections(Gain):
             For example, setting this to 10 will introduce, on average, delay
             deviations up to 10 ns. (This is drawn from a normal distribution, so
             it is possible that delays will exceed the value provided.)
+        rng: np.random.Generator, optional
+            Random number generator.
 
         Returns
         -------
@@ -357,14 +380,14 @@ class Reflections(Gain):
 
         def broadcast_param(param, lower_bound, upper_bound, size):
             if param is None:
-                return stats.uniform.rvs(lower_bound, upper_bound, size)
+                return rng.uniform(lower_bound, upper_bound, size)
             elif np.isscalar(param):
                 return np.ones(size, dtype=float) * param
             else:
                 if len(param) == size:
                     return np.array(param, dtype=float)
                 else:
-                    return stats.uniform.rvs(*param, size)
+                    return rng.uniform(*param, size)
 
         # Transform parameters into arrays.
         amps = broadcast_param(amp, 0, 1, len(ants))
@@ -372,8 +395,8 @@ class Reflections(Gain):
         phases = broadcast_param(phs, -np.pi, np.pi, len(ants))
 
         # Apply jitter.
-        amps *= stats.norm.rvs(1, amp_jitter, len(ants))
-        dlys += stats.norm.rvs(0, dly_jitter, len(ants))
+        amps *= rng.normal(1, amp_jitter, len(ants))
+        dlys += rng.normal(0, dly_jitter, len(ants))
 
         return amps, dlys, phases
 
@@ -402,6 +425,8 @@ class ReflectionSpectrum(Gain):
         Absolute jitter in delay across antennas for each of the reflections.
     amp_logbase
         Base of the logarithm to use for generating reflection amplitudes.
+    rng
+        Random number generator.
 
     Notes
     -----
@@ -425,6 +450,7 @@ class ReflectionSpectrum(Gain):
         amp_jitter: float = 0.05,
         dly_jitter: float = 30,
         amp_logbase: float = 10,
+        rng: np.random.Generator | None = None,
     ):
         super().__init__(
             n_copies=n_copies,
@@ -434,6 +460,7 @@ class ReflectionSpectrum(Gain):
             amp_jitter=amp_jitter,
             dly_jitter=dly_jitter,
             amp_logbase=amp_logbase,
+            rng=rng,
         )
 
     def __call__(
@@ -463,11 +490,13 @@ class ReflectionSpectrum(Gain):
             amp_jitter,
             dly_jitter,
             amp_logbase,
+            rng,
         ) = self._extract_kwarg_values(**kwargs)
+        rng = rng or np.random.default_rng()
 
         amps = np.logspace(*amp_range, n_copies, base=amp_logbase)
         dlys = np.linspace(*dly_range, n_copies)
-        phases = np.random.uniform(*phs_range, n_copies)
+        phases = rng.uniform(*phs_range, n_copies)
 
         reflection_gains = {ant: np.ones(freqs.size, dtype=complex) for ant in ants}
         for amp, dly, phs in zip(amps, dlys, phases):
@@ -477,6 +506,7 @@ class ReflectionSpectrum(Gain):
                 phs=phs,
                 amp_jitter=amp_jitter,
                 dly_jitter=dly_jitter,
+                rng=rng,
             )
             reflections = reflections(freqs, ants)
             for ant, reflection in reflections.items():
@@ -511,6 +541,8 @@ class CrossCouplingCrosstalk(Crosstalk, Reflections):
     dly_jitter : float, optional
         Final delays are offset by a normal variable with mean
         zero and standard deviation ``dly_jitter``.
+    rng : np.random.Generator, optional
+        Random number generator.
     """
 
     _alias = ("cross_coupling_xtalk",)
@@ -521,7 +553,14 @@ class CrossCouplingCrosstalk(Crosstalk, Reflections):
     )
 
     def __init__(
-        self, amp=None, dly=None, phs=None, conj=False, amp_jitter=0, dly_jitter=0
+        self,
+        amp=None,
+        dly=None,
+        phs=None,
+        conj=False,
+        amp_jitter=0,
+        dly_jitter=0,
+        rng=rng,
     ):
         super().__init__(
             amp=amp,
@@ -530,6 +569,7 @@ class CrossCouplingCrosstalk(Crosstalk, Reflections):
             conj=conj,
             amp_jitter=amp_jitter,
             dly_jitter=dly_jitter,
+            rng=rng,
         )
 
     def __call__(self, freqs, autovis, **kwargs):
@@ -552,13 +592,14 @@ class CrossCouplingCrosstalk(Crosstalk, Reflections):
         self._check_kwargs(**kwargs)
 
         # now unpack them
-        amp, dly, phs, conj, amp_jitter, dly_jitter = self._extract_kwarg_values(
+        amp, dly, phs, conj, amp_jitter, dly_jitter, rng = self._extract_kwarg_values(
             **kwargs
         )
+        rng = rng or np.random.default_rng()
 
         # handle the amplitude, phase, and delay
         amp, dly, phs = self._complete_params(
-            [1], amp, dly, phs, amp_jitter, dly_jitter
+            [1], amp, dly, phs, amp_jitter, dly_jitter, rng=rng
         )
 
         # Make reflection coefficient.
@@ -602,6 +643,8 @@ class CrossCouplingSpectrum(Crosstalk):
         Whether to also produce statistically equivalent cross-talk at
         negative delays. Note that while the statistics are equivalent,
         both amplitudes and delays will be different random realizations.
+    rng : np.random.Generator, optional
+        Random number generator.
 
     Notes
     -----
@@ -625,6 +668,7 @@ class CrossCouplingSpectrum(Crosstalk):
         dly_jitter=0,
         amp_logbase=10,
         symmetrize=True,
+        rng=None,
     ):
         super().__init__(
             n_copies=n_copies,
@@ -635,6 +679,7 @@ class CrossCouplingSpectrum(Crosstalk):
             dly_jitter=dly_jitter,
             amp_logbase=amp_logbase,
             symmetrize=symmetrize,
+            rng=rng,
         )
 
     def __call__(self, freqs, autovis, **kwargs):
@@ -664,6 +709,7 @@ class CrossCouplingSpectrum(Crosstalk):
             dly_jitter,
             amp_logbase,
             symmetrize,
+            rng,
         ) = self._extract_kwarg_values(**kwargs)
 
         # Construct the arrays of amplitudes and delays.
@@ -679,6 +725,7 @@ class CrossCouplingSpectrum(Crosstalk):
                 phs=phs_range,
                 amp_jitter=amp_jitter,
                 dly_jitter=dly_jitter,
+                rng=rng,
             )
 
             crosstalk_spectrum += gen_xtalk(freqs, autovis)
@@ -824,6 +871,8 @@ class MutualCoupling(Crosstalk):
     use_numba
         Whether to use ``numba`` for accelerating the simulation. Default is
         to use ``numba`` if it is installed.
+    rng
+        Random number generator.
     """
 
     _alias = ("mutual_coupling", "first_order_coupling")
@@ -850,6 +899,7 @@ class MutualCoupling(Crosstalk):
         freq_interp: str = "cubic",
         beam_kwargs: dict | None = None,
         use_numba: bool = True,
+        rng: np.random.Generator | None = None,
     ):
         super().__init__(
             uvbeam=uvbeam,
@@ -864,6 +914,7 @@ class MutualCoupling(Crosstalk):
             freq_interp=freq_interp,
             beam_kwargs=beam_kwargs or {},
             use_numba=use_numba,
+            rng=rng,
         )
 
     def __call__(
@@ -912,6 +963,7 @@ class MutualCoupling(Crosstalk):
             freq_interp,
             beam_kwargs,
             use_numba,
+            rng,
         ) = self._extract_kwarg_values(**kwargs)
 
         # Do all our sanity checks up front. First, check the array.
@@ -1280,6 +1332,8 @@ class OverAirCrossCoupling(Crosstalk):
         Ratio of the amplitude of the last peak in the cross-coupling spectrum to
         the first peak. In other words, how much the cross-coupling spectrum decays
         over the full range of delays it covers.
+    rng
+        Random number generator.
 
     See Also
     --------
@@ -1306,6 +1360,7 @@ class OverAirCrossCoupling(Crosstalk):
         dly_jitter: float = 0,
         max_delay: float = 2000,
         amp_decay_fac: float = 1e-2,
+        rng: np.random.Generator | None = None,
     ):
         super().__init__(
             emitter_pos=emitter_pos,
@@ -1319,6 +1374,7 @@ class OverAirCrossCoupling(Crosstalk):
             dly_jitter=dly_jitter,
             max_delay=max_delay,
             amp_decay_fac=amp_decay_fac,
+            rng=rng,
         )
 
     def __call__(
@@ -1365,6 +1421,7 @@ class OverAirCrossCoupling(Crosstalk):
             dly_jitter,
             max_delay,
             amp_decay_fac,
+            rng,
         ) = self._extract_kwarg_values(**kwargs)
 
         ai, aj = antpair
@@ -1396,6 +1453,7 @@ class OverAirCrossCoupling(Crosstalk):
             dly_jitter=dly_jitter,
             amp_logbase=amp_decay_base,
             symmetrize=False,
+            rng=rng,
         )
         xt_ji = CrossCouplingSpectrum(
             n_copies=n_copies,
@@ -1405,6 +1463,7 @@ class OverAirCrossCoupling(Crosstalk):
             dly_jitter=dly_jitter,
             amp_logbase=amp_decay_base,
             symmetrize=False,
+            rng=rng,
         )
 
         return xt_ij(freqs, autovis_i) + xt_ji(freqs, autovis_j)
@@ -1417,6 +1476,8 @@ class WhiteNoiseCrosstalk(Crosstalk):
     ----------
     amplitude : float, optional
         The amplitude of the white noise spectrum (i.e. its standard deviation).
+    rng : np.random.Generator, optional
+        Random number generator.
     """
 
     _alias = (
@@ -1425,8 +1486,8 @@ class WhiteNoiseCrosstalk(Crosstalk):
     )
     return_type = "per_baseline"
 
-    def __init__(self, amplitude=3.0):
-        super().__init__(amplitude=amplitude)
+    def __init__(self, amplitude=3.0, rng=None):
+        super().__init__(amplitude=amplitude, rng=rng)
 
     def __call__(self, freqs, **kwargs):
         """Compute the cross-correlations.
@@ -1446,13 +1507,13 @@ class WhiteNoiseCrosstalk(Crosstalk):
         self._check_kwargs(**kwargs)
 
         # unpack the kwargs
-        (amplitude,) = self._extract_kwarg_values(**kwargs)
+        (amplitude, rng) = self._extract_kwarg_values(**kwargs)
 
         # why choose this size for the convolving kernel?
         kernel = np.ones(50 if freqs.size > 50 else int(freqs.size / 2))
 
         # generate the crosstalk
-        xtalk = np.convolve(utils.gen_white_noise(freqs.size), kernel, "same")
+        xtalk = np.convolve(utils.gen_white_noise(freqs.size, rng=rng), kernel, "same")
 
         # scale the result and return
         return amplitude * xtalk
@@ -1510,6 +1571,7 @@ def vary_gains_in_time(
     variation_timescale=None,
     variation_amp=0.05,
     variation_mode="linear",
+    rng=None,
 ):
     r"""
     Vary gain amplitudes, phases, or delays in time.
@@ -1563,6 +1625,8 @@ def vary_gains_in_time(
         mode produces a triangle wave variation with period twice the corresponding
         timescale; this ensures that the gains vary linearly over the entire set of
         provided times if the default variation timescale is used.
+    rng: np.random.Generator, optional
+        Random number generator.
 
     Returns
     -------
@@ -1645,7 +1709,8 @@ def vary_gains_in_time(
         elif mode == "sinusoidal":
             envelope *= 1 + amp * np.sin(2 * np.pi * phases)
         elif mode == "noiselike":
-            envelope *= stats.norm.rvs(1, amp, times.size)
+            rng = rng or np.random.default_rng()
+            envelope *= rng.normal(1, amp, times.size)
         else:
             raise NotImplementedError(f"Variation mode {mode!r} not supported.")
 
