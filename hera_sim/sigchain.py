@@ -251,6 +251,7 @@ class Reflections(Gain):
         amp, dly, phs, conj, amp_jitter, dly_jitter, rng = self._extract_kwarg_values(
             **kwargs
         )
+        rng = rng or np.random.default_rng()
 
         # fill in missing kwargs
         amp, dly, phs = self._complete_params(
@@ -377,6 +378,7 @@ class Reflections(Gain):
             Phase of each reflection coefficient for each antenna.
         """
 
+        rng = rng or np.random.default_rng()
         def broadcast_param(param, lower_bound, upper_bound, size):
             if param is None:
                 return rng.uniform(lower_bound, upper_bound, size)
