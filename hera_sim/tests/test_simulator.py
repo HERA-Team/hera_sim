@@ -285,19 +285,19 @@ def test_get_multiplicative_effect(base_sim, pol, ant1):
     gains = base_sim.add("gains", seed="once", ret_vis=True)
     _gains = base_sim.get("gains", key=(ant1, pol))
     if pol is not None and ant1 is not None:
-        assert np.allclose(gains[(ant1, pol)] == _gains)
+        assert np.allclose(gains[(ant1, pol)], _gains)
     elif pol is None and ant1 is not None:
         assert all(
-            np.allclose(gains[(ant1, _pol)] == _gains[(ant1, _pol)])
+            np.allclose(gains[(ant1, _pol)], _gains[(ant1, _pol)])
             for _pol in base_sim.data.get_feedpols()
         )
     elif pol is not None and ant1 is None:
         assert all(
-            np.allclose(gains[(ant, pol)] == _gains[(ant, pol)])
+            np.allclose(gains[(ant, pol)], _gains[(ant, pol)])
             for ant in base_sim.antpos
         )
     else:
-        assert all(np.allclose(gains[antpol] == _gains[antpol]) for antpol in gains)
+        assert all(np.allclose(gains[antpol], _gains[antpol]) for antpol in gains)
 
 
 def test_not_add_vis(base_sim):
