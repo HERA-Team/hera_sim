@@ -252,14 +252,10 @@ class FFTVis(MatVis):
         # Get antpairs in the order that they appear in the uvdata.data_array
         # In certain cases, uvdata.get_antpairs() will return a different order
         # than the order in the data_array
-        antpair_dict = {}
-        for ant1, ant2 in zip(
-            data_model.uvdata.ant_1_array, data_model.uvdata.ant_2_array
-        ):
-            if (ant1, ant2) not in antpair_dict:
-                antpair_dict[(ant1, ant2)] = None
-
-        antpairs = list(antpair_dict.keys())
+        if data_model.uvdata.time_axis_faster_than_bls:
+            antpairs = list(zip(data_model.uvdata.ant_1_array[::data_model.uvdata.Ntimes], data_model.uvdata.ant_2_array[::data_model.uvdata.Ntimes] ))
+        else:
+            antpairs = list(zip(data_model.uvdata.ant_1_array[:data_model.uvdata.Nbls], data_model.uvdata.ant_2_array[:data_model.uvdata.Nbls] ))
 
         # Get pixelized beams if required
         logger.info("Preparing Beams...")
