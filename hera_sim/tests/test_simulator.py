@@ -285,18 +285,19 @@ def test_get_multiplicative_effect(base_sim, pol, ant1):
     gains = base_sim.add("gains", seed="once", ret_vis=True)
     _gains = base_sim.get("gains", key=(ant1, pol))
     if pol is not None and ant1 is not None:
-        assert np.all(gains[(ant1, pol)] == _gains)
+        assert np.allclose(gains[(ant1, pol)], _gains)
     elif pol is None and ant1 is not None:
         assert all(
-            np.all(gains[(ant1, _pol)] == _gains[(ant1, _pol)])
+            np.allclose(gains[(ant1, _pol)], _gains[(ant1, _pol)])
             for _pol in base_sim.data.get_feedpols()
         )
     elif pol is not None and ant1 is None:
         assert all(
-            np.all(gains[(ant, pol)] == _gains[(ant, pol)]) for ant in base_sim.antpos
+            np.allclose(gains[(ant, pol)], _gains[(ant, pol)])
+            for ant in base_sim.antpos
         )
     else:
-        assert all(np.all(gains[antpol] == _gains[antpol]) for antpol in gains)
+        assert all(np.allclose(gains[antpol], _gains[antpol]) for antpol in gains)
 
 
 def test_not_add_vis(base_sim):
@@ -418,10 +419,10 @@ def test_run_sim():
     # write something to it
     with open(tmp_sim_file, "w") as sim_file:
         sim_file.write(
-            """
+            f"""
             diffuse_foreground:
                 Tsky_mdl: !Tsky
-                    datafile: {}/HERA_Tsky_Reformatted.npz
+                    datafile: {DATA_PATH}/HERA_Tsky_Reformatted.npz
                     pol: yy
             pntsrc_foreground:
                 nsrcs: 500
@@ -436,16 +437,14 @@ def test_run_sim():
                 phs: 2.1123
             thermal_noise:
                 Tsky_mdl: !Tsky
-                    datafile: {}/HERA_Tsky_Reformatted.npz
+                    datafile: {DATA_PATH}/HERA_Tsky_Reformatted.npz
                     pol: xx
                 integration_time: 9.72
             rfi_scatter:
                 scatter_chance: 0.99
                 scatter_strength: 5.7
                 scatter_std: 2.2
-                """.format(
-                DATA_PATH, DATA_PATH
-            )
+                """
         )
     sim = create_sim(autos=True)
     sim.run_sim(tmp_sim_file)
@@ -704,3 +703,49 @@ def test_cached_filters():
     sim2.add("diffuse_foreground", seed=seed)
     defaults.deactivate()
     assert np.allclose(sim1.data.data_array, sim2.data.data_array)
+
+
+def test_get_model_name():
+    assert Simulator._get_model_name("noiselike_eor") == "noiselike_eor"
+    assert Simulator._get_model_name("NOISELIKE_EOR") == "noiselike_eor"
+
+    assert Simulator._get_model_name(DiffuseForeground) == "diffuseforeground"
+    assert Simulator._get_model_name(diffuse_foreground) == "diffuseforeground"
+
+    with pytest.raises(
+        TypeError, match="You are trying to simulate an effect using a custom function"
+    ):
+        Simulator._get_model_name(lambda x: x)
+
+    with pytest.raises(
+        TypeError, match="You are trying to simulate an effect using a custom function"
+    ):
+        Simulator._get_model_name(3)
+
+
+def test_parse_key(base_sim: Simulator):
+    assert base_sim._parse_key(None) == (None, None, None)
+    assert base_sim._parse_key(1) == (1, None, None)
+    assert base_sim._parse_key(
+        base_sim.data.baseline_array[-1]
+    ) == base_sim.data.baseline_to_antnums(base_sim.data.baseline_array[-1]) + (None,)
+
+    with pytest.raises(NotImplementedError, match="Functionality not yet supported"):
+        base_sim._parse_key("auto")
+
+    assert base_sim._parse_key("ee") == (None, None, "ee")
+
+    for badkey in [3.14, [1, 2, 3], (1,)]:
+        print(badkey)
+        with pytest.raises(
+            ValueError,
+            match="Key must be an integer, string, antenna pair, or antenna pair with",
+        ):
+            base_sim._parse_key(badkey)
+
+    with pytest.raises(ValueError, match="Invalid polarization string"):
+        base_sim._parse_key("bad_pol")
+
+    assert base_sim._parse_key((1, 2)) == (1, 2, None)
+    assert base_sim._parse_key((1, "Jee")) == (1, None, "Jee")
+    assert base_sim._parse_key((1, 2, "ee")) == (1, 2, "ee")

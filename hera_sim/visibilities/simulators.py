@@ -494,11 +494,13 @@ def load_simulator_from_yaml(config: Path | str) -> VisibilitySimulator:
         module = importlib.import_module(module)
         simulator_cls = getattr(module, simulator_cls.split(".")[-1])
 
-    if not issubclass(simulator_cls, VisibilitySimulator):
-        raise TypeError(
-            f"Specified simulator {simulator_cls} is not a subclass of"
-            "VisibilitySimulator!"
-        )
+    try:
+        if not issubclass(simulator_cls, VisibilitySimulator):
+            raise ValueError(
+                f"Specified simulator {simulator_cls} is not a subclass of "
+                "VisibilitySimulator!"
+            )
+    except TypeError as e:
+        raise TypeError(f"Specified simulator {simulator_cls} is not a class!") from e
 
-    assert issubclass(simulator_cls, VisibilitySimulator)
     return simulator_cls.from_yaml(cfg)

@@ -484,8 +484,8 @@ class DTV(RFI):
                     "values with the same length as the number of DTV "
                     "bands specified. For reference, the DTV bands you "
                     "specified have the following characteristics: \n"
-                    "f_min : {fmin} \nf_max : {fmax}\n N_bands : "
-                    "{Nchan}".format(fmin=bands[0], fmax=bands[-1], Nchan=Nchan)
+                    f"f_min : {bands[0]} \nf_max : {bands[-1]}\n N_bands : "
+                    f"{Nchan}"
                 )
 
             # everything should be in order now, so

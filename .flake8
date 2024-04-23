@@ -17,6 +17,8 @@ ignore =
     G004,
     # Logging statement uses + (this makes no sense...)
     G003,
+    # Allow builtin module names
+    A005,
 max-line-length = 88
 # Should be 18.
 max-complexity = 35

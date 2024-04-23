@@ -376,7 +376,7 @@ class MatVis(VisibilitySimulator):
             if self.mpi_comm is not None and i % nproc != myid:
                 continue
 
-            logger.info(f"Simulating Frequency {i+1}/{len(data_model.freqs)}")
+            logger.info(f"Simulating Frequency {i + 1}/{len(data_model.freqs)}")
 
             # Call matvis function to simulate visibilities
             vis = self._matvis(

@@ -316,8 +316,8 @@ class FreqInterpolator(Interpolator):
             )
             assert self._obj in self._data.keys() and "freqs" in self._data.keys(), (
                 "You've chosen to use an interp1d object for modeling the "
-                "{}. Please ensure that the `.npz` archive has the following "
-                "keys: 'freqs', '{}'".format(self._obj, self._obj)
+                f"{self._obj}. Please ensure that the `.npz` archive has the following "
+                f"keys: 'freqs', '{self._obj}'"
             )
         else:
             # we can relax this a bit and allow for users to also pass a npz
