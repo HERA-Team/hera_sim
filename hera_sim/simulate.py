@@ -10,7 +10,6 @@ import contextlib
 import functools
 import inspect
 import numpy as np
-import time
 import warnings
 import yaml
 from astropy import constants as const
@@ -964,7 +963,7 @@ class Simulator:
         *,
         add_vis: bool = True,
         ret_vis: bool = False,
-        seed: str | int | None = None
+        seed: str | int | None = None,
         vis_filter: Sequence | None = None,
         antpairpol_cache: Sequence[AntPairPol] | None = None,
         model_key: str | None = None,
@@ -1194,9 +1193,7 @@ class Simulator:
         uvd.read(datafile, read_data=True, **kwargs)
         return uvd
 
-    def _seed_rng(
-        self, seed, model, ant1=None, ant2=None, pol=None, model_key=None
-    ):
+    def _seed_rng(self, seed, model, ant1=None, ant2=None, pol=None, model_key=None):
         """
         Set the random state according to the provided parameters.
 
@@ -1266,9 +1263,7 @@ class Simulator:
         """
         model_key = model_key or self._get_model_name(model)
         if seed is None:
-            rng = getattr(
-                self._components[model_key]["rng"], np.random.default_rng()
-            )
+            rng = getattr(self._components[model_key]["rng"], np.random.default_rng())
             return (None, rng)
         if isinstance(seed, int):
             return (seed, np.random.default_rng(seed))

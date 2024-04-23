@@ -15,7 +15,6 @@ from collections.abc import Sequence
 from pathlib import Path
 from pyuvdata import UVBeam
 from pyuvsim import AnalyticBeam
-from scipy import stats
 from scipy.signal.windows import blackmanharris
 from typing import Callable
 
@@ -560,7 +559,7 @@ class CrossCouplingCrosstalk(Crosstalk, Reflections):
         conj=False,
         amp_jitter=0,
         dly_jitter=0,
-        rng=rng,
+        rng=None,
     ):
         super().__init__(
             amp=amp,
