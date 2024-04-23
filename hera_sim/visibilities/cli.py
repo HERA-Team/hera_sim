@@ -139,8 +139,8 @@ def run_vis_sim(args):
     ram_avail = psutil.virtual_memory().available / 1024**3
 
     cprint(
-        f"[bold {'red' if ram < 1.5*ram_avail else 'green'}] This simulation will use "
-        f"at least {ram:.2f}GB of RAM (Available: {ram_avail:.2f}GB).[/]"
+        f"[bold {'red' if ram < 1.5 * ram_avail else 'green'}] This simulation will use"
+        f" at least {ram:.2f}GB of RAM (Available: {ram_avail:.2f}GB).[/]"
     )
 
     if args.object_name is None:
