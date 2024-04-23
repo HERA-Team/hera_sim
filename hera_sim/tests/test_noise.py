@@ -81,7 +81,6 @@ def test_resample_Tsky_freq_behavior(tsky_powerlaw, tsky_from_model, model):
 def test_sky_noise_jy(
     freqs, lsts, tsky_powerlaw, Jy2T, omega_p, channel_width, integration_time, aspect
 ):
-    np.random.seed(0)
     noise_Jy = noise.sky_noise_jy(
         lsts=lsts,
         freqs=freqs,
@@ -89,6 +88,7 @@ def test_sky_noise_jy(
         omega_p=omega_p,
         channel_width=channel_width,
         integration_time=integration_time,
+        rng=np.random.default_rng(0),
     )
 
     # Calculate expected noise level based on radiometer equation.
