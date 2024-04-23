@@ -296,6 +296,19 @@ class Simulator:
                 stacklevel=2,
             )
 
+        # Record the component simulated and the parameters used.
+        if defaults._override_defaults:
+            for param in getattr(model, "kwargs", {}):
+                if param not in kwargs and param in defaults():
+                    kwargs[param] = defaults(param)
+        if seed:
+            kwargs["seed"] = seed
+            self._update_seeds(model_key)
+        if vis_filter is not None:
+            kwargs["vis_filter"] = vis_filter
+        self._components[model_key] = kwargs
+        self._components[model_key]["alias"] = component
+
         # Simulate the effect by iterating over baselines and polarizations.
         data = self._iteratively_apply(
             model,
@@ -304,25 +317,17 @@ class Simulator:
             vis_filter=vis_filter,
             antpairpol_cache=self._antpairpol_cache[model_key],
             seed=seed,
+            model_key=model_key,
             **kwargs,
         )  # This is None if ret_vis is False
 
         if add_vis:
-            # Record the component simulated and the parameters used.
-            if defaults._override_defaults:
-                for param in getattr(model, "kwargs", {}):
-                    if param not in kwargs and param in defaults():
-                        kwargs[param] = defaults(param)
             self._update_history(model, **kwargs)
-            if seed:
-                kwargs["seed"] = seed
-                self._update_seeds(model_key)
-            if vis_filter is not None:
-                kwargs["vis_filter"] = vis_filter
-            self._components[model_key] = kwargs
-            self._components[model_key]["alias"] = component
         else:
             del self._antpairpol_cache[model_key]
+            del self._components[model_key]
+            if self._seeds.get(model_key, None):
+                del self._seeds[model_key]
 
         return data
 
@@ -396,6 +401,7 @@ class Simulator:
                 ret_vis=True,
                 seed=seed,
                 vis_filter=vis_filter,
+                model_key=model_key,
                 **kwargs,
             )
             if ant1 is not None:
@@ -417,6 +423,7 @@ class Simulator:
                 seed=seed,
                 vis_filter=vis_filter,
                 antpairpol_cache=None,
+                model_key=model_key,
                 **kwargs,
             )
 
@@ -427,6 +434,7 @@ class Simulator:
             return data[:, :, pol_ind]
 
         # We're only simulating for a particular baseline.
+        # (The validation check ensures this is the case.)
         # First, find out if it needs to be conjugated.
         try:
             blt_inds = self.data.antpair2ind(ant1, ant2)
@@ -437,7 +445,7 @@ class Simulator:
             blt_inds = self.data.antpair2ind(ant2, ant1)
             conj_data = True
 
-        # We've got three different seeding cases to work out.
+        # We have three different seeding cases to work out.
         if seed == "initial":
             # Initial seeding means we need to do the whole array.
             data = self._iteratively_apply(
@@ -447,6 +455,7 @@ class Simulator:
                 seed=seed,
                 vis_filter=vis_filter,
                 antpairpol_cache=None,
+                model_key=model_key,
                 **kwargs,
             )[blt_inds, :, :]
             if conj_data:  # pragma: no cover
@@ -455,15 +464,8 @@ class Simulator:
                 return data
             pol_ind = self.data.get_pols().index(pol)
             return data[..., pol_ind]
-        elif seed == "redundant":
-            if conj_data:
-                self._seed_rng(seed, model, ant2, ant1, pol)
-            else:
-                self._seed_rng(seed, model, ant1, ant2, pol)
-        elif seed is not None:
-            self._seed_rng(seed, model, ant1, ant2, pol)
 
-        # Prepare the model parameters, then simulate and return the effect.
+        # Figure out whether we need to do a polarization selection.
         if pol is None:
             data_shape = (self.lsts.size, self.freqs.size, len(self.pols))
             pols = self.pols
@@ -472,15 +474,18 @@ class Simulator:
             data_shape = (self.lsts.size, self.freqs.size, 1)
             pols = (pol,)
             return_slice = (slice(None), slice(None), 0)
+
+        # Prepare the model parameters, then simulate and return the effect.
         data = np.zeros(data_shape, dtype=complex)
         for i, _pol in enumerate(pols):
             args = self._initialize_args_from_model(model)
             args = self._update_args(args, model, ant1, ant2, pol)
             args.update(kwargs)
             if conj_data:
-                self._seed_rng(seed, model, ant2, ant1, _pol)
+                _, rng = self._seed_rng(seed, model, ant2, ant1, _pol)
             else:
-                self._seed_rng(seed, model, ant1, ant2, _pol)
+                _, rng = self._seed_rng(seed, model, ant1, ant2, _pol)
+            args["rng"] = rng
             data[..., i] = model(**args)
         if conj_data:
             data = np.conj(data)
@@ -959,11 +964,12 @@ class Simulator:
         *,
         add_vis: bool = True,
         ret_vis: bool = False,
-        seed: Optional[Union[str, int]] = None,
-        vis_filter: Optional[Sequence] = None,
-        antpairpol_cache: Optional[Sequence[AntPairPol]] = None,
+        seed: str | int | None = None
+        vis_filter: Sequence | None = None,
+        antpairpol_cache: Sequence[AntPairPol] | None = None,
+        model_key: str | None = None,
         **kwargs,
-    ) -> Optional[Union[np.ndarray, dict[int, np.ndarray]]]:
+    ) -> Union[np.ndarray, dict[int, np.ndarray]] | None:
         """
         Simulate an effect for an entire array.
 
@@ -998,6 +1004,10 @@ class Simulator:
             List of (ant1, ant2, pol) tuples specifying which antpairpols have
             already had the effect simulated. Not intended for use by the
             typical end-user.
+        model_key
+            String identifying the model component being computed. This is
+            handed around to ensure that random number generation schemes using
+            the "initial" seeding routine can be recovered via ``self.get``.
         kwargs
             Extra parameters passed to ``model``.
 
@@ -1014,7 +1024,7 @@ class Simulator:
             warnings.warn(
                 "You have chosen to neither add nor return the effect "
                 "you are trying to simulate, so nothing will be "
-                f"computed. This warning was raised for the model: {model}",
+                f"computed. This warning was raised for the model: {model_key}",
                 stacklevel=2,
             )
             return
@@ -1050,7 +1060,10 @@ class Simulator:
             args.update(kwargs)
             for pol in self.data.get_feedpols():
                 if seed:
-                    seed = self._seed_rng(seed, model, pol=pol)
+                    seed, rng = self._seed_rng(
+                        seed, model, pol=pol, model_key=model_key
+                    )
+                    args["rng"] = rng
                 polarized_gains = model(**args)
                 for ant, gain in polarized_gains.items():
                     gains[(ant, pol)] = gain
@@ -1074,6 +1087,19 @@ class Simulator:
         if model.return_type == "full_array":
             args = self._update_args(base_args, model)
             args.update(kwargs)
+            if seed:
+                if seed == "redundant":
+                    warnings.warn(
+                        "You are trying to set the random state once per "
+                        "redundant group while simulating an effect that "
+                        "computes the entire visibility matrix in one go. "
+                        "Any randomness in the simulation component may not "
+                        "come out as expected--please check your settings."
+                        f"This warning was raised for model: {model_key}",
+                        stacklevel=2,
+                    )
+                seed, rng = self._seed_rng(model, model_key=model_key)
+                args["rng"] = rng
             data_copy += model(**args)
         else:
             # Iterate over the array and simulate the effect as-needed.
@@ -1091,11 +1117,12 @@ class Simulator:
 
                 # Seed the random number generator.
                 key = (ant2, ant1, pol) if conj_in_cache else (ant1, ant2, pol)
-                seed = self._seed_rng(seed, model, *key)
+                seed, rng = self._seed_rng(seed, model, *key, model_key=model_key)
 
                 # Prepare the actual arguments to be used.
                 use_args = self._update_args(base_args, model, ant1, ant2, pol)
                 use_args.update(kwargs)
+                use_args["rng"] = rng
                 if use_cached_filters:
                     filter_kwargs = self._get_filters(
                         ant1,
@@ -1167,7 +1194,9 @@ class Simulator:
         uvd.read(datafile, read_data=True, **kwargs)
         return uvd
 
-    def _seed_rng(self, seed, model, ant1=None, ant2=None, pol=None):
+    def _seed_rng(
+        self, seed, model, ant1=None, ant2=None, pol=None, model_key=None
+    ):
         """
         Set the random state according to the provided parameters.
 
@@ -1211,6 +1240,11 @@ class Simulator:
             Second antenna in the baseline (for baseline-dependent effects).
         pol
             Polarization string.
+        model_key
+            Identifier for retrieving the model parameters from the
+            ``self._components`` attribute. This is only needed for ensuring
+            that random effects using the "initial" seed can be recovered
+            with the ``self.get`` method.
 
         Returns
         -------
@@ -1218,6 +1252,8 @@ class Simulator:
             Either the input seed or ``None``, depending on the provided seed.
             This is just used to ensure that the logic for setting the random
             state in the :meth:`_iteratively_apply` routine works out.
+        rng
+            The random number generator to be used for producing the random effect.
 
         Raises
         ------
@@ -1228,11 +1264,14 @@ class Simulator:
             and a baseline isn't provided; two, the seed is a string, but
             is not one of the supported seeding modes.
         """
+        model_key = model_key or self._get_model_name(model)
         if seed is None:
-            return
+            rng = getattr(
+                self._components[model_key]["rng"], np.random.default_rng()
+            )
+            return (None, rng)
         if isinstance(seed, int):
-            np.random.seed(seed)
-            return seed
+            return (seed, np.random.default_rng(seed))
         if not isinstance(seed, str):
             raise TypeError(
                 "The seeding mode must be specified as a string or integer. "
@@ -1250,8 +1289,8 @@ class Simulator:
             if pol:
                 key += (pol,)
             # seed the RNG accordingly
-            np.random.seed(self._get_seed(model, key))
-            return "redundant"
+            seed = self._get_seed(model_key, key)
+            return ("redundant", np.random.default_rng(seed))
         elif seed == "once":
             # this option seeds the RNG once per iteration of
             # _iteratively_apply, using the same seed every time
@@ -1260,15 +1299,16 @@ class Simulator:
             # something like PointSourceForeground, where objects on
             # the sky are being placed randomly
             key = (pol,) if pol else 0
-            np.random.seed(self._get_seed(model, key))
-            return "once"
+            seed = self._get_seed(model_key, key)
+            return ("once", np.random.default_rng(seed))
         elif seed == "initial":
             # this seeds the RNG once at the very beginning of
             # _iteratively_apply. this would be useful for something
             # like ThermalNoise
             key = (pol,) if pol else -1
-            np.random.seed(self._get_seed(model, key))
-            return None
+            rng = np.random.default_rng(self._get_seed(model_key, key))
+            self._components[model_key]["rng"] = rng
+            return (None, rng)
         else:
             raise ValueError("Seeding mode not supported.")
 
@@ -1413,20 +1453,44 @@ class Simulator:
             )
 
     def _generate_seed(self, model, key):
-        """Generate a random seed based on the current time.
+        """Generate a random seed and cache it in the ``self._seeds`` attribute.
 
-        Populate the ``_seeds`` dictionary appropriately with the result.
+        Parameters
+        ----------
+        model
+            The name of the model to retrieve the random seed for, as it would
+            appear in the ``self._components`` attribute. (This should always
+            correspond to the ``model_key`` determined in the ``self.add`` method.)
+        key
+            The key to use for tracking the random seed. This is only really
+            used for keeping track of random seeds that are set per polarization
+            or per redundant group.
         """
-        model = self._get_model_name(model)
-        # for the sake of randomness
-        np.random.seed(int(time.time() * 1e6) % 2**32)
+        # Just to make it extra random.
+        rng = np.random.default_rng()
         if model not in self._seeds:
             self._seeds[model] = {}
-        self._seeds[model][key] = np.random.randint(2**32)
+        self._seeds[model][key] = rng.randint(2**32)
 
     def _get_seed(self, model, key):
-        """Retrieve or generate a random seed given a model and key."""
-        model = self._get_model_name(model)
+        """Retrieve or generate a random seed given a model and key.
+
+        Parameters
+        ----------
+        model
+            The name of the model to retrieve the random seed for, as it would
+            appear in the ``self._components`` attribute. (This should always
+            correspond to the ``model_key`` determined in the ``self.add`` method.)
+        key
+            The key to use for tracking the random seed. This is only really
+            used for keeping track of random seeds that are set per polarization
+            or per redundant group.
+
+        Returns
+        -------
+        seed
+            The random seed to use for setting the random state.
+        """
         if model not in self._seeds:
             self._generate_seed(model, key)
         if key not in self._seeds[model]:
