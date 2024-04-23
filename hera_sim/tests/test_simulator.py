@@ -702,3 +702,49 @@ def test_cached_filters():
     sim2.add("diffuse_foreground", seed=seed)
     defaults.deactivate()
     assert np.allclose(sim1.data.data_array, sim2.data.data_array)
+
+
+def test_get_model_name():
+    assert Simulator._get_model_name("noiselike_eor") == "noiselike_eor"
+    assert Simulator._get_model_name("NOISELIKE_EOR") == "noiselike_eor"
+
+    assert Simulator._get_model_name(DiffuseForeground) == "diffuseforeground"
+    assert Simulator._get_model_name(diffuse_foreground) == "diffuseforeground"
+
+    with pytest.raises(
+        TypeError, match="You are trying to simulate an effect using a custom function"
+    ):
+        Simulator._get_model_name(lambda x: x)
+
+    with pytest.raises(
+        TypeError, match="You are trying to simulate an effect using a custom function"
+    ):
+        Simulator._get_model_name(3)
+
+
+def test_parse_key(base_sim: Simulator):
+    assert base_sim._parse_key(None) == (None, None, None)
+    assert base_sim._parse_key(1) == (1, None, None)
+    assert base_sim._parse_key(
+        base_sim.data.baseline_array[-1]
+    ) == base_sim.data.baseline_to_antnums(base_sim.data.baseline_array[-1]) + (None,)
+
+    with pytest.raises(NotImplementedError, match="Functionality not yet supported"):
+        base_sim._parse_key("auto")
+
+    assert base_sim._parse_key("ee") == (None, None, "ee")
+
+    for badkey in [3.14, [1, 2, 3], (1,)]:
+        print(badkey)
+        with pytest.raises(
+            ValueError,
+            match="Key must be an integer, string, antenna pair, or antenna pair with",
+        ):
+            base_sim._parse_key(badkey)
+
+    with pytest.raises(ValueError, match="Invalid polarization string"):
+        base_sim._parse_key("bad_pol")
+
+    assert base_sim._parse_key((1, 2)) == (1, 2, None)
+    assert base_sim._parse_key((1, "Jee")) == (1, None, "Jee")
+    assert base_sim._parse_key((1, 2, "ee")) == (1, 2, "ee")

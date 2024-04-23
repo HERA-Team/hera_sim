@@ -19,6 +19,7 @@ from collections.abc import Sequence
 from deprecation import deprecated
 from pathlib import Path
 from pyuvdata import UVData
+from pyuvdata import utils as uvutils
 from typing import Optional, Union
 
 from . import __version__, io, utils
@@ -1464,16 +1465,30 @@ class Simulator:
         elif isinstance(key, str):
             if key.lower() in ("auto", "cross"):
                 raise NotImplementedError("Functionality not yet supported.")
+            if key.lower() not in {
+                **uvutils.POL_STR2NUM_DICT,
+                **uvutils.JONES_STR2NUM_DICT,
+                **uvutils.CONJ_POL_DICT,
+            }:
+                raise ValueError(f"Invalid polarization string: {key}.")
             ant1, ant2, pol = None, None, key
         else:
             try:
                 iter(key)
-                if len(key) not in (2, 3):
+                if len(key) not in (2, 3) or (
+                    len(key) == 3
+                    and not (
+                        isinstance(key[0], int)
+                        and isinstance(key[1], int)
+                        and isinstance(key[2], str)
+                    )
+                ):
                     raise TypeError
+
             except TypeError:
                 raise ValueError(
                     "Key must be an integer, string, antenna pair, or antenna "
-                    "pair with a polarization string."
+                    f"pair with a polarization string. Got {key}"
                 )
             if len(key) == 2:
                 if all(isinstance(val, int) for val in key):
