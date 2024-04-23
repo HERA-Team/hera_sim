@@ -136,6 +136,7 @@ class Stations(RFI):
     """
 
     _alias = ("rfi_stations",)
+    is_randomized = True
     return_type = "per_baseline"
 
     def __init__(self, stations=None, rng=None):
@@ -213,6 +214,7 @@ class Impulse(RFI):
     """
 
     _alias = ("rfi_impulse",)
+    is_randomized = True
     return_type = "per_baseline"
 
     def __init__(self, impulse_chance=0.001, impulse_strength=20.0, rng=None):
@@ -282,6 +284,7 @@ class Scatter(RFI):
     """
 
     _alias = ("rfi_scatter",)
+    is_randomized = True
     return_type = "per_baseline"
 
     def __init__(
@@ -355,6 +358,7 @@ class DTV(RFI):
     """
 
     _alias = ("rfi_dtv",)
+    is_randomized = True
     return_type = "per_baseline"
 
     def __init__(

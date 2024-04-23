@@ -67,6 +67,7 @@ class DiffuseForeground(Foreground):
 
     _alias = ("diffuse_foreground",)
     is_smooth_in_freq = True
+    is_randomized = True
     return_type = "per_baseline"
     attrs_to_pull = dict(
         bl_vec=None,
@@ -201,6 +202,7 @@ class PointSourceForeground(Foreground):
     """
 
     _alias = ("pntsrc_foreground",)
+    is_randomized = True
     return_type = "per_baseline"
     attrs_to_pull = dict(
         bl_vec=None,

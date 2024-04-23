@@ -1121,7 +1121,8 @@ class Simulator:
                 # Prepare the actual arguments to be used.
                 use_args = self._update_args(base_args, model, ant1, ant2, pol)
                 use_args.update(kwargs)
-                use_args["rng"] = rng
+                if model.is_randomized:
+                    use_args["rng"] = rng
                 if use_cached_filters:
                     filter_kwargs = self._get_filters(
                         ant1,

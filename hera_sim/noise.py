@@ -57,6 +57,7 @@ class ThermalNoise(Noise):
     """
 
     _alias = ("thermal_noise",)
+    is_randomized = True
     return_type = "per_baseline"
     attrs_to_pull = dict(
         autovis=None,

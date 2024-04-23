@@ -63,6 +63,7 @@ class Bandpass(Gain):
 
     _alias = ("gains", "bandpass_gain")
     is_multiplicative = True
+    is_randomized = True
     return_type = "per_antenna"
     attrs_to_pull = dict(
         ants="antpos",
@@ -203,6 +204,7 @@ class Reflections(Gain):
 
     _alias = ("reflection_gains", "sigchain_reflections")
     is_multiplicative = True
+    is_randomized = True
     return_type = "per_antenna"
     attrs_to_pull = dict(
         ants="antpos",
@@ -437,6 +439,7 @@ class ReflectionSpectrum(Gain):
 
     _alias = ("reflection_spectrum",)
     is_multiplicative = True
+    is_randomized = True
     return_type = "per_antenna"
     attrs_to_pull = dict(
         ants="antpos",
@@ -548,6 +551,7 @@ class CrossCouplingCrosstalk(Crosstalk, Reflections):
 
     _alias = ("cross_coupling_xtalk",)
     is_multiplicative = False
+    is_randomized = True
     return_type = "per_baseline"
     attrs_to_pull = dict(
         autovis=None,
@@ -654,6 +658,7 @@ class CrossCouplingSpectrum(Crosstalk):
     """
 
     _alias = ("cross_coupling_spectrum", "xtalk_spectrum")
+    is_randomized = True
     return_type = "per_baseline"
     attrs_to_pull = dict(
         autovis=None,
@@ -872,8 +877,6 @@ class MutualCoupling(Crosstalk):
     use_numba
         Whether to use ``numba`` for accelerating the simulation. Default is
         to use ``numba`` if it is installed.
-    rng
-        Random number generator.
     """
 
     _alias = ("mutual_coupling", "first_order_coupling")
@@ -900,7 +903,6 @@ class MutualCoupling(Crosstalk):
         freq_interp: str = "cubic",
         beam_kwargs: dict | None = None,
         use_numba: bool = True,
-        rng: np.random.Generator | None = None,
     ):
         super().__init__(
             uvbeam=uvbeam,
@@ -915,7 +917,6 @@ class MutualCoupling(Crosstalk):
             freq_interp=freq_interp,
             beam_kwargs=beam_kwargs or {},
             use_numba=use_numba,
-            rng=rng,
         )
 
     def __call__(
@@ -964,7 +965,6 @@ class MutualCoupling(Crosstalk):
             freq_interp,
             beam_kwargs,
             use_numba,
-            rng,
         ) = self._extract_kwarg_values(**kwargs)
 
         # Do all our sanity checks up front. First, check the array.
@@ -1341,6 +1341,7 @@ class OverAirCrossCoupling(Crosstalk):
     :class:`CrossCouplingSpectrum`
     """
 
+    is_randomized = True
     return_type = "per_baseline"
     attrs_to_pull = dict(
         antpair=None,
@@ -1485,6 +1486,7 @@ class WhiteNoiseCrosstalk(Crosstalk):
         "whitenoise_xtalk",
         "white_noise_xtalk",
     )
+    is_randomized = True
     return_type = "per_baseline"
 
     def __init__(self, amplitude=3.0, rng=None):
