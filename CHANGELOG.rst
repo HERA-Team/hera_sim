@@ -13,7 +13,7 @@ Added
   - Classes which use a random component should now have a ``rng`` attribute,
     which should be treated in the same manner as other model parameters. In
     other words, random states are now effectively treated as model parameters.
-  
+
 Changed
 -------
 - All random number generation now uses the new ``numpy`` API.
