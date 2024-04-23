@@ -300,12 +300,9 @@ class Simulator:
             for param in getattr(model, "kwargs", {}):
                 if param not in kwargs and param in defaults():
                     kwargs[param] = defaults(param)
-        if seed:
-            kwargs["seed"] = seed
-            self._update_seeds(model_key)
         if vis_filter is not None:
             kwargs["vis_filter"] = vis_filter
-        self._components[model_key] = kwargs
+        self._components[model_key] = kwargs.copy()
         self._components[model_key]["alias"] = component
 
         # Simulate the effect by iterating over baselines and polarizations.
@@ -322,6 +319,9 @@ class Simulator:
 
         if add_vis:
             self._update_history(model, **kwargs)
+            if seed:
+                kwargs["seed"] = seed
+                self._update_seeds(model_key)
         else:
             del self._antpairpol_cache[model_key]
             del self._components[model_key]
@@ -1263,7 +1263,7 @@ class Simulator:
         """
         model_key = model_key or self._get_model_name(model)
         if seed is None:
-            rng = getattr(self._components[model_key]["rng"], np.random.default_rng())
+            rng = self._components[model_key].get("rng", np.random.default_rng())
             return (None, rng)
         if isinstance(seed, int):
             return (seed, np.random.default_rng(seed))
@@ -1465,7 +1465,7 @@ class Simulator:
         rng = np.random.default_rng()
         if model not in self._seeds:
             self._seeds[model] = {}
-        self._seeds[model][key] = rng.randint(2**32)
+        self._seeds[model][key] = rng.integers(2**32)
 
     def _get_seed(self, model, key):
         """Retrieve or generate a random seed given a model and key.
