@@ -326,7 +326,7 @@ def test_use_pre_computed_filter(freqs, lsts, filter_type):
 @pytest.mark.parametrize("shape", [100, (100, 200)])
 def test_gen_white_noise_shape(shape):
     noise = utils.gen_white_noise(shape)
-    if type(shape) is int:
+    if isinstance(shape, int):
         shape = (shape,)
     assert noise.shape == shape
 
@@ -384,7 +384,7 @@ def test_Jy2T(freqs, omega_p):
 
 @pytest.mark.parametrize("obj", [1, (1, 2), "abc", np.array([13])])
 def test_listify(obj):
-    assert type(utils._listify(obj)) is list
+    assert isinstance(utils._listify(obj), list)
 
 
 @pytest.mark.parametrize("jit", [True, False])

@@ -630,3 +630,15 @@ def test_bad_load(tmpdir):
 
     with pytest.raises(AttributeError, match="The given simulator"):
         load_simulator_from_yaml(tmpdir / "bad_sim.yaml")
+
+    with open(tmpdir / "bad_sim.yaml", "w") as fl:
+        fl.write("""simulator: hera_sim.foregrounds.DiffuseForeground\n""")
+
+    with pytest.raises(ValueError, match="is not a subclass of VisibilitySimulator"):
+        load_simulator_from_yaml(tmpdir / "bad_sim.yaml")
+
+    with open(tmpdir / "bad_sim.yaml", "w") as fl:
+        fl.write("""simulator: hera_sim.foregrounds.diffuse_foreground\n""")
+
+    with pytest.raises(TypeError, match="is not a class"):
+        load_simulator_from_yaml(tmpdir / "bad_sim.yaml")

@@ -157,7 +157,7 @@ if __name__ == "__main__":
                 this_sim.data.data_array = data
             if bda_params:
                 this_sim.data = bda_tools.apply_bda(this_sim.data, **bda_params)
-            if type(data) is dict:
+            if isinstance(data, dict):
                 # The component is a gain-like term, so save as a calfits file.
                 ext = os.path.splitext(filename)[1]
                 if ext == "":

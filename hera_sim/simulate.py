@@ -6,6 +6,7 @@ For detailed instructions on how to manage a simulation using the
 :class:`Simulator`, please refer to the tutorials.
 """
 
+import contextlib
 import functools
 import inspect
 import numpy as np
@@ -18,6 +19,7 @@ from collections.abc import Sequence
 from deprecation import deprecated
 from pathlib import Path
 from pyuvdata import UVData
+from pyuvdata import utils as uvutils
 from typing import Optional, Union
 
 from . import __version__, io, utils
@@ -727,7 +729,7 @@ class Simulator:
                 return not pol == vis_filter[0]
             # Otherwise, assume that this specifies an antenna.
             else:
-                return not vis_filter[0] in (ant1, ant2)
+                return vis_filter[0] not in (ant1, ant2)
         elif len(vis_filter) == 2:
             # TODO: This will need to be updated when we support ant strings.
             # Three cases: two pols; an ant+pol; a baseline.
@@ -756,7 +758,7 @@ class Simulator:
             for key in vis_filter:
                 if isinstance(key, str):
                     pols.append(key)
-                elif type(key) is int:
+                elif isinstance(key, int):
                     ants.append(key)
             # We want polarization and ant1 or ant2 in the filter.
             # This would be used in simulating e.g. a few feeds that have an
@@ -1228,7 +1230,7 @@ class Simulator:
         """
         if seed is None:
             return
-        if type(seed) is int:
+        if isinstance(seed, int):
             np.random.seed(seed)
             return seed
         if not isinstance(seed, str):
@@ -1390,9 +1392,7 @@ class Simulator:
         component: Union[str, type[SimulationComponent], SimulationComponent]
     ) -> Union[SimulationComponent, type[SimulationComponent]]:
         """Normalize a component to be either a class or instance."""
-        if np.issubclass_(component, SimulationComponent):
-            return component
-        elif isinstance(component, str):
+        if isinstance(component, str):
             try:
                 return get_model(component)
             except KeyError:
@@ -1403,6 +1403,9 @@ class Simulator:
         elif isinstance(component, SimulationComponent):
             return component
         else:
+            with contextlib.suppress(TypeError):
+                if issubclass(component, SimulationComponent):
+                    return component
             raise TypeError(
                 "The input type for the component was not understood. "
                 "Must be a string, or a class/instance of type 'SimulationComponent'. "
@@ -1435,11 +1438,13 @@ class Simulator:
         """Find out the (lowercase) name of a provided model."""
         if isinstance(model, str):
             return model.lower()
-        elif np.issubclass_(model, SimulationComponent):
-            return model.__name__.lower()
         elif isinstance(model, SimulationComponent):
             return model.__class__.__name__.lower()
         else:
+            with contextlib.suppress(TypeError):
+                if issubclass(model, SimulationComponent):
+                    return model.__name__.lower()
+
             raise TypeError(
                 "You are trying to simulate an effect using a custom function. "
                 "Please refer to the tutorial for instructions regarding how "
@@ -1448,6 +1453,28 @@ class Simulator:
 
     def _parse_key(self, key: Union[int, str, AntPair, AntPairPol]) -> AntPairPol:
         """Convert a key of at-most length-3 to an (ant1, ant2, pol) tuple."""
+        valid_pols = {
+            k.lower()
+            for k in {
+                **uvutils.POL_STR2NUM_DICT,
+                **uvutils.JONES_STR2NUM_DICT,
+                **uvutils.CONJ_POL_DICT,
+            }
+        }
+        valid_pols.update({"jee", "jen", "jne", "jnn"})
+
+        def checkpol(pol):
+            if pol is None:
+                return None
+
+            if not isinstance(pol, str):
+                raise TypeError(f"Invalid polarization type: {type(pol)}.")
+
+            if pol.lower() not in valid_pols:
+                raise ValueError(f"Invalid polarization string: {pol}.")
+
+            return pol
+
         if key is None:
             ant1, ant2, pol = None, None, None
         elif np.issubdtype(type(key), int):
@@ -1460,26 +1487,33 @@ class Simulator:
         elif isinstance(key, str):
             if key.lower() in ("auto", "cross"):
                 raise NotImplementedError("Functionality not yet supported.")
+            key = checkpol(key)
             ant1, ant2, pol = None, None, key
         else:
+
+            def intify(x):
+                return x if x is None else int(x)
+
             try:
-                iter(key)
+                iter(key)  # ensure it's iterable
                 if len(key) not in (2, 3):
                     raise TypeError
+
+                if len(key) == 2:
+                    if all(isinstance(val, int) for val in key):
+                        ant1, ant2 = key
+                        pol = None
+                    else:
+                        ant1, pol = intify(key[0]), checkpol(key[1])
+                        ant2 = None
+                else:
+                    ant1, ant2, pol = intify(key[0]), intify(key[1]), checkpol(key[2])
+
             except TypeError:
                 raise ValueError(
                     "Key must be an integer, string, antenna pair, or antenna "
-                    "pair with a polarization string."
+                    f"pair with a polarization string. Got {key}."
                 )
-            if len(key) == 2:
-                if all(type(val) is int for val in key):
-                    ant1, ant2 = key
-                    pol = None
-                else:
-                    ant1, pol = key
-                    ant2 = None
-            else:
-                ant1, ant2, pol = key
         return ant1, ant2, pol
 
     def _sanity_check(self, model):
