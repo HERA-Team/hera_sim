@@ -11,8 +11,6 @@ from hera_sim import DATA_PATH, foregrounds, noise, sigchain
 from hera_sim.interpolators import Bandpass, Beam
 from hera_sim.io import empty_uvdata
 
-np.random.seed(0)
-
 
 @pytest.fixture(scope="function")
 def fqs():
@@ -570,8 +568,8 @@ def uvbeam(tmp_path):
 
 
 def test_mutual_coupling_with_uvbeam(uvbeam, sample_uvdata, sample_coupling):
-    np.random.seed(0)
-    data = np.random.normal(size=sample_uvdata.data_array.shape) + 0j
+    rng = np.random.default_rng(0)
+    data = rng.normal(size=sample_uvdata.data_array.shape) + 0j
     sample_uvdata.data_array[...] = data[...]
     sample_uvdata.data_array += sample_coupling(
         freqs=sample_uvdata.freq_array.squeeze() / 1e9,

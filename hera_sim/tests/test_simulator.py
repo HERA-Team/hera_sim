@@ -666,7 +666,7 @@ def test_bad_seeds(base_sim, seed):
         "unsupported": "Seeding mode not supported.",
     }[seed]
     with pytest.raises(err, match=match):
-        base_sim._seed_rng(seed, None)
+        base_sim._seed_rng(seed, None, model_key="test")
 
 
 def test_get_component_with_function():

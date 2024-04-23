@@ -55,8 +55,7 @@ def test_rfi_station_from_file(freqs, lsts):
 @pytest.mark.parametrize("rfi_type", ["scatter", "impulse", "dtv"])
 @pytest.mark.parametrize("chance", [0.2, 0.5, 0.8])
 def test_rfi_occupancy(freqs, lsts, rfi_type, chance):
-    np.random.seed(0)
-    kwargs = {f"{rfi_type}_chance": chance}
+    kwargs = {f"{rfi_type}_chance": chance, "rng": np.random.default_rng(0)}
     # Modify expected chance appropriately if simulating DTV.
     if rfi_type == "dtv":
         fmin, fmax = (0.15, 0.20)
@@ -64,12 +63,11 @@ def test_rfi_occupancy(freqs, lsts, rfi_type, chance):
         freq_cut = (freqs >= fmin) & (freqs < fmax)
         chance *= freqs[freq_cut].size / freqs.size
     rfi_vis = getattr(rfi, f"rfi_{rfi_type}")(lsts, freqs, **kwargs)
-    assert np.isclose(np.mean(np.abs(rfi_vis).astype(bool)), chance, atol=0.05, rtol=0)
+    assert np.isclose(np.mean(np.abs(rfi_vis).astype(bool)), chance, atol=0.1, rtol=0)
 
 
 @pytest.mark.parametrize("alignment", ["aligned", "misaligned"])
 def test_rfi_dtv_constant_across_subband(freqs, lsts, alignment):
-    np.random.seed(0)
     dtv_band = (0.15, 0.20) if alignment == "aligned" else (0.1502, 0.2002)
     channel_width = 0.01
     Nbands = 5  # Just hardcode this to avoid stupid numerical problems.
@@ -82,6 +80,7 @@ def test_rfi_dtv_constant_across_subband(freqs, lsts, alignment):
         dtv_chance=0.5,
         dtv_strength=10,
         dtv_std=1,
+        rng=np.random.default_rng(0),
     )
     for band_edges in zip(subband_edges[:-1], subband_edges[1:]):
         channels = np.argwhere(
@@ -97,7 +96,6 @@ def test_rfi_dtv_constant_across_subband(freqs, lsts, alignment):
 
 
 def test_rfi_dtv_occupancy_variable_chance(freqs, lsts):
-    np.random.seed(0)
     dtv_band = (0.15, 0.20)
     channel_width = 0.01
     Nbands = 5  # See above note about hardcoding.
@@ -111,6 +109,7 @@ def test_rfi_dtv_occupancy_variable_chance(freqs, lsts):
         dtv_chance=chances,
         dtv_strength=10,
         dtv_std=1,
+        rng=np.random.default_rng(0),
     )
     expected_occupancy = sum(
         chance

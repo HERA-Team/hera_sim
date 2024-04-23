@@ -300,8 +300,6 @@ class Simulator:
             for param in getattr(model, "kwargs", {}):
                 if param not in kwargs and param in defaults():
                     kwargs[param] = defaults(param)
-        if vis_filter is not None:
-            kwargs["vis_filter"] = vis_filter
         self._components[model_key] = kwargs.copy()
         self._components[model_key]["alias"] = component
 
@@ -320,8 +318,10 @@ class Simulator:
         if add_vis:
             self._update_history(model, **kwargs)
             if seed:
-                kwargs["seed"] = seed
+                self._components[model_key]["seed"] = seed
                 self._update_seeds(model_key)
+            if vis_filter is not None:
+                kwargs["vis_filter"] = vis_filter
         else:
             del self._antpairpol_cache[model_key]
             del self._components[model_key]
@@ -481,9 +481,13 @@ class Simulator:
             args = self._update_args(args, model, ant1, ant2, pol)
             args.update(kwargs)
             if conj_data:
-                _, rng = self._seed_rng(seed, model, ant2, ant1, _pol)
+                _, rng = self._seed_rng(
+                    seed, model, ant2, ant1, _pol, model_key=model_key
+                )
             else:
-                _, rng = self._seed_rng(seed, model, ant1, ant2, _pol)
+                _, rng = self._seed_rng(
+                    seed, model, ant1, ant2, _pol, model_key=model_key
+                )
             args["rng"] = rng
             data[..., i] = model(**args)
         if conj_data:

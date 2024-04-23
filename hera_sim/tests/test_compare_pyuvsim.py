@@ -28,12 +28,12 @@ def get_uvdata(pol_array=None):
     obstime = Time("2018-08-31T04:02:30.11", format="isot", scale="utc")
     if pol_array is None:
         pol_array = np.array(["XX", "YY", "XY", "YX"])
-    np.random.seed(10)
+    rng = np.random.default_rng(10)
 
     # Random antenna locations
-    x = np.random.random(nants) * 400.0  # Up to 400 metres
-    y = np.random.random(nants) * 400.0
-    z = np.random.random(nants) * 0.0
+    x = rng.random(nants) * 400.0  # Up to 400 metres
+    y = rng.random(nants) * 400.0
+    z = rng.random(nants) * 0.0
 
     ants = {i: (x[i], y[i], z[i]) for i in range(nants)}
 

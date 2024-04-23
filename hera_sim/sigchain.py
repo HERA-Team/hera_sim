@@ -381,6 +381,7 @@ class Reflections(Gain):
         """
 
         rng = rng or np.random.default_rng()
+
         def broadcast_param(param, lower_bound, upper_bound, size):
             if param is None:
                 return rng.uniform(lower_bound, upper_bound, size)

@@ -90,11 +90,8 @@ class NoiselikeEoR(EoR):
             rng,
         ) = self._extract_kwarg_values(**kwargs)
 
-        # Make white noise in time and frequency.
-        data = utils.gen_white_noise(size=(len(lsts), len(freqs)), rng=rng)
-
-        # Scale data by EoR amplitude
-        data *= eor_amp
+        # Make white noise in time and frequency with the desired amplitude.
+        data = utils.gen_white_noise(size=(len(lsts), len(freqs)), rng=rng) * eor_amp
 
         # apply delay filter; default does nothing
         # TODO: find out why bl_len_ns is hardcoded as 1e10, also

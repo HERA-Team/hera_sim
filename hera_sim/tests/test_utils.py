@@ -153,12 +153,12 @@ def test_rough_delay_filter_missing_param(freqs, lsts, missing_param):
 def test_delay_filter_norm(freqs):
     tsky = np.ones(freqs.size)
 
-    np.random.seed(1234)  # set the seed for reproducibility.
+    rng = np.random.default_rng(0)  # set the seed for reproducibility.
 
     out = 0
     nreal = 5000
     for _ in range(nreal):
-        _noise = tsky * utils.gen_white_noise(freqs.size)
+        _noise = tsky * utils.gen_white_noise(freqs.size, rng=rng)
         outnoise = utils.rough_delay_filter(_noise, freqs, 30, normalize=1)
 
         out += np.sum(np.abs(outnoise) ** 2)
