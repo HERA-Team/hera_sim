@@ -559,6 +559,16 @@ def test_beam_type_consistency(uvdata, sky_model):
         ModelData(uvdata=uvdata, sky_model=sky_model, beams=beams)
 
 
+def test_fftvis_beam_error(uvdata, sky_model):
+    beams = [AnalyticBeam("gaussian"), AnalyticBeam("gaussian")]
+
+    with pytest.raises(ValueError):
+        VisibilitySimulation(
+            data_model=ModelData(uvdata=uvdata, sky_model=sky_model, beams=beams),
+            simulator=FFTVis(),
+        )
+
+
 def test_power_polsky(uvdata, sky_model):
     new_sky = copy.deepcopy(sky_model)
     new_sky.stokes[1:] = 1.0 * units.Jy
@@ -576,6 +586,15 @@ def test_vis_cpu_stokespol(uvdata_linear, sky_model):
         VisibilitySimulation(
             data_model=ModelData(uvdata=uvdata_linear, sky_model=sky_model),
             simulator=MatVis(),
+        )
+
+
+def test_fftvis_stokespol(uvdata_linear, sky_model):
+    uvdata_linear.polarization_array = [0, 1, 2, 3]
+    with pytest.raises(ValueError):
+        VisibilitySimulation(
+            data_model=ModelData(uvdata=uvdata_linear, sky_model=sky_model),
+            simulator=FFTVis(),
         )
 
 
