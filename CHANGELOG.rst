@@ -13,6 +13,9 @@ Added
   - Classes which use a random component should now have a ``rng`` attribute,
     which should be treated in the same manner as other model parameters. In
     other words, random states are now effectively treated as model parameters.
+- New simulator class ``FFTVis`` that uses the ``fftvis`` package to simulate
+  visibilities. This is a CPU-based visibility simulator that is faster than
+  ``MatVis`` for large, compact arrays.
 
 Changed
 -------
