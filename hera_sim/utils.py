@@ -420,7 +420,9 @@ def wrap2pipi(a):
     return res
 
 
-def gen_white_noise(size: int | tuple[int] = 1) -> np.ndarray:
+def gen_white_noise(
+    size: int | tuple[int] = 1, rng: np.random.Generator | None = None
+) -> np.ndarray:
     """Produce complex Gaussian noise with unity variance.
 
     Parameters
@@ -428,16 +430,21 @@ def gen_white_noise(size: int | tuple[int] = 1) -> np.ndarray:
     size
         Shape of output array. Can be an integer if a single dimension is required,
         otherwise a tuple of ints.
+    rng
+        Random number generator.
 
     Returns
     -------
     noise
         White noise realization with specified shape.
     """
+    # Split power evenly between real and imaginary components.
     std = 1 / np.sqrt(2)
-    return np.random.normal(scale=std, size=size) + 1j * np.random.normal(
-        scale=std, size=size
-    )
+    args = dict(scale=std, size=size)
+
+    # Create a random number generator if needed, then generate noise.
+    rng = rng or np.random.default_rng()
+    return rng.normal(**args) + 1j * rng.normal(**args)
 
 
 def jansky_to_kelvin(freqs: np.ndarray, omega_p: Beam | np.ndarray) -> np.ndarray:

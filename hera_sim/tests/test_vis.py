@@ -37,7 +37,6 @@ if HAVE_GPU:
     SIMULATORS = SIMULATORS + (VisGPU,)
 
 
-np.random.seed(0)
 NTIMES = 10
 NPIX = 12 * 16**2
 NFREQ = 5

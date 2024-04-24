@@ -36,6 +36,8 @@ class RfiStation:
         are considered "off" and high points are considered "on" (just how high is
         controlled by ``duty_cycle``). This is the wavelength (in seconds) of that
         cycle.
+    rng: np.random.Generator, optional
+        Random number generator.
 
     Notes
     -----
@@ -53,12 +55,14 @@ class RfiStation:
         strength: float = 100.0,
         std: float = 10.0,
         timescale: float = 100.0,
+        rng: np.random.Generator | None = None,
     ):
         self.f0 = f0
         self.duty_cycle = duty_cycle
         self.strength = strength
         self.std = std
         self.timescale = timescale
+        self.rng = rng or np.random.default_rng()
 
     def __call__(self, lsts, freqs):
         """Compute the RFI for this station.
@@ -96,14 +100,14 @@ class RfiStation:
         ch2 = ch1 + 1 if self.f0 > freqs[ch1] else ch1 - 1
 
         # generate some random phases
-        phs1, phs2 = np.random.uniform(0, 2 * np.pi, size=2)
+        phs1, phs2 = self.rng.uniform(0, 2 * np.pi, size=2)
 
         # find out when the station is broadcasting
         is_on = 0.999 * np.cos(lsts * u.sday.to("s") / self.timescale + phs1)
         is_on = is_on > (1 - 2 * self.duty_cycle)
 
         # generate a signal and filter it according to when it's on
-        signal = np.random.normal(self.strength, self.std, lsts.size)
+        signal = self.rng.normal(self.strength, self.std, lsts.size)
         signal = np.where(is_on, signal, 0) * np.exp(1j * phs2)
 
         # now add the signal to the rfi array
@@ -127,13 +131,16 @@ class Stations(RFI):
     ----------
     stations : list of :class:`RfiStation`
         The list of stations that produce RFI.
+    rng: np.random.Generator, optional
+        Random number generator.
     """
 
     _alias = ("rfi_stations",)
+    is_randomized = True
     return_type = "per_baseline"
 
-    def __init__(self, stations=None):
-        super().__init__(stations=stations)
+    def __init__(self, stations=None, rng=None):
+        super().__init__(stations=stations, rng=rng)
 
     def __call__(self, lsts, freqs, **kwargs):
         """Generate the RFI from all stations.
@@ -159,7 +166,7 @@ class Stations(RFI):
         self._check_kwargs(**kwargs)
 
         # but this is where the magic comes in (thanks to defaults)
-        (stations,) = self._extract_kwarg_values(**kwargs)
+        (stations, rng) = self._extract_kwarg_values(**kwargs)
 
         # initialize an array to store the rfi in
         rfi = np.zeros((lsts.size, freqs.size), dtype=complex)
@@ -202,14 +209,19 @@ class Impulse(RFI):
         Strength of the impulse. This will not be randomized, though a phase
         offset as a function of frequency will be applied, and will be random
         for each impulse.
+    rng: np.random.Generator, optional
+        Random number generator.
     """
 
     _alias = ("rfi_impulse",)
+    is_randomized = True
     return_type = "per_baseline"
 
-    def __init__(self, impulse_chance=0.001, impulse_strength=20.0):
+    def __init__(self, impulse_chance=0.001, impulse_strength=20.0, rng=None):
         super().__init__(
-            impulse_chance=impulse_chance, impulse_strength=impulse_strength
+            impulse_chance=impulse_chance,
+            impulse_strength=impulse_strength,
+            rng=rng,
         )
 
     def __call__(self, lsts, freqs, **kwargs):
@@ -231,18 +243,19 @@ class Impulse(RFI):
         self._check_kwargs(**kwargs)
 
         # unpack the kwargs
-        chance, strength = self._extract_kwarg_values(**kwargs)
+        chance, strength, rng = self._extract_kwarg_values(**kwargs)
+        rng = rng or np.random.default_rng()
 
         # initialize the rfi array
         rfi = np.zeros((lsts.size, freqs.size), dtype=complex)
 
         # find times when an impulse occurs
-        impulses = np.where(np.random.uniform(size=lsts.size) <= chance)[0]
+        impulses = np.where(rng.uniform(size=lsts.size) <= chance)[0]
 
         # only do something if there are impulses
         if impulses.size > 0:
             # randomly generate some delays for each impulse
-            dlys = np.random.uniform(-300, 300, impulses.size)  # ns
+            dlys = rng.uniform(-300, 300, impulses.size)  # ns
 
             # generate the signals
             signals = strength * np.asarray(
@@ -266,16 +279,22 @@ class Scatter(RFI):
         random strength).
     scatter_std : float, optional
         Standard deviation of the RFI strength.
+    rng: np.random.Generator, optional
+        Random number generator.
     """
 
     _alias = ("rfi_scatter",)
+    is_randomized = True
     return_type = "per_baseline"
 
-    def __init__(self, scatter_chance=0.0001, scatter_strength=10.0, scatter_std=10.0):
+    def __init__(
+        self, scatter_chance=0.0001, scatter_strength=10.0, scatter_std=10.0, rng=None
+    ):
         super().__init__(
             scatter_chance=scatter_chance,
             scatter_strength=scatter_strength,
             scatter_std=scatter_std,
+            rng=rng,
         )
 
     def __call__(self, lsts, freqs, **kwargs):
@@ -297,17 +316,18 @@ class Scatter(RFI):
         self._check_kwargs(**kwargs)
 
         # now unpack them
-        chance, strength, std = self._extract_kwarg_values(**kwargs)
+        chance, strength, std, rng = self._extract_kwarg_values(**kwargs)
+        rng = rng or np.random.default_rng()
 
         # make an empty rfi array
         rfi = np.zeros((lsts.size, freqs.size), dtype=complex)
 
         # find out where to put the rfi
-        rfis = np.where(np.random.uniform(size=rfi.size) <= chance)[0]
+        rfis = np.where(rng.uniform(size=rfi.size) <= chance)[0]
 
         # simulate the rfi; one random amplitude, all random phases
-        signal = np.random.normal(strength, std) * np.exp(
-            2j * np.pi * np.random.uniform(size=rfis.size)
+        signal = rng.normal(strength, std) * np.exp(
+            2j * np.pi * rng.uniform(size=rfis.size)
         )
 
         # add the signal to the rfi
@@ -333,9 +353,12 @@ class DTV(RFI):
         Mean strength of RFI.
     dtv_std : float, optional
         Standard deviation of RFI strength.
+    rng: np.random.Generator, optional
+        Random number generator.
     """
 
     _alias = ("rfi_dtv",)
+    is_randomized = True
     return_type = "per_baseline"
 
     def __init__(
@@ -345,6 +368,7 @@ class DTV(RFI):
         dtv_chance=0.0001,
         dtv_strength=10.0,
         dtv_std=10.0,
+        rng=None,
     ):
         super().__init__(
             dtv_band=dtv_band,
@@ -352,6 +376,7 @@ class DTV(RFI):
             dtv_chance=dtv_chance,
             dtv_strength=dtv_strength,
             dtv_std=dtv_std,
+            rng=rng,
         )
 
     def __call__(self, lsts, freqs, **kwargs):
@@ -379,7 +404,9 @@ class DTV(RFI):
             dtv_chance,
             dtv_strength,
             dtv_std,
+            rng,
         ) = self._extract_kwarg_values(**kwargs)
+        rng = rng or np.random.default_rng()
 
         # make an empty rfi array
         rfi = np.zeros((lsts.size, freqs.size), dtype=complex)
@@ -449,12 +476,12 @@ class DTV(RFI):
             this_rfi = rfi[:, ch1:ch2]
 
             # find out which times are affected
-            rfis = np.random.uniform(size=lsts.size) <= chance
+            rfis = rng.uniform(size=lsts.size) <= chance
 
             # calculate the signal
             signal = np.atleast_2d(
-                np.random.normal(strength, std, size=rfis.sum())
-                * np.exp(2j * np.pi * np.random.uniform(size=rfis.sum()))
+                rng.normal(strength, std, size=rfis.sum())
+                * np.exp(2j * np.pi * rng.uniform(size=rfis.sum()))
             ).T
 
             # add the signal to the rfi array
