@@ -559,14 +559,15 @@ def test_beam_type_consistency(uvdata, sky_model):
         ModelData(uvdata=uvdata, sky_model=sky_model, beams=beams)
 
 
-def test_fftvis_beam_error(uvdata, sky_model):
+def test_fftvis_beam_error(uvdata2, sky_model):
     beams = [AnalyticBeam("gaussian"), AnalyticBeam("gaussian")]
-
+    beam_ids = [0, 1]
+    simulator = FFTVis()
+    data_model = ModelData(
+        uvdata=uvdata2, sky_model=sky_model, beams=beams, beam_ids=beam_ids
+    )
     with pytest.raises(ValueError):
-        VisibilitySimulation(
-            data_model=ModelData(uvdata=uvdata, sky_model=sky_model, beams=beams),
-            simulator=FFTVis(),
-        )
+        simulator.validate(data_model)
 
 
 def test_power_polsky(uvdata, sky_model):
