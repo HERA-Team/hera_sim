@@ -588,9 +588,10 @@ def test_mutual_coupling_input_types(
     def func(freqs):
         return np.ones_like(freqs)
 
+    rng = np.random.default_rng(0)
     omega_p = func if omega_p == "callable" else None
     reflection = func if reflection == "callable" else None
-    data = np.random.normal(size=sample_uvdata.data_array.shape) + 0j
+    data = rng.normal(size=sample_uvdata.data_array.shape) + 0j
     sample_uvdata.data_array += data
     sample_uvdata.data_array += sample_coupling(
         freqs=sample_uvdata.freq_array.squeeze() / 1e9,
