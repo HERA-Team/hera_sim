@@ -71,7 +71,7 @@ def test_gen_bandpass():
     assert 2 in g
     assert g[1].size == fqs.size
     assert np.all(g[1] == g[2])
-    g = sigchain.gen_bandpass(fqs, list(range(10)), 0.2)
+    g = sigchain.gen_bandpass(fqs, list(range(10)), 0.2, rng=np.random.default_rng(0))
     assert not np.all(g[1] == g[2])
 
 
@@ -221,7 +221,7 @@ def test_reflection_spectrum():
     dlys = np.arange(-1000, 1001, 5)
     fqs = uvtools.utils.fourier_freqs(dlys)
     fqs += 0.1 - fqs.min()  # Range from 100 MHz to whatever the upper bound is
-    reflections = reflections(fqs, range(100))
+    reflections = reflections(fqs, range(100), rng=np.random.default_rng(0))
     reflections = np.vstack(list(reflections.values()))
     spectra = np.abs(uvtools.utils.FFT(reflections, axis=1))
     spectra = spectra / spectra.max(axis=1).reshape(-1, 1)
@@ -270,8 +270,9 @@ def test_amp_jitter():
     ants = range(10000)
     amp = 5
     amp_jitter = 0.1
+    rng = np.random.default_rng(0)
     jittered_amps = sigchain.Reflections._complete_params(
-        ants, amp=amp, amp_jitter=amp_jitter
+        ants, amp=amp, amp_jitter=amp_jitter, rng=rng
     )[0]
     assert np.isclose(jittered_amps.mean(), amp, rtol=0.05)
     assert np.isclose(jittered_amps.std(), amp * amp_jitter, rtol=0.05)
@@ -281,8 +282,9 @@ def test_dly_jitter():
     ants = range(10000)
     dly = 500
     dly_jitter = 20
+    rng = np.random.default_rng(0)
     jittered_dlys = sigchain.Reflections._complete_params(
-        ants, dly=dly, dly_jitter=dly_jitter
+        ants, dly=dly, dly_jitter=dly_jitter, rng=rng
     )[1]
     assert np.isclose(jittered_dlys.mean(), dly, rtol=0.05)
     assert np.isclose(jittered_dlys.std(), dly_jitter, rtol=0.05)
@@ -297,6 +299,7 @@ def test_cross_coupling_spectrum(fqs, dlys, Tsky):
         amp_range=amp_range,
         dly_range=dly_range,
         symmetrize=True,
+        rng=np.random.default_rng(0),
     )
     amplitudes = np.logspace(*amp_range, n_copies)
     delays = np.linspace(*dly_range, n_copies)
@@ -352,6 +355,7 @@ def test_over_air_cross_coupling(Tsky_mdl, lsts):
         cable_delays=cable_delays,
         max_delay=max_delay,
         amp_decay_fac=amp_decay_fac,
+        rng=np.random.default_rng(0),
     )
     xtalk = gen_xtalk(fqs, (0, 1), antpos, Tsky, Tsky)
     xt_fft = uvtools.utils.FFT(xtalk, axis=1, taper="bh7")
@@ -740,12 +744,14 @@ def test_vary_gain_amp_sinusoidal(gains, times, fringe_rates, fringe_keys):
 
 def test_vary_gain_amp_noiselike(gains, times):
     vary_amp = 0.1
+    rng = np.random.default_rng(0)
     varied_gain = sigchain.vary_gains_in_time(
         gains=gains,
         times=times,
         parameter="amp",
         variation_mode="noiselike",
         variation_amp=vary_amp,
+        rng=rng,
     )[0]
 
     # Check that the mean gain amplitude is the original gain amplitude.
@@ -817,6 +823,7 @@ def test_vary_gain_phase_noiselike(gains, times, delay_phases, phase_offsets):
         parameter="phs",
         variation_mode="noiselike",
         variation_amp=vary_amp,
+        rng=np.random.default_rng(0),
     )[0]
 
     varied_phases = np.angle(varied_gain)
@@ -894,6 +901,7 @@ def test_vary_gain_delay_noiselike(gains, times, freqs, delays):
         parameter="dly",
         variation_amp=vary_amp,
         variation_mode="noiselike",
+        rng=np.random.default_rng(0),
     )[0]
 
     # Determine the bandpass delay at each time.

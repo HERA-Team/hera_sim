@@ -131,7 +131,8 @@ def test_match_subarray():
 
 def test_match_translated_array():
     # A simple translation should just be undone
-    translation = np.random.uniform(-1, 1, 3)
+    rng = np.random.default_rng(0)
+    translation = rng.uniform(-1, 1, 3)
     array_1 = {0: [0, 0, 0], 1: [1, 0, 0], 2: [1, 1, 0]}
     array_2 = {ant: np.array(pos) - translation for ant, pos in array_1.items()}
     # Won't be an exact match to machine precision, so need some small tolerance.

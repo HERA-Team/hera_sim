@@ -124,8 +124,9 @@ def test_rough_filter_noisy_data(freqs, lsts, filter_type):
             "fringe_filter_type": "gauss",
             "fr_width": 1e-4,
         }
+    rng = np.random.default_rng(0)
     for i in range(Nrealizations):
-        data = utils.gen_white_noise((lsts.size, freqs.size))
+        data = utils.gen_white_noise((lsts.size, freqs.size), rng=rng)
         filtered_data = filt(data, *args, **kwargs)
         filtered_data_mean = np.mean(filtered_data)
         mean_values[i] = filtered_data_mean.real, filtered_data_mean.imag
@@ -276,7 +277,7 @@ def test_fringe_filter_custom(freqs, lsts, fringe_rates):
 @pytest.mark.parametrize("bl_len_ns", [50, 150])
 @pytest.mark.parametrize("fr_width", [1e-4, 3e-4])
 def test_rough_fringe_filter_noisy_data(freqs, lsts, fringe_rates, bl_len_ns, fr_width):
-    data = utils.gen_white_noise((lsts.size, freqs.size))
+    data = utils.gen_white_noise((lsts.size, freqs.size), rng=np.random.default_rng(0))
     max_fringe_rates = utils.calc_max_fringe_rate(freqs, bl_len_ns)
     filt_data = utils.rough_fringe_filter(
         data, lsts, freqs, bl_len_ns, fringe_filter_type="gauss", fr_width=fr_width
@@ -333,7 +334,7 @@ def test_gen_white_noise_shape(shape):
 
 @pytest.mark.parametrize("shape", [100, (100, 200)])
 def test_gen_white_noise_mean(shape):
-    noise = utils.gen_white_noise(shape)
+    noise = utils.gen_white_noise(shape, rng=np.random.default_rng(0))
     assert np.allclose(
         [noise.mean().real, noise.mean().imag], 0, rtol=0, atol=5 / np.sqrt(noise.size)
     )
@@ -341,7 +342,7 @@ def test_gen_white_noise_mean(shape):
 
 @pytest.mark.parametrize("shape", [100, (100, 200)])
 def test_gen_white_noise_variance(shape):
-    noise = utils.gen_white_noise(shape)
+    noise = utils.gen_white_noise(shape, rng=np.random.default_rng(0))
     assert np.isclose(np.std(noise), 1, rtol=0, atol=0.1)
 
 

@@ -18,7 +18,7 @@ def lsts():
 @pytest.mark.parametrize("station_freq", [0.150, 0.1505])
 def test_rfi_station_strength(freqs, lsts, station_freq):
     # Generate RFI for a single station.
-    station = rfi.RfiStation(station_freq, std=0.0)
+    station = rfi.RfiStation(station_freq, std=0.0, rng=np.random.default_rng(0))
     rfi_vis = station(lsts, freqs)
 
     # Check that the RFI is inserted where it should be at the correct level.
@@ -48,7 +48,9 @@ def test_rfi_station_from_file(freqs, lsts):
     filename = DATA_PATH / "HERA_H1C_RFI_STATIONS.npy"
     station_params = np.load(filename)
     Nstations = station_params.shape[0]
-    rfi_vis = rfi.rfi_stations(lsts, freqs, stations=filename)
+    rfi_vis = rfi.rfi_stations(
+        lsts, freqs, stations=filename, rng=np.random.default_rng(0)
+    )
     assert np.sum(np.sum(np.abs(rfi_vis), axis=0).astype(bool)) >= Nstations
 
 

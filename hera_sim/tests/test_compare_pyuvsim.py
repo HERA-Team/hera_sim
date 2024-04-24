@@ -66,10 +66,11 @@ def get_sky_model(uvdata, nsource):
     sources = [
         [125.7, -30.72, 2, 0],  # Fix a single source near zenith
     ]
+    rng = np.random.default_rng(0)
     if nsource > 1:  # Add random other sources
-        ra = np.random.uniform(low=0.0, high=360.0, size=nsource - 1)
-        dec = -30.72 + np.random.random(nsource - 1) * 10.0
-        flux = np.random.random(nsource - 1) * 4
+        ra = rng.uniform(low=0.0, high=360.0, size=nsource - 1)
+        dec = -30.72 + rng.random(nsource - 1) * 10.0
+        flux = rng.random(nsource - 1) * 4
         for i in range(nsource - 1):
             sources.append([ra[i], dec[i], flux[i], 0])
     sources = np.array(sources)

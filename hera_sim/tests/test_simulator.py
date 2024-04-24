@@ -112,17 +112,27 @@ def test_nondefault_blt_order_lsts():
 
 
 def test_add_with_str(base_sim):
-    base_sim.add("noiselike_eor")
+    base_sim.add("noiselike_eor", rng=np.random.default_rng(0))
     assert not np.all(base_sim.data.data_array == 0)
 
 
 def test_add_with_builtin_class(base_sim):
-    base_sim.add(DiffuseForeground, Tsky_mdl=Tsky_mdl, omega_p=omega_p)
+    base_sim.add(
+        DiffuseForeground,
+        Tsky_mdl=Tsky_mdl,
+        omega_p=omega_p,
+        rng=np.random.default_rng(0),
+    )
     assert not np.all(np.isclose(base_sim.data.data_array, 0))
 
 
 def test_add_with_class_instance(base_sim):
-    base_sim.add(diffuse_foreground, Tsky_mdl=Tsky_mdl, omega_p=omega_p)
+    base_sim.add(
+        diffuse_foreground,
+        Tsky_mdl=Tsky_mdl,
+        omega_p=omega_p,
+        rng=np.random.default_rng(0),
+    )
     assert not np.all(np.isclose(base_sim.data.data_array, 0))
 
 
@@ -301,7 +311,9 @@ def test_get_multiplicative_effect(base_sim, pol, ant1):
 
 
 def test_not_add_vis(base_sim):
-    vis = base_sim.add("noiselike_eor", add_vis=False, ret_vis=True)
+    vis = base_sim.add(
+        "noiselike_eor", add_vis=False, ret_vis=True, rng=np.random.default_rng(0)
+    )
 
     assert np.all(base_sim.data.data_array == 0)
 
@@ -315,14 +327,16 @@ def test_not_add_vis(base_sim):
 
 
 def test_adding_vis_but_also_returning(base_sim):
-    vis = base_sim.add("noiselike_eor", ret_vis=True)
+    vis = base_sim.add("noiselike_eor", ret_vis=True, rng=np.random.default_rng(0))
 
     assert not np.all(vis == 0)
     assert np.all(np.isclose(vis, base_sim.data.data_array))
 
     # use season defaults for simplicity
     defaults.set("h1c")
-    vis += base_sim.add("diffuse_foreground", ret_vis=True)
+    vis += base_sim.add(
+        "diffuse_foreground", ret_vis=True, rng=np.random.default_rng(90)
+    )
     # deactivate defaults for good measure
     defaults.deactivate()
     assert np.all(np.isclose(vis, base_sim.data.data_array))
@@ -334,7 +348,7 @@ def test_filter():
     # only add visibilities for the (0,1) baseline
     vis_filter = (0, 1, "xx")
 
-    sim.add("noiselike_eor", vis_filter=vis_filter)
+    sim.add("noiselike_eor", vis_filter=vis_filter, rng=np.random.default_rng(10))
     assert np.all(sim.data.get_data(0, 0) == 0)
     assert np.all(sim.data.get_data(1, 1) == 0)
     assert np.all(sim.data.get_data(0, 1) != 0)
@@ -599,13 +613,13 @@ def test_legacy_funcs(component):
 
 def test_vis_filter_single_pol():
     sim = create_sim(polarization_array=["xx", "yy"])
-    sim.add("noiselike_eor", vis_filter=["xx"])
+    sim.add("noiselike_eor", vis_filter=["xx"], rng=np.random.default_rng(99))
     assert np.all(sim.get_data("xx")) and not np.any(sim.get_data("yy"))
 
 
 def test_vis_filter_two_pol():
     sim = create_sim(polarization_array=["xx", "xy", "yx", "yy"])
-    sim.add("noiselike_eor", vis_filter=["xx", "yy"])
+    sim.add("noiselike_eor", vis_filter=["xx", "yy"], rng=np.random.default_rng(5))
     assert all(
         [
             np.all(sim.get_data("xx")),
@@ -621,7 +635,7 @@ def test_vis_filter_arbitrary_key():
         array_layout=hex_array(2, split_core=False, outriggers=0),
         polarization_array=["xx", "yy"],
     )
-    sim.add("noiselike_eor", vis_filter=[1, 3, 5, "xx"])
+    sim.add("noiselike_eor", vis_filter=[1, 3, 5, "xx"], rng=np.random.default_rng(7))
     bls = sim.data.get_antpairs()
     assert not np.any(sim.get_data("yy"))
     assert all(
