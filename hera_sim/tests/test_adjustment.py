@@ -10,7 +10,6 @@ import os
 from astropy import units
 from pyuvdata import UVData
 from pyuvdata.utils import antnums_to_baseline
-from scipy import stats
 
 from hera_sim import Simulator, adjustment, antpos, interpolators
 
@@ -264,8 +263,9 @@ def test_match_antennas_using_reference_positions_and_labels(base_sim, base_conf
     jitter_radius = 0.1  # 10 cm
     new_array = {0: [0, 0, 0], 1: [1, 0, 0], 2: [1, 1, 0], 3: [2, 1, 0], 4: [2, 2, 0]}
     base_config["array_layout"] = scale_array(new_array)
+    rng = np.random.default_rng(0)
     new_array = {
-        ant: pos + stats.uniform.rvs(-jitter_radius, jitter_radius, 3)
+        ant: pos + rng.uniform(-jitter_radius, jitter_radius, 3)
         for ant, pos in base_config["array_layout"].items()
     }  # Mess up the antenna positions by up to 10 cm in each direction, randomly.
     base_config["array_layout"] = new_array
@@ -297,8 +297,9 @@ def test_match_antennas_use_reference_positions_only(base_sim, base_config):
     jitter_radius = 0.1  # 10 cm
     new_array = {0: [0, 0, 0], 1: [1, 0, 0], 2: [1, 1, 0], 3: [2, 1, 0], 4: [2, 2, 0]}
     base_config["array_layout"] = scale_array(new_array)
+    rng = np.random.default_rng(0)
     new_array = {
-        ant: pos + stats.uniform.rvs(-jitter_radius, jitter_radius, 3)
+        ant: pos + rng.uniform(-jitter_radius, jitter_radius, 3)
         for ant, pos in base_config["array_layout"].items()
     }  # Mess up the antenna positions by up to 10 cm in each direction, randomly.
     base_config["array_layout"] = new_array
