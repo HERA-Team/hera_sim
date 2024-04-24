@@ -10,7 +10,7 @@ from fftvis.beams import _evaluate_beam
 from matvis import conversions as convs
 
 from .matvis import MatVis
-from .simulators import ModelData, VisibilitySimulator
+from .simulators import ModelData
 
 logger = logging.getLogger(__name__)
 
@@ -20,12 +20,13 @@ class FFTVis(MatVis):
     fftvis visibility simulator.
 
     This is a fast visibility simulator based on the Flatiron Non-Uniform Fast Fourier
-    Transform (https://github.com/flatironinstitute/finufft). This class calls the fftvis
-    package (https://github.com/tyler-a-cox/fftvis) which utilizes the finufft algorithm
-    to evaluate the measurement equation by gridding and fourier transforming an input sky model.
-    The simulated visibilities agree with matvis to high precision, and are often computed
-    more quickly than matvis. FFTVis is particularly well-suited for simulations with compact arrays
-    with large numbers of antennas, and sky models with many sources.
+    Transform (https://github.com/flatironinstitute/finufft). This class calls the
+    fftvis package (https://github.com/tyler-a-cox/fftvis) which utilizes the finufft
+    algorithm to evaluate the measurement equation by gridding and fourier transforming
+    an input sky model. The simulated visibilities agree with matvis to high precision,
+    and are often computed more quickly than matvis. FFTVis is particularly well-suited
+    for simulations with compact arrays with large numbers of antennas, and sky models
+    with many sources.
 
     Parameters
     ----------
@@ -244,10 +245,7 @@ class FFTVis(MatVis):
         active_antpos_array, ant_list = data_model.uvdata.get_ENU_antpos(
             pick_data_ants=True
         )
-        active_antpos = {
-            ant_index: antpos
-            for ant_index, antpos in zip(ant_list, active_antpos_array)
-        }
+        active_antpos = dict(zip(ant_list, active_antpos_array))
 
         # Get antpairs in the order that they appear in the uvdata.data_array
         # In certain cases, uvdata.get_antpairs() will return a different order
@@ -296,7 +294,7 @@ class FFTVis(MatVis):
             if self.mpi_comm is not None and i % nproc != myid:
                 continue
 
-            logger.info(f"Simulating Frequency {i+1}/{len(data_model.freqs)}")
+            logger.info(f"Simulating Frequency {i + 1}/{len(data_model.freqs)}")
 
             # Call fftvis function to simulate visibilities
             vis = fftvis.simulate.simulate(
