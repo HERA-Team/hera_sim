@@ -143,7 +143,10 @@ def test_reflection_gains_correct_delays(
     dlys,
 ):
     # introduce a cable reflection into the autocorrelation
-    gains = sigchain.gen_reflection_gains(fqs, [0], amp=[1e-1], dly=[300], phs=[1])
+    rng = np.random.default_rng(0)
+    gains = sigchain.gen_reflection_gains(
+        fqs, [0], amp=[1e-1], dly=[300], phs=[1], rng=rng
+    )
     outvis = sigchain.apply_gains(vis, gains, [0, 0])
     ovfft = uvtools.utils.FFT(outvis, axis=1, taper="blackman-harris")
 
