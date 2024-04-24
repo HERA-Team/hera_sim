@@ -11,6 +11,8 @@ ignore =
     D401,
     # allow method names to be the same as python builtins
     A003,
+    # allow module names to be the same as python builtins
+    A005,
     # inline strong start-string without end-string. This is OK in the case of **kwargs in parameters.
     RST210,
     # Logging statement uses f-string.

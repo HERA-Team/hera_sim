@@ -123,8 +123,8 @@ def test_foreground_conjugation(freqs, lsts, Tsky_mdl, omega_p, model):
 
     conj_kwargs = kwargs.copy()
     conj_kwargs["bl_vec"] = -bl_vec
-    vis = model(**kwargs)
-    conj_vis = model(**conj_kwargs)
+    vis = model(**kwargs, rng=np.random.default_rng(0))
+    conj_vis = model(**conj_kwargs, rng=np.random.default_rng(0))
     assert np.allclose(vis, conj_vis.conj())  # Assert V_ij = V*_ji
 
 

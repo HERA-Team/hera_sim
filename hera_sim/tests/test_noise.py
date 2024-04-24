@@ -81,7 +81,6 @@ def test_resample_Tsky_freq_behavior(tsky_powerlaw, tsky_from_model, model):
 def test_sky_noise_jy(
     freqs, lsts, tsky_powerlaw, Jy2T, omega_p, channel_width, integration_time, aspect
 ):
-    np.random.seed(0)
     noise_Jy = noise.sky_noise_jy(
         lsts=lsts,
         freqs=freqs,
@@ -89,6 +88,7 @@ def test_sky_noise_jy(
         omega_p=omega_p,
         channel_width=channel_width,
         integration_time=integration_time,
+        rng=np.random.default_rng(0),
     )
 
     # Calculate expected noise level based on radiometer equation.
@@ -122,6 +122,7 @@ def test_thermal_noise_with_phase_wrap(freqs, omega_p, autovis, expectation):
     channel_width = np.mean(np.diff(freqs)) * units.GHz.to("Hz")
     expected_SNR = np.sqrt(integration_time * channel_width)
     Trx = 0
+    rng = np.random.default_rng(0)
     if autovis is not None:
         autovis = np.ones((wrapped_lsts.size, freqs.size), dtype=complex)
     noise_sim = noise.ThermalNoise(
@@ -129,6 +130,7 @@ def test_thermal_noise_with_phase_wrap(freqs, omega_p, autovis, expectation):
         omega_p=omega_p,
         Trx=Trx,
         autovis=autovis,
+        rng=rng,
     )
     with expectation:
         vis = noise_sim(lsts=wrapped_lsts, freqs=freqs)

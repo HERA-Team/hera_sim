@@ -22,21 +22,29 @@ def bl_vec():
 
 @pytest.fixture(scope="function")
 def base_eor(freqs, lsts, bl_vec, request):
-    np.random.seed(0)
     if request.param == "auto":
         bl_vec = np.array([0, 0, 0])
     return eor.noiselike_eor(
-        lsts=lsts, freqs=freqs, bl_vec=bl_vec, eor_amp=1e-5, fringe_filter_type="tophat"
+        lsts=lsts,
+        freqs=freqs,
+        bl_vec=bl_vec,
+        eor_amp=1e-5,
+        fringe_filter_type="tophat",
+        rng=np.random.default_rng(0),
     )
 
 
 @pytest.fixture(scope="function")
 def scaled_eor(freqs, lsts, bl_vec, request):
-    np.random.seed(0)
     if request.param == "auto":
         bl_vec = np.array([0, 0, 0])
     return eor.noiselike_eor(
-        lsts=lsts, freqs=freqs, bl_vec=bl_vec, eor_amp=1e-3, fringe_filter_type="tophat"
+        lsts=lsts,
+        freqs=freqs,
+        bl_vec=bl_vec,
+        eor_amp=1e-3,
+        fringe_filter_type="tophat",
+        rng=np.random.default_rng(0),
     )
 
 
