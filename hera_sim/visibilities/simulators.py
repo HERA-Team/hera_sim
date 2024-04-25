@@ -193,6 +193,10 @@ class ModelData:
             check_kw={"run_check_acceptability": False},
         )
 
+        # Set rectangularity if it's not already set. Required for some simulators.
+        if uvdata.blts_are_rectangular is None:
+            uvdata.set_rectangularity(force=True)
+
         logger.info("Initializing Sky Model...")
         if uvsimv > "1.2.5":
             catalog = initialize_catalog_from_params(config_file)[0]
