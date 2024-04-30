@@ -137,7 +137,7 @@ def get_beams(beam_type, polarized):
 
         beams = [PolyBeam(**cfg_pol_beam)]
     else:
-        raise ValueError("beam_type '%s' not recognized" % beam_type)
+        raise ValueError(f"beam_type '{beam_type}' not recognized")
     return beams
 
 
