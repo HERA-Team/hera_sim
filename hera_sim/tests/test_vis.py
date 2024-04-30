@@ -17,6 +17,7 @@ from hera_sim import io
 from hera_sim.beams import PolyBeam
 from hera_sim.defaults import defaults
 from hera_sim.visibilities import (
+    FFTVis,
     MatVis,
     ModelData,
     UVSim,
@@ -24,7 +25,7 @@ from hera_sim.visibilities import (
     load_simulator_from_yaml,
 )
 
-SIMULATORS = (MatVis, UVSim)
+SIMULATORS = (FFTVis, MatVis, UVSim)
 
 if HAVE_GPU:
 
@@ -37,7 +38,6 @@ if HAVE_GPU:
     SIMULATORS = SIMULATORS + (VisGPU,)
 
 
-np.random.seed(0)
 NTIMES = 10
 NPIX = 12 * 16**2
 NFREQ = 5
@@ -126,6 +126,13 @@ def test_JD(uvdata, uvdataJD, sky_model):
 def test_vis_cpu_estimate_memory(uvdata, uvdataJD, sky_model):
     model_data = ModelData(sky_model=sky_model, uvdata=uvdata)
     vis = MatVis()
+    mem = vis.estimate_memory(model_data)
+    assert mem > 0
+
+
+def test_fftvis_estimate_memory(uvdata, uvdataJD, sky_model):
+    model_data = ModelData(sky_model=sky_model, uvdata=uvdata)
+    vis = FFTVis()
     mem = vis.estimate_memory(model_data)
     assert mem > 0
 
@@ -356,13 +363,14 @@ def test_single_source_autocorr_past_horizon(uvdata, simulator):
     assert np.abs(np.mean(v)) == 0
 
 
-def test_matvis_coordinate_correction(uvdata2):
+@pytest.mark.parametrize("simulator", [FFTVis, MatVis])
+def test_coordinate_correction(simulator, uvdata2):
     sim = VisibilitySimulation(
         data_model=ModelData(
             uvdata=uvdata2,
             sky_model=zenith_sky_model(uvdata2),
         ),
-        simulator=MatVis(
+        simulator=simulator(
             correct_source_positions=True, ref_time="2018-08-31T04:02:30.11"
         ),
     )
@@ -377,7 +385,7 @@ def test_matvis_coordinate_correction(uvdata2):
             uvdata=uvdata2,
             sky_model=zenith_sky_model(uvdata2),
         ),
-        simulator=MatVis(
+        simulator=simulator(
             correct_source_positions=True,
             ref_time=apt.Time("2018-08-31T04:02:30.11", format="isot", scale="utc"),
         ),
@@ -551,6 +559,17 @@ def test_beam_type_consistency(uvdata, sky_model):
         ModelData(uvdata=uvdata, sky_model=sky_model, beams=beams)
 
 
+def test_fftvis_beam_error(uvdata2, sky_model):
+    beams = [AnalyticBeam("gaussian"), AnalyticBeam("gaussian")]
+    beam_ids = [0, 1]
+    simulator = FFTVis()
+    data_model = ModelData(
+        uvdata=uvdata2, sky_model=sky_model, beams=beams, beam_ids=beam_ids
+    )
+    with pytest.raises(ValueError):
+        simulator.validate(data_model)
+
+
 def test_power_polsky(uvdata, sky_model):
     new_sky = copy.deepcopy(sky_model)
     new_sky.stokes[1:] = 1.0 * units.Jy
@@ -571,6 +590,15 @@ def test_vis_cpu_stokespol(uvdata_linear, sky_model):
         )
 
 
+def test_fftvis_stokespol(uvdata_linear, sky_model):
+    uvdata_linear.polarization_array = [0, 1, 2, 3]
+    with pytest.raises(ValueError):
+        VisibilitySimulation(
+            data_model=ModelData(uvdata=uvdata_linear, sky_model=sky_model),
+            simulator=FFTVis(),
+        )
+
+
 def test_bad_uvdata(sky_model):
     with pytest.raises(TypeError, match="uvdata must be a UVData object"):
         ModelData(uvdata=3, sky_model=sky_model)
@@ -585,10 +613,11 @@ def test_str_uvdata(uvdata, sky_model, tmp_path):
     assert model_data.uvdata.Nants_data == uvdata.Nants_data
 
 
-def test_ref_time_matvis(uvdata2):
-    vc_mean = MatVis(ref_time="mean")
-    vc_min = MatVis(ref_time="min")
-    vc_max = MatVis(ref_time="max")
+@pytest.mark.parametrize("simulator", [FFTVis, MatVis])
+def test_ref_times(simulator, uvdata2):
+    vc_mean = simulator(ref_time="mean")
+    vc_min = simulator(ref_time="min")
+    vc_max = simulator(ref_time="max")
 
     sky_model = half_sky_model(uvdata2)
 

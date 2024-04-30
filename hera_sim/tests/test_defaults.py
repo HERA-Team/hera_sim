@@ -44,11 +44,9 @@ def test_multiple_param_specification():
 def test_bandpass_changes():
     defaults.set("h1c", refresh=True)
     fqs = np.linspace(0.1, 0.2, 100)
-    np.random.seed(0)
-    bp = gen_bandpass(fqs, [0])[0]
+    bp = gen_bandpass(fqs, [0], rng=np.random.default_rng(0))[0]
     defaults.set("h2c", refresh=True)
-    np.random.seed(0)
-    assert not np.all(bp == gen_bandpass(fqs, [0])[0])
+    assert not np.all(bp == gen_bandpass(fqs, [0], rng=np.random.default_rng(0))[0])
     defaults.deactivate()
 
 

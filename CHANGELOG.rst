@@ -5,6 +5,26 @@ Changelog
 dev
 ===
 
+Added
+-----
+- Classes subclassed from ``SimulationComponent`` now have a ``is_randomized``
+  class attribute that informs the ``Simulator`` of whether it should provide
+  a ``BitGenerator`` to the class when simulating the component.
+  - Classes which use a random component should now have a ``rng`` attribute,
+    which should be treated in the same manner as other model parameters. In
+    other words, random states are now effectively treated as model parameters.
+- New simulator class ``FFTVis`` that uses the ``fftvis`` package to simulate
+  visibilities. This is a CPU-based visibility simulator that is faster than
+  ``MatVis`` for large, compact arrays.
+
+Changed
+-------
+- All random number generation now uses the new ``numpy`` API.
+  - Rather than seed the global random state, a new ``BitGenerator`` is made
+    with whatever random seed is desired.
+  - The Simulator API has remained virtually unchanged, but the internal logic
+    that handles random state management has received a significant update.
+
 Deprecated
 ----------
 

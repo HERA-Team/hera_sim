@@ -44,6 +44,8 @@ class SimulationComponent(metaclass=ABCMeta):
 
     #: Whether this systematic multiplies existing visibilities
     is_multiplicative: bool = False
+    #: Whether this systematic contains a randomized component
+    is_randomized: bool = False
     #: Whether the returned value is per-antenna, per-baseline, or the full array
     return_type: str | None = None
     # This isn't exactly safe, but different instances of a class should

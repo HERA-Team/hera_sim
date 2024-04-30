@@ -14,7 +14,7 @@ from pyuvsim.telescope import BeamList
 
 from hera_sim import io
 from hera_sim.beams import PolyBeam
-from hera_sim.visibilities import MatVis, ModelData, VisibilitySimulation
+from hera_sim.visibilities import FFTVis, MatVis, ModelData, VisibilitySimulation
 
 nfreq = 3
 ntime = 20
@@ -28,12 +28,12 @@ def get_uvdata(pol_array=None):
     obstime = Time("2018-08-31T04:02:30.11", format="isot", scale="utc")
     if pol_array is None:
         pol_array = np.array(["XX", "YY", "XY", "YX"])
-    np.random.seed(10)
+    rng = np.random.default_rng(10)
 
     # Random antenna locations
-    x = np.random.random(nants) * 400.0  # Up to 400 metres
-    y = np.random.random(nants) * 400.0
-    z = np.random.random(nants) * 0.0
+    x = rng.random(nants) * 400.0  # Up to 400 metres
+    y = rng.random(nants) * 400.0
+    z = rng.random(nants) * 0.0
 
     ants = {i: (x[i], y[i], z[i]) for i in range(nants)}
 
@@ -66,10 +66,11 @@ def get_sky_model(uvdata, nsource):
     sources = [
         [125.7, -30.72, 2, 0],  # Fix a single source near zenith
     ]
+    rng = np.random.default_rng(0)
     if nsource > 1:  # Add random other sources
-        ra = np.random.uniform(low=0.0, high=360.0, size=nsource - 1)
-        dec = -30.72 + np.random.random(nsource - 1) * 10.0
-        flux = np.random.random(nsource - 1) * 4
+        ra = rng.uniform(low=0.0, high=360.0, size=nsource - 1)
+        dec = -30.72 + rng.random(nsource - 1) * 10.0
+        flux = rng.random(nsource - 1) * 4
         for i in range(nsource - 1):
             sources.append([ra[i], dec[i], flux[i], 0])
     sources = np.array(sources)
@@ -222,6 +223,93 @@ def test_compare_matvis_with_pyuvsim(uvdata_allpols, nsource, beam_type, polariz
             np.testing.assert_allclose(
                 uvd_uvsim.get_data((i, j, "xx")),
                 uvd_matvis.get_data((i, j, "xx")),
+                atol=atol,
+                rtol=rtol,
+            )
+
+
+@pytest.mark.parametrize(
+    "nsource,beam_type,polarized",
+    [
+        (1, "gaussian", False),
+        (1, "PolyBeam", False),
+        (1, "PolyBeam", True),
+        (100, "gaussian", False),
+        (100, "PolyBeam", False),
+        (100, "PolyBeam", True),
+    ],
+)
+def test_compare_fftvis_with_pyuvsim(uvdata_allpols, nsource, beam_type, polarized):
+    """Compare matvis and pyuvsim simulated visibilities."""
+    sky_model = get_sky_model(uvdata_allpols, nsource)
+
+    # Beam models
+    beams = get_beams(beam_type=beam_type, polarized=polarized)
+    beam_dict = {str(i): 0 for i in range(nants)}
+
+    # ---------------------------------------------------------------------------
+    # (1) Run matvis
+    # ---------------------------------------------------------------------------
+    # Trim unwanted polarizations
+    uvdata_fftvis = copy.deepcopy(uvdata_allpols)
+
+    if not polarized:
+        uvdata_fftvis.select(polarizations=["ee"], inplace=True)
+
+    # Construct simulator object and run
+    simulator = FFTVis(
+        ref_time=Time("2018-08-31T04:02:30.11", format="isot", scale="utc"),
+        precision=2,
+    )
+
+    # TODO: if we update the PolyBeam API so that it doesn't *require* 2 feeds,
+    # we can get rid of this.
+    vis_cpu_beams = [copy.deepcopy(beam) for beam in beams]
+    if not polarized:
+        for beam in vis_cpu_beams:
+            beam.efield_to_power()
+
+    sim = VisibilitySimulation(
+        data_model=ModelData(
+            uvdata=uvdata_fftvis, sky_model=sky_model, beams=vis_cpu_beams
+        ),
+        simulator=simulator,
+    )
+
+    sim.simulate()
+    uvd_fftvis = sim.uvdata
+
+    # ---------------------------------------------------------------------------
+    # (2) Run pyuvsim
+    # ---------------------------------------------------------------------------
+    uvd_uvsim = uvsim.run_uvdata_uvsim(
+        uvdata_allpols,
+        BeamList(beams),
+        beam_dict=beam_dict,
+        catalog=simsetup.SkyModelData(sky_model),
+        quiet=True,
+    )
+
+    # ---------------------------------------------------------------------------
+    # Compare results
+    # ---------------------------------------------------------------------------
+    # Set relative/absolute tolerances depending on no. of sources
+    # (N.B. vis_cpu source position correction approximation degrades with time)
+    if nsource < 10:
+        # Very stringent for a few sources
+        rtol = 1e-4
+        atol = 1e-7
+    else:
+        # Within 0.1% or so for many sources
+        rtol = 1e-3
+        atol = 1e-5
+
+    for i in range(nants):
+        for j in range(nants):
+            print("Baseline: ", i, j)
+            np.testing.assert_allclose(
+                uvd_uvsim.get_data((i, j, "xx")),
+                uvd_fftvis.get_data((i, j, "xx")),
                 atol=atol,
                 rtol=rtol,
             )

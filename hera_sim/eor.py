@@ -49,6 +49,7 @@ class NoiselikeEoR(EoR):
 
     _alias = ("noiselike_eor",)
     is_smooth_in_freq = False
+    is_randomized = True
     return_type = "per_baseline"
     attrs_to_pull = dict(
         bl_vec=None,
@@ -61,6 +62,7 @@ class NoiselikeEoR(EoR):
         max_delay: Optional[float] = None,
         fringe_filter_type: str = "tophat",
         fringe_filter_kwargs: Optional[dict] = None,
+        rng: np.random.Generator | None = None,
     ):
         fringe_filter_kwargs = fringe_filter_kwargs or {}
 
@@ -70,6 +72,7 @@ class NoiselikeEoR(EoR):
             max_delay=max_delay,
             fringe_filter_type=fringe_filter_type,
             fringe_filter_kwargs=fringe_filter_kwargs,
+            rng=rng,
         )
 
     def __call__(self, lsts, freqs, bl_vec, **kwargs):
@@ -84,13 +87,11 @@ class NoiselikeEoR(EoR):
             max_delay,
             fringe_filter_type,
             fringe_filter_kwargs,
+            rng,
         ) = self._extract_kwarg_values(**kwargs)
 
-        # make white noise in freq/time (original says in frate/freq, not sure why)
-        data = utils.gen_white_noise(size=(len(lsts), len(freqs)))
-
-        # scale data by EoR amplitude
-        data *= eor_amp
+        # Make white noise in time and frequency with the desired amplitude.
+        data = utils.gen_white_noise(size=(len(lsts), len(freqs)), rng=rng) * eor_amp
 
         # apply delay filter; default does nothing
         # TODO: find out why bl_len_ns is hardcoded as 1e10, also
