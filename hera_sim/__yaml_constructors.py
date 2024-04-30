@@ -31,7 +31,7 @@ def predicate(obj):
 
 interps = dict(inspect.getmembers(interpolators, predicate))
 for tag, interp in interps.items():
-    make_interp_constructor("!%s" % tag, interp)
+    make_interp_constructor(f"!{tag}", interp)
 
 
 def astropy_unit_constructor(loader, node):
