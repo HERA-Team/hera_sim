@@ -371,7 +371,6 @@ class MatVis(VisibilitySimulator):
                 data_model.uvdata.data_array, dtype=self._complex_dtype
             )
 
-        print("VISFULL: ", visfull.shape)
         for i, freq in enumerate(data_model.freqs):
             # Divide tasks between MPI workers if needed
             if self.mpi_comm is not None and i % nproc != myid:

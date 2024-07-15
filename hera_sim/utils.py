@@ -683,7 +683,9 @@ def find_baseline_orientations(
         angle = Longitude(np.arctan2(n, e) * units.rad).value
         conj_angle = Longitude((angle + np.pi) * units.rad).value
         for blnum in group:
-            ai, aj = uvutils.baseline_to_antnums(blnum, Nants_telescope=antenna_numbers.size)
+            ai, aj = uvutils.baseline_to_antnums(
+                blnum, Nants_telescope=antenna_numbers.size
+            )
             antpair2angle[(ai, aj)] = angle
             antpair2angle[(aj, ai)] = conj_angle
     return antpair2angle
