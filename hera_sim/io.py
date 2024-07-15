@@ -85,7 +85,8 @@ def empty_uvdata(
     # only specify defaults this way for
     # things that are *not* season-specific
     polarization_array = kwargs.pop("polarization_array", ["xx"])
-    telescope_location = list(kwargs.pop("telescope_location", HERA_LAT_LON_ALT))
+    telescope_location = [float(x) for x in kwargs.pop("telescope_location", HERA_LAT_LON_ALT)]
+    
     telescope_name = kwargs.pop("telescope_name", "hera_sim")
     write_files = kwargs.pop("write_files", False)
 

@@ -114,8 +114,8 @@ class FFTVis(MatVis):
             # TODO: the following is extremely slow. If possible, it would be good to
             # find a better way to do it.
             if any(
-                len(data_model.uvdata.antpair2ind(ai, aj)) > 0
-                and len(data_model.uvdata.antpair2ind(aj, ai)) > 0
+                data_model.uvdata.antpair2ind(ai, aj) is not None
+                and data_model.uvdata.antpair2ind(aj, ai) is not None
                 for ai, aj in data_model.uvdata.get_antpairs()
                 if ai != aj
             ):
@@ -313,7 +313,7 @@ class FFTVis(MatVis):
 
             logger.info("... re-ordering visibilities...")
             self._reorder_vis(
-                req_pols, data_model.uvdata, visfull[:, 0, i], vis, antpairs, polarized
+                req_pols, data_model.uvdata, visfull[:, i], vis, antpairs, polarized
             )
 
         # Reduce visfull array if in MPI mode

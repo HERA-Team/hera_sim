@@ -437,7 +437,7 @@ class Simulator:
         # First, find out if it needs to be conjugated.
         try:
             blt_inds = self.data.antpair2ind(ant1, ant2)
-            if blt_inds.size == 0:
+            if blt_inds is None:
                 raise ValueError
             conj_data = False
         except ValueError:
@@ -958,7 +958,7 @@ class Simulator:
         for ant1, ant2, pol in self.data.get_antpairpols():
             blt_inds = self.data.antpair2ind((ant1, ant2))
             pol_ind = self.data.get_pols().index(pol)
-            if blt_inds.size:
+            if blt_inds is not None:
                 yield ant1, ant2, pol, blt_inds, pol_ind
 
     def _iteratively_apply(
@@ -1541,7 +1541,7 @@ class Simulator:
 
         if key is None:
             ant1, ant2, pol = None, None, None
-        elif np.issubdtype(type(key), int):
+        elif np.issubdtype(type(key), np.integer):
             # Figure out if it's an antenna or baseline integer
             if key in self.antpos:
                 ant1, ant2, pol = key, None, None

@@ -408,7 +408,7 @@ def test_mutual_coupling(use_numba):
 
     # Now let's actually mock up the visibilities.
     for ai, aj in uvdata.get_antpairs():
-        if uvdata.antpair2ind(ai, aj).size == 0:
+        if uvdata.antpair2ind(ai, aj) is None:
             continue
         ecef_bl = ecef_antpos[aj] - ecef_antpos[ai]
         enu_bl = enu_antpos[aj] - enu_antpos[ai]
@@ -524,8 +524,8 @@ def uvbeam(tmp_path):
     # Setup some things needed to mock up the UVBeam object
     az = np.linspace(0, 2 * np.pi, 100)
     za = np.linspace(np.pi / 2 - np.pi / 6, np.pi / 2 + np.pi / 6, 15)
-    freqs = np.linspace(99e6, 101e6, 20)[None, :]
-    data_shape = (2, 1, 2, freqs.size, za.size, az.size)
+    freqs = np.linspace(99e6, 101e6, 20)
+    data_shape = (2, 2, freqs.size, za.size, az.size)
     basis_shape = (2, 2, za.size, az.size)
     az_mesh, za_mesh = np.meshgrid(az, za)
 

@@ -235,7 +235,7 @@ def run_vis_sim(args):
             blt_inds = np.load(args.compress)
 
         data_model.uvdata._select_by_index(
-            blt_inds, None, None, "Compressed by redundancy", keep_all_metadata=True
+            blt_inds=blt_inds, pol_inds=None, freq_inds=None, history_update_string="Compressed by redundancy", keep_all_metadata=True
         )
 
         logger.info("Done with compression.")

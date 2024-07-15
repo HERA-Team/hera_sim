@@ -112,7 +112,7 @@ def run_sim(
         polarization_array=pol_array,
         x_orientation="east",
     )
-    freqs = np.unique(uvdata.freq_array)
+    freqs = uvdata.freq_array
     ra_dec, flux, spectral_index = sources
 
     # calculate source fluxes for hera_sim

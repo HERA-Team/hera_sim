@@ -108,10 +108,6 @@ class ModelData:
                 f"{uvdata}, type {type(uvdata)}"
             )
 
-        # Temporary fix for future array shape - to be removed after v3.
-        if uvdata.future_array_shapes:
-            uvdata.use_current_array_shapes()
-
         return uvdata
 
     @classmethod
@@ -228,7 +224,7 @@ class ModelData:
     @cached_property
     def freqs(self) -> np.ndarray:
         """Frequnecies at which data is defined."""
-        return self.uvdata.freq_array[0]
+        return self.uvdata.freq_array
 
     @cached_property
     def n_beams(self) -> int:

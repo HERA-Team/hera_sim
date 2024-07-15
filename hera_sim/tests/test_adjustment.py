@@ -38,7 +38,7 @@ def get_all_baselines(antpairs):
     ant_1_array = [antpair[0] for antpair in antpairs]
     ant_2_array = [antpair[1] for antpair in antpairs]
     return set(
-        antnums_to_baseline(ant_1_array + ant_2_array, ant_2_array + ant_1_array, 0)
+        antnums_to_baseline(ant_1_array + ant_2_array, ant_2_array + ant_1_array, Nants_telescope=0)
     )
 
 

@@ -313,6 +313,12 @@ def match_antennas(
                 for target_ant in target_copy.ant_2_array
             ]
         )
+        for i, bl in enumerate(target_copy.baseline_array):
+            ant1, ant2 =  target.baseline_to_antnums(bl)
+            ant1 = target_to_reference_map[ant1]
+            ant2 = target_to_reference_map[ant2]
+            newbl = target.antnums_to_baseline(ant1, ant2)
+            target_copy.baseline_array[i] = newbl
 
     attrs_to_update = tuple()
     if relabel_antennas:
@@ -359,7 +365,16 @@ def match_antennas(
             ]
         )
 
+    target_copy._clear_key2ind_cache(target_copy)
+    target_copy._clear_antpair2ind_cache(target_copy)
+
     # Now update the data... this will be a little messy.
+    # print("Target, from baselines: ", target.get_antpairs())
+    # print("Copy, from baselines: ", target_copy.get_antpairs())
+    # print("Target, from antarray: ", [x for x in np.unique([target.ant_1_array, target.ant_2_array], axis=1).T])
+    # print("Copy, from antarray: ", [x for x in np.unique([target_copy.ant_1_array, target_copy.ant_2_array], axis=1).T])
+    
+    # print(target_to_reference_map)
     for antpairpol, vis in target.antpairpol_iter():
         ant1, ant2, pol = antpairpol
         # Skip this visibility if we dropped one of the antennas.
@@ -377,10 +392,13 @@ def match_antennas(
             new_antpairpol = antpairpol
 
         # Figure out how to slice through the new data array.
+        # print(new_antpairpol, target_copy.get_antpairs())
         blts, conj_blts, pol_inds = target_copy._key2inds(new_antpairpol)
-        if len(blts) > 0:
+
+        if blts is not None:
             # The new baseline has the same conjugation as the old one.
-            this_slice = (blts, slice(None), pol_inds[0])
+            this_slice = (blts, slice(None), pol_inds[0].start) #this_slice = (blts, slice(None), pol_inds[0].start)
+            #print("Got a slice off blts: ", this_slice)
         else:  # pragma: no cover
             # The new baseline is conjugated relative to the old one.
             # Given the handling of the antenna relabeling, this might not actually
@@ -388,7 +406,7 @@ def match_antennas(
             this_slice = (conj_blts, slice(None), pol_inds[1])
             vis = vis.conj()
             new_antpairpol = new_antpairpol[:2][::-1] + (pol,)
-
+            #print("Got a slice off conj")
         # If we needed to reflect the entire array to find the best match, then
         # we need to make sure to conjugate the visibilities since the reflection
         # is effectively undone by baseline conjugation.
@@ -400,12 +418,14 @@ def match_antennas(
         target_copy.flag_array[this_slice] = target.get_flags(antpairpol)
         target_copy.nsample_array[this_slice] = target.get_nsamples(antpairpol)
 
-        # Update the baseline array in case the antenna numbers got jumbled.
-        old_bl_int = target.antnums_to_baseline(ant1, ant2)
-        new_bl_int = target.antnums_to_baseline(*new_antpairpol[:2])
-        target_copy.baseline_array[target_copy.baseline_array == old_bl_int] = (
-            new_bl_int
-        )
+        # # Update the baseline array in case the antenna numbers got jumbled.
+        # # old_bl_int = target.antnums_to_baseline(ant1, ant2)
+        # # new_bl_int = target.antnums_to_baseline(*new_antpairpol[:2])
+        # # target_copy.baseline_array[target_copy.baseline_array == old_bl_int] = (
+        # #     new_bl_int
+        # # )
+        # target_copy._clear_key2ind_cache(target_copy)
+        # target_copy._clear_antpair2ind_cache(target_copy)
 
     # Update the uvw array just to be safe.
     target_copy.set_uvws_from_antenna_positions()
@@ -584,9 +604,9 @@ def interpolate_to_reference(
         ant1, ant2 = antpair
         this_slice = slice(i, None, target.Nbls)
         old_blts = target._key2inds(antpair)[0]  # As a reference
-        this_uvw = target.uvw_array[old_blts[0]]
-        this_baseline = target.baseline_array[old_blts[0]]
-        this_integration_time = target.integration_time[old_blts[0]]
+        this_uvw = target.uvw_array[old_blts][0]
+        this_baseline = target.baseline_array[old_blts][0]
+        this_integration_time = target.integration_time[old_blts][0]
 
         # Now actually update the metadata.
         new_ant_1_array[this_slice] = ant1
@@ -791,10 +811,10 @@ def rephase_to_reference(
     for i, antpair in enumerate(target.get_antpairs()):
         ant1, ant2 = antpair
         this_slice = slice(i, None, target.Nbls)
-        old_blt = target._key2inds(antpair)[0][0]  # As a reference
-        this_uvw = target.uvw_array[old_blt]
-        this_baseline = target.baseline_array[old_blt]
-        this_integration_time = target.integration_time[old_blt]
+        old_blts = target._key2inds(antpair)[0]  # As a reference
+        this_uvw = target.uvw_array[old_blts][0]
+        this_baseline = target.baseline_array[old_blts][0]
+        this_integration_time = target.integration_time[old_blts][0]
 
         # Update the metadata.
         new_ant_1_array[this_slice] = ant1

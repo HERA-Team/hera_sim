@@ -176,6 +176,7 @@ def write_calfits(
         if gain.ndim == 1:
             gains[antpol] = np.outer(np.ones(times.size), gain)
 
+    
     write_cal(filename, gains, freqs, times, overwrite=clobber, return_uvc=False)
 
 

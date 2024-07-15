@@ -675,7 +675,7 @@ def find_baseline_orientations(
         Dictionary mapping antenna pairs ``(ai,aj)`` to baseline orientations.
         Orientations are defined on [0,2pi).
     """
-    groups, baselines = uvutils.get_antenna_redundancies(
+    groups, baselines = uvutils.redundancy.get_antenna_redundancies(
         antenna_numbers, enu_antpos, include_autos=False
     )[:2]
     antpair2angle = {}
@@ -683,7 +683,7 @@ def find_baseline_orientations(
         angle = Longitude(np.arctan2(n, e) * units.rad).value
         conj_angle = Longitude((angle + np.pi) * units.rad).value
         for blnum in group:
-            ai, aj = uvutils.baseline_to_antnums(blnum, antenna_numbers.size)
+            ai, aj = uvutils.baseline_to_antnums(blnum, Nants_telescope=antenna_numbers.size)
             antpair2angle[(ai, aj)] = angle
             antpair2angle[(aj, ai)] = conj_angle
     return antpair2angle
