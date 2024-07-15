@@ -9,7 +9,7 @@ DEFAULT_LSTS = np.linspace(0, 2 * np.pi, 10000, endpoint=False)
 DEFAULT_FQS = np.linspace(0.1, 0.2, 1024, endpoint=False)
 
 
-def sim_red_data(reds, gains=None, shape=(10, 10), gain_scatter=0.1):
+def sim_red_data(reds, gains=None, shape=(10, 10), gain_scatter=0.1, rng=None):
     """
     Simulate thermal-noise-free random but redundant (up to gains) visibilities.
 
@@ -25,6 +25,8 @@ def sim_red_data(reds, gains=None, shape=(10, 10), gain_scatter=0.1):
         (Ntimes, Nfreqs).
     gain_scatter : float
         relative amplitude of per-antenna complex gain scatter
+    rng : np.random.Generator
+        Numpy random number generator. Default None.
 
     Returns
     -------
@@ -42,10 +44,10 @@ def sim_red_data(reds, gains=None, shape=(10, 10), gain_scatter=0.1):
     gains = {} if gains is None else deepcopy(gains)
     for ant in ants:
         gains[ant] = gains.get(
-            ant, 1 + gain_scatter * noise.white_noise((1,))
+            ant, 1 + gain_scatter * noise.white_noise((1,), rng=rng)
         ) * np.ones(shape, dtype=complex)
     for bls in reds:
-        true_vis[bls[0]] = noise.white_noise(shape)
+        true_vis[bls[0]] = noise.white_noise(shape, rng=rng)
         for bl in bls:
             data[bl] = (
                 true_vis[bls[0]]
