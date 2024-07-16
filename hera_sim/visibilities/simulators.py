@@ -143,7 +143,7 @@ class ModelData:
         # Set the beam_ids.
         if beam_ids is None:
             if len(beams) == 1:
-                beam_ids = dict.fromkeys(self.uvdata.antenna_names.keys(), value=0)
+                beam_ids = dict.fromkeys(self.uvdata.antenna_names.keys(), 0)
             elif len(beams) == self.n_ant:
                 beam_ids = {nm: i for i, nm in enumerate(self.uvdata.antenna_names)}
             else:
