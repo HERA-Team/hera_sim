@@ -395,8 +395,7 @@ def match_antennas(
                 blts,
                 slice(None),
                 pol_inds[0].start,
-            )  # this_slice = (blts, slice(None), pol_inds[0].start)
-            # print("Got a slice off blts: ", this_slice)
+            )
         else:  # pragma: no cover
             # The new baseline is conjugated relative to the old one.
             # Given the handling of the antenna relabeling, this might not actually
@@ -404,7 +403,6 @@ def match_antennas(
             this_slice = (conj_blts, slice(None), pol_inds[1])
             vis = vis.conj()
             new_antpairpol = new_antpairpol[:2][::-1] + (pol,)
-            # print("Got a slice off conj")
         # If we needed to reflect the entire array to find the best match, then
         # we need to make sure to conjugate the visibilities since the reflection
         # is effectively undone by baseline conjugation.
@@ -415,15 +413,6 @@ def match_antennas(
         target_copy.data_array[this_slice] = vis
         target_copy.flag_array[this_slice] = target.get_flags(antpairpol)
         target_copy.nsample_array[this_slice] = target.get_nsamples(antpairpol)
-
-        # # Update the baseline array in case the antenna numbers got jumbled.
-        # # old_bl_int = target.antnums_to_baseline(ant1, ant2)
-        # # new_bl_int = target.antnums_to_baseline(*new_antpairpol[:2])
-        # # target_copy.baseline_array[target_copy.baseline_array == old_bl_int] = (
-        # #     new_bl_int
-        # # )
-        # target_copy._clear_key2ind_cache(target_copy)
-        # target_copy._clear_antpair2ind_cache(target_copy)
 
     # Update the uvw array just to be safe.
     target_copy.set_uvws_from_antenna_positions()

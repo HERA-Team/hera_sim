@@ -275,7 +275,7 @@ class Defaults(metaclass=_Singleton):
         # initialize dictionaries that enumerate the key, value pairs
         # in the raw configuration dictionary
         counts = dict.fromkeys(self().keys(), 0)
-        values = dict.fromkeys(self().keys(), [])
+        values = {k: [] for k in self().keys()}
 
         # actually do the enumeration
         self._recursive_enumerate(counts, values, self._raw_config)
