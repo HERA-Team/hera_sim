@@ -108,10 +108,6 @@ class ModelData:
                 f"{uvdata}, type {type(uvdata)}"
             )
 
-        # Temporary fix for future array shape - to be removed after v3.
-        if uvdata.future_array_shapes:
-            uvdata.use_current_array_shapes()
-
         return uvdata
 
     @classmethod
@@ -147,7 +143,7 @@ class ModelData:
         # Set the beam_ids.
         if beam_ids is None:
             if len(beams) == 1:
-                beam_ids = {nm: 0 for nm in self.uvdata.antenna_names}
+                beam_ids = dict.fromkeys(self.uvdata.antenna_names, 0)
             elif len(beams) == self.n_ant:
                 beam_ids = {nm: i for i, nm in enumerate(self.uvdata.antenna_names)}
             else:
@@ -228,7 +224,7 @@ class ModelData:
     @cached_property
     def freqs(self) -> np.ndarray:
         """Frequnecies at which data is defined."""
-        return self.uvdata.freq_array[0]
+        return self.uvdata.freq_array
 
     @cached_property
     def n_beams(self) -> int:
