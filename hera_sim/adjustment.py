@@ -386,7 +386,6 @@ def match_antennas(
             new_antpairpol = antpairpol
 
         # Figure out how to slice through the new data array.
-        # print(new_antpairpol, target_copy.get_antpairs())
         blts, conj_blts, pol_inds = target_copy._key2inds(new_antpairpol)
 
         if blts is not None:
