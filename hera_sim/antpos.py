@@ -6,6 +6,7 @@ to the ENU position of the antennas.
 """
 
 import numpy as np
+from scipy.optimize import least_squares
 
 from .components import component
 
@@ -175,3 +176,75 @@ class HexArray(Array):
 
 linear_array = LinearArray()
 hex_array = HexArray()
+
+
+def idealize_antpos(antpos: dict[int, np.ndarray]) -> dict[int, np.ndarray]:
+    """Snap antenna positions to a grid that ensures perfect redundancy.
+
+    Parameters
+    ----------
+    antpos
+        The antenna positions, in ENU coordinates, to be idealized. The format is a
+        dict, where the key is the antenna number, and the value is the length-3 vector
+        of ENU coordinates.
+
+    Returns
+    -------
+    idealized_antpos
+        A dict in the same format as the input antpos, where the positions have been
+        snapped to the redundancy grid.
+        _type_: _description_
+    """
+    from hera_cal import redcal
+
+    reds = redcal.get_reds(antpos, bl_error_tol=2.0)
+    idealized_antpos = redcal.reds_to_antpos(reds)
+    for ant in idealized_antpos:
+        idealized_antpos[ant] = np.array(
+            [idealized_antpos[ant][0], idealized_antpos[ant][1], 0.0]
+        )
+
+    def transform_points(M, source_points):
+        """
+        Apply the transformation to the source points.
+
+        M is a 12-element array
+        [r11, r12, r13, r21, r22, r23, r31, r32, r33, tx, ty, tz]
+        representing a 3x3 rotation matrix and a 3x1 translation vector.
+        """
+        R = M[:9].reshape(3, 3)  # Rotation matrix
+        t = M[9:].reshape(3, 1)  # Translation vector
+
+        # Apply transformation: R * source_points + t
+        transformed_points = np.dot(R, source_points) + t
+        return transformed_points
+
+    def residuals(M, source_points, target_points):
+        """Calculate residuals between transformed source points and target points."""
+        transformed_points = transform_points(M, source_points)
+        return (transformed_points - target_points).ravel()
+
+    # Assuming source_points and target_points are your 3x350 numpy arrays
+    target_points = np.array([antpos[k] for k in sorted(antpos.keys())]).T
+    source_points = np.array(
+        [idealized_antpos[k] for k in sorted(idealized_antpos.keys())]
+    ).T
+
+    # Initial guess for the parameters:
+    # [identity matrix for rotation, zero vector for translation]
+    initial_guess = np.hstack((np.eye(3).ravel(), np.zeros(3)))
+
+    # Perform the least squares optimization
+    result = least_squares(
+        residuals, initial_guess, args=(source_points, target_points)
+    )
+
+    # Extract the optimal transformation matrix and translation
+    optimal_params = result.x
+    R_optimal = optimal_params[:9].reshape(3, 3)
+    t_optimal = optimal_params[9:].reshape(3)
+
+    idealized_positions_in_real_space = {
+        ant: R_optimal @ pos + t_optimal for ant, pos in idealized_antpos.items()
+    }
+    return idealized_positions_in_real_space
