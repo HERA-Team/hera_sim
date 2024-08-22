@@ -380,7 +380,7 @@ class VisibilitySimulation:
         self._write_history()
         self.simulator.restore_data_model(self.data_model)
 
-        if not self.keep_snapped_antpos:
+        if not self.keep_snapped_antpos and self.snap_antpos_to_grid:
             self.data_model.uvdata.telescope.antenna_positions = old_antpos
 
         if isinstance(vis, np.ndarray):
