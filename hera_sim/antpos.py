@@ -178,7 +178,10 @@ linear_array = LinearArray()
 hex_array = HexArray()
 
 
-def idealize_antpos(antpos: dict[int, np.ndarray]) -> dict[int, np.ndarray]:
+def idealize_antpos(
+    antpos: dict[int, np.ndarray],
+    bl_error_tol: float = 1.0,
+) -> dict[int, np.ndarray]:
     """Snap antenna positions to a grid that ensures perfect redundancy.
 
     Parameters
@@ -197,8 +200,9 @@ def idealize_antpos(antpos: dict[int, np.ndarray]) -> dict[int, np.ndarray]:
     """
     from hera_cal import redcal
 
-    reds = redcal.get_reds(antpos, bl_error_tol=2.0)
+    reds = redcal.get_reds(antpos, bl_error_tol=bl_error_tol)
     idealized_antpos = redcal.reds_to_antpos(reds)
+
     for ant in idealized_antpos:
         idealized_antpos[ant] = np.array(
             [idealized_antpos[ant][0], idealized_antpos[ant][1], 0.0]
