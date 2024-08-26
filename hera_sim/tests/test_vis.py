@@ -14,6 +14,7 @@ from pyuvsim.analyticbeam import AnalyticBeam
 from pyuvsim.telescope import BeamConsistencyError
 
 from hera_sim import io
+from hera_sim.antpos import hex_array
 from hera_sim.beams import PolyBeam
 from hera_sim.defaults import defaults
 from hera_sim.visibilities import (
@@ -263,7 +264,7 @@ def test_shapes(uvdata, simulator):
         n_side=2**4,
     )
 
-    assert sim.simulate().shape == (uvdata.Nblts, 1, NFREQ, uvdata.Npols)
+    assert sim.simulate().shape == (uvdata.Nblts, NFREQ, uvdata.Npols)
 
 
 @pytest.mark.parametrize("precision, cdtype", [(1, np.complex64), (2, complex)])
@@ -447,14 +448,12 @@ def test_comparison(simulator, uvdata2, sky_model, beam_model):
         .copy()
     )
 
-    print(v0[0, 0, 0, 0])
-
     v1 = VisibilitySimulation(
         data_model=model_data, simulator=simulator(), n_side=2**4
     ).simulate()
 
     assert v0.shape == v1.shape
-    print(v0[-9:, 0, 0, :], v1[-9:, 0, 0, :])
+    print(v0[-9:, 0, :], v1[-9:, 0, :])
     np.testing.assert_allclose(v0, v1, rtol=0.05)
 
 
@@ -484,20 +483,20 @@ def test_ordering(uvdata_linear, simulator, order, conj):
     sim.uvdata.reorder_blts(order="time", conj_convention="ant1<ant2")
 
     assert np.allclose(
-        sim.uvdata.data_array[sim.uvdata.antpair2ind(0, 1), 0, 0, 0],
-        sim.uvdata.data_array[sim.uvdata.antpair2ind(1, 2), 0, 0, 0],
+        sim.uvdata.data_array[sim.uvdata.antpair2ind(0, 1), 0, 0],
+        sim.uvdata.data_array[sim.uvdata.antpair2ind(1, 2), 0, 0],
     )
 
     assert not np.allclose(sim.uvdata.get_data((0, 1)), sim.uvdata.get_data((0, 3)))
 
     assert not np.allclose(
-        sim.uvdata.data_array[sim.uvdata.antpair2ind(0, 1), 0, 0, 0],
-        sim.uvdata.data_array[sim.uvdata.antpair2ind(0, 3), 0, 0, 0],
+        sim.uvdata.data_array[sim.uvdata.antpair2ind(0, 1), 0, 0],
+        sim.uvdata.data_array[sim.uvdata.antpair2ind(0, 3), 0, 0],
     )
 
     assert not np.allclose(
-        sim.uvdata.data_array[sim.uvdata.antpair2ind(0, 2), 0, 0, 0],
-        sim.uvdata.data_array[sim.uvdata.antpair2ind(0, 3), 0, 0, 0],
+        sim.uvdata.data_array[sim.uvdata.antpair2ind(0, 2), 0, 0],
+        sim.uvdata.data_array[sim.uvdata.antpair2ind(0, 3), 0, 0],
     )
 
 
@@ -671,3 +670,74 @@ def test_bad_load(tmpdir):
 
     with pytest.raises(TypeError, match="is not a class"):
         load_simulator_from_yaml(tmpdir / "bad_sim.yaml")
+
+
+def test_snap_positions():
+    rng = np.random.default_rng(123)
+
+    # Create a small hex array with perturbed positions
+    ants = hex_array(5, split_core=True)
+    ants = {k: v + rng.normal(scale=0.1, size=3) for k, v in ants.items()}
+
+    uvd = io.empty_uvdata(
+        Nfreqs=2,
+        start_freq=50e6,
+        channel_width=1e6,
+        integration_time=10.0,
+        Ntimes=1,
+        array_layout=ants,
+        start_time=2456658.5,
+        conjugation="ant1<ant2",
+        polarization_array=["xx", "yy", "xy", "yx"],
+    )
+
+    fftvis = FFTVis()
+    sky_model = half_sky_model(uvd)
+
+    unsnapped = VisibilitySimulation(
+        simulator=fftvis,
+        data_model=ModelData(uvdata=uvd.copy(), sky_model=sky_model),
+        snap_antpos_to_grid=False,
+    )
+    snapped = VisibilitySimulation(
+        simulator=fftvis,
+        data_model=ModelData(uvdata=uvd.copy(), sky_model=sky_model),
+        snap_antpos_to_grid=True,
+        keep_snapped_antpos=True,
+    )
+    snapped_sneaky = VisibilitySimulation(
+        simulator=fftvis,
+        data_model=ModelData(uvdata=uvd.copy(), sky_model=sky_model),
+        snap_antpos_to_grid=True,
+        keep_snapped_antpos=False,
+    )
+    unsnapped.simulate()
+    snapped.simulate()
+    snapped_sneaky.simulate()
+
+    # Visibilities should be the same for both snapped runs
+    np.testing.assert_allclose(
+        snapped.uvdata.data_array, snapped_sneaky.uvdata.data_array
+    )
+
+    # But not for the unsnapped.
+    np.testing.assert_raises(
+        AssertionError,
+        np.testing.assert_allclose,
+        snapped.uvdata.data_array,
+        unsnapped.uvdata.data_array,
+    )
+
+    # The unsnapped and sneaky versions should have the same antenna positions
+    np.testing.assert_allclose(
+        unsnapped.uvdata.telescope.antenna_positions,
+        snapped_sneaky.uvdata.telescope.antenna_positions,
+    )
+
+    # But the snapped positions should differ
+    np.testing.assert_raises(
+        AssertionError,
+        np.testing.assert_allclose,
+        snapped.uvdata.telescope.antenna_positions,
+        unsnapped.uvdata.telescope.antenna_positions,
+    )

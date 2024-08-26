@@ -105,7 +105,7 @@ def test_nondefault_blt_order_lsts():
         start_time=2458120.15,
         array_layout=array_layout,
     )
-    sim.data.reorder_blts("baseline", "time")
+    sim.data.reorder_blts("baseline", minor_order="time")
     iswrapped = sim.lsts < sim.lsts[0]
     lsts = sim.lsts + np.where(iswrapped, 2 * np.pi, 0)
     assert np.all(lsts[1:] > lsts[:-1])
