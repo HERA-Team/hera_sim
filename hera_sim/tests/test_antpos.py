@@ -1,4 +1,7 @@
+import pytest
+
 import numpy as np
+from scipy.spatial.transform import Rotation
 
 from hera_sim import antpos
 
@@ -95,3 +98,38 @@ def test_hex_array_HERA350_positions():
     assert np.allclose(bl1, expected_bl1)
     assert np.allclose(bl2, expected_bl2)
     assert np.allclose(bl3, expected_bl3)
+
+
+@pytest.mark.parametrize(
+    "rot", [Rotation.from_euler("x", [0]), Rotation.from_euler("xyz", [0.1, 0.2, 0.3])]
+)
+def test_idealize_antpos_identity(rot):
+    """Test that idealizing a perfectly redundant array doesn't change it."""
+    ants = antpos.hex_array(5, sep=14.6, split_core=False, outriggers=False)
+    ants = {k: rot.apply(v).ravel() for k, v in ants.items()}
+
+    ideal = antpos.idealize_antpos(ants, bl_error_tol=0.1)
+    assert all(np.allclose(ants[a], ideal[a]) for a in ants)
+
+
+@pytest.mark.parametrize(
+    "rot",
+    [
+        Rotation.from_euler("x", [0]),
+        Rotation.from_euler("xyz", [0.1, 0.2, 0.3]),
+        Rotation.from_euler("x", [np.pi / 3]),
+    ],
+)
+def test_idealize_antpos_perturb(rot):
+    """Test that idealizing a perfectly redundant array doesn't change it."""
+    ants = antpos.hex_array(5, sep=14.6, split_core=False, outriggers=False)
+    ants = {k: rot.apply(v).ravel() for k, v in ants.items()}
+    rng = np.random.default_rng(12)
+    pants = {k: v + rng.normal(scale=0.001, size=3) for k, v in ants.items()}
+
+    ideal = antpos.idealize_antpos(pants, bl_error_tol=0.1)
+
+    ants = np.array(list(ants.values()))
+    ideal = np.array(list(ideal.values()))
+
+    np.testing.assert_allclose(ants, ideal, atol=0.001)
