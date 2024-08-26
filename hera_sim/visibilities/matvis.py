@@ -132,8 +132,8 @@ class MatVis(VisibilitySimulator):
             # TODO: the following is extremely slow. If possible, it would be good to
             # find a better way to do it.
             if any(
-                len(data_model.uvdata.antpair2ind(ai, aj)) > 0
-                and len(data_model.uvdata.antpair2ind(aj, ai)) > 0
+                data_model.uvdata.antpair2ind(ai, aj) is not None
+                and data_model.uvdata.antpair2ind(aj, ai) is not None
                 for ai, aj in data_model.uvdata.get_antpairs()
                 if ai != aj
             ):
@@ -395,7 +395,7 @@ class MatVis(VisibilitySimulator):
 
             logger.info("... re-ordering visibilities...")
             self._reorder_vis(
-                req_pols, data_model.uvdata, visfull[:, 0, i], vis, ant_list, polarized
+                req_pols, data_model.uvdata, visfull[:, i], vis, ant_list, polarized
             )
 
         # Reduce visfull array if in MPI mode
@@ -448,7 +448,7 @@ class MatVis(VisibilitySimulator):
 
             # get all blt indices corresponding to this antpair
             indx = uvdata.antpair2ind(antnum1, antnum2)
-            if len(indx) == 0:
+            if indx is None:
                 # maybe we chose the wrong ordering according to the data. Then
                 # we just conjugate.
                 indx = uvdata.antpair2ind(antnum2, antnum1)

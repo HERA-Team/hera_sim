@@ -274,8 +274,8 @@ class Defaults(metaclass=_Singleton):
         """Check and warn if any keys in the configuration are repeated."""
         # initialize dictionaries that enumerate the key, value pairs
         # in the raw configuration dictionary
-        counts = {key: 0 for key in self().keys()}
-        values = {key: [] for key in self().keys()}
+        counts = dict.fromkeys(self().keys(), 0)
+        values = {k: [] for k in self().keys()}
 
         # actually do the enumeration
         self._recursive_enumerate(counts, values, self._raw_config)

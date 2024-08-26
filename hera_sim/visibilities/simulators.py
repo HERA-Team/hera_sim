@@ -29,6 +29,7 @@ from typing import Union
 
 from .. import __version__
 from .. import visibilities as vis
+from ..antpos import idealize_antpos
 
 BeamListType = Union[BeamList, list[Union[ab.AnalyticBeam, UVBeam]]]
 logger = logging.getLogger(__name__)
@@ -108,10 +109,6 @@ class ModelData:
                 f"{uvdata}, type {type(uvdata)}"
             )
 
-        # Temporary fix for future array shape - to be removed after v3.
-        if uvdata.future_array_shapes:
-            uvdata.use_current_array_shapes()
-
         return uvdata
 
     @classmethod
@@ -147,7 +144,7 @@ class ModelData:
         # Set the beam_ids.
         if beam_ids is None:
             if len(beams) == 1:
-                beam_ids = {nm: 0 for nm in self.uvdata.antenna_names}
+                beam_ids = dict.fromkeys(self.uvdata.antenna_names, 0)
             elif len(beams) == self.n_ant:
                 beam_ids = {nm: i for i, nm in enumerate(self.uvdata.antenna_names)}
             else:
@@ -228,7 +225,7 @@ class ModelData:
     @cached_property
     def freqs(self) -> np.ndarray:
         """Frequnecies at which data is defined."""
-        return self.uvdata.freq_array[0]
+        return self.uvdata.freq_array
 
     @cached_property
     def n_beams(self) -> int:
@@ -292,10 +289,11 @@ class VisibilitySimulation:
     data_model: ModelData
     simulator: VisibilitySimulator
     n_side: int = 2**5
+    snap_antpos_to_grid: bool = False
+    keep_snapped_antpos: bool = False
 
     def __post_init__(self):
         """Perform simple validation on combined attributes."""
-        logging.info("blt_order vissim: {data_model.uvdata.blt_order}")
         if self.simulator._blt_order_kws is not None:
             logger.info(
                 "Re-ordering baseline-time axis with params: "
@@ -364,11 +362,28 @@ class VisibilitySimulation:
 
     def simulate(self):
         """Perform the visibility simulation."""
+        if self.snap_antpos_to_grid:
+            old_antpos = dict(
+                zip(
+                    self.data_model.uvdata.telescope.antenna_numbers,
+                    self.data_model.uvdata.telescope.antenna_positions,
+                )
+            )
+            new_antpos = idealize_antpos(old_antpos)
+            self.data_model.uvdata.telescope.antenna_positions = np.array(
+                list(new_antpos.values())
+            )
+
         self.simulator.compress_data_model(self.data_model)
         vis = self.simulator.simulate(self.data_model)
         self.uvdata.data_array += vis
         self._write_history()
         self.simulator.restore_data_model(self.data_model)
+
+        if not self.keep_snapped_antpos and self.snap_antpos_to_grid:
+            self.data_model.uvdata.telescope.antenna_positions = np.array(
+                list(old_antpos.values())
+            )
 
         if isinstance(vis, np.ndarray):
             return vis

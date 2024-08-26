@@ -209,8 +209,11 @@ def run_vis_sim(args):
         # Here, we don't call the convenience function directly, because we want to
         # be able to short-circuit the process by reading in a file.
         if not Path(args.compress).exists():
+            # Note that we use tol=4, which corresponds to tol=1 for the hera_cal
+            # method (which is used when use_grid_alg=True). This ensures consistency
+            # when constructing redundancies for hera analyses.
             red_gps = data_model.uvdata.get_redundancies(
-                tol=1.0, include_conjugates=True
+                tol=4.0, include_conjugates=True, use_grid_alg=True
             )[0]
             bl_ants = [data_model.uvdata.baseline_to_antnums(gp[0]) for gp in red_gps]
             blt_inds = data_model.uvdata._select_preprocess(
@@ -235,7 +238,11 @@ def run_vis_sim(args):
             blt_inds = np.load(args.compress)
 
         data_model.uvdata._select_by_index(
-            blt_inds, None, None, "Compressed by redundancy", keep_all_metadata=True
+            blt_inds=blt_inds,
+            pol_inds=None,
+            freq_inds=None,
+            history_update_string="Compressed by redundancy",
+            keep_all_metadata=True,
         )
 
         logger.info("Done with compression.")
