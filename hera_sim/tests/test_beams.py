@@ -133,7 +133,12 @@ def run_sim(
             dec=Latitude(ra_dec[:, 1] * units.rad),
             spectral_type="full",
             stokes=np.array(
-                [flux, np.zeros_like(flux), np.zeros_like(flux), np.zeros_like(flux)]
+                [
+                    flux,
+                    np.zeros_like(flux),
+                    np.zeros_like(flux),
+                    np.zeros_like(flux),
+                ]
             )
             * units.Jy,
             name=["derp"] * flux.shape[1],
@@ -202,7 +207,7 @@ class TestPerturbedPolyBeam:
                 ystretch=0.8,
                 rotation=rotation,
                 polarized=polarized,
-                **cfg_beam
+                **cfg_beam,
             )
         ]
 

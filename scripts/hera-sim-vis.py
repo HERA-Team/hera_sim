@@ -6,6 +6,7 @@ Command-line interface for simulating visibilities with ``hera_sim``.
 This script may be used to run a visibility simulation from a configuration file and
 write the result to disk.
 """
+
 from hera_cli_utils import parse_args, run_with_profiling
 
 from hera_sim.visibilities.cli import run_vis_sim, vis_cli_argparser

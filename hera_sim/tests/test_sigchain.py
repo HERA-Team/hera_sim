@@ -628,7 +628,7 @@ def test_mutual_coupling_bad_feed_params(isbad, sample_uvdata, sample_coupling):
         _ = sample_coupling(
             freqs=sample_uvdata.freq_array.squeeze() / 1e9,
             visibilities=sample_uvdata.data_array,
-            **kwargs
+            **kwargs,
         )
 
 

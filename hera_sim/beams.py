@@ -483,7 +483,7 @@ class PerturbedPolyBeam(PolyBeam):
         freq_perturb_coeffs=None,
         freq_perturb_scale=0.0,
         perturb_zeropoint=None,
-        **kwargs
+        **kwargs,
     ):
         # Initialize base class
         super().__init__(beam_coeffs=beam_coeffs, **kwargs)

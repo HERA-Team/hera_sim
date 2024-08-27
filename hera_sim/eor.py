@@ -113,7 +113,7 @@ class NoiselikeEoR(EoR):
             freqs,
             bl_vec[0],
             fringe_filter_type=fringe_filter_type,
-            **fringe_filter_kwargs
+            **fringe_filter_kwargs,
         )
 
         # dirty trick to make autocorrelations real-valued

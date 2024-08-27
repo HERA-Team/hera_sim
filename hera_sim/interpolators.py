@@ -195,7 +195,11 @@ class Tsky(Interpolator):
             ]
         )
         tsky_data = np.concatenate(
-            [tsky_data[-wrap_length:], tsky_data, tsky_data[:wrap_length]]
+            [
+                tsky_data[-wrap_length:],
+                tsky_data,
+                tsky_data[:wrap_length],
+            ]
         )
 
         # now make the interpolation object

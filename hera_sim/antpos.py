@@ -205,7 +205,11 @@ def idealize_antpos(
 
     for ant in idealized_antpos:
         idealized_antpos[ant] = np.array(
-            [idealized_antpos[ant][0], idealized_antpos[ant][1], 0.0]
+            [
+                idealized_antpos[ant][0],
+                idealized_antpos[ant][1],
+                0.0,
+            ]
         )
 
     def transform_points(M, source_points):

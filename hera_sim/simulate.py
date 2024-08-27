@@ -1429,7 +1429,7 @@ class Simulator:
 
     @staticmethod
     def _get_component(
-        component: Union[str, type[SimulationComponent], SimulationComponent]
+        component: Union[str, type[SimulationComponent], SimulationComponent],
     ) -> Union[SimulationComponent, type[SimulationComponent]]:
         """Normalize a component to be either a class or instance."""
         if isinstance(component, str):
