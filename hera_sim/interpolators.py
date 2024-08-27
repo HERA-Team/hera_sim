@@ -1,4 +1,5 @@
 """This module provides interfaces to different interpolation classes."""
+
 import numpy as np
 import warnings
 from cached_property import cached_property
@@ -7,13 +8,7 @@ from scipy.interpolate import RectBivariateSpline, interp1d
 
 from hera_sim import DATA_PATH
 
-INTERP_OBJECTS = {
-    "1d": (
-        "beam",
-        "bandpass",
-    ),
-    "2d": ("Tsky_mdl",),
-}
+INTERP_OBJECTS = {"1d": ("beam", "bandpass", "reflection"), "2d": ("Tsky_mdl",)}
 
 
 def _check_path(datafile):
@@ -48,7 +43,7 @@ def _read(datafile):
     elif ext == ".npz":
         return _read_npz(datafile)
     else:
-        raise ValueError(f"File type '{ext}' not supported.")
+        raise ValueError(f"File type {ext!r} not supported.")
 
 
 class Interpolator:
@@ -181,7 +176,8 @@ class Tsky(Interpolator):
             warnings.warn(
                 "The provided LSTs do not sufficiently cover [0, 2*pi). "
                 "The interpolated sky temperature may have unexpected behavior "
-                "near 0 and 2*pi."
+                "near 0 and 2*pi.",
+                stacklevel=1,
             )
 
         lsts = np.concatenate(
@@ -192,7 +188,11 @@ class Tsky(Interpolator):
             ]
         )
         tsky_data = np.concatenate(
-            [tsky_data[-wrap_length:], tsky_data, tsky_data[:wrap_length]]
+            [
+                tsky_data[-wrap_length:],
+                tsky_data,
+                tsky_data[:wrap_length],
+            ]
         )
 
         # now make the interpolation object
@@ -273,10 +273,11 @@ class FreqInterpolator(Interpolator):
         correct arrays in its archive.
     """
 
-    def __init__(self, datafile, **interp_kwargs):
+    def __init__(self, datafile, obj_type=None, **interp_kwargs):
         super().__init__(datafile, **interp_kwargs)
         self._interp_type = self._interp_kwargs.pop("interpolator", "poly1d")
-        self._obj = None
+        self._obj = obj_type
+        self._check_format()
 
     def __call__(self, freqs):
         """Evaluate the interpolation object at the given frequencies."""
@@ -312,8 +313,8 @@ class FreqInterpolator(Interpolator):
             )
             assert self._obj in self._data.keys() and "freqs" in self._data.keys(), (
                 "You've chosen to use an interp1d object for modeling the "
-                "{}. Please ensure that the `.npz` archive has the following "
-                "keys: 'freqs', '{}'".format(self._obj, self._obj)
+                f"{self._obj}. Please ensure that the `.npz` archive has the following "
+                f"keys: 'freqs', '{self._obj}'"
             )
         else:
             # we can relax this a bit and allow for users to also pass a npz
@@ -339,9 +340,7 @@ class Beam(FreqInterpolator):
     """
 
     def __init__(self, datafile, **interp_kwargs):
-        super().__init__(datafile, **interp_kwargs)
-        self._obj = "beam"
-        self._check_format()
+        super().__init__(datafile, obj_type="beam", **interp_kwargs)
 
 
 class Bandpass(FreqInterpolator):
@@ -356,6 +355,32 @@ class Bandpass(FreqInterpolator):
     """
 
     def __init__(self, datafile, **interp_kwargs):
-        super().__init__(datafile, **interp_kwargs)
-        self._obj = "bandpass"
-        self._check_format()
+        super().__init__(datafile, obj_type="bandpass", **interp_kwargs)
+
+
+class Reflection(FreqInterpolator):
+    """Complex reflection coefficient interpolator."""
+
+    def __init__(self, datafile, **interp_kwargs):
+        if "interpolator" not in interp_kwargs:
+            interp_kwargs["interpolator"] = "interp1d"
+        super().__init__(datafile, obj_type="reflection", **interp_kwargs)
+
+    @cached_property
+    def _re_interp(self):
+        interp_kwargs = {"kind": "cubic"}
+        interp_kwargs.update(self._interp_kwargs)
+        return interp1d(
+            self._data["freqs"], self._data[self._obj].real, **interp_kwargs
+        )
+
+    @cached_property
+    def _im_interp(self):
+        interp_kwargs = {"kind": "cubic"}
+        interp_kwargs.update(self._interp_kwargs)
+        return interp1d(
+            self._data["freqs"], self._data[self._obj].imag, **interp_kwargs
+        )
+
+    def __call__(self, freqs):
+        return self._re_interp(freqs) + 1j * self._im_interp(freqs)

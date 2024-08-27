@@ -14,6 +14,12 @@
 from pkg_resources import get_distribution
 
 __version__ = get_distribution("hera_sim").version
+
+# Do the following to see if hera_sim can be imported properly, and throw a reasonable
+# error with traceback if not.
+import hera_sim
+
+del hera_sim
 # -- Project information -----------------------------------------------------
 
 project = "hera_sim"
@@ -88,14 +94,14 @@ exclude_patterns = [
 ]
 
 # The name of the Pygments (syntax highlighting) style to use.
-pygments_style = "sphinx"
+pygments_style = "trac"
 
 # -- Options for HTML output -------------------------------------------------
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = "sphinx_rtd_theme"
+html_theme = "furo"
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
@@ -145,7 +151,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, "hera_sim.tex", "hera\\_sim Documentation", "HERA-Team", "manual"),
+    (master_doc, "hera_sim.tex", "hera\\_sim Documentation", "HERA-Team", "manual")
 ]
 
 # -- Options for manual page output ------------------------------------------
@@ -168,7 +174,7 @@ texinfo_documents = [
         "hera_sim",
         "One line description of project.",
         "Miscellaneous",
-    ),
+    )
 ]
 
 # -- Extension configuration -------------------------------------------------

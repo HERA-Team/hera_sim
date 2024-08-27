@@ -105,24 +105,34 @@ def test_nondefault_blt_order_lsts():
         start_time=2458120.15,
         array_layout=array_layout,
     )
-    sim.data.reorder_blts("baseline", "time")
+    sim.data.reorder_blts("baseline", minor_order="time")
     iswrapped = sim.lsts < sim.lsts[0]
     lsts = sim.lsts + np.where(iswrapped, 2 * np.pi, 0)
     assert np.all(lsts[1:] > lsts[:-1])
 
 
 def test_add_with_str(base_sim):
-    base_sim.add("noiselike_eor")
+    base_sim.add("noiselike_eor", rng=np.random.default_rng(0))
     assert not np.all(base_sim.data.data_array == 0)
 
 
 def test_add_with_builtin_class(base_sim):
-    base_sim.add(DiffuseForeground, Tsky_mdl=Tsky_mdl, omega_p=omega_p)
+    base_sim.add(
+        DiffuseForeground,
+        Tsky_mdl=Tsky_mdl,
+        omega_p=omega_p,
+        rng=np.random.default_rng(0),
+    )
     assert not np.all(np.isclose(base_sim.data.data_array, 0))
 
 
 def test_add_with_class_instance(base_sim):
-    base_sim.add(diffuse_foreground, Tsky_mdl=Tsky_mdl, omega_p=omega_p)
+    base_sim.add(
+        diffuse_foreground,
+        Tsky_mdl=Tsky_mdl,
+        omega_p=omega_p,
+        rng=np.random.default_rng(0),
+    )
     assert not np.all(np.isclose(base_sim.data.data_array, 0))
 
 
@@ -147,6 +157,26 @@ def test_add_with_custom_class(base_sim, multiplicative):
     else:
         base_sim.add(Test)
         assert np.all(base_sim.data.data_array == 1)
+
+
+def test_add_with_full_array_return(base_sim):
+    @component
+    class TestBase:
+        pass
+
+    class Test(TestBase):
+        return_type = "full_array"
+        attrs_to_pull = dict(pols="polarization_array")
+
+        def __init__(self):
+            pass
+
+        def __call__(self, freqs, ant_1_array, pols):
+            data_shape = (ant_1_array.size, freqs.size, pols.size)
+            return np.ones(data_shape, dtype=complex)
+
+    base_sim.add(Test)
+    assert np.all(base_sim.data_array == 1)
 
 
 def test_refresh(base_sim):
@@ -238,12 +268,7 @@ def test_get_vis_only_one_antenna(ref_sim):
 @pytest.mark.parametrize("conj", [True, False])
 @pytest.mark.parametrize("pol", [None, "xx"])
 def test_get_redundant_data(pol, conj):
-    antpos = {
-        0: [0, 0, 0],
-        1: [10, 0, 0],
-        2: [0, 10, 0],
-        3: [10, 10, 0],
-    }
+    antpos = {0: [0, 0, 0], 1: [10, 0, 0], 2: [0, 10, 0], 3: [10, 10, 0]}
     sim = create_sim(array_layout=antpos)
     defaults.set("h1c")
     sim.add("diffuse_foreground", seed="redundant")
@@ -263,22 +288,25 @@ def test_get_multiplicative_effect(base_sim, pol, ant1):
     gains = base_sim.add("gains", seed="once", ret_vis=True)
     _gains = base_sim.get("gains", key=(ant1, pol))
     if pol is not None and ant1 is not None:
-        assert np.all(gains[(ant1, pol)] == _gains)
+        assert np.allclose(gains[(ant1, pol)], _gains)
     elif pol is None and ant1 is not None:
         assert all(
-            np.all(gains[(ant1, _pol)] == _gains[(ant1, _pol)])
+            np.allclose(gains[(ant1, _pol)], _gains[(ant1, _pol)])
             for _pol in base_sim.data.get_feedpols()
         )
     elif pol is not None and ant1 is None:
         assert all(
-            np.all(gains[(ant, pol)] == _gains[(ant, pol)]) for ant in base_sim.antpos
+            np.allclose(gains[(ant, pol)], _gains[(ant, pol)])
+            for ant in base_sim.antpos
         )
     else:
-        assert all(np.all(gains[antpol] == _gains[antpol]) for antpol in gains)
+        assert all(np.allclose(gains[antpol], _gains[antpol]) for antpol in gains)
 
 
 def test_not_add_vis(base_sim):
-    vis = base_sim.add("noiselike_eor", add_vis=False, ret_vis=True)
+    vis = base_sim.add(
+        "noiselike_eor", add_vis=False, ret_vis=True, rng=np.random.default_rng(0)
+    )
 
     assert np.all(base_sim.data.data_array == 0)
 
@@ -292,14 +320,16 @@ def test_not_add_vis(base_sim):
 
 
 def test_adding_vis_but_also_returning(base_sim):
-    vis = base_sim.add("noiselike_eor", ret_vis=True)
+    vis = base_sim.add("noiselike_eor", ret_vis=True, rng=np.random.default_rng(0))
 
     assert not np.all(vis == 0)
     assert np.all(np.isclose(vis, base_sim.data.data_array))
 
     # use season defaults for simplicity
     defaults.set("h1c")
-    vis += base_sim.add("diffuse_foreground", ret_vis=True)
+    vis += base_sim.add(
+        "diffuse_foreground", ret_vis=True, rng=np.random.default_rng(90)
+    )
     # deactivate defaults for good measure
     defaults.deactivate()
     assert np.all(np.isclose(vis, base_sim.data.data_array))
@@ -311,7 +341,7 @@ def test_filter():
     # only add visibilities for the (0,1) baseline
     vis_filter = (0, 1, "xx")
 
-    sim.add("noiselike_eor", vis_filter=vis_filter)
+    sim.add("noiselike_eor", vis_filter=vis_filter, rng=np.random.default_rng(10))
     assert np.all(sim.data.get_data(0, 0) == 0)
     assert np.all(sim.data.get_data(1, 1) == 0)
     assert np.all(sim.data.get_data(0, 1) != 0)
@@ -396,10 +426,10 @@ def test_run_sim():
     # write something to it
     with open(tmp_sim_file, "w") as sim_file:
         sim_file.write(
-            """
+            f"""
             diffuse_foreground:
                 Tsky_mdl: !Tsky
-                    datafile: {}/HERA_Tsky_Reformatted.npz
+                    datafile: {DATA_PATH}/HERA_Tsky_Reformatted.npz
                     pol: yy
             pntsrc_foreground:
                 nsrcs: 500
@@ -414,16 +444,14 @@ def test_run_sim():
                 phs: 2.1123
             thermal_noise:
                 Tsky_mdl: !Tsky
-                    datafile: {}/HERA_Tsky_Reformatted.npz
+                    datafile: {DATA_PATH}/HERA_Tsky_Reformatted.npz
                     pol: xx
                 integration_time: 9.72
             rfi_scatter:
                 scatter_chance: 0.99
                 scatter_strength: 5.7
                 scatter_std: 2.2
-                """.format(
-                DATA_PATH, DATA_PATH
-            )
+                """
         )
     sim = create_sim(autos=True)
     sim.run_sim(tmp_sim_file)
@@ -447,6 +475,30 @@ def test_run_sim_both_args(base_sim, tmp_path):
     with pytest.raises(ValueError) as err:
         base_sim.run_sim(tmp_sim_file, **sim_params)
     assert "Please only pass one of the two." in err.value.args[0]
+
+
+@pytest.mark.parametrize("select_param", ["freq", "time", "ants", "pols"])
+def test_params_ok_after_select(select_param):
+    array_layout = {0: [0, 0, 0], 1: [10, 0, 0], 2: [0, 10, 0]}
+    polarizations = np.array(["xx", "yy", "xy", "yx"])
+    sim = create_sim(autos=True, array_layout=array_layout, polarizations=polarizations)
+    if select_param == "freq":
+        select_freqs = sim.freqs[:5]
+        sim.data.select(freq_chans=np.arange(select_freqs.size))
+        assert np.all(select_freqs == sim.freqs)
+    elif select_param == "time":
+        select_times = sim.times[:5]
+        sim.data.select(times=select_times)
+        assert np.all(select_times == sim.times)
+    elif select_param == "ants":
+        sim.data.select(antenna_nums=np.arange(2))
+        assert (2 not in set(sim.ant_1_array).union(sim.ant_2_array)) and (
+            2 not in sim.antpos
+        )
+    else:
+        select_pols = sim.polarization_array[:2]
+        sim.data.select(polarizations=select_pols)
+        assert np.all(select_pols == sim.polarization_array)
 
 
 def test_bad_yaml_config(base_sim, tmp_path):
@@ -550,13 +602,13 @@ def test_legacy_funcs(component):
 
 def test_vis_filter_single_pol():
     sim = create_sim(polarization_array=["xx", "yy"])
-    sim.add("noiselike_eor", vis_filter=["xx"])
+    sim.add("noiselike_eor", vis_filter=["xx"], rng=np.random.default_rng(99))
     assert np.all(sim.get_data("xx")) and not np.any(sim.get_data("yy"))
 
 
 def test_vis_filter_two_pol():
     sim = create_sim(polarization_array=["xx", "xy", "yx", "yy"])
-    sim.add("noiselike_eor", vis_filter=["xx", "yy"])
+    sim.add("noiselike_eor", vis_filter=["xx", "yy"], rng=np.random.default_rng(5))
     assert all(
         [
             np.all(sim.get_data("xx")),
@@ -572,7 +624,7 @@ def test_vis_filter_arbitrary_key():
         array_layout=hex_array(2, split_core=False, outriggers=0),
         polarization_array=["xx", "yy"],
     )
-    sim.add("noiselike_eor", vis_filter=[1, 3, 5, "xx"])
+    sim.add("noiselike_eor", vis_filter=[1, 3, 5, "xx"], rng=np.random.default_rng(7))
     bls = sim.data.get_antpairs()
     assert not np.any(sim.get_data("yy"))
     assert all(
@@ -617,22 +669,7 @@ def test_bad_seeds(base_sim, seed):
         "unsupported": "Seeding mode not supported.",
     }[seed]
     with pytest.raises(err, match=match):
-        base_sim._seed_rng(seed, None)
-
-
-def test_update_args_warning(base_sim):
-    class Test:
-        def __init__(self):
-            pass
-
-        def __call__(self, lsts, freqs, something_else):
-            pass
-
-    t = Test()
-    args = base_sim._initialize_args_from_model(t)
-    with pytest.warns(UserWarning) as warning:
-        base_sim._update_args(args)
-    assert "required parameters was not extracted." in warning.list[0].message.args[0]
+        base_sim._seed_rng(seed, None, model_key="test")
 
 
 def test_get_component_with_function():
@@ -669,3 +706,49 @@ def test_cached_filters():
     sim2.add("diffuse_foreground", seed=seed)
     defaults.deactivate()
     assert np.allclose(sim1.data.data_array, sim2.data.data_array)
+
+
+def test_get_model_name():
+    assert Simulator._get_model_name("noiselike_eor") == "noiselike_eor"
+    assert Simulator._get_model_name("NOISELIKE_EOR") == "noiselike_eor"
+
+    assert Simulator._get_model_name(DiffuseForeground) == "diffuseforeground"
+    assert Simulator._get_model_name(diffuse_foreground) == "diffuseforeground"
+
+    with pytest.raises(
+        TypeError, match="You are trying to simulate an effect using a custom function"
+    ):
+        Simulator._get_model_name(lambda x: x)
+
+    with pytest.raises(
+        TypeError, match="You are trying to simulate an effect using a custom function"
+    ):
+        Simulator._get_model_name(3)
+
+
+def test_parse_key(base_sim: Simulator):
+    assert base_sim._parse_key(None) == (None, None, None)
+    assert base_sim._parse_key(1) == (1, None, None)
+    assert base_sim._parse_key(
+        base_sim.data.baseline_array[-1]
+    ) == base_sim.data.baseline_to_antnums(base_sim.data.baseline_array[-1]) + (None,)
+
+    with pytest.raises(NotImplementedError, match="Functionality not yet supported"):
+        base_sim._parse_key("auto")
+
+    assert base_sim._parse_key("ee") == (None, None, "ee")
+
+    for badkey in [3.14, [1, 2, 3], (1,)]:
+        print(badkey)
+        with pytest.raises(
+            ValueError,
+            match="Key must be an integer, string, antenna pair, or antenna pair with",
+        ):
+            base_sim._parse_key(badkey)
+
+    with pytest.raises(ValueError, match="Invalid polarization string"):
+        base_sim._parse_key("bad_pol")
+
+    assert base_sim._parse_key((1, 2)) == (1, 2, None)
+    assert base_sim._parse_key((1, "Jee")) == (1, None, "Jee")
+    assert base_sim._parse_key((1, 2, "ee")) == (1, 2, "ee")

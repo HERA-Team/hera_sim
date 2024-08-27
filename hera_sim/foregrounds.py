@@ -39,6 +39,8 @@ class DiffuseForeground(Foreground):
         Keyword arguments and associated values to be passed to
         :func:`~hera_sim.utils.rough_fringe_filter`. Default is to use the
         following settings: ``fringe_filter_type : tophat``.
+    rng: np.random.Generator, optional
+        Random number generator.
 
     Notes
     -----
@@ -65,6 +67,9 @@ class DiffuseForeground(Foreground):
 
     _alias = ("diffuse_foreground",)
     is_smooth_in_freq = True
+    is_randomized = True
+    return_type = "per_baseline"
+    attrs_to_pull = dict(bl_vec=None)
 
     def __init__(
         self,
@@ -72,6 +77,7 @@ class DiffuseForeground(Foreground):
         omega_p=None,
         delay_filter_kwargs=None,
         fringe_filter_kwargs=None,
+        rng=None,
     ):
         if delay_filter_kwargs is None:
             delay_filter_kwargs = {
@@ -87,6 +93,7 @@ class DiffuseForeground(Foreground):
             omega_p=omega_p,
             delay_filter_kwargs=delay_filter_kwargs,
             fringe_filter_kwargs=fringe_filter_kwargs,
+            rng=rng,
         )
 
     def __call__(self, lsts, freqs, bl_vec, **kwargs):
@@ -113,12 +120,9 @@ class DiffuseForeground(Foreground):
         self._check_kwargs(**kwargs)
 
         # unpack the kwargs
-        (
-            Tsky_mdl,
-            omega_p,
-            delay_filter_kwargs,
-            fringe_filter_kwargs,
-        ) = self._extract_kwarg_values(**kwargs)
+        (Tsky_mdl, omega_p, delay_filter_kwargs, fringe_filter_kwargs, rng) = (
+            self._extract_kwarg_values(**kwargs)
+        )
 
         if Tsky_mdl is None:
             raise ValueError(
@@ -143,7 +147,7 @@ class DiffuseForeground(Foreground):
         if np.isclose(np.linalg.norm(bl_vec), 0):
             return vis
 
-        vis *= utils.gen_white_noise(vis.shape)
+        vis *= utils.gen_white_noise(size=vis.shape, rng=rng)
 
         vis = utils.rough_fringe_filter(
             vis, lsts, freqs, bl_vec[0], **fringe_filter_kwargs
@@ -187,9 +191,14 @@ class PointSourceForeground(Foreground):
     reference_freq : float, optional
         Reference frequency used to make the point source flux densities
         chromatic, in units of GHz.
+    rng: np.random.Generator, optional
+        Random number generator.
     """
 
     _alias = ("pntsrc_foreground",)
+    is_randomized = True
+    return_type = "per_baseline"
+    attrs_to_pull = dict(bl_vec=None)
 
     def __init__(
         self,
@@ -200,8 +209,8 @@ class PointSourceForeground(Foreground):
         spectral_index_mean=-1,
         spectral_index_std=0.5,
         reference_freq=0.15,
+        rng=None,
     ):
-
         super().__init__(
             nsrcs=nsrcs,
             Smin=Smin,
@@ -210,6 +219,7 @@ class PointSourceForeground(Foreground):
             spectral_index_mean=spectral_index_mean,
             spectral_index_std=spectral_index_std,
             reference_freq=reference_freq,
+            rng=rng,
         )
 
     def __call__(self, lsts, freqs, bl_vec, **kwargs):
@@ -244,25 +254,18 @@ class PointSourceForeground(Foreground):
         self._check_kwargs(**kwargs)
 
         # unpack the kwargs
-        (
-            nsrcs,
-            Smin,
-            Smax,
-            beta,
-            spectral_index_mean,
-            spectral_index_std,
-            f0,
-        ) = self._extract_kwarg_values(**kwargs)
+        (nsrcs, Smin, Smax, beta, spectral_index_mean, spectral_index_std, f0, rng) = (
+            self._extract_kwarg_values(**kwargs)
+        )
 
         # get baseline length (it should already be in ns)
         bl_len_ns = np.linalg.norm(bl_vec)
 
-        # randomly generate source RAs
-        ras = np.random.uniform(0, 2 * np.pi, nsrcs)
-
-        # draw spectral indices from normal distribution
-        spec_indices = np.random.normal(
-            spectral_index_mean, spectral_index_std, size=nsrcs
+        # Randomly generate source positions and spectral indices.
+        rng = rng or np.random.default_rng()
+        ras = rng.uniform(0, 2 * np.pi, nsrcs)
+        spec_indices = rng.normal(
+            loc=spectral_index_mean, scale=spectral_index_std, size=nsrcs
         )
 
         # calculate beam width, hardcoded for HERA
@@ -271,44 +274,44 @@ class PointSourceForeground(Foreground):
         # draw flux densities from a power law
         alpha = beta + 1
         flux_densities = (
-            Smax**alpha + Smin**alpha * (1 - np.random.uniform(size=nsrcs))
+            Smax**alpha + Smin**alpha * (1 - rng.uniform(size=nsrcs))
         ) ** (1 / alpha)
 
         # initialize the visibility array
         vis = np.zeros((lsts.size, freqs.size), dtype=complex)
 
-        # iterate over ra, flux, spectral indices
+        # Compute the visibility source-by-source.
         for ra, flux, index in zip(ras, flux_densities, spec_indices):
-            # find which lst index to use?
+            # Figure out when the source crosses the meridian.
             lst_ind = np.argmin(np.abs(utils.compute_ha(lsts, ra)))
 
-            # slight offset in delay? why??
-            dtau = np.random.uniform(-1, 1) * 0.1 * bl_len_ns
+            # This is effectively baking in that up to 10% of the baseline
+            # length is oriented along the North-South direction, since this
+            # is the delay measured when the source transits the meridian.
+            # (Still need to think more carefully about this, but this seems
+            # like the right explanation for this, as well as the factor of
+            # 0.9 in the calculation of w further down.)
+            dtau = rng.uniform(-1, 1) * 0.1 * bl_len_ns
 
-            # fill in the corresponding region of the visibility array
+            # Add the contribution from the source as it transits the meridian.
             vis[lst_ind, :] += flux * (freqs / f0) ** index
-
-            # now multiply in the phase
             vis[lst_ind, :] *= np.exp(2j * np.pi * freqs * dtau)
 
-        # get hour angles for lsts at 0 RA (why?)
+        # Figure out the hour angles to use for computing the beam kernel.
         has = utils.compute_ha(lsts, 0)
 
         # convolve vis with beam at each frequency
         for j, freq in enumerate(freqs):
-            # first calculate the beam, using truncated Gaussian model
+            # Treat the beam as if it's a Gaussian with a sharp horizon.
             beam = np.exp(-(has**2) / (2 * beam_width[j] ** 2))
             beam = np.where(np.abs(has) > np.pi / 2, 0, beam)
 
-            # who the hell knows what this does
+            # Compute the phase evolution as the source transits the sky.
             w = 0.9 * bl_len_ns * np.sin(has) * freq
-
             phase = np.exp(2j * np.pi * w)
 
-            # define the convolving kernel
+            # Now actually apply the mock source transit.
             kernel = beam * phase
-
-            # now actually convolve the kernel and the raw vis
             vis[:, j] = np.fft.ifft(np.fft.fft(kernel) * np.fft.fft(vis[:, j]))
 
         return vis

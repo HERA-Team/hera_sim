@@ -18,7 +18,7 @@ class SimulationComponent(metaclass=ABCMeta):
 
     This class serves two main purposes:
         - Provide a simple interface for discovering simulation
-          component models (see :meth:`~list_discoverable_components`").
+          component models (see :meth:`~list_discoverable_components`).
         - Ensure that each subclass can create abstract methods.
 
     The :meth:`~component`: class decorator provides a simple way of
@@ -29,19 +29,31 @@ class SimulationComponent(metaclass=ABCMeta):
     ----------
     is_multiplicative
         Specifies whether the model ``cls`` is a multiplicative
-        effect. This parameter lets the :class:`~hera_sim.simulate.Simulator`:
+        effect. This parameter lets the :class:`~hera_sim.simulate.Simulator`
         class determine how to apply the effect simulated by
         ``cls``. Default setting is False (i.e. the model is
         assumed to be additive unless specified otherwise).
+    return_type
+        Whether the returned result is per-antenna, per-baseline, or the full
+        data array. This tells the :class:`~hera_sim.simulate.Simulator` how
+        it should handle the returned result.
+    attrs_to_pull
+        Dictionary mapping parameter names to :class:`~hera_sim.simulate.Simulator`
+        attributes to be retrieved when setting up for simulation.
     """
 
     #: Whether this systematic multiplies existing visibilities
     is_multiplicative: bool = False
+    #: Whether this systematic contains a randomized component
+    is_randomized: bool = False
+    #: Whether the returned value is per-antenna, per-baseline, or the full array
+    return_type: str | None = None
+    # This isn't exactly safe, but different instances of a class should
+    # have the same call signature, so this should actually be OK.
+    #: Mapping between parameter names and Simulator attributes
+    attrs_to_pull: dict = {}
 
     _alias: tuple[str] = tuple()
-
-    # Keyword arguments for the Simulator to extract from the data
-    _extract_kwargs = set()
 
     def __init_subclass__(cls, is_abstract: bool = False):
         """Provide some useful augmentations to subclasses.
@@ -292,7 +304,7 @@ def list_all_components(with_aliases: bool = True) -> str:
     for cmp, models in cmps.items():
         out += f"{cmp}:\n"
 
-        model_to_name = defaultdict(lambda: [])
+        model_to_name = defaultdict(list)
         for name, model in models.items():
             model_to_name[model].append(name)
 

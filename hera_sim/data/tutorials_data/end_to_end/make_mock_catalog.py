@@ -1,4 +1,5 @@
 """Script for making a mock point source catalog."""
+
 import argparse
 import numpy as np
 from astropy import units
@@ -17,18 +18,18 @@ def make_mock_catalog(
     sigma=5,
     index_low=-3,
     index_high=-1,
+    seed=None,
 ):
     """Generate and svae a mock point source catalog."""
     # Easiset to load the metadata this way.
+    rng = np.random.default_rng(seed)
+
     temp_uvdata = initialize_uvdata_from_params(str(obsparam_file))[0]
     center_time = np.mean(np.unique(temp_uvdata.time_array))
     ref_freq = np.mean(np.unique(temp_uvdata.freq_array))
     array_location = EarthLocation(*temp_uvdata.telescope_location_lat_lon_alt_degrees)
     sky_model = create_mock_catalog(
-        center_time,
-        arrangement="random",
-        Nsrcs=Nsrcs,
-        array_location=array_location,
+        center_time, arrangement="random", Nsrcs=Nsrcs, array_location=array_location
     )[0]
     sky_model_recarray = sky_model.to_recarray()
 
@@ -37,11 +38,11 @@ def make_mock_catalog(
     decs = np.array([row[2] for row in sky_model_recarray])
 
     # Randomly assign fluxes (whether this is realistic or not).
-    ref_fluxes = np.random.lognormal(mean=1, sigma=sigma, size=len(ras))
+    ref_fluxes = rng.lognormal(mean=1, sigma=sigma, size=len(ras))
     # Don't include super bright sources.
     ref_fluxes[ref_fluxes > flux_cut] = 1 / ref_fluxes[ref_fluxes > flux_cut]
     # Assign spectral indices.
-    indices = np.random.uniform(low=index_low, high=index_high, size=len(ras))
+    indices = rng.uniform(low=index_low, high=index_high, size=len(ras))
 
     # Actually add in the spectral structure.
     freqs = np.unique(temp_uvdata.freq_array)

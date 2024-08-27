@@ -3,6 +3,7 @@ A module for generating new YAML tags for the various ``hera_sim`` interpolator 
 
 This may need to be updated if the :mod:`.interpolators` module is updated.
 """
+
 import astropy.units as u
 import inspect
 import warnings
@@ -30,7 +31,7 @@ def predicate(obj):
 
 interps = dict(inspect.getmembers(interpolators, predicate))
 for tag, interp in interps.items():
-    make_interp_constructor("!%s" % tag, interp)
+    make_interp_constructor(f"!{tag}", interp)
 
 
 def astropy_unit_constructor(loader, node):
@@ -41,7 +42,10 @@ def astropy_unit_constructor(loader, node):
     if value is None:
         return None
     elif units is None:
-        warnings.warn("You have not specified the units for this item. Returning None.")
+        warnings.warn(
+            "You have not specified the units for this item. Returning None.",
+            stacklevel=2,
+        )
         return None
     else:
         try:

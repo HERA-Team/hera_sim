@@ -1,6 +1,5 @@
 """Module providing tools for adjusting simulation data/metadata to a reference."""
 
-import copy
 import logging
 import numpy as np
 import os
@@ -25,7 +24,6 @@ except (ModuleNotFoundError, FileNotFoundError) as err:  # pragma: no cover
         missing = "hera-calibration"
     else:
         missing = "git"
-    warn(f"{missing} is not installed. Rephasing tool unavailable.")
     HERA_CAL = False
 
 
@@ -144,6 +142,8 @@ def adjust_to_reference(
     # Check if the target object is a Simulator, but work with a UVData object.
     target_is_simulator = isinstance(target, Simulator)
     target = _to_uvdata(target)
+    if not target.future_array_shapes:  # pragma: no cover
+        target.use_future_array_shapes()
 
     # Pull the reference metadata.
     if not isinstance(reference, UVData):
@@ -271,8 +271,12 @@ def match_antennas(
     # is pretty unrealistic.
     target_is_simulator = isinstance(target, Simulator)
     target = _to_uvdata(target)
-    target_copy = copy.deepcopy(target)
+    if not target.future_array_shapes:  # pragma: nocover
+        target.use_future_array_shapes()
+    target_copy = target.copy()
     reference = _to_uvdata(reference)
+    if not reference.future_array_shapes:  # pragma: nocover
+        reference.use_future_array_shapes()
     reference_metadata = reference.copy(metadata_only=True)
 
     # Find the best choice of mapping between antennas.
@@ -309,6 +313,12 @@ def match_antennas(
                 for target_ant in target_copy.ant_2_array
             ]
         )
+        for i, bl in enumerate(target_copy.baseline_array):
+            ant1, ant2 = target.baseline_to_antnums(bl)
+            ant1 = target_to_reference_map[ant1]
+            ant2 = target_to_reference_map[ant2]
+            newbl = target.antnums_to_baseline(ant1, ant2)
+            target_copy.baseline_array[i] = newbl
 
     attrs_to_update = tuple()
     if relabel_antennas:
@@ -355,6 +365,9 @@ def match_antennas(
             ]
         )
 
+    target_copy._clear_key2ind_cache(target_copy)
+    target_copy._clear_antpair2ind_cache(target_copy)
+
     # Now update the data... this will be a little messy.
     for antpairpol, vis in target.antpairpol_iter():
         ant1, ant2, pol = antpairpol
@@ -374,17 +387,17 @@ def match_antennas(
 
         # Figure out how to slice through the new data array.
         blts, conj_blts, pol_inds = target_copy._key2inds(new_antpairpol)
-        if len(blts) > 0:
+
+        if blts is not None:
             # The new baseline has the same conjugation as the old one.
-            this_slice = (blts, 0, slice(None), pol_inds[0])
-        else:
+            this_slice = (blts, slice(None), pol_inds[0].start)
+        else:  # pragma: no cover
             # The new baseline is conjugated relative to the old one.
             # Given the handling of the antenna relabeling, this might not actually
             # ever be called.
-            this_slice = (conj_blts, 0, slice(None), pol_inds[1])
+            this_slice = (conj_blts, slice(None), pol_inds[1])
             vis = vis.conj()
             new_antpairpol = new_antpairpol[:2][::-1] + (pol,)
-
         # If we needed to reflect the entire array to find the best match, then
         # we need to make sure to conjugate the visibilities since the reflection
         # is effectively undone by baseline conjugation.
@@ -395,13 +408,6 @@ def match_antennas(
         target_copy.data_array[this_slice] = vis
         target_copy.flag_array[this_slice] = target.get_flags(antpairpol)
         target_copy.nsample_array[this_slice] = target.get_nsamples(antpairpol)
-
-        # Update the baseline array in case the antenna numbers got jumbled.
-        old_bl_int = target.antnums_to_baseline(ant1, ant2)
-        new_bl_int = target.antnums_to_baseline(*new_antpairpol[:2])
-        target_copy.baseline_array[
-            target_copy.baseline_array == old_bl_int
-        ] = new_bl_int
 
     # Update the uvw array just to be safe.
     target_copy.set_uvws_from_antenna_positions()
@@ -512,6 +518,12 @@ def interpolate_to_reference(
 
     # Ensure reference parameters are a subset of target parameters.
     if axis in ("time", "both"):
+        # Raise an error if the phasing isn't trivial
+        if not target._check_for_cat_type("unprojected").all():
+            raise ValueError(
+                "Time interpolation only supported for unprojected telescopes."
+            )
+
         # Unwrap the LST axis if we have a phase wrap.
         if iswrapped(target_lsts):
             target_lsts[target_lsts < target_lsts[0]] += 2 * np.pi
@@ -541,16 +553,23 @@ def interpolate_to_reference(
         new_baseline_array = np.empty(new_Nblts, dtype=int)
         new_uvw_array = np.empty((new_Nblts, 3), dtype=float)
         new_integration_times = np.empty(new_Nblts, dtype=float)
+        new_phase_center_id_array = np.zeros(new_Nblts, dtype=int)
+        new_phase_center_app_ra = np.empty(new_Nblts, dtype=float)
+        new_phase_center_app_dec = (
+            np.ones(new_Nblts, dtype=float) * target.phase_center_app_dec[0]
+        )
+        new_phase_center_frame_pa = np.zeros(new_Nblts, dtype=float)
         if axis == "both":
-            new_data_shape = (new_Nblts, 1, ref_freqs.size, target.Npols)
+            new_data_shape = (new_Nblts, ref_freqs.size, target.Npols)
         else:
-            new_data_shape = (new_Nblts, 1, target_freqs.size, target.Npols)
+            new_data_shape = (new_Nblts, target_freqs.size, target.Npols)
         new_data = np.zeros(new_data_shape, dtype=complex)
     else:
-        new_data_shape = (target.Nblts, 1, ref_freqs.size, target.Npols)
+        new_data_shape = (target.Nblts, ref_freqs.size, target.Npols)
 
     # Actually update metadata and interpolate the data.
     new_data = np.empty(new_data_shape, dtype=complex)
+    history_update = "" if target.history.endswith("\n") else "\n"
     for i, antpair in enumerate(target.get_antpairs()):
         if axis == "freq":
             for pol_ind, pol in enumerate(target.polarization_array):
@@ -558,7 +577,7 @@ def interpolate_to_reference(
                 this_blt_slice = target._key2inds(antpair + (pol,))[0]
                 re_spline = interp1d(target_freqs, vis.real, axis=1, kind=kind)
                 im_spline = interp1d(target_freqs, vis.imag, axis=1, kind=kind)
-                new_data[this_blt_slice, 0, :, pol_ind] = re_spline(
+                new_data[this_blt_slice, :, pol_ind] = re_spline(
                     ref_freqs
                 ) + 1j * im_spline(ref_freqs)
             continue
@@ -566,10 +585,10 @@ def interpolate_to_reference(
         # Preparation for updating metadata.
         ant1, ant2 = antpair
         this_slice = slice(i, None, target.Nbls)
-        old_blt = target._key2inds(antpair)[0][0]  # As a reference
-        this_uvw = target.uvw_array[old_blt]
-        this_baseline = target.baseline_array[old_blt]
-        this_integration_time = target.integration_time[old_blt]
+        old_blts = target._key2inds(antpair)[0]  # As a reference
+        this_uvw = target.uvw_array[old_blts][0]
+        this_baseline = target.baseline_array[old_blts][0]
+        this_integration_time = target.integration_time[old_blts][0]
 
         # Now actually update the metadata.
         new_ant_1_array[this_slice] = ant1
@@ -579,39 +598,36 @@ def interpolate_to_reference(
         new_time_array[this_slice] = ref_times
         new_lst_array[this_slice] = ref_lsts
         new_integration_times[this_slice] = this_integration_time
+        phase_center_interp = interp1d(
+            target_lsts, target.phase_center_app_ra[old_blts], kind="linear"
+        )
+        new_phase_center_app_dec[this_slice] = phase_center_interp(ref_lsts)
 
         # Update the data.
         for pol_ind, pol in enumerate(target.polarization_array):
             vis = target.get_data(antpair + (pol,))
             if axis == "both":
                 re_spline = RectBivariateSpline(
-                    target_lsts,
-                    target_freqs,
-                    vis.real,
-                    kx=kt,
-                    ky=kf,
+                    target_lsts, target_freqs, vis.real, kx=kt, ky=kf
                 )
                 im_spline = RectBivariateSpline(
-                    target_lsts,
-                    target_freqs,
-                    vis.imag,
-                    kx=kt,
-                    ky=kf,
+                    target_lsts, target_freqs, vis.imag, kx=kt, ky=kf
                 )
-                new_data[this_slice, 0, :, pol_ind] = re_spline(
+                new_data[this_slice, :, pol_ind] = re_spline(
                     ref_lsts, ref_freqs
                 ) + 1j * im_spline(ref_lsts, ref_freqs)
             else:
                 re_spline = interp1d(target_lsts, vis.real, axis=0, kind=kind)
                 im_spline = interp1d(target_lsts, vis.imag, axis=0, kind=kind)
-                new_data[this_slice, 0, :, pol_ind] = re_spline(
+                new_data[this_slice, :, pol_ind] = re_spline(ref_lsts) + 1j * im_spline(
                     ref_lsts
-                ) + 1j * im_spline(ref_lsts)
+                )
 
     # Finally, update all of the metadata.
     if axis in ("freq", "both"):
         target.Nfreqs = ref_freqs.size
         target.freq_array = ref_freqs
+        history_update += "Data interpolated in frequency with hera_sim.\n"
     if axis in ("time", "both"):
         target.Nblts = ref_times.size * target.Nbls
         target.Ntimes = ref_times.size
@@ -622,9 +638,14 @@ def interpolate_to_reference(
         target.baseline_array = new_baseline_array
         target.uvw_array = new_uvw_array
         target.integration_time = new_integration_times
+        target.phase_center_app_dec = new_phase_center_app_dec
+        target.phase_center_app_ra = new_phase_center_app_ra
+        target.phase_center_id_array = new_phase_center_id_array
+        target.phase_center_frame_pa = new_phase_center_frame_pa
         target.blt_order = None
+        history_update += "Data interpolated in time with hera_sim.\n"
 
-    # Now update the data-like attributes
+    # Now update the data-like attributes; assumes input is unflagged, unavged
     target.flag_array = np.zeros(new_data.shape, dtype=bool)
     target.nsample_array = np.ones(new_data.shape, dtype=float)
     target.data_array = new_data
@@ -634,12 +655,7 @@ def interpolate_to_reference(
     return target
 
 
-def rephase_to_reference(
-    target,
-    reference=None,
-    ref_times=None,
-    ref_lsts=None,
-):
+def rephase_to_reference(target, reference=None, ref_times=None, ref_lsts=None):
     """
     Rephase target data to match overlapping reference LSTs.
 
@@ -684,10 +700,7 @@ def rephase_to_reference(
             except TypeError:
                 raise TypeError("reference must be convertible to a UVData object.")
 
-        ref_time_to_lst_map = {
-            ref_time: ref_lst
-            for ref_time, ref_lst in zip(reference.time_array, reference.lst_array)
-        }
+        ref_time_to_lst_map = dict(zip(reference.time_array, reference.lst_array))
         ref_times = np.array(list(ref_time_to_lst_map.keys()))
         ref_lsts = np.array(list(ref_time_to_lst_map.values()))
     else:
@@ -702,10 +715,7 @@ def rephase_to_reference(
         ref_time_to_lst_map = dict(zip(ref_times, ref_lsts))
 
     # Construct the reference -> target time map.
-    target_time_to_lst_map = {
-        target_time: target_lst
-        for target_time, target_lst in zip(target.time_array, target.lst_array)
-    }
+    target_time_to_lst_map = dict(zip(target.time_array, target.lst_array))
     target_times = np.array(list(target_time_to_lst_map.keys()))
     target_lsts = np.array(list(target_time_to_lst_map.values()))
     ref_to_target_time_map = get_d2m_time_map(
@@ -757,7 +767,7 @@ def rephase_to_reference(
     bls = {(ai, aj, pol): antpos[aj] - antpos[ai] for ai, aj, pol in data.bls()}
     lat = target.telescope_location_lat_lon_alt_degrees[0]
     new_Nblts = target.Nbls * target_times.size
-    new_data = np.zeros((new_Nblts, 1, target.Nfreqs, target.Npols), dtype=complex)
+    new_data = np.zeros((new_Nblts, target.Nfreqs, target.Npols), dtype=complex)
     new_time_array = np.empty(new_Nblts, dtype=float)
     new_lst_array = np.empty(new_Nblts, dtype=float)
     new_integration_times = np.empty(new_Nblts, dtype=float)
@@ -770,10 +780,10 @@ def rephase_to_reference(
     for i, antpair in enumerate(target.get_antpairs()):
         ant1, ant2 = antpair
         this_slice = slice(i, None, target.Nbls)
-        old_blt = target._key2inds(antpair)[0][0]  # As a reference
-        this_uvw = target.uvw_array[old_blt]
-        this_baseline = target.baseline_array[old_blt]
-        this_integration_time = target.integration_time[old_blt]
+        old_blts = target._key2inds(antpair)[0]  # As a reference
+        this_uvw = target.uvw_array[old_blts][0]
+        this_baseline = target.baseline_array[old_blts][0]
+        this_integration_time = target.integration_time[old_blts][0]
 
         # Update the metadata.
         new_ant_1_array[this_slice] = ant1
@@ -789,8 +799,8 @@ def rephase_to_reference(
             antpairpol = antpair + (pol,)
             vis = data[antpairpol]
             bl = bls[antpairpol]
-            new_data[this_slice, 0, :, pol_ind] = lst_rephase(
-                vis, bl, data.freqs, dlst, lat=lat, array=True
+            new_data[this_slice, :, pol_ind] = lst_rephase(
+                vis, bl, data.freqs, dlst, lat=lat, inplace=False, array=True
             )
 
     # Convert from HERAData object to UVData object

@@ -2,8 +2,10 @@ import pytest
 
 import numpy as np
 from astropy import units
+from itertools import combinations
+from pyuvdata import utils as uvutils
 
-from hera_sim import DATA_PATH, utils
+from hera_sim import DATA_PATH, Simulator, defaults, utils
 from hera_sim.interpolators import Beam
 
 
@@ -111,19 +113,14 @@ def test_rough_filter_noisy_data(freqs, lsts, filter_type):
     if filter_type == "delay":
         filt = utils.rough_delay_filter
         args = [freqs, 50]
-        kwargs = {
-            "standoff": 0,
-            "delay_filter_type": "gauss",
-        }
+        kwargs = {"standoff": 0, "delay_filter_type": "gauss"}
     else:
         filt = utils.rough_fringe_filter
         args = [lsts, freqs, 50]
-        kwargs = {
-            "fringe_filter_type": "gauss",
-            "fr_width": 1e-4,
-        }
+        kwargs = {"fringe_filter_type": "gauss", "fr_width": 1e-4}
+    rng = np.random.default_rng(0)
     for i in range(Nrealizations):
-        data = utils.gen_white_noise((lsts.size, freqs.size))
+        data = utils.gen_white_noise((lsts.size, freqs.size), rng=rng)
         filtered_data = filt(data, *args, **kwargs)
         filtered_data_mean = np.mean(filtered_data)
         mean_values[i] = filtered_data_mean.real, filtered_data_mean.imag
@@ -151,12 +148,12 @@ def test_rough_delay_filter_missing_param(freqs, lsts, missing_param):
 def test_delay_filter_norm(freqs):
     tsky = np.ones(freqs.size)
 
-    np.random.seed(1234)  # set the seed for reproducibility.
+    rng = np.random.default_rng(0)  # set the seed for reproducibility.
 
     out = 0
     nreal = 5000
     for _ in range(nreal):
-        _noise = tsky * utils.gen_white_noise(freqs.size)
+        _noise = tsky * utils.gen_white_noise(freqs.size, rng=rng)
         outnoise = utils.rough_delay_filter(_noise, freqs, 30, normalize=1)
 
         out += np.sum(np.abs(outnoise) ** 2)
@@ -264,17 +261,14 @@ def test_fringe_filter_custom(freqs, lsts, fringe_rates):
     )
     # Check that the filters peak at roughly the same fringe rates.
     assert np.allclose(
-        peak_frates_model[nearest_neighbors],
-        peak_frates_interp,
-        rtol=0.05,
-        atol=0,
+        peak_frates_model[nearest_neighbors], peak_frates_interp, rtol=0.05, atol=0
     )
 
 
 @pytest.mark.parametrize("bl_len_ns", [50, 150])
 @pytest.mark.parametrize("fr_width", [1e-4, 3e-4])
 def test_rough_fringe_filter_noisy_data(freqs, lsts, fringe_rates, bl_len_ns, fr_width):
-    data = utils.gen_white_noise((lsts.size, freqs.size))
+    data = utils.gen_white_noise((lsts.size, freqs.size), rng=np.random.default_rng(0))
     max_fringe_rates = utils.calc_max_fringe_rate(freqs, bl_len_ns)
     filt_data = utils.rough_fringe_filter(
         data, lsts, freqs, bl_len_ns, fringe_filter_type="gauss", fr_width=fr_width
@@ -324,14 +318,14 @@ def test_use_pre_computed_filter(freqs, lsts, filter_type):
 @pytest.mark.parametrize("shape", [100, (100, 200)])
 def test_gen_white_noise_shape(shape):
     noise = utils.gen_white_noise(shape)
-    if type(shape) is int:
+    if isinstance(shape, int):
         shape = (shape,)
     assert noise.shape == shape
 
 
 @pytest.mark.parametrize("shape", [100, (100, 200)])
 def test_gen_white_noise_mean(shape):
-    noise = utils.gen_white_noise(shape)
+    noise = utils.gen_white_noise(shape, rng=np.random.default_rng(0))
     assert np.allclose(
         [noise.mean().real, noise.mean().imag], 0, rtol=0, atol=5 / np.sqrt(noise.size)
     )
@@ -339,7 +333,7 @@ def test_gen_white_noise_mean(shape):
 
 @pytest.mark.parametrize("shape", [100, (100, 200)])
 def test_gen_white_noise_variance(shape):
-    noise = utils.gen_white_noise(shape)
+    noise = utils.gen_white_noise(shape, rng=np.random.default_rng(0))
     assert np.isclose(np.std(noise), 1, rtol=0, atol=0.1)
 
 
@@ -382,4 +376,66 @@ def test_Jy2T(freqs, omega_p):
 
 @pytest.mark.parametrize("obj", [1, (1, 2), "abc", np.array([13])])
 def test_listify(obj):
-    assert type(utils._listify(obj)) is list
+    assert isinstance(utils._listify(obj), list)
+
+
+@pytest.mark.parametrize("jit", [True, False])
+@pytest.mark.parametrize(
+    "pols",
+    [
+        sorted(pols)[::-1]
+        for i in range(1, 5)
+        for pols in combinations(range(-8, -4), i)
+    ],
+)
+def test_reshape_vis(jit, pols):
+    # Mock up some data real quick
+    defaults.set("debug")
+    pols = [uvutils.polnum2str(pol) for pol in pols]
+    sim = Simulator(polarization_array=np.array(pols))
+    data_shape = sim.data_array.shape
+    sim.data.data_array = np.random.normal(size=data_shape) + 1j * np.random.normal(
+        size=data_shape
+    )
+    # Make the autos real otherwise we're going to have problems
+    for ai, aj, pol in sim.get_antpairpols():
+        if ai != aj:
+            continue
+        inds = sim.data.antpair2ind(ai, ai)
+        p = list(sim.polarization_array).index(uvutils.polstr2num(pol))
+        sim.data.data_array[inds, :, p] = np.random.normal(
+            size=(sim.Ntimes, sim.Nfreqs)
+        ).astype(complex)
+
+    if "xy" in sim.get_pols() and "yx" in sim.get_pols():
+        # Need to fix these autos as well
+        for ai in sim.antenna_numbers:
+            inds = sim.data.antpair2ind(ai, ai)
+            p1 = list(sim.get_pols()).index("xy")
+            p2 = list(sim.get_pols()).index("yx")
+            sim.data.data_array[inds, :, p1] = sim.data_array[inds, :, p2].conj()
+
+    reshape_args = [
+        sim.data.data_array,
+        sim.ant_1_array,
+        sim.ant_2_array,
+        sim.polarization_array,
+        sim.antenna_numbers,
+        sim.Ntimes,
+        sim.Nfreqs,
+        sim.Nants,
+        sim.Npols,
+    ]
+    vis = utils.reshape_vis(
+        utils.reshape_vis(*reshape_args, invert=False, use_numba=jit),
+        *reshape_args[1:],
+        invert=True,
+        use_numba=jit,
+    )
+    assert np.all(sim.data_array == vis)
+
+
+def test_tanh_window_warning():
+    with pytest.warns(UserWarning, match="Insufficient information"):
+        window = utils.tanh_window(np.linspace(0, 1, 100))
+    assert np.all(window == 1)

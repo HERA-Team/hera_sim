@@ -2,8 +2,118 @@
 Changelog
 =========
 
-dev-version
-===========
+dev
+===
+
+Added
+-----
+- Classes subclassed from ``SimulationComponent`` now have a ``is_randomized``
+  class attribute that informs the ``Simulator`` of whether it should provide
+  a ``BitGenerator`` to the class when simulating the component.
+  - Classes which use a random component should now have a ``rng`` attribute,
+    which should be treated in the same manner as other model parameters. In
+    other words, random states are now effectively treated as model parameters.
+- New simulator class ``FFTVis`` that uses the ``fftvis`` package to simulate
+  visibilities. This is a CPU-based visibility simulator that is faster than
+  ``MatVis`` for large, compact arrays.
+
+Changed
+-------
+- All random number generation now uses the new ``numpy`` API.
+  - Rather than seed the global random state, a new ``BitGenerator`` is made
+    with whatever random seed is desired.
+  - The Simulator API has remained virtually unchanged, but the internal logic
+    that handles random state management has received a significant update.
+
+Deprecated
+----------
+
+- Support for Python 3.9 has been dropped.
+
+Fixed
+-----
+- API calls for pyuvdata v2.4.0.
+
+v4.1.0 [2023.06.26]
+===================
+This release heavily focuses on performance of the visibility simulators, and in
+particular the ``VisCPU`` simulator.
+
+Fixed
+-----
+- Passing ``spline_interp_opts`` now correctly pipes these options through to the
+  visibility simulators.
+
+Added
+-----
+- New ``_blt_order_kws`` class-attribute for ``VisibilitySimulator`` subclasses, that
+  can be used to create the mock metadata in an order corresponding to that required
+  by the simulator (instead of re-ordering after data creation, which can take some
+  time).
+- New optional ``compress_data_model()`` method on ``VisibilitySimulator`` subclasses
+  that allows unnecessary metadata in the ``UVData`` object to be dropped before
+  simulation (can be restored afterwards with the associated ``restore_data_model()``).
+  This can reduce peak memory usage.
+- New ``check_antenna_conjugation`` parameter for the ``VisCPU`` simulator, to allow
+  turning off checks for antenna conjugation, which takes time and is unnecessary for
+  mock datasets.
+- Dependency on ``hera-cli-utils`` which adds options like ``--log-level`` and ``--profile``
+  to ``hera-sim-vis.py``.
+- Option to use a taper in generating a bandpass.
+- ``utils.tanh_window`` function for generating a two-sided tanh window.
+- ``interpolators.Reflection`` class for building a complex reflection
+  coefficient interpolator from a ``npz`` archive.
+- Reflection coefficient and beam integral ``npz`` archives for the phase 1
+  and phase 4 systems (i.e., dipole feed and Vivaldi feed).
+
+Changed
+-------
+- ``run_check_acceptability`` is now ``False`` by default when constructing simulations
+  from obsparams configuration files, to improve performance.
+- For ``VisCPU`` simulator, we no longer copy the whole data array when simulating, but
+  instead just fill the existing one, to save on peak RAM.
+- Made ``VisCPU._reorder_vis()`` much faster (like 99% time reduction).
+- The ``--compress`` option to ``hera-sim-vis.py`` is no longer a boolean flag but
+  takes a file argument. This file will be written as a cache of the baseline-time indices
+  required to keep when compressing by redundancy.
+
+v4.0.0 [2023.05.22]
+===================
+
+Breaking Changes
+----------------
+- Removed the ``HealVis`` wrapper. Use ``pyuvsim`` instead.
+
+Changed
+-------
+- Updated package to always use future array shapes for ``pyuvdata`` objects (this
+  includes updates to ``PolyBeam`` and ``Simulator`` objects amongst others).
+
+v3.1.1 [2023.02.23]
+===================
+
+Changed
+-------
+- Coupling matrix calculation in :class:`~.sigchain.MutualCoupling` has been updated
+  to correctly calculate the coupling coefficients from the provided E-field beam.
+
+v3.1.0 [2023.01.17]
+===================
+
+Added
+-----
+- :class:`~.sigchain.MutualCoupling` class that simulates the systematic described in Josaitis
+  et al. 2021.
+- New class attributes for the :class:`~.SimulationComponent` class:
+    - ``return_type`` specifies what type of return value to expect;
+    - ``attrs_to_pull`` specifies which ``Simulator`` attributes to use.
+- Some helper functions for :class:`~.sigchain.MutualCoupling` matrix multiplications.
+- More attributes from the underlying ``UVData`` object exposed to the :class:`~.Simulator`.
+
+Changed
+-------
+- ``Simulator._update_args`` logic has been improved.
+- :class:`~.Simulator` attributes ``lsts``, ``times``, and ``freqs`` are no longer cached.
 
 v3.0.0
 ======
@@ -142,7 +252,7 @@ Added
 
 Fixed
 -----
-- default ``feed_array` for ``PolyBeam`` fixed.
+- default ``feed_array`` for ``PolyBeam`` fixed.
 
 Changed
 -------

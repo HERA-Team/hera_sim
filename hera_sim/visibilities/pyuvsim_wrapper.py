@@ -1,4 +1,5 @@
 """Wrapper for the pyuvsim simulator."""
+
 import numpy as np
 import pyuvsim
 import warnings
@@ -15,6 +16,8 @@ class UVSim(VisibilitySimulator):
         If True, don't print anything.
     """
 
+    _blt_order_kws = {"order": "time", "minor_order": "baseline"}
+
     _functions_to_profile = (pyuvsim.uvsim.run_uvdata_uvsim,)
 
     def __init__(self, quiet: bool = False):
@@ -23,8 +26,7 @@ class UVSim(VisibilitySimulator):
     def simulate(self, data_model: ModelData):
         """Simulate the visibilities."""
         beam_dict = {
-            ant: data_model.beam_ids[str(idx)]
-            for idx, ant in enumerate(data_model.uvdata.antenna_names)
+            ant: data_model.beam_ids[ant] for ant in data_model.uvdata.antenna_names
         }
 
         # TODO: this can be removed once
@@ -34,7 +36,8 @@ class UVSim(VisibilitySimulator):
             data_model.sky_model.name = np.array(data_model.sky_model.name)
 
         warnings.warn(
-            "UVSim requires time-ordered data. Ensuring that order in UVData..."
+            "UVSim requires time-ordered data. Ensuring that order in UVData...",
+            stacklevel=1,
         )
         data_model.uvdata.reorder_blts("time")
 
@@ -44,7 +47,8 @@ class UVSim(VisibilitySimulator):
         # at least check whether reordering is necessary once uvdata has that ability.
         if np.any(data_model.uvdata.polarization_array != np.array([-5, -6, -7, -8])):
             warnings.warn(
-                "In UVSim, polarization array must be in AIPS order. Reordering..."
+                "In UVSim, polarization array must be in AIPS order. Reordering...",
+                stacklevel=1,
             )
             data_model.uvdata.reorder_pols("AIPS")
 
@@ -55,6 +59,4 @@ class UVSim(VisibilitySimulator):
             catalog=pyuvsim.simsetup.SkyModelData(data_model.sky_model),
             quiet=self.quiet,
         )
-        out_uv.use_current_array_shapes()
-        data_model.uvdata.use_current_array_shapes()
         return out_uv.data_array

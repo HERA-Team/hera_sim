@@ -47,17 +47,19 @@ class ThermalNoise(Noise):
         Antenna numbers for the baseline that noise is being simulated for. This is
         just used to determine whether to simulate noise via the radiometer equation
         or to just add a bias from the receiver temperature.
+    rng: np.random.Generator, optional
+        Random number generator.
 
     Notes
     -----
-    At the time of writing, we're unsure of the correct prescription for
-    autocorrelations, so we only add a receiver temperature bias to baselines that
-    are interpreted as autocorrelations (i.e. where the ``bl_vec`` parameter provided
-    on calling an instance of this class is nearly zero length).
+    Considering the SNR in autocorrelations is typically very high, we only add
+    a receiver temperature bias to the autocorrelations.
     """
 
     _alias = ("thermal_noise",)
-    _extract_kwargs = {"autovis", "antpair"}
+    is_randomized = True
+    return_type = "per_baseline"
+    attrs_to_pull = dict(autovis=None, antpair=None)
 
     def __init__(
         self,
@@ -68,6 +70,7 @@ class ThermalNoise(Noise):
         Trx=0,
         autovis=None,
         antpair=None,
+        rng=None,
     ):
         super().__init__(
             Tsky_mdl=Tsky_mdl,
@@ -77,6 +80,7 @@ class ThermalNoise(Noise):
             Trx=Trx,
             autovis=autovis,
             antpair=antpair,
+            rng=rng,
         )
 
     def __call__(self, lsts: np.ndarray, freqs: np.ndarray, **kwargs):
@@ -115,6 +119,7 @@ class ThermalNoise(Noise):
             Trx,
             autovis,
             antpair,
+            rng,
         ) = self._extract_kwarg_values(**kwargs)
 
         # get the channel width in Hz if not specified
@@ -168,7 +173,7 @@ class ThermalNoise(Noise):
         vis /= utils.jansky_to_kelvin(freqs, omega_p).reshape(1, -1)
 
         # make it noisy
-        return utils.gen_white_noise(size=vis.shape) * vis
+        return utils.gen_white_noise(size=vis.shape, rng=rng) * vis
 
     @staticmethod
     def resample_Tsky(lsts, freqs, Tsky_mdl=None, Tsky=180.0, mfreq=0.18, index=-2.5):
@@ -239,5 +244,9 @@ def white_noise(*args, **kwargs):
 
     Deprecated. Use ``utils.gen_white_noise`` instead.
     """
-    warnings.warn("white_noise is being deprecated. Use utils.gen_white_noise instead.")
+    warnings.warn(
+        "white_noise is being deprecated. Use utils.gen_white_noise instead.",
+        category=DeprecationWarning,
+        stacklevel=2,
+    )
     return utils.gen_white_noise(*args, **kwargs)

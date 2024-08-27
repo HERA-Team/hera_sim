@@ -1,15 +1,26 @@
 """Utility module."""
-import astropy.constants as const
-import astropy.units as u
+
+from __future__ import annotations
+
 import numpy as np
+import pyuvdata.utils as uvutils
 import warnings
+from astropy import constants, units
+from astropy.coordinates import Longitude
+from collections.abc import Sequence
 from scipy.interpolate import RectBivariateSpline
-from typing import Optional, Sequence, Tuple, Union
 
 from .interpolators import Beam
 
+try:
+    import numba
 
-def _get_bl_len_vec(bl_len_ns: Union[float, np.ndarray]) -> np.ndarray:
+    HAVE_NUMBA = True
+except ImportError:
+    HAVE_NUMBA = False
+
+
+def _get_bl_len_vec(bl_len_ns: float | np.ndarray) -> np.ndarray:
     """
     Convert a baseline length in a variety of formats to a standard length-3 vector.
 
@@ -34,7 +45,7 @@ def _get_bl_len_vec(bl_len_ns: Union[float, np.ndarray]) -> np.ndarray:
     return bl_len_ns
 
 
-def get_bl_len_magnitude(bl_len_ns: Union[float, np.ndarray, Sequence]) -> float:
+def get_bl_len_magnitude(bl_len_ns: float | np.ndarray | Sequence) -> float:
     """
     Get the magnitude of the length of the given baseline.
 
@@ -56,12 +67,12 @@ def get_bl_len_magnitude(bl_len_ns: Union[float, np.ndarray, Sequence]) -> float
 
 def gen_delay_filter(
     freqs: np.ndarray,
-    bl_len_ns: Union[float, np.ndarray, Sequence],
+    bl_len_ns: float | np.ndarray | Sequence,
     standoff: float = 0.0,
-    delay_filter_type: Optional[str] = "gauss",
-    min_delay: Optional[float] = None,
-    max_delay: Optional[float] = None,
-    normalize: Optional[float] = None,
+    delay_filter_type: str | None = "gauss",
+    min_delay: float | None = None,
+    max_delay: float | None = None,
+    normalize: float | None = None,
 ) -> np.ndarray:
     """
     Generate a delay filter in delay space.
@@ -132,10 +143,10 @@ def gen_delay_filter(
 
 def rough_delay_filter(
     data: np.ndarray,
-    freqs: Optional[np.ndarray] = None,
-    bl_len_ns: Optional[np.ndarray] = None,
+    freqs: np.ndarray | None = None,
+    bl_len_ns: np.ndarray | None = None,
     *,
-    delay_filter: Optional[np.ndarray] = None,
+    delay_filter: np.ndarray | None = None,
     **kwargs,
 ) -> np.ndarray:
     """
@@ -188,7 +199,7 @@ def gen_fringe_filter(
     lsts: np.ndarray,
     freqs: np.ndarray,
     ew_bl_len_ns: float,
-    fringe_filter_type: Optional[str] = "tophat",
+    fringe_filter_type: str | None = "tophat",
     **filter_kwargs,
 ) -> np.ndarray:
     """
@@ -240,7 +251,7 @@ def gen_fringe_filter(
     If ``filter_type == 'none'`` fringe filter is identically one.
     """
     # setup
-    times = lsts / (2 * np.pi) * u.sday.to("s")
+    times = lsts / (2 * np.pi) * units.sday.to("s")
     fringe_rates = np.fft.fftfreq(times.size, times[1] - times[0])
 
     if fringe_filter_type in [None, "none", "None"]:
@@ -294,11 +305,11 @@ def gen_fringe_filter(
 
 def rough_fringe_filter(
     data: np.ndarray,
-    lsts: Optional[np.ndarray] = None,
-    freqs: Optional[np.ndarray] = None,
-    ew_bl_len_ns: Optional[float] = None,
+    lsts: np.ndarray | None = None,
+    freqs: np.ndarray | None = None,
+    ew_bl_len_ns: float | None = None,
     *,
-    fringe_filter: Optional[np.ndarray] = None,
+    fringe_filter: np.ndarray | None = None,
     **kwargs,
 ) -> np.ndarray:
     """
@@ -360,7 +371,7 @@ def calc_max_fringe_rate(fqs: np.ndarray, ew_bl_len_ns: float) -> np.ndarray:
         Maximum fringe rate [Hz]
     """
     bl_wavelen = fqs * ew_bl_len_ns
-    return 2 * np.pi / u.sday.to("s") * bl_wavelen
+    return 2 * np.pi / units.sday.to("s") * bl_wavelen
 
 
 def compute_ha(lsts: np.ndarray, ra: float) -> np.ndarray:
@@ -409,7 +420,9 @@ def wrap2pipi(a):
     return res
 
 
-def gen_white_noise(size: Union[int, Tuple[int]] = 1) -> np.ndarray:
+def gen_white_noise(
+    size: int | tuple[int] = 1, rng: np.random.Generator | None = None
+) -> np.ndarray:
     """Produce complex Gaussian noise with unity variance.
 
     Parameters
@@ -417,19 +430,24 @@ def gen_white_noise(size: Union[int, Tuple[int]] = 1) -> np.ndarray:
     size
         Shape of output array. Can be an integer if a single dimension is required,
         otherwise a tuple of ints.
+    rng
+        Random number generator.
 
     Returns
     -------
     noise
         White noise realization with specified shape.
     """
+    # Split power evenly between real and imaginary components.
     std = 1 / np.sqrt(2)
-    return np.random.normal(scale=std, size=size) + 1j * np.random.normal(
-        scale=std, size=size
-    )
+    args = dict(scale=std, size=size)
+
+    # Create a random number generator if needed, then generate noise.
+    rng = rng or np.random.default_rng()
+    return rng.normal(**args) + 1j * rng.normal(**args)
 
 
-def jansky_to_kelvin(freqs: np.ndarray, omega_p: Union[Beam, np.ndarray]) -> np.ndarray:
+def jansky_to_kelvin(freqs: np.ndarray, omega_p: Beam | np.ndarray) -> np.ndarray:
     """Return Kelvin -> Jy conversion as a function of frequency.
 
     Parameters
@@ -450,9 +468,9 @@ def jansky_to_kelvin(freqs: np.ndarray, omega_p: Union[Beam, np.ndarray]) -> np.
     if callable(omega_p):
         omega_p = omega_p(freqs)
 
-    wavelengths = const.c.value / (freqs * 1e9)  # meters
+    wavelengths = constants.c.value / (freqs * 1e9)  # meters
     # The factor of 1e-26 converts from Jy to W/m^2/Hz.
-    return 1e-26 * wavelengths**2 / (2 * const.k_B.value * omega_p)
+    return 1e-26 * wavelengths**2 / (2 * constants.k_B.value * omega_p)
 
 
 def Jy2T(freqs, omega_p):
@@ -461,8 +479,8 @@ def Jy2T(freqs, omega_p):
     Deprecated in v1.0.0. Will be removed in v1.1.0
     """
     warnings.warn(
-        "The function Jy2T has been renamed 'jansky_to_kelvin'. It will be removed in "
-        "v1.1."
+        "This function has been deprecated. Please use `jansky_to_kelvin` instead.",
+        stacklevel=1,
     )
     return jansky_to_kelvin(freqs, omega_p)
 
@@ -488,3 +506,345 @@ def _listify(x):
             return [x]
         else:
             return list(x)
+
+
+def reshape_vis(
+    vis: np.ndarray,
+    ant_1_array: np.ndarray,
+    ant_2_array: np.ndarray,
+    pol_array: np.ndarray,
+    antenna_numbers: np.ndarray,
+    n_times: int,
+    n_freqs: int,
+    n_ants: int,
+    n_pols: int,
+    invert: bool = False,
+    use_numba: bool = True,
+) -> np.ndarray:
+    """Reshaping helper for mutual coupling sims.
+
+    The mutual coupling simulations take as input, and return, a data array with
+    shape ``(Nblts, Nfreqs, Npols)``, but perform matrix multiplications on
+    the data array reshaped to ``(Ntimes, Nfreqs, 2*Nants, 2*Nants)``. This
+    function performs the reshaping between the matrix multiply shape and the
+    input/output array shapes.
+
+    Parameters
+    ----------
+    vis
+        Input data array.
+    ant_1_array
+        Array specifying the first antenna in each baseline.
+    ant_2_array
+        Array specifying the second antenna in each baseline.
+    pol_array
+        Array specifying the observed polarizations via polarization numbers.
+    antenna_numbers
+        Array specifying all of the antennas to include in the reshaped data.
+    n_times
+        Number of integrations in the data.
+    n_freqs
+        Number of frequency channels in the data.
+    n_ants
+        Number of antennas.
+    n_pols
+        Number of polarizations in the data.
+    invert
+        Whether to reshape to :class:`pyuvdata.UVData`'s data array shape.
+    use_numba
+        Whether to use ``numba`` to speed up the reshaping.
+
+    Returns
+    -------
+    reshaped_vis
+        Input data reshaped to desired shape.
+    """
+    if invert:
+        out = np.zeros((ant_1_array.size, n_freqs, n_pols), dtype=complex)
+    else:
+        out = np.zeros((n_times, n_freqs, 2 * n_ants, 2 * n_ants), dtype=complex)
+
+    # If we have numba, then this is a bit faster.
+    if HAVE_NUMBA and use_numba:  # pragma: no cover
+        if invert:
+            fnc = jit_reshape_vis_invert
+        else:
+            fnc = jit_reshape_vis
+        fnc(
+            vis=vis,
+            out=out,
+            ant_1_array=ant_1_array,
+            ant_2_array=ant_2_array,
+            pol_array=pol_array,
+            antenna_numbers=antenna_numbers,
+        )
+        return out
+
+    # We don't have numba, so we need to do this a bit more slowly.
+    pol_slices = {"x": slice(None, None, 2), "y": slice(1, None, 2)}
+    polnum2str = {pol: uvutils.polnum2str(pol) for pol in pol_array}
+    for i, ai in enumerate(antenna_numbers):
+        for j, aj in enumerate(antenna_numbers[i:]):
+            j += i
+            uvd_inds = np.argwhere((ant_1_array == ai) & (ant_2_array == aj)).flatten()
+            flipped = uvd_inds.size == 0
+            ii, jj = i, j
+            if flipped:
+                uvd_inds = np.argwhere(
+                    (ant_2_array == ai) & (ant_1_array == aj)
+                ).flatten()
+                ii, jj = j, i
+
+            if uvd_inds.size == 0:
+                continue
+
+            for k, pol in enumerate(pol_array):
+                p1, p2 = polnum2str[pol]
+                if flipped:
+                    p1, p2 = p2, p1
+                sl1, sl2 = (pol_slices[p.lower()] for p in (p1, p2))
+
+                # NOTE: this is hard-coded to use the new-style UVData shapes!
+                if invert:
+                    # Going back to UVData shape
+                    out[uvd_inds, :, k] = vis[:, :, sl1, sl2][:, :, ii, jj]
+                else:
+                    # Changing from UVData shape
+                    out[:, :, sl1, sl2][:, :, ii, jj] = vis[uvd_inds, :, k]
+                    out[:, :, sl2, sl1][:, :, jj, ii] = np.conj(vis[uvd_inds, :, k])
+    return out
+
+
+def matmul(left: np.ndarray, right: np.ndarray, use_numba: bool = False) -> np.ndarray:
+    """Helper function for matrix multiplies used in mutual coupling sims.
+
+    The :class:`~sigchain.MutualCoupling` class performs two matrix
+    multiplications of arrays with shapes ``(1, Nfreqs, 2*Nant, 2*Nant)``
+    and ``(Ntimes, Nfreqs, 2*Nant, 2*Nant)``. Typically the number of antennas
+    is much less than the number of frequency channels, so the parallelization
+    used by ``numpy``'s matrix multiplication routine tends to be sub-optimal.
+    This routine--when used with ``numba``--produces a substantial speedup in
+    matrix multiplication for typical HERA-sized problems.
+
+    Parameters
+    ----------
+    left, right
+        Input arrays to perform matrix multiplication left @ right.
+    use_numba
+        Whether to use ``numba`` to speed up the matrix multiplication.
+
+    Returns
+    -------
+    prod
+        Product of the matrix multiplication left @ right.
+
+    Notes
+    -----
+    """
+    if HAVE_NUMBA and use_numba:
+        if left.shape[0] == 1:
+            return _left_matmul(left, right)
+        elif right.shape[0] == 1:
+            return _right_matmul(left, right)
+        elif left.shape == right.shape:
+            return _matmul(left, right)
+        else:
+            raise ValueError("Inputs cannot be broadcast to a common shape.")
+    else:
+        return left @ right
+
+
+def find_baseline_orientations(
+    antenna_numbers: np.ndarray, enu_antpos: np.ndarray
+) -> dict[tuple[int, int], float]:
+    """Find the orientation of each redundant baseline group.
+
+    Parameters
+    ----------
+    antenna_numbers
+        Array containing antenna numbers corresponding to the provided
+        antenna positions.
+    enu_antpos
+        ``(Nants,3)`` array containing the antenna positions in a local
+        topocentric frame with basis (east, north, up).
+
+    Returns
+    -------
+    antpair2angle
+        Dictionary mapping antenna pairs ``(ai,aj)`` to baseline orientations.
+        Orientations are defined on [0,2pi).
+    """
+    groups, baselines = uvutils.redundancy.get_antenna_redundancies(
+        antenna_numbers, enu_antpos, include_autos=False
+    )[:2]
+    antpair2angle = {}
+    for group, (e, n, _u) in zip(groups, baselines):
+        angle = Longitude(np.arctan2(n, e) * units.rad).value
+        conj_angle = Longitude((angle + np.pi) * units.rad).value
+        for blnum in group:
+            ai, aj = uvutils.baseline_to_antnums(
+                blnum, Nants_telescope=antenna_numbers.size
+            )
+            antpair2angle[(ai, aj)] = angle
+            antpair2angle[(aj, ai)] = conj_angle
+    return antpair2angle
+
+
+def tanh_window(x, x_min=None, x_max=None, scale_low=1, scale_high=1):
+    if x_min is None and x_max is None:
+        warnings.warn(
+            "Insufficient information provided; you must provide either x_min or "
+            "x_max. Returning uniform window.",
+            stacklevel=1,
+        )
+        return np.ones(x.size)
+
+    window = np.ones(x.size)
+    if x_min is not None:
+        window *= 0.5 * (1 + np.tanh((x - x_min) / scale_low))
+
+    if x_max is not None:
+        window *= 0.5 * (1 + np.tanh((x_max - x) / scale_high))
+
+    return window
+
+
+# Just some numba-fied helpful functions.
+# Note that coverage can't see that these are run without disabling JIT,
+# which kind of defeats the purpose of testing it.
+if HAVE_NUMBA:  # pragma: no cover
+
+    @numba.njit
+    def jit_reshape_vis(vis, out, ant_1_array, ant_2_array, pol_array, antenna_numbers):
+        """JIT-accelerated reshaping function.
+
+        See :func:`~reshape_vis` for parameter information.
+        """
+        # This is basically the same as the non-numba reshape function,
+        # but it's not as pretty.
+        x_sl = slice(None, None, 2)
+        y_sl = slice(1, None, 2)
+        for i, ai in enumerate(antenna_numbers):
+            for j, aj in enumerate(antenna_numbers[i:]):
+                j += i
+                uvd_inds = (ant_1_array == ai) & (ant_2_array == aj)
+
+                flipped = False
+                ii, jj = i, j
+                if np.all(~uvd_inds):
+                    uvd_inds = (ant_2_array == ai) & (ant_1_array == aj)
+                    flipped = True
+                    ii, jj = j, i
+
+                # Don't do anything if this baseline isn't present.
+                if np.all(~uvd_inds):
+                    continue
+
+                uvd_inds = np.argwhere(uvd_inds).flatten()
+                for k, pol in enumerate(pol_array):
+                    if pol == -5:
+                        p1, p2 = x_sl, x_sl
+                    elif pol == -6:
+                        p1, p2 = y_sl, y_sl
+                    elif pol == -7:
+                        p1, p2 = x_sl, y_sl
+                    else:
+                        p1, p2 = y_sl, x_sl
+
+                    if flipped:
+                        p1, p2 = p2, p1
+
+                    _p = out[:, :, p1, p2]
+                    for tidx, uvd_ind in enumerate(uvd_inds):
+                        _p[tidx, :, ii, jj] = vis[uvd_ind, :, k]
+                        _p[tidx, :, jj, ii] = np.conj(vis[uvd_ind, :, k])
+        return out
+
+    @numba.njit
+    def jit_reshape_vis_invert(
+        vis, out, ant_1_array, ant_2_array, pol_array, antenna_numbers
+    ):
+        """JIT-accelerated reshaping function.
+
+        See :func:`~reshape_vis` for parameter information.
+        """
+        # This is basically the same as the non-numba reshape function,
+        # but it's not as pretty.
+        x_sl = slice(None, None, 2)
+        y_sl = slice(1, None, 2)
+        for i, ai in enumerate(antenna_numbers):
+            for j, aj in enumerate(antenna_numbers[i:]):
+                j += i
+                uvd_inds = (ant_1_array == ai) & (ant_2_array == aj)
+
+                flipped = False
+                ii, jj = i, j
+                if np.all(~uvd_inds):
+                    uvd_inds = (ant_2_array == ai) & (ant_1_array == aj)
+                    flipped = True
+                    ii, jj = j, i
+
+                # Don't do anything if this baseline isn't present.
+                if np.all(~uvd_inds):
+                    continue
+
+                uvd_inds = np.argwhere(uvd_inds).flatten()
+                for k, pol in enumerate(pol_array):
+                    if pol == -5:
+                        p1, p2 = x_sl, x_sl
+                    elif pol == -6:
+                        p1, p2 = y_sl, y_sl
+                    elif pol == -7:
+                        p1, p2 = x_sl, y_sl
+                    else:
+                        p1, p2 = y_sl, x_sl
+
+                    if flipped:
+                        p1, p2 = p2, p1
+
+                    # NOTE: This is hard-coded to use new-style UVData arrays!
+                    # Go back to UVData shape
+                    _p = vis[:, :, p1, p2]
+                    for tidx, uvd_ind in enumerate(uvd_inds):
+                        out[uvd_ind, :, k] = _p[tidx, :, ii, jj]
+                        tidx += 1
+        return out
+
+    @numba.njit
+    def _left_matmul(left, right):
+        """JIT-accelerated matrix multiplication.
+
+        This multiply assumes the zeroth axis of the ``left`` array is length 1.
+        """
+        out = np.zeros_like(right)
+        for i in range(out.shape[0]):
+            for j in range(out.shape[1]):
+                out[i, j] = left[0, j] @ right[i, j]
+        return out
+
+    @numba.njit
+    def _right_matmul(left, right):
+        """JIT-accelerated matrix multiplication.
+
+        This multiply assumes the zeroth axis of the ``right`` array is length 1.
+        """
+        out = np.zeros_like(left)
+        for i in range(out.shape[0]):
+            for j in range(out.shape[1]):
+                out[i, j] = left[i, j] @ right[0, j]
+        return out
+
+    @numba.njit
+    def _matmul(left, right):
+        """JIT-accelerated matrix multiplication.
+
+        This multiply assumes both arrays have the same shape. It should only
+        provide a speedup over ``numpy``'s matrix multiplication for cases where
+        the first two axes of the input arrays are much larger than the last two
+        axes.
+        """
+        out = np.zeros_like(left)
+        for i in range(out.shape[0]):
+            for j in range(out.shape[1]):
+                out[i, j] = left[i, j] @ right[i, j]
+        return out

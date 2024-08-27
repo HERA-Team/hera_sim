@@ -1,19 +1,23 @@
 """Module defining a high-level visibility simulator wrapper."""
+
 from __future__ import annotations
 
 import astropy_healpix as aph
 import importlib
+import logging
 import numpy as np
 import yaml
 from abc import ABCMeta, abstractmethod
 from astropy import units
 from cached_property import cached_property
+from collections.abc import Sequence
 from dataclasses import dataclass
 from os import path
 from pathlib import Path
 from pyradiosky import SkyModel
 from pyuvdata import UVBeam, UVData
 from pyuvsim import BeamList
+from pyuvsim import __version__ as uvsimv
 from pyuvsim import analyticbeam as ab
 from pyuvsim.simsetup import (
     _complete_uvdata,
@@ -21,12 +25,14 @@ from pyuvsim.simsetup import (
     initialize_uvdata_from_params,
     uvdata_to_telescope_config,
 )
-from typing import List, Sequence, Union
+from typing import Union
 
 from .. import __version__
 from .. import visibilities as vis
+from ..antpos import idealize_antpos
 
-BeamListType = Union[BeamList, List[Union[ab.AnalyticBeam, UVBeam]]]
+BeamListType = Union[BeamList, list[Union[ab.AnalyticBeam, UVBeam]]]
+logger = logging.getLogger(__name__)
 
 
 class ModelData:
@@ -74,7 +80,6 @@ class ModelData:
         beams: BeamListType | None = None,
         normalize_beams: bool = False,
     ):
-
         self.uvdata = self._process_uvdata(uvdata)
 
         # NOT Nants because we only want ants with data
@@ -86,13 +91,13 @@ class ModelData:
 
         self.sky_model = sky_model
         self.sky_model.at_frequencies(self.freqs * units.Hz)
+
         if not isinstance(self.sky_model, SkyModel):
             raise TypeError("sky_model must be a SkyModel instance.")
 
         self._validate()
 
     def _process_uvdata(self, uvdata: UVData | str | Path):
-
         if isinstance(uvdata, (str, Path)):
             out = UVData()
             out.read(str(uvdata))
@@ -103,10 +108,6 @@ class ModelData:
                 "uvdata must be a UVData object or path to a compatible file. Got "
                 f"{uvdata}, type {type(uvdata)}"
             )
-
-        # Temporary fix for future array shape - to be removed after v3.
-        if uvdata.future_array_shapes:
-            uvdata.use_current_array_shapes()
 
         return uvdata
 
@@ -143,7 +144,7 @@ class ModelData:
         # Set the beam_ids.
         if beam_ids is None:
             if len(beams) == 1:
-                beam_ids = {nm: 0 for nm in self.uvdata.antenna_names}
+                beam_ids = dict.fromkeys(self.uvdata.antenna_names, 0)
             elif len(beams) == self.n_ant:
                 beam_ids = {nm: i for i, nm in enumerate(self.uvdata.antenna_names)}
             else:
@@ -181,10 +182,28 @@ class ModelData:
         cls, config_file: str | Path, normalize_beams: bool = False
     ) -> ModelData:
         """Initialize the :class:`ModelData` from a pyuvsim-compatible config."""
-        uvdata, beams, beam_ids = initialize_uvdata_from_params(config_file)
-        catalog = initialize_catalog_from_params(config_file, return_recarray=False)[0]
+        # Don't reorder the blt axis, because each simulator might do it differently.
+        logger.info("Initializing UVData object...")
+        uvdata, beams, beam_ids = initialize_uvdata_from_params(
+            config_file, reorder_blt_kw={}, check_kw={"run_check_acceptability": False}
+        )
 
-        _complete_uvdata(uvdata, inplace=True)
+        # Set rectangularity if it's not already set. Required for some simulators.
+        if uvdata.blts_are_rectangular is None:
+            uvdata.set_rectangularity(force=True)
+
+        logger.info("Initializing Sky Model...")
+        if uvsimv > "1.2.5":
+            catalog = initialize_catalog_from_params(config_file)[0]
+        else:
+            catalog = initialize_catalog_from_params(
+                config_file, return_recarray=False
+            )[0]
+
+        logger.info("Completing UVData object...")
+        _complete_uvdata(
+            uvdata, inplace=True, check_kw={"run_check_acceptability": False}
+        )
 
         return ModelData(
             uvdata=uvdata,
@@ -204,7 +223,7 @@ class ModelData:
     @cached_property
     def freqs(self) -> np.ndarray:
         """Frequnecies at which data is defined."""
-        return self.uvdata.freq_array[0]
+        return self.uvdata.freq_array
 
     @cached_property
     def n_beams(self) -> int:
@@ -268,10 +287,21 @@ class VisibilitySimulation:
     data_model: ModelData
     simulator: VisibilitySimulator
     n_side: int = 2**5
+    snap_antpos_to_grid: bool = False
+    keep_snapped_antpos: bool = False
 
     def __post_init__(self):
         """Perform simple validation on combined attributes."""
+        if self.simulator._blt_order_kws is not None:
+            logger.info(
+                "Re-ordering baseline-time axis with params: "
+                f"{self.simulator._blt_order_kws}"
+            )
+            self.data_model.uvdata.reorder_blts(**self.simulator._blt_order_kws)
+
+        logger.info("Validating data model")
         self.simulator.validate(self.data_model)
+        logger.info("Done validation.")
 
         # Convert the sky model to either point source or healpix depending on the
         # simulator's capabilities.
@@ -291,9 +321,7 @@ class VisibilitySimulation:
 
         # Get which pixel every point source lies in.
         pix = aph.lonlat_to_healpix(
-            lon=sky_model.ra,
-            lat=sky_model.dec,
-            nside=self.n_side,
+            lon=sky_model.ra, lat=sky_model.dec, nside=self.n_side
         )
 
         hmap[:, pix] += sky_model.stokes[0].to("Jy") / aph.nside_to_pixel_area(
@@ -330,13 +358,33 @@ class VisibilitySimulation:
 
     def simulate(self):
         """Perform the visibility simulation."""
-        # Order the baselines/times in the order expected by the simulator.
-        vis = self.simulator.simulate(self.data_model)
+        if self.snap_antpos_to_grid:
+            old_antpos = dict(
+                zip(
+                    self.data_model.uvdata.telescope.antenna_numbers,
+                    self.data_model.uvdata.telescope.antenna_positions,
+                )
+            )
+            new_antpos = idealize_antpos(old_antpos)
+            self.data_model.uvdata.telescope.antenna_positions = np.array(
+                list(new_antpos.values())
+            )
 
+        self.simulator.compress_data_model(self.data_model)
+        vis = self.simulator.simulate(self.data_model)
         self.uvdata.data_array += vis
         self._write_history()
+        self.simulator.restore_data_model(self.data_model)
 
-        return vis
+        if not self.keep_snapped_antpos and self.snap_antpos_to_grid:
+            self.data_model.uvdata.telescope.antenna_positions = np.array(
+                list(old_antpos.values())
+            )
+
+        if isinstance(vis, np.ndarray):
+            return vis
+        else:
+            return self.uvdata.data_array
 
     @property
     def uvdata(self) -> UVData:
@@ -380,6 +428,10 @@ class VisibilitySimulator(metaclass=ABCMeta):
     #: Any underlying functions that are called and we may want to do profiling on.
     _functions_to_profile = ()
 
+    #: Keyword arguments to use in ordering the baseline-time axis of the incoming
+    #: UVData object, if necessasry. A dict, or None.
+    _blt_order_kws = None
+
     __version__ = "unknown"
 
     @abstractmethod
@@ -389,7 +441,7 @@ class VisibilitySimulator(metaclass=ABCMeta):
 
     def validate(self, data_model: ModelData):
         """Check that the data model complies with the assumptions of the simulator."""
-        pass
+        return
 
     @classmethod
     def from_yaml(cls, yaml_config: dict | str | Path) -> VisibilitySimulator:
@@ -425,6 +477,17 @@ class VisibilitySimulator(metaclass=ABCMeta):
         """
         return data_model.uvdata.data_array.nbytes / 1024**3
 
+    def compress_data_model(self, data_model):  # noqa: B027
+        """Temporarily delete/remove data from the model to reduce memory usage.
+
+        Anything that is removed here should be restored after the simulation.
+        """
+        pass
+
+    def restore_data_model(self, data_model):  # noqa: B027
+        """Restore data from the model removed by :func:`compress_data_model`."""
+        pass
+
 
 def load_simulator_from_yaml(config: Path | str) -> VisibilitySimulator:
     """Construct a visibility simulator from a YAML file."""
@@ -439,18 +502,20 @@ def load_simulator_from_yaml(config: Path | str) -> VisibilitySimulator:
             simulator_cls = getattr(vis, simulator_cls)
         except AttributeError:
             raise AttributeError(
-                f"The given simulator '{simulator_cls}' is not available in hera_sim."
+                f"The given simulator {simulator_cls!r} is not available in hera_sim."
             )
     else:  # pragma: nocover
         module = ".".join(simulator_cls.split(".")[:-1])
         module = importlib.import_module(module)
         simulator_cls = getattr(module, simulator_cls.split(".")[-1])
 
-    if not issubclass(simulator_cls, VisibilitySimulator):
-        raise TypeError(
-            f"Specified simulator {simulator_cls} is not a subclass of"
-            "VisibilitySimulator!"
-        )
+    try:
+        if not issubclass(simulator_cls, VisibilitySimulator):
+            raise ValueError(
+                f"Specified simulator {simulator_cls} is not a subclass of "
+                "VisibilitySimulator!"
+            )
+    except TypeError as e:
+        raise TypeError(f"Specified simulator {simulator_cls} is not a class!") from e
 
-    assert issubclass(simulator_cls, VisibilitySimulator)
     return simulator_cls.from_yaml(cfg)

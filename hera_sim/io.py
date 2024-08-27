@@ -1,12 +1,13 @@
 """Methods for input/output of data."""
+
 import numpy as np
 import os
 import pyuvdata
 import re
 import warnings
+from collections.abc import Sequence
 from pyuvdata import UVData
 from pyuvsim.simsetup import initialize_uvdata_from_keywords
-from typing import Dict, Sequence
 
 from . import DATA_PATH
 from .defaults import _defaults
@@ -21,7 +22,7 @@ def empty_uvdata(
     Ntimes=None,
     start_time=2456658.5,  # Jan 1 2014
     integration_time=None,
-    array_layout: Dict[int, Sequence[float]] = None,
+    array_layout: dict[int, Sequence[float]] = None,
     Nfreqs=None,
     start_freq=None,
     channel_width=None,
@@ -69,7 +70,8 @@ def empty_uvdata(
             "deprecated and will be removed in the future. Please "
             "update your code to use the Nfreqs, Ntimes, and "
             "array_layout parameters instead.",
-            DeprecationWarning,
+            category=DeprecationWarning,
+            stacklevel=2,
         )
 
     # for backwards compatability
@@ -83,7 +85,10 @@ def empty_uvdata(
     # only specify defaults this way for
     # things that are *not* season-specific
     polarization_array = kwargs.pop("polarization_array", ["xx"])
-    telescope_location = list(kwargs.pop("telescope_location", HERA_LAT_LON_ALT))
+    telescope_location = [
+        float(x) for x in kwargs.pop("telescope_location", HERA_LAT_LON_ALT)
+    ]
+
     telescope_name = kwargs.pop("telescope_name", "hera_sim")
     write_files = kwargs.pop("write_files", False)
 
@@ -105,7 +110,7 @@ def empty_uvdata(
     # This is a bit of a hack, but this seems like the only way?
     if pyuvdata.__version__ < "2.2.0":
         uvd.set_drift()
-    else:
+    elif next(iter(uvd.phase_center_catalog.values()))["cat_type"] != "unprojected":
         uvd.fix_phase()
 
     # TODO: the following is a hack patch for pyuvsim which should be fixed there.
@@ -115,9 +120,9 @@ def empty_uvdata(
     if conjugation is not None:
         uvd.conjugate_bls(convention=conjugation)
 
-    # Temporary fix for future array shape - to be removed after v3.
-    if uvd.future_array_shapes:
-        uvd.use_current_array_shapes()
+    # Ensure we're using future array shapes
+    if not uvd.future_array_shapes:  # pragma: no cover
+        uvd.use_future_array_shapes()
 
     return uvd
 

@@ -123,8 +123,8 @@ def test_foreground_conjugation(freqs, lsts, Tsky_mdl, omega_p, model):
 
     conj_kwargs = kwargs.copy()
     conj_kwargs["bl_vec"] = -bl_vec
-    vis = model(**kwargs)
-    conj_vis = model(**conj_kwargs)
+    vis = model(**kwargs, rng=np.random.default_rng(0))
+    conj_vis = model(**conj_kwargs, rng=np.random.default_rng(0))
     assert np.allclose(vis, conj_vis.conj())  # Assert V_ij = V*_ji
 
 
@@ -132,11 +132,7 @@ def test_diffuse_foreground_exception_no_tsky_mdl(freqs, lsts, omega_p):
     bl_vec = [0, 0, 0]
     with pytest.raises(ValueError) as err:
         foregrounds.diffuse_foreground(
-            freqs=freqs,
-            lsts=lsts,
-            bl_vec=bl_vec,
-            Tsky_mdl=None,
-            omega_p=omega_p,
+            freqs=freqs, lsts=lsts, bl_vec=bl_vec, Tsky_mdl=None, omega_p=omega_p
         )
     assert "sky temperature model must be" in err.value.args[0]
 
@@ -145,10 +141,6 @@ def test_diffuse_foreground_exception_no_omega_p(freqs, lsts, Tsky_mdl):
     bl_vec = [0, 0, 0]
     with pytest.raises(ValueError) as err:
         foregrounds.diffuse_foreground(
-            freqs=freqs,
-            lsts=lsts,
-            bl_vec=bl_vec,
-            Tsky_mdl=Tsky_mdl,
-            omega_p=None,
+            freqs=freqs, lsts=lsts, bl_vec=bl_vec, Tsky_mdl=Tsky_mdl, omega_p=None
         )
     assert "beam area array or interpolation object" in err.value.args[0]

@@ -2,50 +2,43 @@ import pytest
 
 import astropy_healpix as aph
 import copy
-import healvis
 import numpy as np
 from astropy import time as apt
 from astropy import units
 from astropy.coordinates.angles import Latitude, Longitude
 from astropy.units import rad, sday
+from matvis import HAVE_GPU
 from pathlib import Path
 from pyradiosky import SkyModel
 from pyuvsim.analyticbeam import AnalyticBeam
 from pyuvsim.telescope import BeamConsistencyError
 
 from hera_sim import io
+from hera_sim.antpos import hex_array
 from hera_sim.beams import PolyBeam
 from hera_sim.defaults import defaults
 from hera_sim.visibilities import (
+    FFTVis,
+    MatVis,
     ModelData,
     UVSim,
-    VisCPU,
     VisibilitySimulation,
     load_simulator_from_yaml,
 )
-from vis_cpu import HAVE_GPU
 
-SIMULATORS = (VisCPU, UVSim)
-
-try:
-    from hera_sim.visibilities import HealVis
-
-    SIMULATORS = SIMULATORS + (HealVis,)
-except ImportError:
-    pass
+SIMULATORS = (FFTVis, MatVis, UVSim)
 
 if HAVE_GPU:
 
-    class VisGPU(VisCPU):
-        """Simple mock class to make testing VisCPU with use_gpu=True easier"""
+    class VisGPU(MatVis):
+        """Simple mock class to make testing MatVis with use_gpu=True easier"""
 
         def __init__(self, *args, **kwargs):
-            super().__init__(*args, use_gpu=True, **kwargs)
+            super().__init__(*args, use_gpu=True, ref_time="min", **kwargs)
 
     SIMULATORS = SIMULATORS + (VisGPU,)
 
 
-np.random.seed(0)
 NTIMES = 10
 NPIX = 12 * 16**2
 NFREQ = 5
@@ -58,9 +51,7 @@ def uvdata():
         Nfreqs=NFREQ,
         integration_time=sday.to("s") / NTIMES,
         Ntimes=NTIMES,
-        array_layout={
-            0: (0, 0, 0),
-        },
+        array_layout={0: (0, 0, 0)},
         start_time=2456658.5,
         conjugation="ant1<ant2",
         polarization_array=["xx", "yy", "xy", "yx"],
@@ -88,9 +79,7 @@ def uvdataJD():
         Nfreqs=NFREQ,
         integration_time=sday.to("s") / NTIMES,
         Ntimes=NTIMES,
-        array_layout={
-            0: (0, 0, 0),
-        },
+        array_layout={0: (0, 0, 0)},
         start_time=2456659,
         polarization_array=["xx", "yy", "xy", "yx"],
     )
@@ -116,86 +105,10 @@ def sky_modelJD(uvdataJD):
     )
 
 
-def test_healvis_beam(uvdata, sky_model):
-    pytest.importorskip("healvis")
-    sim = VisibilitySimulation(
-        simulator=HealVis(),
-        data_model=ModelData(
-            uvdata=uvdata,
-            sky_model=sky_model,
-        ),
-        n_side=2**4,
-    )
-
-    assert len(sim.data_model.beams) == 1
-    assert isinstance(sim.data_model.beams[0], healvis.beam_model.AnalyticBeam)
-
-
-def test_healvis_beam_obsparams(tmpdir):
-    # Now try creating with an obsparam file
-    pytest.importorskip("healvis")
-    direc = tmpdir.mkdir("test_healvis_beam")
-
-    with open(Path(__file__).parent / "testdata" / "healvis_catalog.txt") as fl:
-        txt = fl.read()
-
-    with open(direc.join("catalog.txt"), "w") as fl:
-        fl.write(txt)
-
-    with open(direc.join("telescope_config.yml"), "w") as fl:
-        fl.write(
-            """
-    beam_paths:
-        0 : 'uniform'
-    telescope_location: (-30.72152777777791, 21.428305555555557, 1073.0000000093132)
-    telescope_name: MWA
-    """
-        )
-
-    with open(direc.join("layout.csv"), "w") as fl:
-        fl.write(
-            """Name     Number   BeamID   E          N          U
-
-    Tile061        40        0   -34.8010   -41.7365     1.5010
-    Tile062        41        0   -28.0500   -28.7545     1.5060
-    Tile063        42        0   -11.3650   -29.5795     1.5160
-    Tile064        43        0    -9.0610   -20.7885     1.5160
-    """
-        )
-
-    with open(direc.join("obsparams.yml"), "w") as fl:
-        fl.write(
-            """
-    freq:
-      Nfreqs: 1
-      channel_width: 80000.0
-      start_freq: 100000000.0
-    sources:
-      catalog: {0}/catalog.txt
-    telescope:
-      array_layout: {0}/layout.csv
-      telescope_config_name: {0}/telescope_config.yml
-    time:
-      Ntimes: 1
-      integration_time: 11.0
-      start_time: 2458098.38824015
-    """.format(
-                direc.strpath
-            )
-        )
-
-    sim = VisibilitySimulation(
-        data_model=ModelData.from_config(direc.join("obsparams.yml").strpath),
-        simulator=HealVis(),
-    )
-    beam = sim.data_model.beams[0]
-    assert isinstance(beam, healvis.beam_model.AnalyticBeam)
-
-
 def test_JD(uvdata, uvdataJD, sky_model):
     model_data = ModelData(sky_model=sky_model, uvdata=uvdata)
 
-    vis = VisCPU()
+    vis = MatVis()
 
     sim1 = VisibilitySimulation(data_model=model_data, simulator=vis).simulate()
 
@@ -209,7 +122,14 @@ def test_JD(uvdata, uvdataJD, sky_model):
 
 def test_vis_cpu_estimate_memory(uvdata, uvdataJD, sky_model):
     model_data = ModelData(sky_model=sky_model, uvdata=uvdata)
-    vis = VisCPU()
+    vis = MatVis()
+    mem = vis.estimate_memory(model_data)
+    assert mem > 0
+
+
+def test_fftvis_estimate_memory(uvdata, uvdataJD, sky_model):
+    model_data = ModelData(sky_model=sky_model, uvdata=uvdata)
+    vis = FFTVis()
     mem = vis.estimate_memory(model_data)
     assert mem > 0
 
@@ -248,10 +168,12 @@ def make_point_sky(uvdata, ra: np.ndarray, dec: np.ndarray, align=True):
                 np.zeros((len(freqs), len(ra))),
                 np.zeros((len(freqs), len(ra))),
             ]
-        ),
+        )
+        * units.Jy,
         name=np.array(["derp"] * len(ra)),
         spectral_type="full",
-        freq_array=freqs,
+        freq_array=freqs * units.Hz,
+        frame="icrs",
     )
 
 
@@ -291,10 +213,7 @@ def half_sky_model(uvdata2):
     nbase = 4
     nside = 2**nbase
 
-    sky = create_uniform_sky(
-        np.unique(uvdata2.freq_array),
-        nbase=nbase,
-    )
+    sky = create_uniform_sky(np.unique(uvdata2.freq_array), nbase=nbase)
 
     # Zero out values within pi/2 of (theta=pi/2, phi=0)
     hp = aph.HEALPix(nside=nside, order="ring")
@@ -322,8 +241,9 @@ def create_uniform_sky(freq, nbase=4, scale=1) -> SkyModel:
         * units.Jy
         / units.sr,
         spectral_type="full",
-        freq_array=freq,
+        freq_array=freq * units.Hz,
         name=np.array([str(i) for i in range(npix)]),
+        frame="icrs",
     )
 
 
@@ -337,14 +257,25 @@ def test_shapes(uvdata, simulator):
         n_side=2**4,
     )
 
-    assert sim.simulate().shape == (uvdata.Nblts, 1, NFREQ, uvdata.Npols)
+    assert sim.simulate().shape == (uvdata.Nblts, NFREQ, uvdata.Npols)
 
 
 @pytest.mark.parametrize("precision, cdtype", [(1, np.complex64), (2, complex)])
 def test_dtypes(uvdata, precision, cdtype):
     sky = create_uniform_sky(np.unique(uvdata.freq_array))
-    vis = VisCPU(precision=precision)
+    vis = MatVis(precision=precision)
 
+    # If data_array is empty, then we never create new vis, and the returned value
+    # is literally the data array, so we should expect to get complex128 regardless.
+    sim = VisibilitySimulation(
+        data_model=ModelData(uvdata=uvdata, sky_model=sky), simulator=vis
+    )
+
+    v = sim.simulate()
+    assert v.dtype == complex
+
+    # Now, the uvdata array has stuff in it, so the returned v is a new array that
+    # would have been added to it.
     sim = VisibilitySimulation(
         data_model=ModelData(uvdata=uvdata, sky_model=sky), simulator=vis
     )
@@ -387,10 +318,7 @@ def test_autocorr_flat_beam(uvdata, simulator):
 @pytest.mark.parametrize("simulator", SIMULATORS)
 def test_single_source_autocorr(uvdata, simulator, sky_model):
     sim = VisibilitySimulation(
-        data_model=ModelData(
-            uvdata=uvdata,
-            sky_model=sky_model,
-        ),
+        data_model=ModelData(uvdata=uvdata, sky_model=sky_model),
         simulator=simulator(),
         n_side=2**4,
     )
@@ -414,10 +342,7 @@ def test_single_source_autocorr_past_horizon(uvdata, simulator):
     )
 
     sim = VisibilitySimulation(
-        data_model=ModelData(
-            uvdata=uvdata,
-            sky_model=sky_model,
-        ),
+        data_model=ModelData(uvdata=uvdata, sky_model=sky_model),
         simulator=simulator(),
         n_side=2**4,
     )
@@ -426,35 +351,30 @@ def test_single_source_autocorr_past_horizon(uvdata, simulator):
     assert np.abs(np.mean(v)) == 0
 
 
-def test_viscpu_coordinate_correction(uvdata2):
+@pytest.mark.parametrize("simulator", [FFTVis, MatVis])
+def test_coordinate_correction(simulator, uvdata2):
     sim = VisibilitySimulation(
-        data_model=ModelData(
-            uvdata=uvdata2,
-            sky_model=zenith_sky_model(uvdata2),
-        ),
-        simulator=VisCPU(
+        data_model=ModelData(uvdata=uvdata2, sky_model=zenith_sky_model(uvdata2)),
+        simulator=simulator(
             correct_source_positions=True, ref_time="2018-08-31T04:02:30.11"
         ),
     )
 
     # Apply correction
-    # viscpu.correct_point_source_pos(obstime="2018-08-31T04:02:30.11", frame="icrs")
-    v = sim.simulate()
+    # matvis.correct_point_source_pos(obstime="2018-08-31T04:02:30.11", frame="icrs")
+    v = sim.simulate().copy()
     assert np.all(~np.isnan(v))
 
     sim2 = VisibilitySimulation(
-        data_model=ModelData(
-            uvdata=uvdata2,
-            sky_model=zenith_sky_model(uvdata2),
-        ),
-        simulator=VisCPU(
+        data_model=ModelData(uvdata=uvdata2, sky_model=zenith_sky_model(uvdata2)),
+        simulator=simulator(
             correct_source_positions=True,
             ref_time=apt.Time("2018-08-31T04:02:30.11", format="isot", scale="utc"),
         ),
     )
 
     v2 = sim2.simulate()
-    assert np.allclose(v, v2)
+    np.testing.assert_allclose(v, v2)
 
 
 def align_src_to_healpix(ra, dec, nside=2**4):
@@ -499,16 +419,20 @@ def test_comparison(simulator, uvdata2, sky_model, beam_model):
         uvdata=uvdata2, sky_model=sky_model(uvdata2), beams=beam_model
     )
 
-    v0 = VisibilitySimulation(
-        data_model=model_data, simulator=SIMULATORS[0](), n_side=2**4
-    ).simulate()
+    v0 = (
+        VisibilitySimulation(
+            data_model=model_data, simulator=SIMULATORS[0](), n_side=2**4
+        )
+        .simulate()
+        .copy()
+    )
 
     v1 = VisibilitySimulation(
         data_model=model_data, simulator=simulator(), n_side=2**4
     ).simulate()
 
     assert v0.shape == v1.shape
-
+    print(v0[-9:, 0, :], v1[-9:, 0, :])
     np.testing.assert_allclose(v0, v1, rtol=0.05)
 
 
@@ -516,7 +440,6 @@ def test_comparison(simulator, uvdata2, sky_model, beam_model):
 @pytest.mark.parametrize("order", ["time", "baseline", "ant1", "ant2"])
 @pytest.mark.parametrize("conj", ["ant1<ant2", "ant2<ant1"])
 def test_ordering(uvdata_linear, simulator, order, conj):
-
     uvdata_linear.reorder_blts(order=order, conj_convention=conj)
 
     sky_model = make_point_sky(
@@ -527,10 +450,7 @@ def test_ordering(uvdata_linear, simulator, order, conj):
     )
 
     sim = VisibilitySimulation(
-        data_model=ModelData(
-            uvdata=uvdata_linear,
-            sky_model=sky_model,
-        ),
+        data_model=ModelData(uvdata=uvdata_linear, sky_model=sky_model),
         simulator=simulator(),
         n_side=2**4,
     )
@@ -539,20 +459,20 @@ def test_ordering(uvdata_linear, simulator, order, conj):
     sim.uvdata.reorder_blts(order="time", conj_convention="ant1<ant2")
 
     assert np.allclose(
-        sim.uvdata.data_array[sim.uvdata.antpair2ind(0, 1), 0, 0, 0],
-        sim.uvdata.data_array[sim.uvdata.antpair2ind(1, 2), 0, 0, 0],
+        sim.uvdata.data_array[sim.uvdata.antpair2ind(0, 1), 0, 0],
+        sim.uvdata.data_array[sim.uvdata.antpair2ind(1, 2), 0, 0],
     )
 
     assert not np.allclose(sim.uvdata.get_data((0, 1)), sim.uvdata.get_data((0, 3)))
 
     assert not np.allclose(
-        sim.uvdata.data_array[sim.uvdata.antpair2ind(0, 1), 0, 0, 0],
-        sim.uvdata.data_array[sim.uvdata.antpair2ind(0, 3), 0, 0, 0],
+        sim.uvdata.data_array[sim.uvdata.antpair2ind(0, 1), 0, 0],
+        sim.uvdata.data_array[sim.uvdata.antpair2ind(0, 3), 0, 0],
     )
 
     assert not np.allclose(
-        sim.uvdata.data_array[sim.uvdata.antpair2ind(0, 2), 0, 0, 0],
-        sim.uvdata.data_array[sim.uvdata.antpair2ind(0, 3), 0, 0, 0],
+        sim.uvdata.data_array[sim.uvdata.antpair2ind(0, 2), 0, 0],
+        sim.uvdata.data_array[sim.uvdata.antpair2ind(0, 3), 0, 0],
     )
 
 
@@ -573,9 +493,7 @@ def test_vis_cpu_pol(polarization_array, xfail):
         Nfreqs=NFREQ,
         integration_time=sday.to("s") / NTIMES,
         Ntimes=NTIMES,
-        array_layout={
-            0: (0, 0, 0),
-        },
+        array_layout={0: (0, 0, 0)},
         start_time=2456658.5,
         conjugation="ant1<ant2",
         polarization_array=polarization_array,
@@ -589,7 +507,7 @@ def test_vis_cpu_pol(polarization_array, xfail):
     )
 
     beam = PolyBeam(polarized=False)
-    simulator = VisCPU()
+    simulator = MatVis()
 
     if xfail:
         with pytest.raises(KeyError):
@@ -614,6 +532,17 @@ def test_beam_type_consistency(uvdata, sky_model):
         ModelData(uvdata=uvdata, sky_model=sky_model, beams=beams)
 
 
+def test_fftvis_beam_error(uvdata2, sky_model):
+    beams = [AnalyticBeam("gaussian"), AnalyticBeam("gaussian")]
+    beam_ids = [0, 1]
+    simulator = FFTVis()
+    data_model = ModelData(
+        uvdata=uvdata2, sky_model=sky_model, beams=beams, beam_ids=beam_ids
+    )
+    with pytest.raises(ValueError):
+        simulator.validate(data_model)
+
+
 def test_power_polsky(uvdata, sky_model):
     new_sky = copy.deepcopy(sky_model)
     new_sky.stokes[1:] = 1.0 * units.Jy
@@ -630,7 +559,16 @@ def test_vis_cpu_stokespol(uvdata_linear, sky_model):
     with pytest.raises(ValueError):
         VisibilitySimulation(
             data_model=ModelData(uvdata=uvdata_linear, sky_model=sky_model),
-            simulator=VisCPU(),
+            simulator=MatVis(),
+        )
+
+
+def test_fftvis_stokespol(uvdata_linear, sky_model):
+    uvdata_linear.polarization_array = [0, 1, 2, 3]
+    with pytest.raises(ValueError):
+        VisibilitySimulation(
+            data_model=ModelData(uvdata=uvdata_linear, sky_model=sky_model),
+            simulator=FFTVis(),
         )
 
 
@@ -648,27 +586,11 @@ def test_str_uvdata(uvdata, sky_model, tmp_path):
     assert model_data.uvdata.Nants_data == uvdata.Nants_data
 
 
-def test_bad_healvis_skymodel(sky_model):
-    pytest.importorskip("healvis")
-    hv = HealVis()
-    sky_model.stokes *= units.sr  # something stupid
-    with pytest.raises(ValueError, match="not compatible with healvis"):
-        hv.get_sky_model(sky_model)
-
-
-def test_mK_healvis_skymodel(sky_model):
-    pytest.importorskip("healvis")
-    hv = HealVis()
-    sky_model.stokes = sky_model.stokes.value * units.mK
-    sky_model.nside = 2**3
-    sky = hv.get_sky_model(sky_model)
-    assert np.isclose(np.sum(sky.data), np.sum(sky_model.stokes[0].value / 1000))
-
-
-def test_ref_time_viscpu(uvdata2):
-    vc_mean = VisCPU(ref_time="mean")
-    vc_min = VisCPU(ref_time="min")
-    vc_max = VisCPU(ref_time="max")
+@pytest.mark.parametrize("simulator", [FFTVis, MatVis])
+def test_ref_times(simulator, uvdata2):
+    vc_mean = simulator(ref_time="mean")
+    vc_min = simulator(ref_time="min")
+    vc_max = simulator(ref_time="max")
 
     sky_model = half_sky_model(uvdata2)
 
@@ -695,10 +617,10 @@ def test_load_from_yaml(tmpdir):
     example_dir = Path(__file__).parent.parent.parent / "config_examples"
 
     simulator = load_simulator_from_yaml(example_dir / "simulator.yaml")
-    assert isinstance(simulator, VisCPU)
+    assert isinstance(simulator, MatVis)
     assert simulator.ref_time == "mean"
 
-    sim2 = VisCPU.from_yaml(example_dir / "simulator.yaml")
+    sim2 = MatVis.from_yaml(example_dir / "simulator.yaml")
 
     assert sim2.ref_time == simulator.ref_time
     assert sim2.diffuse_ability == simulator.diffuse_ability
@@ -710,3 +632,86 @@ def test_bad_load(tmpdir):
 
     with pytest.raises(AttributeError, match="The given simulator"):
         load_simulator_from_yaml(tmpdir / "bad_sim.yaml")
+
+    with open(tmpdir / "bad_sim.yaml", "w") as fl:
+        fl.write("""simulator: hera_sim.foregrounds.DiffuseForeground\n""")
+
+    with pytest.raises(ValueError, match="is not a subclass of VisibilitySimulator"):
+        load_simulator_from_yaml(tmpdir / "bad_sim.yaml")
+
+    with open(tmpdir / "bad_sim.yaml", "w") as fl:
+        fl.write("""simulator: hera_sim.foregrounds.diffuse_foreground\n""")
+
+    with pytest.raises(TypeError, match="is not a class"):
+        load_simulator_from_yaml(tmpdir / "bad_sim.yaml")
+
+
+def test_snap_positions():
+    rng = np.random.default_rng(123)
+
+    # Create a small hex array with perturbed positions
+    ants = hex_array(5, split_core=True)
+    ants = {k: v + rng.normal(scale=0.1, size=3) for k, v in ants.items()}
+
+    uvd = io.empty_uvdata(
+        Nfreqs=2,
+        start_freq=50e6,
+        channel_width=1e6,
+        integration_time=10.0,
+        Ntimes=1,
+        array_layout=ants,
+        start_time=2456658.5,
+        conjugation="ant1<ant2",
+        polarization_array=["xx", "yy", "xy", "yx"],
+    )
+
+    fftvis = FFTVis()
+    sky_model = half_sky_model(uvd)
+
+    unsnapped = VisibilitySimulation(
+        simulator=fftvis,
+        data_model=ModelData(uvdata=uvd.copy(), sky_model=sky_model),
+        snap_antpos_to_grid=False,
+    )
+    snapped = VisibilitySimulation(
+        simulator=fftvis,
+        data_model=ModelData(uvdata=uvd.copy(), sky_model=sky_model),
+        snap_antpos_to_grid=True,
+        keep_snapped_antpos=True,
+    )
+    snapped_sneaky = VisibilitySimulation(
+        simulator=fftvis,
+        data_model=ModelData(uvdata=uvd.copy(), sky_model=sky_model),
+        snap_antpos_to_grid=True,
+        keep_snapped_antpos=False,
+    )
+    unsnapped.simulate()
+    snapped.simulate()
+    snapped_sneaky.simulate()
+
+    # Visibilities should be the same for both snapped runs
+    np.testing.assert_allclose(
+        snapped.uvdata.data_array, snapped_sneaky.uvdata.data_array
+    )
+
+    # But not for the unsnapped.
+    np.testing.assert_raises(
+        AssertionError,
+        np.testing.assert_allclose,
+        snapped.uvdata.data_array,
+        unsnapped.uvdata.data_array,
+    )
+
+    # The unsnapped and sneaky versions should have the same antenna positions
+    np.testing.assert_allclose(
+        unsnapped.uvdata.telescope.antenna_positions,
+        snapped_sneaky.uvdata.telescope.antenna_positions,
+    )
+
+    # But the snapped positions should differ
+    np.testing.assert_raises(
+        AssertionError,
+        np.testing.assert_allclose,
+        snapped.uvdata.telescope.antenna_positions,
+        unsnapped.uvdata.telescope.antenna_positions,
+    )

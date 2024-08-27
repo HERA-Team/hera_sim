@@ -1,4 +1,7 @@
 """Useful helper functions and argparsers for running simulations via CLI."""
+
+from __future__ import annotations
+
 import itertools
 import numpy as np
 import os
@@ -58,7 +61,7 @@ def validate_config(config: dict):
         is not valid.
     """
     if config.get("defaults") is not None:
-        if type(config["defaults"]) is not str:
+        if not isinstance(config["defaults"], str):
             raise ValueError(
                 "Defaults in the CLI may only be specified using a string. "
                 "The string used may specify either a path to a configuration "
@@ -137,7 +140,8 @@ def write_calfits(
         if sim_x_orientation is None:
             warnings.warn(
                 "x_orientation not specified in simulation object."
-                "Assuming that the x-direction points north."
+                "Assuming that the x-direction points north.",
+                stacklevel=1,
             )
         else:
             x_orientation = sim_x_orientation
@@ -151,7 +155,7 @@ def write_calfits(
     # Update gain keys to conform to write_cal assumptions.
     # New Simulator gains have keys (ant, pol), so shouldn't need
     # special pre-processing.
-    if all(np.issctype(type(ant)) for ant in gains.keys()):
+    if all(np.isscalar(ant) for ant in gains.keys()):
         # Old-style, single polarization assumption.
         gains = {(ant, "Jee"): gain for ant, gain in gains.items()}
 
@@ -203,7 +207,7 @@ def _format_gain_dict(gains, x_orientation):
         )
         for pol in pol_array
     ]
-    mapping = {pol: jpol for pol, jpol in zip(pol_array, jones_array)}
+    mapping = dict(zip(pol_array, jones_array))
     return {(antpol[0], mapping[antpol[1]]): gain for antpol, gain in gains.items()}
 
 

@@ -58,13 +58,13 @@ def test_sim_red_data_4pol(antpos, gain_data):
         for pol in ["xx", "xy", "yx", "yy"]:
             ai, aj, pol = bl0
             ans0 = data[ai, aj, pol] / (
-                gains[(ai, f"J{pol[0]*2}")] * gains[(aj, f"J{pol[1]*2}")].conj()
+                gains[(ai, f"J{pol[0] * 2}")] * gains[(aj, f"J{pol[1] * 2}")].conj()
             )
 
             for bl in bls[1:]:
                 ai, aj, pol = bl
                 ans = data[ai, aj, pol] / (
-                    gains[(ai, f"J{pol[0]*2}")] * gains[(aj, f"J{pol[1]*2}")].conj()
+                    gains[(ai, f"J{pol[0] * 2}")] * gains[(aj, f"J{pol[1] * 2}")].conj()
                 )
 
                 # compare calibrated visibilities knowing the input gains

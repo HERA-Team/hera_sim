@@ -1,4 +1,5 @@
 """Module defining analytic polynomial beams."""
+
 import numpy as np
 from numpy.polynomial.chebyshev import chebval
 from pyuvsim import AnalyticBeam
@@ -119,10 +120,10 @@ def efield_to_pstokes(efield_beam, npix, Nfreqs):
     for fq_i in range(Nfreqs):
         jones = np.zeros((npix, 2, 2), dtype=np.complex128)
         pol_strings = ["pI", "pQ", "pU", "pV"]
-        jones[:, 0, 0] = efield_beam[0, 0, 0, fq_i, :]
-        jones[:, 0, 1] = efield_beam[0, 0, 1, fq_i, :]
-        jones[:, 1, 0] = efield_beam[1, 0, 0, fq_i, :]
-        jones[:, 1, 1] = efield_beam[1, 0, 1, fq_i, :]
+        jones[:, 0, 0] = efield_beam[0, 0, fq_i, :]
+        jones[:, 0, 1] = efield_beam[0, 1, fq_i, :]
+        jones[:, 1, 0] = efield_beam[1, 0, fq_i, :]
+        jones[:, 1, 1] = efield_beam[1, 1, fq_i, :]
 
         for pol_i in range(len(pol_strings)):
             power_data[:, :, pol_i, fq_i, :] = construct_mueller(jones, pol_i, pol_i)
@@ -136,14 +137,14 @@ def modulate_with_dipole(az, za, freqs, ref_freq, beam_vals, fscale):
 
     This is achieved by taking the beam pattern (assumed to be the square-root of a
     power beam) and multiplying it by an zenith, azimuth and frequency -dependent
-    complex dipole matrix (a polarised dipole pattern), with elements:
+    complex dipole matrix (a polarised dipole pattern), with elements::
 
-    ```
-    dipole = q(za_s) * (1. + p(za_s) * 1.j) * [[-sin(az), cos(az)], [cos(az), sin(az)]]
-    ```
+        dipole = (
+            q(za_s) * (1.0 + p(za_s) * 1.0j) * [[-sin(az), cos(az)], [cos(az), sin(az)]]
+        )
 
-    where q and p are functions defined elsewhere in this file, and za_s is the
-    zenith angle streched by a power law.
+    where ``q`` and ``p`` are functions defined elsewhere in this file, and ``za_s`` is
+    the zenith angle streched by a power law.
 
     Parameters
     ----------
@@ -182,19 +183,16 @@ def modulate_with_dipole(az, za, freqs, ref_freq, beam_vals, fscale):
     # shape (2, 2, 1, az.size)
     dipole_mod = ph[np.newaxis, np.newaxis, ...] * dipole[:, :, np.newaxis, :]
     # shape (2, 1, 2, Nfreq, az.size)
-    pol_efield_beam = (
-        dipole_mod[:, np.newaxis, ...]
-        * beam_vals[np.newaxis, np.newaxis, np.newaxis, ...]
-    )
+    pol_efield_beam = dipole_mod[:, ...] * beam_vals[np.newaxis, np.newaxis, ...]
 
     # Correct it for frequency dependency.
     # extract modulus and phase of the beams
     modulus = np.abs(pol_efield_beam)
     phase = np.angle(pol_efield_beam)
     # assume linear shift of phase along frequency
-    shift = -np.pi / 18e6 * (freqs[:, np.newaxis] - ref_freq)  # shape (Nfreq, 1)
+    shift = -np.pi / 18e6 * (freqs - ref_freq)  # shape (Nfreq, )
     # shift the phase
-    phase += shift[np.newaxis, np.newaxis, np.newaxis, :, :]
+    phase += shift[np.newaxis, np.newaxis, :, np.newaxis]
     # upscale the modulus
     modulus = np.power(modulus, 0.6)  # ad-hoc
     # map the phase to [-pi; +pi]
@@ -282,13 +280,8 @@ class PolyBeam(AnalyticBeam):
     """
 
     def __init__(
-        self,
-        beam_coeffs=None,
-        spectral_index=0.0,
-        ref_freq=1e8,
-        polarized=False,
+        self, beam_coeffs=None, spectral_index=0.0, ref_freq=1e8, polarized=False
     ):
-
         self.ref_freq = ref_freq
         self.spectral_index = spectral_index
         self.polarized = polarized
@@ -354,7 +347,7 @@ class PolyBeam(AnalyticBeam):
 
         # Empty data array
         interp_data = np.zeros(
-            (2, 1, 2, freq_array.size, az_array.size), dtype=np.complex128
+            (2, 2, freq_array.size, az_array.size), dtype=np.complex128
         )
 
         # Frequency scaling
@@ -376,28 +369,30 @@ class PolyBeam(AnalyticBeam):
                 az_array, za_array, freq_array, self.ref_freq, beam_values, fscale
             )
         else:
-            interp_data[1, 0, 0, :, :] = beam_values  # (theta, n)
-            interp_data[0, 0, 1, :, :] = beam_values  # (phi, e)
+            interp_data[1, 0, :, :] = beam_values  # (theta, n)
+            interp_data[0, 1, :, :] = beam_values  # (phi, e)
 
         interp_basis_vector = None
 
         if self.beam_type == "power":
             # Cross-multiplying feeds, adding vector components
             pairs = [(i, j) for i in range(2) for j in range(2)]
-            power_data = np.zeros((1, 1, 4) + beam_values.shape, dtype=float)
+            power_data = np.zeros((1, 4) + beam_values.shape, dtype=float)
             for pol_i, pair in enumerate(pairs):
-                power_data[:, :, pol_i] = (
-                    interp_data[0, :, pair[0]] * np.conj(interp_data[0, :, pair[1]])
-                ) + (interp_data[1, :, pair[0]] * np.conj(interp_data[1, :, pair[1]]))
+                power_data[:, pol_i] = (
+                    interp_data[0, pair[0]] * np.conj(interp_data[0, pair[1]])
+                ) + (interp_data[1, pair[0]] * np.conj(interp_data[1, pair[1]]))
             interp_data = power_data
 
         return interp_data, interp_basis_vector
 
     def __eq__(self, other):
         """Evaluate equality with another object."""
-        if not isinstance(other, self.__class__):
-            return False
-        return self.beam_coeffs == other.beam_coeffs
+        return (
+            self.beam_coeffs == other.beam_coeffs
+            if isinstance(other, self.__class__)
+            else False
+        )
 
 
 class PerturbedPolyBeam(PolyBeam):
@@ -484,9 +479,8 @@ class PerturbedPolyBeam(PolyBeam):
         freq_perturb_coeffs=None,
         freq_perturb_scale=0.0,
         perturb_zeropoint=None,
-        **kwargs
+        **kwargs,
     ):
-
         # Initialize base class
         super().__init__(beam_coeffs=beam_coeffs, **kwargs)
 
@@ -643,7 +637,6 @@ class PerturbedPolyBeam(PolyBeam):
             freq_array=freq_array,
             reuse_spline=reuse_spline,
         )
-
         # Smooth step function
         step = 0.5 * (
             1.0 + np.tanh((za_array - self.mainlobe_width) / self.transition_width)
@@ -660,9 +653,7 @@ class PerturbedPolyBeam(PolyBeam):
         p_freq = np.atleast_1d(self.freq_perturb_scale * p_freq)
 
         # Modulate primary beam by sidelobe perturbation function
-        interp_data *= 1.0 + (step * p_za)[np.newaxis, :] * (
-            1.0 + p_freq[:, np.newaxis]
-        )
+        interp_data *= 1.0 + np.outer(1.0 + p_freq, step * p_za)
 
         # Add mainlobe stretch factor
         if self.mainlobe_scale != 1.0:
@@ -735,12 +726,12 @@ class ZernikeBeam(AnalyticBeam):
             Npixels/(Naxis1, Naxis2) or az_array.size if az/za_arrays are passed)
         """
         # Empty data array
-        interp_data = np.zeros((2, 1, 2, freq_array.size, az_array.size), dtype=float)
+        interp_data = np.zeros((2, 2, freq_array.size, az_array.size), dtype=float)
 
         # Frequency scaling
         fscale = (freq_array / self.ref_freq) ** self.spectral_index
-        radial_coord = za_array[np.newaxis, ...] / fscale[:, np.newaxis]
-        axial_coord = az_array[np.newaxis, ...]
+        radial_coord = za_array / fscale
+        axial_coord = az_array
 
         # Primary beam values from Zernike polynomial
         values = self.zernike(
@@ -753,27 +744,29 @@ class ZernikeBeam(AnalyticBeam):
             values /= central_val  # ensure normalized to 1 at za=0
 
         # Set values
-        interp_data[1, 0, 0, :, :] = values
-        interp_data[0, 0, 1, :, :] = values
+        interp_data[1, 0] = values
+        interp_data[0, 1] = values
         interp_basis_vector = None
 
         if self.beam_type == "power":
             # Cross-multiplying feeds, adding vector components
             pairs = [(i, j) for i in range(2) for j in range(2)]
-            power_data = np.zeros((1, 1, 4) + values.shape, dtype=float)
+            power_data = np.zeros((1, 4) + values.shape, dtype=float)
             for pol_i, pair in enumerate(pairs):
-                power_data[:, :, pol_i] = (
-                    interp_data[0, :, pair[0]] * np.conj(interp_data[0, :, pair[1]])
-                ) + (interp_data[1, :, pair[0]] * np.conj(interp_data[1, :, pair[1]]))
+                power_data[:, pol_i] = (
+                    interp_data[0, pair[0]] * np.conj(interp_data[0, pair[1]])
+                ) + (interp_data[1, pair[0]] * np.conj(interp_data[1, pair[1]]))
             interp_data = power_data
 
         return interp_data, interp_basis_vector
 
     def __eq__(self, other):
         """Evaluate equality with another object."""
-        if not isinstance(other, self.__class__):
-            return False
-        return self.beam_coeffs == other.beam_coeffs
+        return (
+            self.beam_coeffs == other.beam_coeffs
+            if isinstance(other, self.__class__)
+            else False
+        )
 
     @staticmethod
     def zernike(coeffs, x, y):

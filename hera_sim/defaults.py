@@ -39,7 +39,7 @@ class Defaults(metaclass=_Singleton):
     To set the default parameters to those appropriate for the H2C
     observing season (and activate the use of those defaults)::
 
-        hera_sim.defaults.set('h2c')
+        hera_sim.defaults.set("h2c")
 
     To set the defaults to a custom set of defaults, you must first
     create a configuration YAML. Assuming the path to the YAML is
@@ -54,7 +54,7 @@ class Defaults(metaclass=_Singleton):
 
     To view what the default value is for a particular parameter, do::
 
-        hera_sim.defaults(parameter),
+        (hera_sim.defaults(parameter),)
 
     where `parameter` is a string with the name of the parameter as
     listed in the configuration file. To view the entire set of default
@@ -131,12 +131,13 @@ class Defaults(metaclass=_Singleton):
         Since the parser recursively unpacks the raw configuration
         dictionary until no entry is nested, the resulting config is::
 
-            {eor_amp: 0.001,
-            stations: None,
-            chance: 0.35,
-            amplitude: 1.25,
-            gain_spread: 0.2,
-            Trx: 150
+            {
+                eor_amp: 0.001,
+                stations: None,
+                chance: 0.35,
+                amplitude: 1.25,
+                gain_spread: 0.2,
+                Trx: 150,
             }
         """
         self._raw_config = {}
@@ -274,8 +275,8 @@ class Defaults(metaclass=_Singleton):
         """Check and warn if any keys in the configuration are repeated."""
         # initialize dictionaries that enumerate the key, value pairs
         # in the raw configuration dictionary
-        counts = {key: 0 for key in self().keys()}
-        values = {key: [] for key in self().keys()}
+        counts = dict.fromkeys(self().keys(), 0)
+        values = {k: [] for k in self().keys()}
 
         # actually do the enumeration
         self._recursive_enumerate(counts, values, self._raw_config)
@@ -295,7 +296,7 @@ class Defaults(metaclass=_Singleton):
                 "Please check your configuration, as only the last "
                 "value specified for each parameter will be used."
             )
-            warnings.warn(warning)
+            warnings.warn(warning, stacklevel=1)
 
     def _handler(self, func, *args, **kwargs):
         """Decorator for applying new function parameter defaults."""
@@ -308,10 +309,7 @@ class Defaults(metaclass=_Singleton):
             # get dictionary of kwargs and their defaults
             try:
                 offset = len(argspec.args) - len(argspec.defaults)
-                old_kwargs = {
-                    arg: default
-                    for arg, default in zip(argspec.args[offset:], argspec.defaults)
-                }
+                old_kwargs = dict(zip(argspec.args[offset:], argspec.defaults))
             except TypeError:
                 # if there are no defaults in the argspec
                 old_kwargs = {}
@@ -348,9 +346,7 @@ class Defaults(metaclass=_Singleton):
                 arg: (
                     passed_args[arg]
                     if arg in passed_args
-                    else new_args[arg]
-                    if self._override_defaults
-                    else old_kwargs[arg]
+                    else new_args[arg] if self._override_defaults else old_kwargs[arg]
                 )
                 for arg in keys
             }

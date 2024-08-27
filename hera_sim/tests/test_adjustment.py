@@ -10,7 +10,6 @@ import os
 from astropy import units
 from pyuvdata import UVData
 from pyuvdata.utils import antnums_to_baseline
-from scipy import stats
 
 from hera_sim import Simulator, adjustment, antpos, interpolators
 
@@ -39,7 +38,9 @@ def get_all_baselines(antpairs):
     ant_1_array = [antpair[0] for antpair in antpairs]
     ant_2_array = [antpair[1] for antpair in antpairs]
     return set(
-        antnums_to_baseline(ant_1_array + ant_2_array, ant_2_array + ant_1_array, 0)
+        antnums_to_baseline(
+            ant_1_array + ant_2_array, ant_2_array + ant_1_array, Nants_telescope=0
+        )
     )
 
 
@@ -70,12 +71,7 @@ def base_config():
     start_time = 2458799.0
     integration_time = 10.7
     # Use square array with HERA antenna separation.
-    array_layout = {
-        0: [0, 0, 0],
-        1: [1, 0, 0],
-        2: [0, 1, 0],
-        3: [1, 1, 0],
-    }
+    array_layout = {0: [0, 0, 0], 1: [1, 0, 0], 2: [0, 1, 0], 3: [1, 1, 0]}
     array_layout = scale_array(array_layout)
     config = dict(
         Nfreqs=Nfreqs,
@@ -132,7 +128,8 @@ def test_match_subarray():
 
 def test_match_translated_array():
     # A simple translation should just be undone
-    translation = np.random.uniform(-1, 1, 3)
+    rng = np.random.default_rng(0)
+    translation = rng.uniform(-1, 1, 3)
     array_1 = {0: [0, 0, 0], 1: [1, 0, 0], 2: [1, 1, 0]}
     array_2 = {ant: np.array(pos) - translation for ant, pos in array_1.items()}
     # Won't be an exact match to machine precision, so need some small tolerance.
@@ -264,8 +261,9 @@ def test_match_antennas_using_reference_positions_and_labels(base_sim, base_conf
     jitter_radius = 0.1  # 10 cm
     new_array = {0: [0, 0, 0], 1: [1, 0, 0], 2: [1, 1, 0], 3: [2, 1, 0], 4: [2, 2, 0]}
     base_config["array_layout"] = scale_array(new_array)
+    rng = np.random.default_rng(0)
     new_array = {
-        ant: pos + stats.uniform.rvs(-jitter_radius, jitter_radius, 3)
+        ant: pos + rng.uniform(-jitter_radius, jitter_radius, 3)
         for ant, pos in base_config["array_layout"].items()
     }  # Mess up the antenna positions by up to 10 cm in each direction, randomly.
     base_config["array_layout"] = new_array
@@ -297,8 +295,9 @@ def test_match_antennas_use_reference_positions_only(base_sim, base_config):
     jitter_radius = 0.1  # 10 cm
     new_array = {0: [0, 0, 0], 1: [1, 0, 0], 2: [1, 1, 0], 3: [2, 1, 0], 4: [2, 2, 0]}
     base_config["array_layout"] = scale_array(new_array)
+    rng = np.random.default_rng(0)
     new_array = {
-        ant: pos + stats.uniform.rvs(-jitter_radius, jitter_radius, 3)
+        ant: pos + rng.uniform(-jitter_radius, jitter_radius, 3)
         for ant, pos in base_config["array_layout"].items()
     }  # Mess up the antenna positions by up to 10 cm in each direction, randomly.
     base_config["array_layout"] = new_array
@@ -384,18 +383,9 @@ def test_antenna_matching_conjugation_asymmetric_arrays(base_config):
     #               1
     #             2
     #
-    antpos = {
-        0: [0, 0, 0],
-        1: [1, 0, 0],
-        2: [0, 1, 0],
-        3: [1, 2, 0],
-    }
+    antpos = {0: [0, 0, 0], 1: [1, 0, 0], 2: [0, 1, 0], 3: [1, 2, 0]}
     antpos = scale_array(antpos)
-    ref_antpos = {
-        0: [0, 0, 0],
-        1: [0, -1, 0],
-        2: [-1, -2, 0],
-    }
+    ref_antpos = {0: [0, 0, 0], 1: [0, -1, 0], 2: [-1, -2, 0]}
     ref_antpos = scale_array(ref_antpos)
     base_config["array_layout"] = antpos
     sim = Simulator(**base_config)
@@ -439,9 +429,7 @@ def test_interpolation_in_frequency_with_simulators(base_config, base_sim):
 
     # Interpolate base_sim to ref_sim along the frequency axis.
     interpolated_sim = adjustment.interpolate_to_reference(
-        target=base_sim,
-        reference=ref_sim,
-        axis="freq",
+        target=base_sim, reference=ref_sim, axis="freq"
     )
 
     # Check that frequency metadata is updated appropriately.
@@ -449,14 +437,31 @@ def test_interpolation_in_frequency_with_simulators(base_config, base_sim):
     assert interpolated_sim.data.Nfreqs == base_config["Nfreqs"]
 
 
+def test_interpolation_phased(base_config, base_sim):
+    base_config["Nfreqs"] = 200  # Increase frequency resolution.
+    base_config["start_freq"] = 105e6  # Ensure reference sim freqs contained in target.
+    base_config["bandwidth"] = 40e6
+    ref_sim = Simulator(**base_config)
+
+    # Simulate foregrounds.
+    base_sim.add("diffuse_foreground", Tsky_mdl=Tsky_mdl, omega_p=omega_p)
+    base_sim.data.phase_center_catalog[0]["cat_type"] = "sidereal"
+
+    # Interpolate base_sim to ref_sim along the frequency axis.
+    with pytest.raises(
+        ValueError, match="Time interpolation only supported for unprojected telescopes"
+    ):
+        adjustment.interpolate_to_reference(
+            target=base_sim, reference=ref_sim, axis="time"
+        )
+
+
 def test_interpolation_in_frequency_with_array(base_config, base_sim):
     # Do the same as above, but this time pass a frequency array.
     ref_freqs = np.linspace(105e6, 145e6, 200)  # Hz
     base_sim.add("diffuse_foreground", Tsky_mdl=Tsky_mdl, omega_p=omega_p)
     interpolated_sim = adjustment.interpolate_to_reference(
-        target=base_sim,
-        ref_freqs=ref_freqs,
-        axis="freq",
+        target=base_sim, ref_freqs=ref_freqs, axis="freq"
     )
 
     # Check frequency metadata; Simulator.freqs returns frequencies in GHz.
@@ -477,16 +482,12 @@ def test_interpolation_in_frequency_is_consistent(base_config, base_sim):
 
     # Interpolate base_sim to ref_sim along the frequency axis.
     interpolated_sim_A = adjustment.interpolate_to_reference(
-        target=base_sim,
-        reference=ref_sim,
-        axis="freq",
+        target=base_sim, reference=ref_sim, axis="freq"
     )
 
     # Do the same, but using a frequency array.
     interpolated_sim_B = adjustment.interpolate_to_reference(
-        target=base_sim,
-        ref_freqs=ref_freqs,
-        axis="freq",
+        target=base_sim, ref_freqs=ref_freqs, axis="freq"
     )
 
     # The interpolated data arrays should be nearly identical.
@@ -509,9 +510,7 @@ def test_interpolation_in_time_with_simulators(base_config, base_sim):
 
     # Interpolate base_sim to ref_sim along the time axis.
     interpolated_sim = adjustment.interpolate_to_reference(
-        target=base_sim,
-        reference=ref_sim,
-        axis="time",
+        target=base_sim, reference=ref_sim, axis="time"
     )
 
     # Check that the metadata checks out.
@@ -533,10 +532,7 @@ def test_interpolation_in_time_with_array(base_config, base_sim):
     base_sim.add("diffuse_foreground", Tsky_mdl=Tsky_mdl, omega_p=omega_p)
 
     interpolated_sim = adjustment.interpolate_to_reference(
-        target=base_sim,
-        ref_times=ref_sim.times,
-        ref_lsts=ref_sim.lsts,
-        axis="time",
+        target=base_sim, ref_times=ref_sim.times, ref_lsts=ref_sim.lsts, axis="time"
     )
 
     # Same metadata checks as before.
@@ -558,15 +554,10 @@ def test_interpolation_in_time_is_consistent(base_config, base_sim):
     base_sim.add("diffuse_foreground", Tsky_mdl=Tsky_mdl, omega_p=omega_p)
 
     interpolated_sim_A = adjustment.interpolate_to_reference(
-        target=base_sim,
-        reference=ref_sim,
-        axis="time",
+        target=base_sim, reference=ref_sim, axis="time"
     )
     interpolated_sim_B = adjustment.interpolate_to_reference(
-        target=base_sim,
-        ref_times=ref_sim.times,
-        ref_lsts=ref_sim.lsts,
-        axis="time",
+        target=base_sim, ref_times=ref_sim.times, ref_lsts=ref_sim.lsts, axis="time"
     )
 
     assert np.allclose(
@@ -589,10 +580,7 @@ def test_interpolation_with_phase_wrap(base_config):
 
     # Actually do the interpolation.
     interp_sim = adjustment.interpolate_to_reference(
-        target=sim,
-        ref_times=ref_times,
-        ref_lsts=ref_lsts,
-        axis="time",
+        target=sim, ref_times=ref_times, ref_lsts=ref_lsts, axis="time"
     )
 
     print(ref_lsts)
@@ -618,9 +606,7 @@ def test_interpolation_both_axes_with_simulators(base_config, base_sim):
 
     # Interpolate base_sim to ref_sim along both axes.
     interpolated_sim = adjustment.interpolate_to_reference(
-        target=base_sim,
-        reference=ref_sim,
-        axis="both",
+        target=base_sim, reference=ref_sim, axis="both"
     )
 
     # Check that the metadata checks out.
@@ -680,9 +666,7 @@ def test_interpolation_both_axes_is_consistent(base_config, base_sim):
 
     # Do the interpolation both ways.
     interpolated_sim_A = adjustment.interpolate_to_reference(
-        target=base_sim,
-        reference=ref_sim,
-        axis="both",
+        target=base_sim, reference=ref_sim, axis="both"
     )
     interpolated_sim_B = adjustment.interpolate_to_reference(
         target=base_sim,
@@ -735,9 +719,7 @@ def test_interpolate_warning_partial_frequency_match(base_config, base_sim):
     ref_sim = Simulator(**base_config)
     with pytest.warns(UserWarning) as record:
         adjustment.interpolate_to_reference(
-            target=base_sim,
-            reference=ref_sim,
-            axis="both",
+            target=base_sim, reference=ref_sim, axis="both"
         )
     assert "Reference frequencies not a subset" in record[0].message.args[0]
 
@@ -746,9 +728,7 @@ def test_interpolate_partial_frequency_match(base_config, base_sim):
     base_config["start_freq"] = 120e6
     ref_sim = Simulator(**base_config)
     interpolated_sim = adjustment.interpolate_to_reference(
-        target=base_sim,
-        reference=ref_sim,
-        axis="both",
+        target=base_sim, reference=ref_sim, axis="both"
     )
     overlapping_channels = np.unique(
         [np.argmin(np.abs(base_sim.freqs - freq)) for freq in ref_sim.freqs]
@@ -762,9 +742,7 @@ def test_interpolate_warning_partial_lst_match(base_config, base_sim):
     ref_sim = Simulator(**base_config)
     with pytest.warns(UserWarning) as record:
         adjustment.interpolate_to_reference(
-            target=base_sim,
-            reference=ref_sim,
-            axis="both",
+            target=base_sim, reference=ref_sim, axis="both"
         )
     assert "Reference LSTs not a subset" in record[0].message.args[0]
 
@@ -774,9 +752,7 @@ def test_interpolate_partial_lst_match(base_config, base_sim):
     base_config["start_time"] = base_config["start_time"] + time_offset
     ref_sim = Simulator(**base_config)
     interpolated_sim = adjustment.interpolate_to_reference(
-        target=base_sim,
-        reference=ref_sim,
-        axis="both",
+        target=base_sim, reference=ref_sim, axis="both"
     )
     overlapping_integrations = np.unique(
         [np.argmin(np.abs(base_sim.lsts - lst)) for lst in ref_sim.lsts]
@@ -978,9 +954,7 @@ def test_adjust_to_reference_verbosity_with_interpolating(
 ):
     with caplog.at_level(logging.INFO):
         adjustment.adjust_to_reference(
-            target=redundant_sim,
-            reference=ref_sim,
-            conjugation_convention="ant1<ant2",
+            target=redundant_sim, reference=ref_sim, conjugation_convention="ant1<ant2"
         )
     assert "Validating positional arguments..." in caplog.text
     assert "Interpolating target data to reference data LSTs..." in caplog.text

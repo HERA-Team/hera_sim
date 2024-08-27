@@ -6,7 +6,6 @@ build-backend = "setuptools.build_meta"
 
 [tool.black]
 line-length = 88
-py36 = false
 exclude = '''
 /(
     \.eggs
@@ -21,3 +20,23 @@ exclude = '''
   | dist
 )/
 '''
+
+[tool.ruff]
+line-length = 88
+target-version = "py39"
+
+[tool.ruff.format]
+docstring-code-format = true
+skip-magic-trailing-comma = true
+
+[tool.ruff.lint]
+select = [
+  "UP",   # pyupgrade
+  "E",    # pycodestyle
+  "W",    # pycodestyle warning
+  "NPY",  # numpy-specific rules
+]
+
+ignore = [
+  "NPY002",  # RNG -- fix soon!
+]

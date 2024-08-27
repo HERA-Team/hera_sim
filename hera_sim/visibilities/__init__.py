@@ -8,6 +8,7 @@ temperature fields, rectilinear co-ordinates, spherical co-ordinates, healpix
 maps etc. This package intends to unify the interfaces of these various kinds
 of simulators.
 """
+
 from .pyuvsim_wrapper import UVSim
 from .simulators import (
     ModelData,
@@ -20,11 +21,16 @@ from .simulators import (
 
 
 try:
-    from .vis_cpu import VisCPU
+    from .matvis import MatVis
 except (ImportError, NameError):  # pragma: no cover
     pass
 
 try:
     from .healvis_wrapper import HealVis
+except (ImportError, NameError):  # pragma: no cover
+    pass
+
+try:
+    from .fftvis import FFTVis
 except (ImportError, NameError):  # pragma: no cover
     pass

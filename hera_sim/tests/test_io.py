@@ -7,29 +7,17 @@ from hera_sim import io
 
 @pytest.fixture(scope="function")
 def time_params():
-    return {
-        "start_time": 2458119.5,
-        "integration_time": 10.7,
-        "Ntimes": 20,
-    }
+    return {"start_time": 2458119.5, "integration_time": 10.7, "Ntimes": 20}
 
 
 @pytest.fixture(scope="function")
 def freq_params():
-    return {
-        "start_freq": 1e8,
-        "channel_width": 1e6,
-        "Nfreqs": 150,
-    }
+    return {"start_freq": 1e8, "channel_width": 1e6, "Nfreqs": 150}
 
 
 @pytest.fixture(scope="function")
 def array_layout():
-    return {
-        0: [0, 0, 0],
-        1: [14.6, 0, 0],
-        2: [0, 14.6, 0],
-    }
+    return {0: [0, 0, 0], 1: [14.6, 0, 0], 2: [0, 14.6, 0]}
 
 
 @pytest.fixture(scope="function")
@@ -59,12 +47,9 @@ def test_empty_uvdata_antenna_positions(array_layout, sample_uvd):
 
 def test_conj_convention(time_params, freq_params, array_layout):
     uvd = io.empty_uvdata(
-        array_layout=array_layout,
-        conjugation="ant1<ant2",
-        **time_params,
-        **freq_params,
+        array_layout=array_layout, conjugation="ant1<ant2", **time_params, **freq_params
     )
-    for (ai, aj) in uvd.get_antpairs():
+    for ai, aj in uvd.get_antpairs():
         assert ai <= aj
 
 

@@ -6,7 +6,6 @@ import numpy as np
 from astropy import units
 from astropy.coordinates import Latitude, Longitude
 from pyradiosky import SkyModel
-from typing import List
 
 from hera_sim import io
 from hera_sim.beams import (
@@ -17,7 +16,7 @@ from hera_sim.beams import (
     stokes_matrix,
 )
 from hera_sim.defaults import defaults
-from hera_sim.visibilities import ModelData, VisCPU, VisibilitySimulation
+from hera_sim.visibilities import MatVis, ModelData, VisibilitySimulation
 
 np.seterr(invalid="ignore")
 
@@ -81,19 +80,13 @@ def convert_to_pStokes(eval_beam, az, za, Nfreq):
     pixel_indices_test = hp.ang2pix(nside_test, za, az)
     npix_test = hp.nside2npix(nside_test)
 
-    pol_efield_beam_plot = np.zeros((2, 1, 2, Nfreq, npix_test), dtype=np.complex128)
-    pol_efield_beam_plot[:, :, :, :, pixel_indices_test] = eval_beam[:, :, :, :]
+    pol_efield_beam_plot = np.zeros((2, 2, Nfreq, npix_test), dtype=np.complex128)
+    pol_efield_beam_plot[:, :, :, pixel_indices_test] = eval_beam[:, :, :, :]
     return efield_to_pstokes(pol_efield_beam_plot, npix_test, Nfreq)
 
 
 def run_sim(
-    ants,
-    sources,
-    beams,
-    use_gpu=False,
-    use_pol=False,
-    use_mpi=False,
-    pol="xx",
+    ants, sources, beams, use_gpu=False, use_pol=False, use_mpi=False, pol="xx"
 ):
     """
     Run a simple sim using a rotated elliptic polybeam.
@@ -113,37 +106,38 @@ def run_sim(
         polarization_array=pol_array,
         x_orientation="east",
     )
-    freqs = np.unique(uvdata.freq_array)
+    freqs = uvdata.freq_array
     ra_dec, flux, spectral_index = sources
 
     # calculate source fluxes for hera_sim
     flux = (freqs[:, np.newaxis] / freqs[0]) ** spectral_index * flux
 
-    simulator = VisCPU(
-        use_gpu=use_gpu,
-        mpi_comm=DummyMPIComm() if use_mpi else None,
-        precision=2,
+    simulator = MatVis(
+        use_gpu=use_gpu, mpi_comm=DummyMPIComm() if use_mpi else None, precision=2
     )
 
     data_model = ModelData(
         uvdata=uvdata,
         beams=beams,
         sky_model=SkyModel(
-            freq_array=freqs,
+            freq_array=freqs * units.Hz,
             ra=Longitude(ra_dec[:, 0] * units.rad),
             dec=Latitude(ra_dec[:, 1] * units.rad),
             spectral_type="full",
             stokes=np.array(
-                [flux, np.zeros_like(flux), np.zeros_like(flux), np.zeros_like(flux)]
+                [
+                    flux,
+                    np.zeros_like(flux),
+                    np.zeros_like(flux),
+                    np.zeros_like(flux),
+                ]
             )
             * units.Jy,
             name=["derp"] * flux.shape[1],
+            frame="icrs",
         ),
     )
-    simulation = VisibilitySimulation(
-        data_model=data_model,
-        simulator=simulator,
-    )
+    simulation = VisibilitySimulation(data_model=data_model, simulator=simulator)
     simulation.simulate()
 
     return np.abs(simulation.uvdata.get_data(0, 0, pol)[0][0])
@@ -152,7 +146,7 @@ def run_sim(
 class TestPerturbedPolyBeam:
     def get_perturbed_beams(
         self, rotation, polarized=False, power_beam=False
-    ) -> List[PerturbedPolyBeam]:
+    ) -> list[PerturbedPolyBeam]:
         """
         Elliptical PerturbedPolyBeam.
 
@@ -202,7 +196,7 @@ class TestPerturbedPolyBeam:
                 ystretch=0.8,
                 rotation=rotation,
                 polarized=polarized,
-                **cfg_beam
+                **cfg_beam,
             )
         ]
 
@@ -214,7 +208,6 @@ class TestPerturbedPolyBeam:
         return beams
 
     def test_rotations(self, antennas, sources):
-
         # Rotate the beam from 0 to 180 degrees, and check that autocorrelation
         # of antenna 0 has approximately the same value when pixel beams are
         # used, and when pixel beams not used (direct beam calculation).
@@ -402,7 +395,7 @@ class TestPolarizedPolyBeam:
         for vec in [0, 1]:
             for feed in [0, 1]:
                 for freq in [0, 5, 10, 15, 20, 25]:
-                    modulus = np.abs(eval_beam[vec, 0, feed, freq])
+                    modulus = np.abs(eval_beam[vec, feed, freq])
                     M = np.max(modulus)
                     m = np.min(modulus)
                     assert M <= 1 and M == pytest.approx(
