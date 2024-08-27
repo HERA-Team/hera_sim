@@ -338,11 +338,7 @@ class MatVis(VisibilitySimulator):
         # Get pixelized beams if required
         logger.info("Preparing Beams...")
         beam_list = [
-            convs.prepare_beam(
-                beam,
-                polarized=polarized,
-                use_feed=feed,
-            )
+            convs.prepare_beam(beam, polarized=polarized, use_feed=feed)
             for beam in data_model.beams
         ]
         beam_ids = np.array(

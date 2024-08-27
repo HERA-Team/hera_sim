@@ -69,9 +69,7 @@ class DiffuseForeground(Foreground):
     is_smooth_in_freq = True
     is_randomized = True
     return_type = "per_baseline"
-    attrs_to_pull = dict(
-        bl_vec=None,
-    )
+    attrs_to_pull = dict(bl_vec=None)
 
     def __init__(
         self,
@@ -122,13 +120,9 @@ class DiffuseForeground(Foreground):
         self._check_kwargs(**kwargs)
 
         # unpack the kwargs
-        (
-            Tsky_mdl,
-            omega_p,
-            delay_filter_kwargs,
-            fringe_filter_kwargs,
-            rng,
-        ) = self._extract_kwarg_values(**kwargs)
+        (Tsky_mdl, omega_p, delay_filter_kwargs, fringe_filter_kwargs, rng) = (
+            self._extract_kwarg_values(**kwargs)
+        )
 
         if Tsky_mdl is None:
             raise ValueError(
@@ -204,9 +198,7 @@ class PointSourceForeground(Foreground):
     _alias = ("pntsrc_foreground",)
     is_randomized = True
     return_type = "per_baseline"
-    attrs_to_pull = dict(
-        bl_vec=None,
-    )
+    attrs_to_pull = dict(bl_vec=None)
 
     def __init__(
         self,
@@ -262,16 +254,9 @@ class PointSourceForeground(Foreground):
         self._check_kwargs(**kwargs)
 
         # unpack the kwargs
-        (
-            nsrcs,
-            Smin,
-            Smax,
-            beta,
-            spectral_index_mean,
-            spectral_index_std,
-            f0,
-            rng,
-        ) = self._extract_kwarg_values(**kwargs)
+        (nsrcs, Smin, Smax, beta, spectral_index_mean, spectral_index_std, f0, rng) = (
+            self._extract_kwarg_values(**kwargs)
+        )
 
         # get baseline length (it should already be in ns)
         bl_len_ns = np.linalg.norm(bl_vec)

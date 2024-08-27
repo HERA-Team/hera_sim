@@ -39,7 +39,7 @@ class Defaults(metaclass=_Singleton):
     To set the default parameters to those appropriate for the H2C
     observing season (and activate the use of those defaults)::
 
-        hera_sim.defaults.set('h2c')
+        hera_sim.defaults.set("h2c")
 
     To set the defaults to a custom set of defaults, you must first
     create a configuration YAML. Assuming the path to the YAML is
@@ -54,7 +54,7 @@ class Defaults(metaclass=_Singleton):
 
     To view what the default value is for a particular parameter, do::
 
-        hera_sim.defaults(parameter),
+        (hera_sim.defaults(parameter),)
 
     where `parameter` is a string with the name of the parameter as
     listed in the configuration file. To view the entire set of default
@@ -131,12 +131,13 @@ class Defaults(metaclass=_Singleton):
         Since the parser recursively unpacks the raw configuration
         dictionary until no entry is nested, the resulting config is::
 
-            {eor_amp: 0.001,
-            stations: None,
-            chance: 0.35,
-            amplitude: 1.25,
-            gain_spread: 0.2,
-            Trx: 150
+            {
+                eor_amp: 0.001,
+                stations: None,
+                chance: 0.35,
+                amplitude: 1.25,
+                gain_spread: 0.2,
+                Trx: 150,
             }
         """
         self._raw_config = {}

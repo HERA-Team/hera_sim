@@ -179,8 +179,7 @@ hex_array = HexArray()
 
 
 def idealize_antpos(
-    antpos: dict[int, np.ndarray],
-    bl_error_tol: float = 1.0,
+    antpos: dict[int, np.ndarray], bl_error_tol: float = 1.0
 ) -> dict[int, np.ndarray]:
     """Snap antenna positions to a grid that ensures perfect redundancy.
 

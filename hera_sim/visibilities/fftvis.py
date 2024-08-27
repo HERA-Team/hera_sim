@@ -268,9 +268,7 @@ class FFTVis(MatVis):
         # Get pixelized beams if required
         logger.info("Preparing Beams...")
         beam = convs.prepare_beam(
-            data_model.beams[0],
-            polarized=polarized,
-            use_feed=feed,
+            data_model.beams[0], polarized=polarized, use_feed=feed
         )
 
         # Get all the polarizations required to be simulated.

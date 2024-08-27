@@ -151,7 +151,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, "hera_sim.tex", "hera\\_sim Documentation", "HERA-Team", "manual"),
+    (master_doc, "hera_sim.tex", "hera\\_sim Documentation", "HERA-Team", "manual")
 ]
 
 # -- Options for manual page output ------------------------------------------
@@ -174,7 +174,7 @@ texinfo_documents = [
         "hera_sim",
         "One line description of project.",
         "Miscellaneous",
-    ),
+    )
 ]
 
 # -- Extension configuration -------------------------------------------------

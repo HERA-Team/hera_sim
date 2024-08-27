@@ -63,9 +63,7 @@ def uvdata_allpols():
 
 def get_sky_model(uvdata, nsource):
     # One fixed source plus random other sources
-    sources = [
-        [125.7, -30.72, 2, 0],  # Fix a single source near zenith
-    ]
+    sources = [[125.7, -30.72, 2, 0]]  # Fix a single source near zenith
     rng = np.random.default_rng(0)
     if nsource > 1:  # Add random other sources
         ra = rng.uniform(low=0.0, high=360.0, size=nsource - 1)
@@ -258,8 +256,7 @@ def test_compare_fftvis_with_pyuvsim(uvdata_allpols, nsource, beam_type, polariz
 
     # Construct simulator object and run
     simulator = FFTVis(
-        ref_time=Time("2018-08-31T04:02:30.11", format="isot", scale="utc"),
-        precision=2,
+        ref_time=Time("2018-08-31T04:02:30.11", format="isot", scale="utc"), precision=2
     )
 
     # TODO: if we update the PolyBeam API so that it doesn't *require* 2 feeds,

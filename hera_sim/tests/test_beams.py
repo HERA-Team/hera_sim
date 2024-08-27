@@ -86,13 +86,7 @@ def convert_to_pStokes(eval_beam, az, za, Nfreq):
 
 
 def run_sim(
-    ants,
-    sources,
-    beams,
-    use_gpu=False,
-    use_pol=False,
-    use_mpi=False,
-    pol="xx",
+    ants, sources, beams, use_gpu=False, use_pol=False, use_mpi=False, pol="xx"
 ):
     """
     Run a simple sim using a rotated elliptic polybeam.
@@ -119,9 +113,7 @@ def run_sim(
     flux = (freqs[:, np.newaxis] / freqs[0]) ** spectral_index * flux
 
     simulator = MatVis(
-        use_gpu=use_gpu,
-        mpi_comm=DummyMPIComm() if use_mpi else None,
-        precision=2,
+        use_gpu=use_gpu, mpi_comm=DummyMPIComm() if use_mpi else None, precision=2
     )
 
     data_model = ModelData(
@@ -145,10 +137,7 @@ def run_sim(
             frame="icrs",
         ),
     )
-    simulation = VisibilitySimulation(
-        data_model=data_model,
-        simulator=simulator,
-    )
+    simulation = VisibilitySimulation(data_model=data_model, simulator=simulator)
     simulation.simulate()
 
     return np.abs(simulation.uvdata.get_data(0, 0, pol)[0][0])

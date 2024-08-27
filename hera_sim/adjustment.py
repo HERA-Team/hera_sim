@@ -390,11 +390,7 @@ def match_antennas(
 
         if blts is not None:
             # The new baseline has the same conjugation as the old one.
-            this_slice = (
-                blts,
-                slice(None),
-                pol_inds[0].start,
-            )
+            this_slice = (blts, slice(None), pol_inds[0].start)
         else:  # pragma: no cover
             # The new baseline is conjugated relative to the old one.
             # Given the handling of the antenna relabeling, this might not actually
@@ -612,18 +608,10 @@ def interpolate_to_reference(
             vis = target.get_data(antpair + (pol,))
             if axis == "both":
                 re_spline = RectBivariateSpline(
-                    target_lsts,
-                    target_freqs,
-                    vis.real,
-                    kx=kt,
-                    ky=kf,
+                    target_lsts, target_freqs, vis.real, kx=kt, ky=kf
                 )
                 im_spline = RectBivariateSpline(
-                    target_lsts,
-                    target_freqs,
-                    vis.imag,
-                    kx=kt,
-                    ky=kf,
+                    target_lsts, target_freqs, vis.imag, kx=kt, ky=kf
                 )
                 new_data[this_slice, :, pol_ind] = re_spline(
                     ref_lsts, ref_freqs
@@ -667,12 +655,7 @@ def interpolate_to_reference(
     return target
 
 
-def rephase_to_reference(
-    target,
-    reference=None,
-    ref_times=None,
-    ref_lsts=None,
-):
+def rephase_to_reference(target, reference=None, ref_times=None, ref_lsts=None):
     """
     Rephase target data to match overlapping reference LSTs.
 

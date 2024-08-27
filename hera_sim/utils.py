@@ -655,8 +655,7 @@ def matmul(left: np.ndarray, right: np.ndarray, use_numba: bool = False) -> np.n
 
 
 def find_baseline_orientations(
-    antenna_numbers: np.ndarray,
-    enu_antpos: np.ndarray,
+    antenna_numbers: np.ndarray, enu_antpos: np.ndarray
 ) -> dict[tuple[int, int], float]:
     """Find the orientation of each redundant baseline group.
 
@@ -716,14 +715,7 @@ def tanh_window(x, x_min=None, x_max=None, scale_low=1, scale_high=1):
 if HAVE_NUMBA:  # pragma: no cover
 
     @numba.njit
-    def jit_reshape_vis(
-        vis,
-        out,
-        ant_1_array,
-        ant_2_array,
-        pol_array,
-        antenna_numbers,
-    ):
+    def jit_reshape_vis(vis, out, ant_1_array, ant_2_array, pol_array, antenna_numbers):
         """JIT-accelerated reshaping function.
 
         See :func:`~reshape_vis` for parameter information.
@@ -770,12 +762,7 @@ if HAVE_NUMBA:  # pragma: no cover
 
     @numba.njit
     def jit_reshape_vis_invert(
-        vis,
-        out,
-        ant_1_array,
-        ant_2_array,
-        pol_array,
-        antenna_numbers,
+        vis, out, ant_1_array, ant_2_array, pol_array, antenna_numbers
     ):
         """JIT-accelerated reshaping function.
 

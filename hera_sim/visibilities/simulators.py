@@ -185,9 +185,7 @@ class ModelData:
         # Don't reorder the blt axis, because each simulator might do it differently.
         logger.info("Initializing UVData object...")
         uvdata, beams, beam_ids = initialize_uvdata_from_params(
-            config_file,
-            reorder_blt_kw={},
-            check_kw={"run_check_acceptability": False},
+            config_file, reorder_blt_kw={}, check_kw={"run_check_acceptability": False}
         )
 
         # Set rectangularity if it's not already set. Required for some simulators.
@@ -323,9 +321,7 @@ class VisibilitySimulation:
 
         # Get which pixel every point source lies in.
         pix = aph.lonlat_to_healpix(
-            lon=sky_model.ra,
-            lat=sky_model.dec,
-            nside=self.n_side,
+            lon=sky_model.ra, lat=sky_model.dec, nside=self.n_side
         )
 
         hmap[:, pix] += sky_model.stokes[0].to("Jy") / aph.nside_to_pixel_area(
