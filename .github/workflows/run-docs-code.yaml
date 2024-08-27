@@ -23,7 +23,9 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: 3.12
+
+      - uses: mpi4py/setup-mpi@v1
 
       - name: Install
         run: |
