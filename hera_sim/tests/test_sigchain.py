@@ -122,12 +122,7 @@ def test_bandpass_with_taper(fqs, taper):
 
     base_bandpass = sigchain.gen_gains(fqs, [0], gain_spread=0, dly_rng=(0, 0))[0]
     bandpass = sigchain.gen_gains(
-        fqs,
-        [0],
-        gain_spread=0,
-        dly_rng=(0, 0),
-        taper=taper,
-        taper_kwds=taper_kwds,
+        fqs, [0], gain_spread=0, dly_rng=(0, 0), taper=taper, taper_kwds=taper_kwds
     )[0]
     assert not np.allclose(base_bandpass, bandpass)
 
@@ -137,11 +132,7 @@ def test_bandpass_bad_taper(fqs):
         sigchain.gen_gains(fqs, [0], taper=13)
 
 
-def test_reflection_gains_correct_delays(
-    fqs,
-    vis,
-    dlys,
-):
+def test_reflection_gains_correct_delays(fqs, vis, dlys):
     # introduce a cable reflection into the autocorrelation
     rng = np.random.default_rng(0)
     gains = sigchain.gen_reflection_gains(
@@ -433,9 +424,7 @@ def test_mutual_coupling(use_numba):
     vis_amps = {}
     for (ai, aj, _pol), vis in uvdata.antpairpol_iter():
         vis_fft = uvtools.utils.FFT(
-            uvtools.utils.FFT(vis, axis=0, taper="bh"),
-            axis=1,
-            taper="bh",
+            uvtools.utils.FFT(vis, axis=0, taper="bh"), axis=1, taper="bh"
         )
         vis_amps[(ai, aj)] = np.max(np.abs(vis_fft))
         vis_amps[(aj, ai)] = vis_amps[(ai, aj)]
@@ -454,9 +443,7 @@ def test_mutual_coupling(use_numba):
         omega_p=constants.c.si.value / uvdata.freq_array,
     )
     uvdata.data_array += mutual_coupling(
-        freqs=freqs / 1e9,
-        visibilities=uvdata.data_array,
-        use_numba=use_numba,
+        freqs=freqs / 1e9, visibilities=uvdata.data_array, use_numba=use_numba
     )
 
     # Now run the checks.
@@ -464,9 +451,7 @@ def test_mutual_coupling(use_numba):
     frate_mHz = uvtools.utils.fourier_freqs(times) * units.Hz.to("mHz")
     for (ai, aj, _pol), vis in uvdata.antpairpol_iter():
         vis_fft = uvtools.utils.FFT(
-            uvtools.utils.FFT(vis, axis=0, taper="bh"),
-            axis=1,
-            taper="bh",
+            uvtools.utils.FFT(vis, axis=0, taper="bh"), axis=1, taper="bh"
         )
         for ak in uvdata.antenna_numbers:
             dly_ik = delays[(ai, ak)]
@@ -628,7 +613,7 @@ def test_mutual_coupling_bad_feed_params(isbad, sample_uvdata, sample_coupling):
         _ = sample_coupling(
             freqs=sample_uvdata.freq_array.squeeze() / 1e9,
             visibilities=sample_uvdata.data_array,
-            **kwargs
+            **kwargs,
         )
 
 
@@ -713,9 +698,7 @@ def test_vary_gain_amp_linear(gains, times):
 
     # Check that the original value is at the center time.
     assert np.allclose(
-        varied_gain[np.argmin(np.abs(times - times.mean())), :],
-        gains[0],
-        rtol=0.001,
+        varied_gain[np.argmin(np.abs(times - times.mean())), :], gains[0], rtol=0.001
     )
 
     # Check that the variation amount is as expected.
@@ -1025,9 +1008,6 @@ def test_vary_gains_exception_not_enough_parameters(gains, times):
 def test_vary_gains_exception_bad_variation_mode(gains, times):
     with pytest.raises(NotImplementedError) as err:
         sigchain.vary_gains_in_time(
-            gains=gains,
-            times=times,
-            parameter="amp",
-            variation_mode="foobar",
+            gains=gains, times=times, parameter="amp", variation_mode="foobar"
         )
     assert err.value.args[0] == "Variation mode 'foobar' not supported."

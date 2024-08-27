@@ -268,9 +268,7 @@ class FFTVis(MatVis):
         # Get pixelized beams if required
         logger.info("Preparing Beams...")
         beam = convs.prepare_beam(
-            data_model.beams[0],
-            polarized=polarized,
-            use_feed=feed,
+            data_model.beams[0], polarized=polarized, use_feed=feed
         )
 
         # Get all the polarizations required to be simulated.
@@ -329,7 +327,6 @@ class FFTVis(MatVis):
             return visfull
 
     def _reorder_vis(self, req_pols, uvdata, visfull, vis, antpairs, polarized):
-
         if polarized:
             if uvdata.time_axis_faster_than_bls:
                 vis = vis.transpose((3, 0, 1, 2))

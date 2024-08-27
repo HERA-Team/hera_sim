@@ -29,10 +29,7 @@ def make_mock_catalog(
     ref_freq = np.mean(np.unique(temp_uvdata.freq_array))
     array_location = EarthLocation(*temp_uvdata.telescope_location_lat_lon_alt_degrees)
     sky_model = create_mock_catalog(
-        center_time,
-        arrangement="random",
-        Nsrcs=Nsrcs,
-        array_location=array_location,
+        center_time, arrangement="random", Nsrcs=Nsrcs, array_location=array_location
     )[0]
     sky_model_recarray = sky_model.to_recarray()
 

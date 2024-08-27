@@ -132,11 +132,7 @@ def test_diffuse_foreground_exception_no_tsky_mdl(freqs, lsts, omega_p):
     bl_vec = [0, 0, 0]
     with pytest.raises(ValueError) as err:
         foregrounds.diffuse_foreground(
-            freqs=freqs,
-            lsts=lsts,
-            bl_vec=bl_vec,
-            Tsky_mdl=None,
-            omega_p=omega_p,
+            freqs=freqs, lsts=lsts, bl_vec=bl_vec, Tsky_mdl=None, omega_p=omega_p
         )
     assert "sky temperature model must be" in err.value.args[0]
 
@@ -145,10 +141,6 @@ def test_diffuse_foreground_exception_no_omega_p(freqs, lsts, Tsky_mdl):
     bl_vec = [0, 0, 0]
     with pytest.raises(ValueError) as err:
         foregrounds.diffuse_foreground(
-            freqs=freqs,
-            lsts=lsts,
-            bl_vec=bl_vec,
-            Tsky_mdl=Tsky_mdl,
-            omega_p=None,
+            freqs=freqs, lsts=lsts, bl_vec=bl_vec, Tsky_mdl=Tsky_mdl, omega_p=None
         )
     assert "beam area array or interpolation object" in err.value.args[0]

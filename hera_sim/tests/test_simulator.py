@@ -166,9 +166,7 @@ def test_add_with_full_array_return(base_sim):
 
     class Test(TestBase):
         return_type = "full_array"
-        attrs_to_pull = dict(
-            pols="polarization_array",
-        )
+        attrs_to_pull = dict(pols="polarization_array")
 
         def __init__(self):
             pass
@@ -270,12 +268,7 @@ def test_get_vis_only_one_antenna(ref_sim):
 @pytest.mark.parametrize("conj", [True, False])
 @pytest.mark.parametrize("pol", [None, "xx"])
 def test_get_redundant_data(pol, conj):
-    antpos = {
-        0: [0, 0, 0],
-        1: [10, 0, 0],
-        2: [0, 10, 0],
-        3: [10, 10, 0],
-    }
+    antpos = {0: [0, 0, 0], 1: [10, 0, 0], 2: [0, 10, 0], 3: [10, 10, 0]}
     sim = create_sim(array_layout=antpos)
     defaults.set("h1c")
     sim.add("diffuse_foreground", seed="redundant")
@@ -488,11 +481,7 @@ def test_run_sim_both_args(base_sim, tmp_path):
 def test_params_ok_after_select(select_param):
     array_layout = {0: [0, 0, 0], 1: [10, 0, 0], 2: [0, 10, 0]}
     polarizations = np.array(["xx", "yy", "xy", "yx"])
-    sim = create_sim(
-        autos=True,
-        array_layout=array_layout,
-        polarizations=polarizations,
-    )
+    sim = create_sim(autos=True, array_layout=array_layout, polarizations=polarizations)
     if select_param == "freq":
         select_freqs = sim.freqs[:5]
         sim.data.select(freq_chans=np.arange(select_freqs.size))

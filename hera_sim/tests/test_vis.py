@@ -51,9 +51,7 @@ def uvdata():
         Nfreqs=NFREQ,
         integration_time=sday.to("s") / NTIMES,
         Ntimes=NTIMES,
-        array_layout={
-            0: (0, 0, 0),
-        },
+        array_layout={0: (0, 0, 0)},
         start_time=2456658.5,
         conjugation="ant1<ant2",
         polarization_array=["xx", "yy", "xy", "yx"],
@@ -81,9 +79,7 @@ def uvdataJD():
         Nfreqs=NFREQ,
         integration_time=sday.to("s") / NTIMES,
         Ntimes=NTIMES,
-        array_layout={
-            0: (0, 0, 0),
-        },
+        array_layout={0: (0, 0, 0)},
         start_time=2456659,
         polarization_array=["xx", "yy", "xy", "yx"],
     )
@@ -217,10 +213,7 @@ def half_sky_model(uvdata2):
     nbase = 4
     nside = 2**nbase
 
-    sky = create_uniform_sky(
-        np.unique(uvdata2.freq_array),
-        nbase=nbase,
-    )
+    sky = create_uniform_sky(np.unique(uvdata2.freq_array), nbase=nbase)
 
     # Zero out values within pi/2 of (theta=pi/2, phi=0)
     hp = aph.HEALPix(nside=nside, order="ring")
@@ -325,10 +318,7 @@ def test_autocorr_flat_beam(uvdata, simulator):
 @pytest.mark.parametrize("simulator", SIMULATORS)
 def test_single_source_autocorr(uvdata, simulator, sky_model):
     sim = VisibilitySimulation(
-        data_model=ModelData(
-            uvdata=uvdata,
-            sky_model=sky_model,
-        ),
+        data_model=ModelData(uvdata=uvdata, sky_model=sky_model),
         simulator=simulator(),
         n_side=2**4,
     )
@@ -352,10 +342,7 @@ def test_single_source_autocorr_past_horizon(uvdata, simulator):
     )
 
     sim = VisibilitySimulation(
-        data_model=ModelData(
-            uvdata=uvdata,
-            sky_model=sky_model,
-        ),
+        data_model=ModelData(uvdata=uvdata, sky_model=sky_model),
         simulator=simulator(),
         n_side=2**4,
     )
@@ -367,10 +354,7 @@ def test_single_source_autocorr_past_horizon(uvdata, simulator):
 @pytest.mark.parametrize("simulator", [FFTVis, MatVis])
 def test_coordinate_correction(simulator, uvdata2):
     sim = VisibilitySimulation(
-        data_model=ModelData(
-            uvdata=uvdata2,
-            sky_model=zenith_sky_model(uvdata2),
-        ),
+        data_model=ModelData(uvdata=uvdata2, sky_model=zenith_sky_model(uvdata2)),
         simulator=simulator(
             correct_source_positions=True, ref_time="2018-08-31T04:02:30.11"
         ),
@@ -382,10 +366,7 @@ def test_coordinate_correction(simulator, uvdata2):
     assert np.all(~np.isnan(v))
 
     sim2 = VisibilitySimulation(
-        data_model=ModelData(
-            uvdata=uvdata2,
-            sky_model=zenith_sky_model(uvdata2),
-        ),
+        data_model=ModelData(uvdata=uvdata2, sky_model=zenith_sky_model(uvdata2)),
         simulator=simulator(
             correct_source_positions=True,
             ref_time=apt.Time("2018-08-31T04:02:30.11", format="isot", scale="utc"),
@@ -440,9 +421,7 @@ def test_comparison(simulator, uvdata2, sky_model, beam_model):
 
     v0 = (
         VisibilitySimulation(
-            data_model=model_data,
-            simulator=SIMULATORS[0](),
-            n_side=2**4,
+            data_model=model_data, simulator=SIMULATORS[0](), n_side=2**4
         )
         .simulate()
         .copy()
@@ -471,10 +450,7 @@ def test_ordering(uvdata_linear, simulator, order, conj):
     )
 
     sim = VisibilitySimulation(
-        data_model=ModelData(
-            uvdata=uvdata_linear,
-            sky_model=sky_model,
-        ),
+        data_model=ModelData(uvdata=uvdata_linear, sky_model=sky_model),
         simulator=simulator(),
         n_side=2**4,
     )
@@ -517,9 +493,7 @@ def test_vis_cpu_pol(polarization_array, xfail):
         Nfreqs=NFREQ,
         integration_time=sday.to("s") / NTIMES,
         Ntimes=NTIMES,
-        array_layout={
-            0: (0, 0, 0),
-        },
+        array_layout={0: (0, 0, 0)},
         start_time=2456658.5,
         conjugation="ant1<ant2",
         polarization_array=polarization_array,

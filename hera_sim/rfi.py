@@ -172,10 +172,7 @@ class Stations(RFI):
         rfi = np.zeros((lsts.size, freqs.size), dtype=complex)
 
         if stations is None:
-            warnings.warn(
-                "You did not specify any stations to simulate.",
-                stacklevel=2,
-            )
+            warnings.warn("You did not specify any stations to simulate.", stacklevel=2)
             return rfi
         elif isinstance(stations, (str, Path)):
             # assume that it's a path to a npy file
@@ -219,9 +216,7 @@ class Impulse(RFI):
 
     def __init__(self, impulse_chance=0.001, impulse_strength=20.0, rng=None):
         super().__init__(
-            impulse_chance=impulse_chance,
-            impulse_strength=impulse_strength,
-            rng=rng,
+            impulse_chance=impulse_chance, impulse_strength=impulse_strength, rng=rng
         )
 
     def __call__(self, lsts, freqs, **kwargs):
@@ -398,14 +393,9 @@ class DTV(RFI):
         self._check_kwargs(**kwargs)
 
         # unpack them
-        (
-            dtv_band,
-            width,
-            dtv_chance,
-            dtv_strength,
-            dtv_std,
-            rng,
-        ) = self._extract_kwarg_values(**kwargs)
+        (dtv_band, width, dtv_chance, dtv_strength, dtv_std, rng) = (
+            self._extract_kwarg_values(**kwargs)
+        )
         rng = rng or np.random.default_rng()
 
         # make an empty rfi array

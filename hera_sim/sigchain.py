@@ -65,9 +65,7 @@ class Bandpass(Gain):
     is_multiplicative = True
     is_randomized = True
     return_type = "per_antenna"
-    attrs_to_pull = dict(
-        ants="antpos",
-    )
+    attrs_to_pull = dict(ants="antpos")
 
     def __init__(
         self,
@@ -107,14 +105,9 @@ class Bandpass(Gain):
         self._check_kwargs(**kwargs)
 
         # unpack the kwargs
-        (
-            gain_spread,
-            dly_rng,
-            bp_poly,
-            taper,
-            taper_kwds,
-            rng,
-        ) = self._extract_kwarg_values(**kwargs)
+        (gain_spread, dly_rng, bp_poly, taper, taper_kwds, rng) = (
+            self._extract_kwarg_values(**kwargs)
+        )
         rng = rng or np.random.default_rng()
 
         # get the bandpass gains
@@ -206,9 +199,7 @@ class Reflections(Gain):
     is_multiplicative = True
     is_randomized = True
     return_type = "per_antenna"
-    attrs_to_pull = dict(
-        ants="antpos",
-    )
+    attrs_to_pull = dict(ants="antpos")
 
     def __init__(
         self,
@@ -442,9 +433,7 @@ class ReflectionSpectrum(Gain):
     is_multiplicative = True
     is_randomized = True
     return_type = "per_antenna"
-    attrs_to_pull = dict(
-        ants="antpos",
-    )
+    attrs_to_pull = dict(ants="antpos")
 
     def __init__(
         self,
@@ -554,9 +543,7 @@ class CrossCouplingCrosstalk(Crosstalk, Reflections):
     is_multiplicative = False
     is_randomized = True
     return_type = "per_baseline"
-    attrs_to_pull = dict(
-        autovis=None,
-    )
+    attrs_to_pull = dict(autovis=None)
 
     def __init__(
         self,
@@ -661,9 +648,7 @@ class CrossCouplingSpectrum(Crosstalk):
     _alias = ("cross_coupling_spectrum", "xtalk_spectrum")
     is_randomized = True
     return_type = "per_baseline"
-    attrs_to_pull = dict(
-        autovis=None,
-    )
+    attrs_to_pull = dict(autovis=None)
 
     def __init__(
         self,
@@ -921,10 +906,7 @@ class MutualCoupling(Crosstalk):
         )
 
     def __call__(
-        self,
-        freqs: np.ndarray,
-        visibilities: np.ndarray,
-        **kwargs,
+        self, freqs: np.ndarray, visibilities: np.ndarray, **kwargs
     ) -> np.ndarray:
         """Calculate the first-order coupled visibilities.
 
@@ -1023,11 +1005,7 @@ class MutualCoupling(Crosstalk):
             )
 
         # Now actually calculate the mutual coupling.
-        xt_vis = utils.matmul(
-            coupling_matrix,
-            visibilities,
-            use_numba=use_numba,
-        )
+        xt_vis = utils.matmul(coupling_matrix, visibilities, use_numba=use_numba)
         xt_vis += xt_vis.conj().transpose(0, 1, 3, 2)
 
         # Return something with the same shape as the input data array.
@@ -1099,8 +1077,7 @@ class MutualCoupling(Crosstalk):
         antenna_numbers = np.array(sorted(array_layout.keys()))
         enu_antpos = np.array([array_layout[ant] for ant in antenna_numbers])
         antpair2angle = utils.find_baseline_orientations(
-            antenna_numbers=antenna_numbers,
-            enu_antpos=enu_antpos,
+            antenna_numbers=antenna_numbers, enu_antpos=enu_antpos
         )
         antpair2angle = {
             antpair: np.round(angle, 2) for antpair, angle in antpair2angle.items()
@@ -1343,11 +1320,7 @@ class OverAirCrossCoupling(Crosstalk):
 
     is_randomized = True
     return_type = "per_baseline"
-    attrs_to_pull = dict(
-        antpair=None,
-        autovis_i=None,
-        autovis_j=None,
-    )
+    attrs_to_pull = dict(antpair=None, autovis_i=None, autovis_j=None)
 
     def __init__(
         self,
@@ -1482,10 +1455,7 @@ class WhiteNoiseCrosstalk(Crosstalk):
         Random number generator.
     """
 
-    _alias = (
-        "whitenoise_xtalk",
-        "white_noise_xtalk",
-    )
+    _alias = ("whitenoise_xtalk", "white_noise_xtalk")
     is_randomized = True
     return_type = "per_baseline"
 
@@ -1523,9 +1493,7 @@ class WhiteNoiseCrosstalk(Crosstalk):
 
 
 def apply_gains(
-    vis: float | np.ndarray,
-    gains: dict[int, float | np.ndarray],
-    bl: tuple[int, int],
+    vis: float | np.ndarray, gains: dict[int, float | np.ndarray], bl: tuple[int, int]
 ) -> np.ndarray:
     """Apply antenna-based gains to a visibility.
 

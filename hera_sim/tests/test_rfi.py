@@ -120,10 +120,7 @@ def test_rfi_dtv_occupancy_variable_chance(freqs, lsts):
         for i, chance in enumerate(chances)
     )
     assert np.isclose(
-        np.mean(np.abs(rfi_vis).astype(bool)),
-        expected_occupancy,
-        atol=0.05,
-        rtol=0,
+        np.mean(np.abs(rfi_vis).astype(bool)), expected_occupancy, atol=0.05, rtol=0
     )
 
 
@@ -157,9 +154,7 @@ def test_rfi_stations_unspecified_stations(freqs, lsts):
 
 
 def test_rfi_station_bad_station_parameters(freqs, lsts):
-    stations = [
-        [0.1, 0.2, 0.3],
-    ]
+    stations = [[0.1, 0.2, 0.3]]
     with pytest.raises(ValueError) as err:
         rfi.rfi_stations(lsts, freqs, stations=stations)
     assert "Please check the format of your stations." in err.value.args[0]

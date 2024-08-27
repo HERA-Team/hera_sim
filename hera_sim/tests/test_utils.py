@@ -113,17 +113,11 @@ def test_rough_filter_noisy_data(freqs, lsts, filter_type):
     if filter_type == "delay":
         filt = utils.rough_delay_filter
         args = [freqs, 50]
-        kwargs = {
-            "standoff": 0,
-            "delay_filter_type": "gauss",
-        }
+        kwargs = {"standoff": 0, "delay_filter_type": "gauss"}
     else:
         filt = utils.rough_fringe_filter
         args = [lsts, freqs, 50]
-        kwargs = {
-            "fringe_filter_type": "gauss",
-            "fr_width": 1e-4,
-        }
+        kwargs = {"fringe_filter_type": "gauss", "fr_width": 1e-4}
     rng = np.random.default_rng(0)
     for i in range(Nrealizations):
         data = utils.gen_white_noise((lsts.size, freqs.size), rng=rng)
@@ -267,10 +261,7 @@ def test_fringe_filter_custom(freqs, lsts, fringe_rates):
     )
     # Check that the filters peak at roughly the same fringe rates.
     assert np.allclose(
-        peak_frates_model[nearest_neighbors],
-        peak_frates_interp,
-        rtol=0.05,
-        atol=0,
+        peak_frates_model[nearest_neighbors], peak_frates_interp, rtol=0.05, atol=0
     )
 
 

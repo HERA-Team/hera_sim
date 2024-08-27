@@ -137,14 +137,14 @@ def modulate_with_dipole(az, za, freqs, ref_freq, beam_vals, fscale):
 
     This is achieved by taking the beam pattern (assumed to be the square-root of a
     power beam) and multiplying it by an zenith, azimuth and frequency -dependent
-    complex dipole matrix (a polarised dipole pattern), with elements:
+    complex dipole matrix (a polarised dipole pattern), with elements::
 
-    ```
-    dipole = q(za_s) * (1. + p(za_s) * 1.j) * [[-sin(az), cos(az)], [cos(az), sin(az)]]
-    ```
+        dipole = (
+            q(za_s) * (1.0 + p(za_s) * 1.0j) * [[-sin(az), cos(az)], [cos(az), sin(az)]]
+        )
 
-    where q and p are functions defined elsewhere in this file, and za_s is the
-    zenith angle streched by a power law.
+    where ``q`` and ``p`` are functions defined elsewhere in this file, and ``za_s`` is
+    the zenith angle streched by a power law.
 
     Parameters
     ----------
@@ -280,11 +280,7 @@ class PolyBeam(AnalyticBeam):
     """
 
     def __init__(
-        self,
-        beam_coeffs=None,
-        spectral_index=0.0,
-        ref_freq=1e8,
-        polarized=False,
+        self, beam_coeffs=None, spectral_index=0.0, ref_freq=1e8, polarized=False
     ):
         self.ref_freq = ref_freq
         self.spectral_index = spectral_index
@@ -483,7 +479,7 @@ class PerturbedPolyBeam(PolyBeam):
         freq_perturb_coeffs=None,
         freq_perturb_scale=0.0,
         perturb_zeropoint=None,
-        **kwargs
+        **kwargs,
     ):
         # Initialize base class
         super().__init__(beam_coeffs=beam_coeffs, **kwargs)

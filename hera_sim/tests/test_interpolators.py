@@ -187,10 +187,7 @@ def test_1d_interpolators_bad_file_ext(freqs, model, interpolator, tmp_path):
 @pytest.mark.parametrize("param", ["freqs", "model"])
 def test_1d_interpolators_missing_npz_keys(freqs, model, param, tmp_path):
     data_file = str(tmp_path / f"test_{model}_missing_{param}_key.npz")
-    kwds = {
-        "freqs": {model: np.ones(freqs.size)},
-        "model": {"freqs": freqs},
-    }
+    kwds = {"freqs": {model: np.ones(freqs.size)}, "model": {"freqs": freqs}}
     np.savez(data_file, **kwds[param])
     with pytest.raises(AssertionError) as err:
         INTERPOLATORS[model](data_file, interpolator="interp1d")

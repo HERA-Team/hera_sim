@@ -51,9 +51,7 @@ class NoiselikeEoR(EoR):
     is_smooth_in_freq = False
     is_randomized = True
     return_type = "per_baseline"
-    attrs_to_pull = dict(
-        bl_vec=None,
-    )
+    attrs_to_pull = dict(bl_vec=None)
 
     def __init__(
         self,
@@ -113,7 +111,7 @@ class NoiselikeEoR(EoR):
             freqs,
             bl_vec[0],
             fringe_filter_type=fringe_filter_type,
-            **fringe_filter_kwargs
+            **fringe_filter_kwargs,
         )
 
         # dirty trick to make autocorrelations real-valued

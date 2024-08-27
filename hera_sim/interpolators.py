@@ -8,14 +8,7 @@ from scipy.interpolate import RectBivariateSpline, interp1d
 
 from hera_sim import DATA_PATH
 
-INTERP_OBJECTS = {
-    "1d": (
-        "beam",
-        "bandpass",
-        "reflection",
-    ),
-    "2d": ("Tsky_mdl",),
-}
+INTERP_OBJECTS = {"1d": ("beam", "bandpass", "reflection"), "2d": ("Tsky_mdl",)}
 
 
 def _check_path(datafile):
@@ -195,7 +188,11 @@ class Tsky(Interpolator):
             ]
         )
         tsky_data = np.concatenate(
-            [tsky_data[-wrap_length:], tsky_data, tsky_data[:wrap_length]]
+            [
+                tsky_data[-wrap_length:],
+                tsky_data,
+                tsky_data[:wrap_length],
+            ]
         )
 
         # now make the interpolation object

@@ -106,10 +106,7 @@ class Simulator:
         self._components = {}
         self._seeds = {}
         self._antpairpol_cache = {}
-        self._filter_cache = {
-            "delay": {},
-            "fringe": {},
-        }
+        self._filter_cache = {"delay": {}, "fringe": {}}
 
         # apply and activate defaults if specified
         if defaults_config:
@@ -125,11 +122,7 @@ class Simulator:
 
         # Let's make some helpful methods from the UVData object available
         for attr in ("data", "flags", "antpairs", "antpairpols", "pols"):
-            setattr(
-                self,
-                f"get_{attr}",
-                getattr(self.data, f"get_{attr}"),
-            )
+            setattr(self, f"get_{attr}", getattr(self.data, f"get_{attr}"))
 
     @property
     def antenna_numbers(self):
@@ -832,10 +825,7 @@ class Simulator:
             self._filter_cache["delay"][bl_int] = delay_filter
 
     def _calculate_fringe_filters(
-        self,
-        *,
-        fringe_filter_type: Optional[str] = "tophat",
-        **filter_kwargs,
+        self, *, fringe_filter_type: Optional[str] = "tophat", **filter_kwargs
     ):
         """
         Calculate fringe-rate filters for all baselines.
@@ -866,11 +856,7 @@ class Simulator:
             )
             self._filter_cache["fringe"][bl_int] = fringe_filter
 
-    def _initialize_data(
-        self,
-        data: Optional[Union[str, Path, UVData]],
-        **kwargs,
-    ):
+    def _initialize_data(self, data: Optional[Union[str, Path, UVData]], **kwargs):
         """
         Initialize the ``data`` attribute with a ``UVData`` object.
 
@@ -1429,7 +1415,7 @@ class Simulator:
 
     @staticmethod
     def _get_component(
-        component: Union[str, type[SimulationComponent], SimulationComponent]
+        component: Union[str, type[SimulationComponent], SimulationComponent],
     ) -> Union[SimulationComponent, type[SimulationComponent]]:
         """Normalize a component to be either a class or instance."""
         if isinstance(component, str):
