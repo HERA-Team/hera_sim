@@ -2,17 +2,14 @@
 
 from __future__ import annotations
 
-import astropy.units as u
 import itertools
 import logging
 import numpy as np
-from astropy.coordinates import EarthLocation
 from astropy.time import Time
 from matvis import HAVE_GPU, __version__
 from matvis import conversions as convs
 from matvis import cpu, gpu
 from matvis.cpu import _evaluate_beam_cpu, _wrangle_beams
-from pyuvdata import UVData
 from pyuvdata import utils as uvutils
 
 from .simulators import ModelData, VisibilitySimulator
@@ -78,8 +75,6 @@ class MatVis(VisibilitySimulator):
         precision: int = 1,
         use_gpu: bool = False,
         mpi_comm=None,
-        ref_time: str | Time | None = None,
-        correct_source_positions: bool | None = None,
         check_antenna_conjugation: bool = True,
         **kwargs,
     ):
@@ -104,12 +99,6 @@ class MatVis(VisibilitySimulator):
 
         self.use_gpu = use_gpu
         self.mpi_comm = mpi_comm
-        self.ref_time = ref_time
-        self.correct_source_positions = (
-            (ref_time is not None)
-            if correct_source_positions is None
-            else correct_source_positions
-        )
         self.check_antenna_conjugation = check_antenna_conjugation
         self._functions_to_profile = (self._matvis, _wrangle_beams, _evaluate_beam_cpu)
         self.kwargs = kwargs
@@ -212,86 +201,10 @@ class MatVis(VisibilitySimulator):
 
         return all_floats * self._precision * 4 / 1024**3
 
-    def correct_point_source_pos(
-        self,
-        data_model: ModelData,
-        obstime: str | Time | None = None,
-        frame: str = "icrs",
-    ) -> tuple[np.ndarray, np.ndarray]:
-        """Apply correction to source RA and Dec positions to improve accuracy.
-
-        This uses an astropy-based coordinate correction, computed for a single
-        reference time, to shift the source RA and Dec coordinates to ones that
-        produce more accurate Alt/Az positions at the location of the array.
-
-        Parameters
-        ----------
-        obstime : str or astropy.Time
-            Specifies the time of the reference observation used to compute the
-            coordinate correction. If specified as a string, this must either use the
-            'isot' format and 'utc' scale, or be one of "mean", "min" or "max". If any
-            of the latter, the ``data_model`` will be used to generate the reference
-            time.
-
-        frame : str, optional
-            Which frame that the original RA and Dec positions are specified
-            in. Any system recognized by ``astropy.SkyCoord`` can be used.
-
-        Returns
-        -------
-        ra, dec
-            The updated source positions.
-        """
-        # Check input reference time
-        if self.ref_time is not None:
-            obstime = self.ref_time
-
-        if isinstance(obstime, str):
-            if obstime == "mean":
-                obstime = Time(data_model.uvdata.time_array.mean(), format="jd")
-            elif obstime == "min":
-                obstime = Time(data_model.uvdata.time_array.min(), format="jd")
-            elif obstime == "max":
-                obstime = Time(data_model.uvdata.time_array.max(), format="jd")
-            else:
-                obstime = Time(obstime, format="isot", scale="utc")
-        elif not isinstance(obstime, Time):
-            raise TypeError("`obstime` must be a string or astropy.Time object")
-
-        # Get reference location
-        # location = EarthLocation.from_geodetic(lat=lat, lon=lon, height=alt)
-        location = EarthLocation.from_geocentric(
-            *data_model.uvdata.telescope_location, unit=u.m
-        )
-
-        # Apply correction to point source positions
-        logger.info("Correcting Source Positions...")
-        ra, dec = data_model.sky_model.ra, data_model.sky_model.dec
-        return convs.equatorial_to_eci_coords(
-            ra, dec, obstime, location, unit="rad", frame=frame
-        )
-
     def _check_if_polarized(self, data_model: ModelData) -> bool:
         p = data_model.uvdata.polarization_array
         # We only do a non-polarized simulation if UVData has only XX or YY polarization
         return len(p) != 1 or uvutils.polnum2str(p[0]) not in ["xx", "yy"]
-
-    def get_eq2tops(self, uvdata: UVData, lsts: np.ndarray):
-        """
-        Calculate transformations from equatorial to topocentric coords.
-
-        Returns
-        -------
-        array_like of self._real_dtype
-            The set of 3x3 transformation matrices converting equatorial
-            to topocenteric co-ordinates at each LST.
-            Shape=(NTIMES, 3, 3).
-        """
-        latitude = uvdata.telescope_location_lat_lon_alt[0]  # rad
-        return np.array(
-            [convs.eci_to_enu_matrix(lst, latitude) for lst in lsts],
-            dtype=self._real_dtype,
-        )
 
     def get_feed(self, uvdata) -> str:
         """Get the feed to use from the beam, given the UVData object.
@@ -317,19 +230,6 @@ class MatVis(VisibilitySimulator):
         if self.mpi_comm is not None:
             myid = self.mpi_comm.Get_rank()
             nproc = self.mpi_comm.Get_size()
-
-        if self.correct_source_positions:
-            ra, dec = self.correct_point_source_pos(data_model)
-            logger.info("Done correcting source positions.")
-        else:
-            ra, dec = data_model.sky_model.ra, data_model.sky_model.dec
-
-        logger.info("Getting Equatorial Coordinates")
-        crd_eq = convs.point_source_crd_eq(ra, dec)
-
-        # Convert equatorial to topocentric coords
-        logger.info("Getting Rotation Matrices")
-        eq2tops = self.get_eq2tops(data_model.uvdata, data_model.lsts)
 
         # The following are antenna positions in the order that they are
         # in the uvdata.data_array
@@ -378,8 +278,9 @@ class MatVis(VisibilitySimulator):
             vis = self._matvis(
                 antpos=active_antpos,
                 freq=freq,
-                eq2tops=eq2tops,
-                crd_eq=crd_eq,
+                times=Time(data_model.times, format="jd"),
+                source_coords=data_model.sky_model.skycoord,
+                telescope_loc=data_model.uvdata.telescope.location,
                 I_sky=data_model.sky_model.stokes[0, i].to("Jy").value,
                 beam_list=beam_list,
                 beam_idx=beam_ids,

@@ -221,6 +221,11 @@ class ModelData:
         return self.uvdata.lst_array[unique_inds]
 
     @cached_property
+    def times(self):
+        """Times at which data is defined."""
+        return np.unique(self.uvdata.time_array)
+
+    @cached_property
     def freqs(self) -> np.ndarray:
         """Frequnecies at which data is defined."""
         return self.uvdata.freq_array

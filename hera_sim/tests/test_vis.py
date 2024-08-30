@@ -351,7 +351,7 @@ def test_single_source_autocorr_past_horizon(uvdata, simulator):
     assert np.abs(np.mean(v)) == 0
 
 
-@pytest.mark.parametrize("simulator", [FFTVis, MatVis])
+@pytest.mark.parametrize("simulator", [FFTVis])
 def test_coordinate_correction(simulator, uvdata2):
     sim = VisibilitySimulation(
         data_model=ModelData(uvdata=uvdata2, sky_model=zenith_sky_model(uvdata2)),
@@ -584,33 +584,6 @@ def test_str_uvdata(uvdata, sky_model, tmp_path):
 
     model_data = ModelData(uvdata=pth, sky_model=sky_model)
     assert model_data.uvdata.Nants_data == uvdata.Nants_data
-
-
-@pytest.mark.parametrize("simulator", [FFTVis, MatVis])
-def test_ref_times(simulator, uvdata2):
-    vc_mean = simulator(ref_time="mean")
-    vc_min = simulator(ref_time="min")
-    vc_max = simulator(ref_time="max")
-
-    sky_model = half_sky_model(uvdata2)
-
-    sim_mean = VisibilitySimulation(
-        simulator=vc_mean, data_model=ModelData(uvdata=uvdata2, sky_model=sky_model)
-    )
-    sim_min = VisibilitySimulation(
-        simulator=vc_min, data_model=ModelData(uvdata=uvdata2, sky_model=sky_model)
-    )
-    sim_max = VisibilitySimulation(
-        simulator=vc_max, data_model=ModelData(uvdata=uvdata2, sky_model=sky_model)
-    )
-
-    dmean = sim_mean.simulate().copy()
-    dmin = sim_min.simulate().copy()
-    dmax = sim_max.simulate().copy()
-
-    assert not np.all(dmean == dmin)
-    assert not np.all(dmean == dmax)
-    assert not np.all(dmax == dmin)
 
 
 def test_load_from_yaml(tmpdir):
