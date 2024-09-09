@@ -114,12 +114,10 @@ class NoiselikeEoR(EoR):
             **fringe_filter_kwargs,
         )
 
-        # dirty trick to make autocorrelations real-valued
-        # TODO: Figure out the statistically correct way to handle autos.
-        # Handling autos this way makes the covariance look like it has
-        # no structure... which is wrong.
-        if np.all(np.isclose(bl_vec, 0)):
-            data = data.real.astype(complex)
+        # Hack to make autocorrelations real-valued and positive. This probably
+        # isn't the right thing to do and should be updated eventually.
+        if np.isclose(np.linalg.norm(bl_vec), 0):
+            data = np.abs(data).astype(complex)
 
         return data
 
