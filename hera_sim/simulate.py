@@ -314,7 +314,7 @@ class Simulator:
                 self._components[model_key]["seed"] = seed
                 self._update_seeds(model_key)
             if vis_filter is not None:
-                kwargs["vis_filter"] = vis_filter
+                self._components[model_key]["vis_filter"] = vis_filter
         else:
             del self._antpairpol_cache[model_key]
             del self._components[model_key]
