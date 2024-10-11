@@ -16,7 +16,19 @@ from hera_sim.beams import (
     stokes_matrix,
 )
 from hera_sim.defaults import defaults
-from hera_sim.visibilities import MatVis, ModelData, VisibilitySimulation
+from hera_sim.visibilities import ModelData, UVSim, VisibilitySimulation
+
+try:
+    from hera_sim.visibilities import MatVis
+
+    SIMULATOR = MatVis
+except ImportError:
+    try:
+        from hera_sim.visibilities import FFTVis
+
+        SIMULATOR = FFTVis
+    except ImportError:
+        SIMULATOR = UVSim
 
 np.seterr(invalid="ignore")
 
@@ -85,9 +97,7 @@ def convert_to_pStokes(eval_beam, az, za, Nfreq):
     return efield_to_pstokes(pol_efield_beam_plot, npix_test, Nfreq)
 
 
-def run_sim(
-    ants, sources, beams, use_gpu=False, use_pol=False, use_mpi=False, pol="xx"
-):
+def run_sim(ants, sources, beams, use_pol=False, pol="xx"):
     """
     Run a simple sim using a rotated elliptic polybeam.
     """
@@ -111,10 +121,10 @@ def run_sim(
 
     # calculate source fluxes for hera_sim
     flux = (freqs[:, np.newaxis] / freqs[0]) ** spectral_index * flux
-
-    simulator = MatVis(
-        use_gpu=use_gpu, mpi_comm=DummyMPIComm() if use_mpi else None, precision=2
-    )
+    if SIMULATOR.__name__ == "MatVis":
+        simulator = SIMULATOR(precision=2)
+    else:
+        simulator = SIMULATOR()
 
     data_model = ModelData(
         uvdata=uvdata,
@@ -490,9 +500,8 @@ class TestZernikeBeam:
         beam1.peak_normalize()
         y1a = beam1.interp(az_array=az, za_array=za, freq_array=freqs)[0]
 
-        assert ~np.allclose(
-            y1, y2
-        )  # Unnormalized vs peak normalized should be different
+        # Unnormalized vs peak normalized should be different
+        assert not np.allclose(y1, y2)
         assert np.allclose(y1a, y2)  # Peak normalized beams should give same results
 
     def test_finitude(self, beams):

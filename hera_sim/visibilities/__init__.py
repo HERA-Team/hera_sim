@@ -18,19 +18,18 @@ from .simulators import (
 )
 
 # Registered Simulators
-
+SIMULATORS = {"UVSim": UVSim}
 
 try:
     from .matvis import MatVis
-except (ImportError, NameError):  # pragma: no cover
-    pass
 
-try:
-    from .healvis_wrapper import HealVis
+    SIMULATORS["MatVis"] = MatVis
 except (ImportError, NameError):  # pragma: no cover
     pass
 
 try:
     from .fftvis import FFTVis
+
+    SIMULATORS["FFTVis"] = FFTVis
 except (ImportError, NameError):  # pragma: no cover
     pass

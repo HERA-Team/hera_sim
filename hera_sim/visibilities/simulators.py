@@ -221,6 +221,17 @@ class ModelData:
         return self.uvdata.lst_array[unique_inds]
 
     @cached_property
+    def times(self):
+        """The *unique* times of the data."""
+        if self.uvdata.blts_are_rectangular:
+            if self.uvdata.time_axis_faster_than_bls:
+                return self.uvdata.time_array[: self.uvdata.Ntimes]
+            else:
+                return self.uvdata.time_array[:: self.uvdata.Nbls]
+        else:
+            return np.unique(self.uvdata.time_array)
+
+    @cached_property
     def freqs(self) -> np.ndarray:
         """Frequnecies at which data is defined."""
         return self.uvdata.freq_array

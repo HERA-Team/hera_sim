@@ -1,10 +1,13 @@
+import pytest
+
 import os
 from hera_cli_utils import parse_args
 from pathlib import Path
-
 from hera_sim.visibilities.cli import run_vis_sim, vis_cli_argparser
 
-DATA_PATH = Path(__file__).parent / "testdata" / "hera-sim-vis-config"
+pytest.importorskip("hera_sim.visibilities.matvis")
+
+DATA_PATH = Path(__file__).parent.parent / "testdata" / "hera-sim-vis-config"
 
 
 def get_config_files(tmp_path, ntimes, nfreqs=2):
