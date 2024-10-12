@@ -322,5 +322,8 @@ def vis_cli_argparser():
     parser.add_argument(
         "--run-auto-check", action="store_true", help="whether to check autos are real"
     )
+    parser.add_argument(
+        '--phase-center-name', default=None, help="name of phase center"
+    )
 
     return parser
