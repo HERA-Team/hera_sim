@@ -20,7 +20,7 @@ class UVSim(VisibilitySimulator):
 
     _functions_to_profile = (pyuvsim.uvsim.run_uvdata_uvsim,)
 
-    def __init__(self, quiet: bool = False):
+    def __init__(self, quiet: bool = True):
         self.quiet = quiet
 
     def simulate(self, data_model: ModelData):
