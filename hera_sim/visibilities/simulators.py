@@ -185,7 +185,8 @@ class ModelData:
         # Don't reorder the blt axis, because each simulator might do it differently.
         logger.info("Initializing UVData object...")
         uvdata, beams, beam_ids = initialize_uvdata_from_params(
-            config_file, reorder_blt_kw={}, check_kw={"run_check_acceptability": False}
+            config_file, reorder_blt_kw={},
+            check_kw={"run_check_acceptability": False, 'check_extra': False}
         )
 
         # Set rectangularity if it's not already set. Required for some simulators.
@@ -201,9 +202,7 @@ class ModelData:
             )[0]
 
         logger.info("Completing UVData object...")
-        _complete_uvdata(
-            uvdata, inplace=True, check_kw={"run_check_acceptability": False}
-        )
+        _complete_uvdata(uvdata, inplace=True, check_kw=False)
 
         return ModelData(
             uvdata=uvdata,
