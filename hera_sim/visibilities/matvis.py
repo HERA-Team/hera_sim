@@ -153,16 +153,7 @@ class MatVis(VisibilitySimulator):
 
         do_pol = self._check_if_polarized(data_model)
         if do_pol:
-            # Number of feeds must be two if doing polarized
-            try:
-                nfeeds = uvbeam.data_array.shape[1 if uvbeam.future_array_shapes else 2]
-            except AttributeError:
-                # TODO: the following assumes that analytic beams are 2 feeds unless
-                # otherwise specified. This should be fixed at the AnalyticBeam API
-                # level.
-                nfeeds = getattr(uvbeam, "Nfeeds", 2)
-
-            assert nfeeds == 2
+            assert uvbeam.beam.Nfeeds == 2
 
     def estimate_memory(self, data_model: ModelData) -> float:
         """
@@ -240,16 +231,14 @@ class MatVis(VisibilitySimulator):
         # The following are antenna positions in the order that they are
         # in the uvdata.data_array
         active_antpos, ant_list = data_model.uvdata.get_ENU_antpos(pick_data_ants=True)
-
-        # Get pixelized beams if required
-        logger.info("Preparing Beams...")
-        if not polarized:
-            beam_list = [
-                prepare_beam_unpolarized(beam, polarized=polarized, use_feed=feed * 2)
-                for beam in data_model.beams
-            ]
-        else:
-            beam_list = data_model.beams
+        # logger.info("Preparing Beams...")
+        # if not polarized:
+        #     beam_list = [
+        #         prepare_beam_unpolarized(beam, use_pol=feed * 2)
+        #         for beam in data_model.beams
+        #     ]
+        # else:
+        #     beam_list = data_model.beams
 
         beam_ids = np.array(
             [
@@ -277,6 +266,10 @@ class MatVis(VisibilitySimulator):
                 data_model.uvdata.data_array, dtype=self._complex_dtype
             )
 
+        antpairs = data_model.uvdata.get_antpairs()
+        antlist = ant_list.tolist()
+        antpairs = np.array([[antlist.index(a), antlist.index(b)] for a,b in antpairs])
+
         for i, freq in enumerate(data_model.freqs):
             # Divide tasks between MPI workers if needed
             if self.mpi_comm is not None and i % nproc != myid:
@@ -292,11 +285,12 @@ class MatVis(VisibilitySimulator):
                 skycoords=data_model.sky_model.skycoord,
                 telescope_loc=data_model.uvdata.telescope.location,
                 I_sky=data_model.sky_model.stokes[0, i].to("Jy").value,
-                beam_list=beam_list,
+                beam_list=data_model.beams,
                 beam_idx=beam_ids,
                 beam_spline_opts=data_model.beams.spline_interp_opts,
                 precision=self._precision,
                 polarized=polarized,
+                antpairs=antpairs,
                 **self.kwargs,
             )
 
@@ -317,65 +311,51 @@ class MatVis(VisibilitySimulator):
         else:
             return visfull
 
-    def _reorder_vis(self, req_pols, uvdata, visfull, vis, ant_list, polarized):
-        ant1idx, ant2idx = np.triu_indices(vis.shape[-1])
+    def _reorder_vis(self, req_pols, uvdata: UVData, visfull, vis, ant_list, polarized):
 
-        try:
-            if (
-                getattr(uvdata, "blt_order", None) == ("time", "ant1")
-                and sorted(req_pols) == req_pols
-            ):
-                logger.info("Using direct setting of data without reordering")
-                # This is the best case scenario -- no need to reorder anything.
-                # It is also MUCH MUCH faster!
-                start_shape = visfull.shape
-                visfull.shape = (np.prod(visfull.shape),)  # flatten without copying
-                n = (uvdata.Nblts // vis.shape[0]) * len(req_pols)
-                for i, vis_here in enumerate(vis):
-                    if polarized:
-                        vis_here = vis_here.transpose(2, 3, 0, 1)[
-                            ant1idx, ant2idx
-                        ].reshape((-1,))
-                    else:
-                        vis_here = vis_here[:, ant1idx, ant2idx].reshape((-1,))
-
-                    visfull[(i * n) : ((i + 1) * n)] = vis_here
-                visfull.shape = start_shape
-                return
-        except AttributeError:
-            pass
+        if (
+            uvdata.blts_are_rectangular and
+            not uvdata.time_axis_faster_than_bls and
+            sorted(req_pols) == req_pols
+        ):
+            logger.info("Using direct setting of data without reordering")
+            # This is the best case scenario -- no need to reorder anything.
+            # It is also MUCH MUCH faster!
+            vis.shape = (uvdata.Nblts, uvdata.Npols)
+            visfull[:] = vis
+            return
 
         logger.info(
             f"Reordering baselines. Pols sorted: {sorted(req_pols) == req_pols}. "
             f"Pols = {req_pols}. blt_order = {uvdata.blt_order}"
         )
-        for ant1, ant2 in zip(ant1idx, ant2idx):  # go through indices in output
+
+        for i, (ant1, ant2) in enumerate(uvdata.get_antpairs()):
             # get official "antenna numbers" corresponding to these indices
-            antnum1, antnum2 = ant_list[ant1], ant_list[ant2]
+            #antnum1, antnum2 = ant_list[ant1], ant_list[ant2]
 
             # get all blt indices corresponding to this antpair
-            indx = uvdata.antpair2ind(antnum1, antnum2)
+            indx = uvdata.antpair2ind(ant1, ant2)
+            vis_here = vis[:, i]
+
             if indx is None:
                 # maybe we chose the wrong ordering according to the data. Then
                 # we just conjugate.
-                indx = uvdata.antpair2ind(antnum2, antnum1)
-                vis_here = vis[..., ant2, ant1]
-            else:
-                vis_here = vis[..., ant1, ant2]
+                indx = uvdata.antpair2ind(ant2, ant1)
+                vis_here = vis_here.con()
 
             if polarized:
                 for p, (p1, p2) in enumerate(req_pols):
                     visfull[indx, p] = vis_here[:, p1, p2]
             else:
                 visfull[indx, 0] = vis_here
-
     def _get_req_pols(self, uvdata, uvbeam, polarized: bool) -> list[tuple[int, int]]:
         if not polarized:
             return [(0, 0)]
 
-        # TODO: this can be updated to just access uvbeam.feed_array once the
-        # AnalyticBeam API has been improved.
-        feeds = list(getattr(uvbeam, "feed_array", ["x", "y"]))
+        feeds = uvbeam.feed_array
+        if isinstance(feeds, np.ndarray):
+            feeds = feeds.tolist()  # convert to list if necessary
 
         # In order to get all 4 visibility polarizations for a dual feed system
         vispols = set()

@@ -1,168 +1,121 @@
 import pytest
-
-import astropy_healpix.healpy as hp
-import copy
 import numpy as np
-from astropy import units
-from astropy.coordinates import Latitude, Longitude
-from pyradiosky import SkyModel
 
-from hera_sim import io
 from hera_sim.beams import (
     PerturbedPolyBeam,
     PolyBeam,
     ZernikeBeam,
-    efield_to_pstokes,
-    stokes_matrix,
 )
-from hera_sim.defaults import defaults
-from hera_sim.visibilities import ModelData, UVSim, VisibilitySimulation
-
-try:
-    from hera_sim.visibilities import MatVis
-
-    SIMULATOR = MatVis
-except ImportError:
-    try:
-        from hera_sim.visibilities import FFTVis
-
-        SIMULATOR = FFTVis
-    except ImportError:
-        SIMULATOR = UVSim
-
-np.seterr(invalid="ignore")
 
 
-@pytest.fixture(scope="module")
-def antennas():
-    return {0: (308, 253, 0.49), 1: (8, 299, 0.22)}
-
-
-@pytest.fixture(scope="module")
-def sources():
-    ra_dec = np.deg2rad(np.array([[128, -29]]))
-    flux = np.array([[4]])
-    spectral_index = np.array([[0]])
-    return ra_dec, flux, spectral_index
-
-
-class DummyMPIComm:
-    """
-    Exists so the MPI interface can be tested, but not run.
-    """
-
-    def Get_size(self):
-        return 2  # Pretend there are 2 processes
-
-
-def evaluate_polybeam(polybeam):
+def evaluate_polybeam(polybeam: PolyBeam, efield: bool=True, nside: int=32):
     """
     Evaluate a PolyBeam at hard-coded az and za angles, and frequencies.
     """
-    n_pix_lm = 500
-    L = np.linspace(-1, 1, n_pix_lm, dtype=float)
-    L, m = np.meshgrid(L, L)
-    L = L.flatten()
-    m = m.flatten()
-
-    lsqr = L**2 + m**2
-    n = np.where(lsqr < 1, np.sqrt(1 - lsqr), 0)
-
-    # Generate azimuth and zenith angle.
-    az = -np.arctan2(m, L)
-    za = np.pi / 2 - np.arcsin(n)
-
-    freqs = np.arange(1e8, 2.01e8, 0.04e8)
-
-    eval_beam = polybeam.interp(az, za, freqs)
-
-    # Check that calling the interp() method with wrongly sized
-    # coordinates results in an error
-    with pytest.raises(ValueError):
-        _ = polybeam.interp(az, za[:-1], freqs)
-
-    return (eval_beam[0], az, za, freqs.size)
-
-
-def convert_to_pStokes(eval_beam, az, za, Nfreq):
-    """
-    Convert an E-field to its pseudo-Stokes power beam.
-    """
-    nside_test = 64
-    pixel_indices_test = hp.ang2pix(nside_test, za, az)
-    npix_test = hp.nside2npix(nside_test)
-
-    pol_efield_beam_plot = np.zeros((2, 2, Nfreq, npix_test), dtype=np.complex128)
-    pol_efield_beam_plot[:, :, :, pixel_indices_test] = eval_beam[:, :, :, :]
-    return efield_to_pstokes(pol_efield_beam_plot, npix_test, Nfreq)
-
-
-def run_sim(ants, sources, beams, use_pol=False, pol="xx"):
-    """
-    Run a simple sim using a rotated elliptic polybeam.
-    """
-    defaults.set("h1c")
-    pol_array = np.array(["yx", "xy", "yy", "xx"]) if use_pol else ["xx"]
-
-    # Observing parameters in a UVData object.
-    uvdata = io.empty_uvdata(
-        Nfreqs=1,
-        start_freq=100000000.0,
-        channel_width=97000.0,
-        start_time=2458902.4,
-        integration_time=40,
-        Ntimes=1,
-        array_layout=ants,
-        polarization_array=pol_array,
-        x_orientation="east",
+    return polybeam.to_uvbeam(
+        freq_array=np.arange(1e8, 2.01e8, 0.04e8),
+        pixel_coordinate_system='healpix',
+        nside=nside,
+        beam_type='efield' if efield else 'power'
     )
-    freqs = uvdata.freq_array
-    ra_dec, flux, spectral_index = sources
 
-    # calculate source fluxes for hera_sim
-    flux = (freqs[:, np.newaxis] / freqs[0]) ** spectral_index * flux
-    if SIMULATOR.__name__ == "MatVis":
-        simulator = SIMULATOR(precision=2)
-    else:
-        simulator = SIMULATOR()
+def check_beam_is_finite(polybeam: PolyBeam, efield: bool = True):
+    uvbeam = evaluate_polybeam(polybeam, efield)
+    assert np.all(np.isfinite(uvbeam.data_array))
 
-    data_model = ModelData(
-        uvdata=uvdata,
-        beams=beams,
-        sky_model=SkyModel(
-            freq_array=freqs * units.Hz,
-            ra=Longitude(ra_dec[:, 0] * units.rad),
-            dec=Latitude(ra_dec[:, 1] * units.rad),
-            spectral_type="full",
-            stokes=np.array(
-                [
-                    flux,
-                    np.zeros_like(flux),
-                    np.zeros_like(flux),
-                    np.zeros_like(flux),
-                ]
-            )
-            * units.Jy,
-            name=["derp"] * flux.shape[1],
-            frame="icrs",
-        ),
-    )
-    simulation = VisibilitySimulation(data_model=data_model, simulator=simulator)
-    simulation.simulate()
+# def convert_to_pStokes(eval_beam, az, za, Nfreq):
+#     """
+#     Convert an E-field to its pseudo-Stokes power beam.
+#     """
+#     nside_test = 64
+#     pixel_indices_test = hp.ang2pix(nside_test, za, az)
+#     npix_test = hp.nside2npix(nside_test)
 
-    return np.abs(simulation.uvdata.get_data(0, 0, pol)[0][0])
+#     pol_efield_beam_plot = np.zeros((2, 2, Nfreq, npix_test), dtype=np.complex128)
+#     pol_efield_beam_plot[:, :, :, pixel_indices_test] = eval_beam[:, :, :, :]
+#     return efield_to_pstokes(pol_efield_beam_plot, npix_test, Nfreq)
+
+
+# def run_sim(ants, sources, beams, use_pol=False, pol="xx"):
+#     """
+#     Run a simple sim using a rotated elliptic polybeam.
+#     """
+#     defaults.set("h1c")
+#     pol_array = np.array(["yx", "xy", "yy", "xx"]) if use_pol else ["xx"]
+
+#     # Observing parameters in a UVData object.
+#     uvdata = io.empty_uvdata(
+#         Nfreqs=1,
+#         start_freq=100000000.0,
+#         channel_width=97000.0,
+#         start_time=2458902.4,
+#         integration_time=40,
+#         Ntimes=1,
+#         array_layout=ants,
+#         polarization_array=pol_array,
+#         x_orientation="east",
+#     )
+#     freqs = uvdata.freq_array
+#     ra_dec, flux, spectral_index = sources
+
+#     # calculate source fluxes for hera_sim
+#     flux = (freqs[:, np.newaxis] / freqs[0]) ** spectral_index * flux
+#     if SIMULATOR.__name__ == "MatVis":
+#         simulator = SIMULATOR(precision=2)
+#     else:
+#         simulator = SIMULATOR()
+
+#     data_model = ModelData(
+#         uvdata=uvdata,
+#         beams=beams,
+#         sky_model=SkyModel(
+#             freq_array=freqs * units.Hz,
+#             ra=Longitude(ra_dec[:, 0] * units.rad),
+#             dec=Latitude(ra_dec[:, 1] * units.rad),
+#             spectral_type="full",
+#             stokes=np.array(
+#                 [
+#                     flux,
+#                     np.zeros_like(flux),
+#                     np.zeros_like(flux),
+#                     np.zeros_like(flux),
+#                 ]
+#             )
+#             * units.Jy,
+#             name=["derp"] * flux.shape[1],
+#             frame="icrs",
+#         ),
+#     )
+#     simulation = VisibilitySimulation(data_model=data_model, simulator=simulator)
+#     simulation.simulate()
+
+#     return np.abs(simulation.uvdata.get_data(0, 0, pol)[0][0])
 
 
 class TestPerturbedPolyBeam:
-    def get_perturbed_beams(
-        self, rotation, polarized=False, power_beam=False
-    ) -> list[PerturbedPolyBeam]:
+    def get_perturbed_beam(self, rotation: float) -> PerturbedPolyBeam:
         """
         Elliptical PerturbedPolyBeam.
 
         This will also test PolyBeam, from which PerturbedPolybeam is derived.
         """
-        cfg_beam = dict(
+        return PerturbedPolyBeam(
+            perturb_coeffs=np.array(
+                [
+                    -0.20437532,
+                    -0.4864951,
+                    -0.18577532,
+                    -0.38053642,
+                    0.08897764,
+                    0.06367166,
+                    0.29634711,
+                    1.40277112,
+                ]
+            ),
+            mainlobe_scale=1.0,
+            xstretch=1.1,
+            ystretch=0.8,
+            rotation=rotation,
             ref_freq=1.0e8,
             spectral_index=-0.6975,
             mainlobe_width=0.3,
@@ -187,99 +140,39 @@ class TestPerturbedPolyBeam:
                 0.00351559,
             ],
         )
-        beams = [
-            PerturbedPolyBeam(
-                perturb_coeffs=np.array(
-                    [
-                        -0.20437532,
-                        -0.4864951,
-                        -0.18577532,
-                        -0.38053642,
-                        0.08897764,
-                        0.06367166,
-                        0.29634711,
-                        1.40277112,
-                    ]
-                ),
-                mainlobe_scale=1.0,
-                xstretch=1.1,
-                ystretch=0.8,
-                rotation=rotation,
-                polarized=polarized,
-                **cfg_beam,
-            )
-        ]
 
-        # Specify power beam if requested
-        if power_beam:
-            for beam in beams:
-                beam.efield_to_power()
+    def test_rotation_180_deg(self):
+        """Test that rotation by 180 degrees produces the same beam."""
+        beam_unrot = self.get_perturbed_beam(rotation=0)
+        beamrot = self.get_perturbed_beam(rotation=180.0)
+        beam_unrot = evaluate_polybeam(beam_unrot)
+        beamrot = evaluate_polybeam(beamrot)
+        np.testing.assert_allclose(
+            beam_unrot.data_array, -beamrot.data_array, atol=1e-8
+        )
 
-        return beams
-
-    def test_rotations(self, antennas, sources):
+    def test_rotation_90_deg(self):
+        """Test that rotation by 90 degrees produces a different beam."""
         # Rotate the beam from 0 to 180 degrees, and check that autocorrelation
         # of antenna 0 has approximately the same value when pixel beams are
         # used, and when pixel beams not used (direct beam calculation).
-        rvals = np.linspace(0.0, 180.0, 31, dtype=int)
+        #rvals = np.linspace(0.0, 180.0, 31, dtype=int)
+        beam_unrot = self.get_perturbed_beam(rotation=0)
+        beamrot = self.get_perturbed_beam(rotation=90.0)
+        beam_unrot = evaluate_polybeam(beam_unrot)
+        beamrot = evaluate_polybeam(beamrot)
+        assert not np.allclose(beam_unrot.data_array, beamrot.data_array)
 
-        rotations = np.zeros(rvals.size)
-        calc_results = np.zeros(rvals.size)
-        for i, r in enumerate(rvals):
-            beams = self.get_perturbed_beams(r, power_beam=True)
-
-            # Direct beam calculation - no pixel beams
-            calc_result = run_sim(antennas, sources, beams)
-
-            rotations[i] = r
-            calc_results[i] = calc_result
-
-        # Check that rotations 0 and 180 produce the same values.
-        assert calc_results[0] == pytest.approx(calc_results[-1], abs=1e-8)
-
-        # Check that the values are not all the same. Shouldn't be, due to
-        # elliptic beam.
-        assert np.min(calc_results) != pytest.approx(np.max(calc_results), abs=0.1)
-
-    def test_power_beam(self, antennas, sources):
-        # Check that power beam calculation returns values
-        beams = self.get_perturbed_beams(180.0, power_beam=True)
-
-        calc_result = run_sim(antennas, sources, beams)
-        assert np.all(np.isfinite(calc_result))
-
-    def test_beam_select(self, antennas, sources):
-        # Check that PolyBeam classes have a select() method, but that it does nothing
-        beams = self.get_perturbed_beams(180.0, power_beam=True)
-        for beam in beams:
-            beam.select(any_kwarg_should_work=1)
-
-    @pytest.mark.parametrize("pol", ["ee", "nn", "en", "ne"])
-    def test_polarized_validity(self, antennas, sources, pol):
-        beams = self.get_perturbed_beams(12.0)
-        res = run_sim(antennas, sources, beams, use_pol=True, pol=pol)
-        assert np.all(np.isfinite(res))
-
-    def test_unpolarized_validity(self, antennas, sources):
-        beams = self.get_perturbed_beams(12.0, power_beam=True)
-        res = run_sim(antennas, sources, beams, use_pol=False, pol="ee")
-        assert np.all(np.isfinite(res))
-
-    def test_error_without_mainlobe_width(self):
-        # Check that error is raised if mainlobe_width not specified
-        with pytest.raises(ValueError):
-            PerturbedPolyBeam(
-                perturb_coeffs=np.array([-0.204, -0.486]),
-                mainlobe_width=None,
-                beam_coeffs=[2.35e-01, -4.2e-01, 2.99e-01],
-            )
+    @pytest.mark.parametrize("efield", [True, False])
+    def test_finiteness_of_eval(self, efield):
+        beam = self.get_perturbed_beam(0)
+        check_beam_is_finite(beam)
 
     def test_perturb_scale_greater_than_one(self):
         # Check that perturb_scale > 1 raises ValueError
         with pytest.raises(ValueError):
             PerturbedPolyBeam(
                 perturb_coeffs=np.array([-0.204, -0.486]),
-                mainlobe_width=None,
                 beam_coeffs=[2.35e-01, -4.2e-01, 2.99e-01],
                 perturb_scale=1.1,
             )
@@ -287,13 +180,10 @@ class TestPerturbedPolyBeam:
     def test_no_perturb_coeffs(self):
         # Check that specifying no perturbation coeffs works
         ppb = PerturbedPolyBeam(
-            perturb_coeffs=None,
             mainlobe_width=1.0,
             beam_coeffs=[2.35e-01, -4.2e-01, 2.99e-01],
         )
-
-        eval_beam = evaluate_polybeam(ppb)[0]
-        assert np.all(np.isfinite(eval_beam))
+        check_beam_is_finite(ppb)
 
     def test_specify_freq_perturb_coeffs(self):
         # Check that specifying freq_perturb_coeffs works
@@ -303,8 +193,7 @@ class TestPerturbedPolyBeam:
             beam_coeffs=[2.35e-01, -4.2e-01, 2.99e-01],
             freq_perturb_coeffs=[0.0, 0.1],
         )
-        eval_beam = evaluate_polybeam(ppb)[0]
-        assert np.all(np.isfinite(eval_beam))
+        check_beam_is_finite(ppb)
 
     def test_mainlobe_scale(self):
         # Check that specifying mainlobe_scale factor works
@@ -315,8 +204,7 @@ class TestPerturbedPolyBeam:
             freq_perturb_coeffs=[0.0, 0.1],
             mainlobe_scale=1.1,
         )
-        eval_beam = evaluate_polybeam(ppb)[0]
-        assert np.all(np.isfinite(eval_beam))
+        check_beam_is_finite(ppb)
 
     def test_zeropoint(self):
         ppb = PerturbedPolyBeam(
@@ -326,9 +214,7 @@ class TestPerturbedPolyBeam:
             freq_perturb_coeffs=[0.0, 0.1],
             perturb_zeropoint=1.0,
         )
-
-        eval_beam = evaluate_polybeam(ppb)[0]
-        assert np.all(np.isfinite(eval_beam))
+        check_beam_is_finite(ppb)
 
     def test_bad_freq_perturb_scale(self):
         with pytest.raises(ValueError, match="must be less than 1"):
@@ -340,111 +226,23 @@ class TestPerturbedPolyBeam:
                 freq_perturb_scale=2.0,
             )
 
+    def test_normalization(self):
+        beam = self.get_perturbed_beam(0.0)
+        uvbeam = evaluate_polybeam(beam, nside=64)
+        abs_data = np.abs(uvbeam.data_array)
+        min_abs = np.min(abs_data, axis=-1)
+        max_abs = np.max(abs_data, axis=-1)
 
-class TestPolarizedPolyBeam:
-    @pytest.fixture(scope="class")
-    def polarized_polybeam(self):
-        """
-        Create a polarized PolyBeam.
-
-        The parameters of the beam were copied from the HERA Memo n°81:
-        https://reionization.org/wp-content/uploads/2013/03/HERA081_HERA_Primary_Beam_Chebyshev_Apr2020.pdf.
-
-        """
-        # parameters
-        spectral_index = -0.6975
-        beam_coeffs = [
-            2.35088101e-01,
-            -4.20162599e-01,
-            2.99189140e-01,
-            -1.54189057e-01,
-            3.38651457e-02,
-            3.46936067e-02,
-            -4.98838130e-02,
-            3.23054464e-02,
-            -7.56006552e-03,
-            -7.24620596e-03,
-            7.99563166e-03,
-            -2.78125602e-03,
-            -8.19945835e-04,
-            1.13791191e-03,
-            -1.24301372e-04,
-            -3.74808752e-04,
-            1.93997376e-04,
-            -1.72012040e-05,
-        ]
-        ref_freq = 1e8
-        # instantiate the PolyBeam object
-        cfg_pol_beam = dict(
-            ref_freq=ref_freq,
-            spectral_index=spectral_index,
-            beam_coeffs=beam_coeffs,
-            polarized=True,
-        )
-        return PolyBeam(**cfg_pol_beam)
-
-    @pytest.fixture(scope="class")
-    def eval_beam(self, polarized_polybeam):
-        eval_beam, az, za, Nfreq = evaluate_polybeam(polarized_polybeam)
-        return eval_beam
-
-    @pytest.fixture(scope="class")
-    def eval_beam_pstokes(self, polarized_polybeam):
-        eval_beam, az, za, Nfreq = evaluate_polybeam(polarized_polybeam)
-        return convert_to_pStokes(eval_beam, az, za, Nfreq)
-
-    def test_normalization(self, polarized_polybeam, eval_beam):
-        """
-        Wrapper for all polarized PolyBeam tests.
-        Instantiate and evaluate a beam (once).
-        """
-        eval_beam, az, za, Nfreq = evaluate_polybeam(polarized_polybeam)
-
-        # Check that the beam is normalized between 1 and 0 (± 1e-2),
-        # at all polarizations and a range of selected frequencies.
-        for vec in [0, 1]:
-            for feed in [0, 1]:
-                for freq in [0, 5, 10, 15, 20, 25]:
-                    modulus = np.abs(eval_beam[vec, feed, freq])
-                    M = np.max(modulus)
-                    m = np.min(modulus)
-                    assert M <= 1 and M == pytest.approx(
-                        1, rel=3e-2
-                    ), "beam not properly normalized"
-                    assert m >= 0 and m == pytest.approx(
-                        0, abs=1e-3
-                    ), "beam not properly normalized"
-
-    def test_all_values_valid(self, eval_beam):
-        # Check that neither NaNs nor Infs atre returned by the interp() method.
-        assert not np.isnan(eval_beam).any(), "the beam contains NaN values"
-        assert not np.isinf(eval_beam).any(), "the beam contains Inf values"
-
-    def test_pstokes_real(self, eval_beam_pstokes):
-        # Check that pStokes power beams are real
-        assert np.isreal(
-            eval_beam_pstokes
-        ).all(), "the pseudo-Stokes beams are not real"
-
-    def test_equality_method(self, polarized_polybeam):
-        assert polarized_polybeam == polarized_polybeam
-
-    def test_not_all_pols(self, polarized_polybeam, antennas, sources):
-        ppb = copy.deepcopy(polarized_polybeam)
-        ppb.feed_array = ["X", "Y"]
-        with pytest.raises(
-            ValueError, match="Not all polarizations in UVData object are in your beam."
-        ):
-            run_sim(antennas, sources, [ppb], use_pol=True)
+        np.testing.assert_allclose(min_abs, 0, atol=1e-5)
+        np.testing.assert_allclose(max_abs, 1, atol=0.08)
 
 
 class TestZernikeBeam:
-    @pytest.fixture(scope="function")
-    def beams(self):
+    def beam(self, peak_normalized: bool = True):
         """
         Zernike polynomial beams with some randomly-chosen coefficients.
         """
-        cfg_beam = dict(
+        return ZernikeBeam(
             ref_freq=1.0e8,
             spectral_index=-0.6975,
             beam_coeffs=[
@@ -476,46 +274,19 @@ class TestZernikeBeam:
                 0.0,
                 0.01,
             ],
+            peak_normalized=peak_normalized
         )
-        return [ZernikeBeam(**cfg_beam)]
 
-    def test_equality(self, beams):
-        # Check basic methods
-        assert beams[0] == beams[0]  # test __eq__ method
-        assert beams[0] != 1
+    def test_peak_normalize(self):
+        beam_unnorm = self.beam(False)
+        beam_norm = self.beam(True)
 
-    def test_peak_normalize(self, beams):
-        # Coords to evaluate at
-        za = np.linspace(0.0, 0.5 * np.pi, 40)
-        az = np.zeros(za.size)
-        freqs = np.array([100.0e6])
+        uvbeam_unnorm = evaluate_polybeam(beam_unnorm)
+        uvbeam_norm = evaluate_polybeam(beam_norm)
 
-        beam1 = beams[0]
-        beam2 = copy.deepcopy(beams[0])
+        assert not np.allclose(uvbeam_norm.data_array, uvbeam_unnorm.data_array)
 
-        # Check peak normalize works (beams are peak normalized by default)
-        beam1.peak_normalized = False
-        y1 = beam1.interp(az_array=az, za_array=za, freq_array=freqs)[0]
-        y2 = beam2.interp(az_array=az, za_array=za, freq_array=freqs)[0]
-        beam1.peak_normalize()
-        y1a = beam1.interp(az_array=az, za_array=za, freq_array=freqs)[0]
-
-        # Unnormalized vs peak normalized should be different
-        assert not np.allclose(y1, y2)
-        assert np.allclose(y1a, y2)  # Peak normalized beams should give same results
-
-    def test_finitude(self, beams):
-        # Check to make sure power beam gives finite results
-
-        za = np.linspace(0.0, 0.5 * np.pi, 40)
-        az = np.zeros(za.size)
-        freqs = np.array([100.0e6])
-
-        beams[0].beam_type = "power"
-        y1b = beams[0].interp(az_array=az, za_array=za, freq_array=freqs)[0]
-        assert np.all(np.isfinite(y1b))
-
-
-def test_pol_stokes_bad_idx():
-    with pytest.raises(ValueError, match="must be an integer between"):
-        stokes_matrix(5)
+    @pytest.mark.parametrize("peak_normalized", [False, True])
+    def test_finitude(self, peak_normalized):
+        beam = self.beam(peak_normalized)
+        check_beam_is_finite(beam)

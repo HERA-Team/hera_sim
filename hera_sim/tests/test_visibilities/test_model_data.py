@@ -2,14 +2,14 @@ import pytest
 
 import copy
 from astropy import units
-from pyuvsim.analyticbeam import AnalyticBeam
+from pyuvdata.analytic_beam import GaussianBeam, AiryBeam
 from pyuvsim.telescope import BeamConsistencyError
 
 from hera_sim.visibilities import ModelData
 
 
 def test_beam_type_consistency(uvdata, sky_model):
-    beams = [AnalyticBeam("gaussian"), AnalyticBeam("airy")]
+    beams = [GaussianBeam(), AiryBeam()]
     beams[0].efield_to_power()
 
     with pytest.raises(BeamConsistencyError):
@@ -20,7 +20,7 @@ def test_power_polsky(uvdata, sky_model):
     new_sky = copy.deepcopy(sky_model)
     new_sky.stokes[1:] = 1.0 * units.Jy
 
-    beams = [AnalyticBeam("gaussian")]
+    beams = [GaussianBeam()]
     beams[0].efield_to_power()
 
     with pytest.raises(TypeError):

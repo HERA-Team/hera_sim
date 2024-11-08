@@ -44,7 +44,8 @@ def get_config_files(tmp_path, ntimes, nfreqs=2):
 
     telfile = f"""
 beam_paths:
-  0: {DATA_PATH}/NF_HERA_Dipole_small.fits
+  0: !UVBeam
+    filename: {DATA_PATH}/NF_HERA_Dipole_small.fits
 telescope_location: (-30.72152612068957, 21.428303826863015, 1051.6900000218302)
 telescope_name: HERA
     """
