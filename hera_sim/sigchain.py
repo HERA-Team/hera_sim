@@ -937,7 +937,7 @@ class MutualCoupling(Crosstalk):
         """
         self._check_kwargs(**kwargs)
         (
-            uvbeam,
+            beam,
             reflection,
             omega_p,
             ant_1_array,
@@ -959,12 +959,12 @@ class MutualCoupling(Crosstalk):
 
         # Now, check that the input beam is OK in case we need to use it.
         if coupling_matrix is None:
-            uvbeam = MutualCoupling._handle_beam(uvbeam, **beam_kwargs)
+            beam = MutualCoupling._handle_beam(beam, **beam_kwargs)
 
             # This already happens in build_coupling_matrix, but the reshape
             # step is not a trivial amount of time, so it's better to do it
             # again here.
-            self._check_beam_is_ok(uvbeam)
+            self._check_beam_is_ok(beam)
 
         # Let's make sure that we're only using antennas that are in the data.
         antpos_ants = antpos_ants.intersection(data_ants)
@@ -997,7 +997,7 @@ class MutualCoupling(Crosstalk):
                 ant_1_array=ant_1_array,
                 ant_2_array=ant_2_array,
                 array_layout=array_layout,
-                uvbeam=uvbeam,
+                uvbeam=beam,
                 reflection=reflection,
                 omega_p=omega_p,
                 pixel_interp=pixel_interp,
@@ -1196,20 +1196,20 @@ class MutualCoupling(Crosstalk):
         return coupling_matrix
 
     @staticmethod
-    def _check_beam_is_ok(uvbeam):
-        if isinstance(uvbeam, AnalyticBeam):
+    def _check_beam_is_ok(beam):
+        if isinstance(beam, AnalyticBeam):
             return
-        if getattr(uvbeam, "pixel_coordinate_system", "") != "az_za":
+        if getattr(beam, "pixel_coordinate_system", "") != "az_za":
             raise ValueError("Beam must be given in az/za coordinates.")
-        if uvbeam.beam_type != "efield":
+        if beam.beam_type != "efield":
             raise NotImplementedError("Only E-field beams are supported.")
 
     @staticmethod
-    def _handle_beam(uvbeam, **beam_kwargs):
-        if isinstance(uvbeam, (AnalyticBeam, UVBeam)):
-            return uvbeam
-        if Path(uvbeam).exists():
-            return UVBeam.from_file(uvbeam, **beam_kwargs)
+    def _handle_beam(beam, **beam_kwargs):
+        if isinstance(beam, (AnalyticBeam, UVBeam)):
+            return beam
+        if Path(beam).exists():
+            return UVBeam.from_file(beam, **beam_kwargs)
         raise ValueError("uvbeam has incorrect format")
 
 

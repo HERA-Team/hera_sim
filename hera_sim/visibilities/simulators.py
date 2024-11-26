@@ -18,7 +18,7 @@ from pyradiosky import SkyModel
 from pyuvdata import UVBeam, UVData
 from pyuvsim import BeamList
 from pyuvsim import __version__ as uvsimv
-from pyuvdata import analytic_beam as ab
+from pyuvdata import UniformBeam
 from pyuvsim.simsetup import (
     _complete_uvdata,
     initialize_catalog_from_params,
@@ -114,7 +114,7 @@ class ModelData:
     @classmethod
     def _process_beams(cls, beams: BeamListType | None, normalize_beams: bool):
         if beams is None:
-            beams = [ab.UniformBeam()]
+            beams = [UniformBeam()]
 
         if not isinstance(beams, BeamList):
             beams = BeamList(beams)

@@ -231,14 +231,7 @@ class MatVis(VisibilitySimulator):
         # The following are antenna positions in the order that they are
         # in the uvdata.data_array
         active_antpos, ant_list = data_model.uvdata.get_ENU_antpos(pick_data_ants=True)
-        # logger.info("Preparing Beams...")
-        # if not polarized:
-        #     beam_list = [
-        #         prepare_beam_unpolarized(beam, use_pol=feed * 2)
-        #         for beam in data_model.beams
-        #     ]
-        # else:
-        #     beam_list = data_model.beams
+
 
         beam_ids = np.array(
             [
@@ -331,9 +324,6 @@ class MatVis(VisibilitySimulator):
         )
 
         for i, (ant1, ant2) in enumerate(uvdata.get_antpairs()):
-            # get official "antenna numbers" corresponding to these indices
-            #antnum1, antnum2 = ant_list[ant1], ant_list[ant2]
-
             # get all blt indices corresponding to this antpair
             indx = uvdata.antpair2ind(ant1, ant2)
             vis_here = vis[:, i]
