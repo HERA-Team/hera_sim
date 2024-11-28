@@ -4,26 +4,20 @@ import copy
 from astropy import units
 from pyuvdata.analytic_beam import GaussianBeam, AiryBeam
 from pyuvsim.telescope import BeamConsistencyError
-
+from pyuvdata.beam_interface import BeamInterface
 from hera_sim.visibilities import ModelData
-
-
-def test_beam_type_consistency(uvdata, sky_model):
-    beams = [GaussianBeam(), AiryBeam()]
-    beams[0].efield_to_power()
-
-    with pytest.raises(BeamConsistencyError):
-        ModelData(uvdata=uvdata, sky_model=sky_model, beams=beams)
 
 
 def test_power_polsky(uvdata, sky_model):
     new_sky = copy.deepcopy(sky_model)
     new_sky.stokes[1:] = 1.0 * units.Jy
 
-    beams = [GaussianBeam()]
-    beams[0].efield_to_power()
-
-    with pytest.raises(TypeError):
+    beams = [BeamInterface(GaussianBeam(diameter=14.0), beam_type='power')]
+    print(beams)
+    with pytest.raises(
+        TypeError,
+        match='Cannot use power beams when the sky model contains polarized sources'
+    ):
         ModelData(uvdata=uvdata, sky_model=new_sky, beams=beams)
 
 

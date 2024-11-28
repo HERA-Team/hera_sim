@@ -15,10 +15,9 @@ from dataclasses import dataclass
 from os import path
 from pathlib import Path
 from pyradiosky import SkyModel
-from pyuvdata import UVBeam, UVData
+from pyuvdata import UVBeam, UVData, UniformBeam
 from pyuvsim import BeamList
-from pyuvsim import __version__ as uvsimv
-from pyuvdata import UniformBeam
+from pyuvdata.analytic_beam import AnalyticBeam
 from pyuvsim.simsetup import (
     _complete_uvdata,
     initialize_catalog_from_params,
@@ -31,7 +30,7 @@ from .. import __version__
 from .. import visibilities as vis
 from ..antpos import idealize_antpos
 
-BeamListType = Union[BeamList, list[Union[ab.AnalyticBeam, UVBeam]]]
+BeamListType = Union[BeamList, list[Union[AnalyticBeam, UVBeam]]]
 logger = logging.getLogger(__name__)
 
 
@@ -117,7 +116,13 @@ class ModelData:
             beams = [UniformBeam()]
 
         if not isinstance(beams, BeamList):
-            beams = BeamList(beams)
+            beam_type = [b.beam_type for b in beams if hasattr(b, "beam_type")]
+            if len(beam_type) > 0 :
+                beam_type=beam_type[0]
+            else:
+                beam_type='efield'
+
+            beams = BeamList(beams, beam_type=beam_type)
 
         if normalize_beams:
             for beam in beams:
@@ -270,6 +275,7 @@ class ModelData:
         and sky model, checking for inconsistencies that would be wrong for _any_
         simulator.
         """
+        print([b.beam_type for b in self.beams])
         if any(b.beam_type == "power" for b in self.beams) and np.any(
             self.sky_model.stokes[1:] != 0
         ):
