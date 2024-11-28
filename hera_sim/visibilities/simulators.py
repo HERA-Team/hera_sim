@@ -275,7 +275,6 @@ class ModelData:
         and sky model, checking for inconsistencies that would be wrong for _any_
         simulator.
         """
-        print([b.beam_type for b in self.beams])
         if any(b.beam_type == "power" for b in self.beams) and np.any(
             self.sky_model.stokes[1:] != 0
         ):
