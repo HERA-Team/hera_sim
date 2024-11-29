@@ -2,11 +2,10 @@ import pytest
 
 import copy
 from astropy import units
-from pyuvdata.analytic_beam import GaussianBeam, AiryBeam
-from pyuvsim.telescope import BeamConsistencyError
+from pyuvdata.analytic_beam import GaussianBeam
 from pyuvdata.beam_interface import BeamInterface
 from hera_sim.visibilities import ModelData
-
+from pyuvdata import UVBeam
 
 def test_power_polsky(uvdata, sky_model):
     new_sky = copy.deepcopy(sky_model)
@@ -31,3 +30,16 @@ def test_str_uvdata(uvdata, sky_model, tmp_path):
 
     model_data = ModelData(uvdata=pth, sky_model=sky_model)
     assert model_data.uvdata.Nants_data == uvdata.Nants_data
+
+def test_peak_normalize(uvdata, sky_model, uvbeam: UVBeam):
+    beam = copy.deepcopy(uvbeam)
+    beam.data_normalization='not peak'
+    model_data = ModelData(
+        uvdata=uvdata, sky_model=sky_model, beams=[uvbeam], normalize_beams=True
+    )
+    assert model_data.beams[0].beam.data_normalization == 'peak'
+
+def test_setting_rectangularity(uvdata, sky_model, uvbeam):
+    uvdata.blts_are_rectangular = None  # mock for testing
+    model_data = ModelData(uvdata=uvdata, sky_model=sky_model, beams=[uvbeam])
+    assert model_data.uvdata.blts_are_rectangular  # set to True now!

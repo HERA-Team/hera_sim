@@ -3,9 +3,7 @@ import pytest
 import numpy as np
 import uvtools
 from astropy import constants, units
-from pyuvdata import UVBeam
-from pyuvdata.analytic_beam import UniformBeam
-
+from pyuvdata import UniformBeam, UVBeam
 import hera_sim
 from hera_sim import DATA_PATH, foregrounds, noise, sigchain
 from hera_sim.interpolators import Bandpass, Beam
@@ -971,3 +969,18 @@ def test_vary_gains_exception_bad_variation_mode(gains, times):
             gains=gains, times=times, parameter="amp", variation_mode="foobar"
         )
     assert err.value.args[0] == "Variation mode 'foobar' not supported."
+
+def test_mutual_coupling_handle_beam(tmp_path):
+    beam = UniformBeam()
+
+    assert sigchain.MutualCoupling._handle_beam(beam) is beam
+
+    uvbeam = beam.to_uvbeam(freq_array=np.array([150e6]), nside=64)
+    assert sigchain.MutualCoupling._handle_beam(uvbeam) is uvbeam
+
+    uvbeam.write_beamfits(tmp_path / 'a_beam.fits')
+    _read = sigchain.MutualCoupling._handle_beam(tmp_path / 'a_beam.fits')
+    assert isinstance(_read, UVBeam)
+
+    with pytest.raises(ValueError, match="uvbeam has incorrect format"):
+        sigchain.MutualCoupling._handle_beam('non.existent')

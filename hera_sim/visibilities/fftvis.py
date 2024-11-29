@@ -12,6 +12,7 @@ from matvis.core.beams import prepare_beam_unpolarized
 from pyuvdata import utils as uvutils
 
 from .simulators import ModelData, VisibilitySimulator
+from .matvis import MatVis
 
 logger = logging.getLogger(__name__)
 
@@ -190,35 +191,9 @@ class FFTVis(VisibilitySimulator):
         """
         return uvutils.polnum2str(uvdata.polarization_array[0])[0]
 
-    def _get_req_pols(self, uvdata, uvbeam, polarized: bool) -> list[tuple[int, int]]:
-
-        if not polarized:
-            return [(0, 0)]
-
-        feeds = list(uvbeam.beam.feed_array)
-
-        # In order to get all 4 visibility polarizations for a dual feed system
-        vispols = set()
-        for p1, p2 in itertools.combinations_with_replacement(feeds, 2):
-            vispols.add(p1 + p2)
-            vispols.add(p2 + p1)
-        avail_pols = {
-            vispol: (feeds.index(vispol[0]), feeds.index(vispol[1]))
-            for vispol in vispols
-        }
-        # Get the mapping from uvdata pols to uvbeam pols
-        uvdata_pols = [
-            uvutils.polnum2str(polnum, getattr(uvbeam, "x_orientation", None))
-            for polnum in uvdata.polarization_array
-        ]
-        if any(pol not in avail_pols for pol in uvdata_pols):
-            raise ValueError(
-                "Not all polarizations in UVData object are in your beam. "
-                f"UVData polarizations = {uvdata_pols}. "
-                f"UVBeam polarizations = {list(avail_pols.keys())}"
-            )
-
-        return [avail_pols[pol] for pol in uvdata_pols]
+    @staticmethod
+    def _get_req_pols(uvdata, uvbeam, polarized: bool) -> list[tuple[int, int]]:
+        return MatVis._get_req_pols(uvdata, uvbeam, polarized)
 
     def simulate(self, data_model):
         """

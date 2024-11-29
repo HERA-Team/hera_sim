@@ -108,6 +108,10 @@ class ModelData:
                 f"{uvdata}, type {type(uvdata)}"
             )
 
+        # Set rectangularity if it's not already set. Required for some simulators.
+        if uvdata.blts_are_rectangular is None:
+            uvdata.set_rectangularity(force=True)
+
         return uvdata
 
     @classmethod
@@ -186,10 +190,6 @@ class ModelData:
             check_kw={"run_check_acceptability": False, 'check_extra': False},
             return_beams=True
         )
-
-        # Set rectangularity if it's not already set. Required for some simulators.
-        if uvdata.blts_are_rectangular is None:
-            uvdata.set_rectangularity(force=True)
 
         logger.info("Initializing Sky Model...")
         catalog = initialize_catalog_from_params(config_file)

@@ -3,12 +3,17 @@ import pytest
 import astropy_healpix as aph
 import numpy as np
 from astropy import units
+from pathlib import Path
 from astropy.coordinates import Latitude, Longitude
 from astropy.units import rad, sday
 from pyradiosky import SkyModel
+from pyuvdata.uvbeam import UVBeam
 
 from hera_sim import io
 from hera_sim.defaults import defaults
+
+DATA_PATH = Path(__file__).parent.parent / "testdata" / "hera-sim-vis-config"
+
 
 NTIMES = 10
 NPIX = 12 * 16**2
@@ -213,3 +218,7 @@ def sky_modelJD(uvdataJD):
         dec=np.array(uvdata.telescope_location_lat_lon_alt[0]) * rad,
         align=False,
     )
+
+@pytest.fixture(scope='module')
+def uvbeam() -> UVBeam:
+    return UVBeam.from_file(DATA_PATH / "NF_HERA_Dipole_small.fits")

@@ -58,9 +58,6 @@ class MatVis(VisibilitySimulator):
         If specified as a string, this must either use the 'isot' format and 'utc'
         scale, or be one of "mean", "min" or "max". If any of the latter, the value
         ll be calculated from the input data directly.
-    correct_source_positions
-        Whether to correct the source positions using astropy and the reference time.
-        Default is True if `ref_time` is given otherwise False.
     check_antenna_conjugation
         Whether to check the antenna conjugation. Default is True. This is a fairly
         heavy operation if there are many antennas and/or many times, and can be
@@ -328,18 +325,13 @@ class MatVis(VisibilitySimulator):
             indx = uvdata.antpair2ind(ant1, ant2)
             vis_here = vis[:, i]
 
-            if indx is None:
-                # maybe we chose the wrong ordering according to the data. Then
-                # we just conjugate.
-                indx = uvdata.antpair2ind(ant2, ant1)
-                vis_here = vis_here.con()
-
             if polarized:
                 for p, (p1, p2) in enumerate(req_pols):
                     visfull[indx, p] = vis_here[:, p1, p2]
             else:
                 visfull[indx, 0] = vis_here
-    def _get_req_pols(self, uvdata, uvbeam, polarized: bool) -> list[tuple[int, int]]:
+    @staticmethod
+    def _get_req_pols(uvdata, uvbeam, polarized: bool) -> list[tuple[int, int]]:
         if not polarized:
             return [(0, 0)]
 

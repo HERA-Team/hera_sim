@@ -4,7 +4,7 @@ import os
 from hera_cli_utils import parse_args
 from pathlib import Path
 from hera_sim.visibilities.cli import run_vis_sim, vis_cli_argparser
-
+from pyuvdata import UVData
 pytest.importorskip("hera_sim.visibilities.matvis")
 
 DATA_PATH = Path(__file__).parent.parent / "testdata" / "hera-sim-vis-config"
@@ -55,7 +55,8 @@ telescope_name: HERA
     return tmp_path / "obsparams.yaml"
 
 
-def test_vis_cli(tmp_path_factory):
+@pytest.mark.parametrize("phase_center_name", [None, 'zenith'])
+def test_vis_cli(tmp_path_factory, phase_center_name):
     outdir = tmp_path_factory.mktemp("vis-sim")
     cfg = get_config_files(outdir, 5, 2)
 
@@ -103,3 +104,26 @@ def test_vis_cli_dry(tmp_path_factory):
     run_vis_sim(args)
     contents = os.listdir(outdir)
     assert "out.uvh5" not in contents
+
+def test_vis_cli_phase_center_name(tmp_path_factory):
+    outdir = tmp_path_factory.mktemp("vis-sim")
+    cfg = get_config_files(outdir, 5, 2)
+
+    parser = vis_cli_argparser()
+    args = parse_args(
+        parser,
+        [
+            str(cfg),
+            str(DATA_PATH / "matvis_cpu.yaml"),
+            "--compress",
+            str(outdir / "compression-cache.npy"),
+            "--phase-center-name", 'zenith',
+            "--object_name",
+            "matvis",
+        ],
+    )
+
+    run_vis_sim(args)
+    uvd = UVData.from_file(outdir / 'out.uvh5')
+    print(uvd.phase_center_catalog[0].keys())
+    assert uvd.phase_center_catalog[0]['name'] == 'zenith'
