@@ -1,5 +1,3 @@
 simulator: MatVis
 precision: 2
-ref_time: mean
-correct_source_positions: true
 check_antenna_conjugation: false

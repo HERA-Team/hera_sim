@@ -2,7 +2,7 @@ import pytest
 
 import numpy as np
 from conftest import half_sky_model
-from pyuvsim.analyticbeam import AnalyticBeam
+from pyuvdata.analytic_beam import GaussianBeam
 
 from hera_sim import io
 from hera_sim.antpos import hex_array
@@ -13,7 +13,7 @@ FFTVis = fftvis.FFTVis
 
 
 def test_fftvis_beam_error(uvdata2, sky_model):
-    beams = [AnalyticBeam("gaussian"), AnalyticBeam("gaussian")]
+    beams = [GaussianBeam(diameter=14.0), GaussianBeam(diameter=14.0)]
     beam_ids = [0, 1]
     simulator = FFTVis()
     data_model = ModelData(

@@ -9,7 +9,8 @@ from astropy.coordinates import Latitude, Longitude
 from astropy.time import Time
 from astropy.units import Quantity
 from pyradiosky import SkyModel
-from pyuvsim import AnalyticBeam, simsetup, uvsim
+from pyuvdata.analytic_beam import GaussianBeam
+from pyuvsim import simsetup, uvsim
 from pyuvsim.telescope import BeamList
 
 from hera_sim import io
@@ -100,63 +101,57 @@ def get_sky_model(uvdata, nsource):
 
     return sky_model
 
+@pytest.fixture(scope='function')
+def gaussian():
+    return GaussianBeam(sigma=0.103)
 
-def get_beams(beam_type, polarized):
-    """Get a list of beam objects, one per antenna."""
-    if beam_type == "gaussian":
-        beams = [AnalyticBeam("gaussian", sigma=0.103)]
-
-    elif beam_type == "PolyBeam":
-        cfg_pol_beam = dict(
-            ref_freq=1e8,
-            spectral_index=-0.6975,
-            beam_coeffs=[
-                2.35088101e-01,
-                -4.20162599e-01,
-                2.99189140e-01,
-                -1.54189057e-01,
-                3.38651457e-02,
-                3.46936067e-02,
-                -4.98838130e-02,
-                3.23054464e-02,
-                -7.56006552e-03,
-                -7.24620596e-03,
-                7.99563166e-03,
-                -2.78125602e-03,
-                -8.19945835e-04,
-                1.13791191e-03,
-                -1.24301372e-04,
-                -3.74808752e-04,
-                1.93997376e-04,
-                -1.72012040e-05,
-            ],
-            polarized=polarized,
-        )
-
-        beams = [PolyBeam(**cfg_pol_beam)]
-    else:
-        raise ValueError(f"beam_type '{beam_type}' not recognized")
-    return beams
-
+@pytest.fixture(scope='function')
+def polybeam():
+    return PolyBeam(
+        ref_freq=1e8,
+        spectral_index=-0.6975,
+        beam_coeffs=[
+            2.35088101e-01,
+            -4.20162599e-01,
+            2.99189140e-01,
+            -1.54189057e-01,
+            3.38651457e-02,
+            3.46936067e-02,
+            -4.98838130e-02,
+            3.23054464e-02,
+            -7.56006552e-03,
+            -7.24620596e-03,
+            7.99563166e-03,
+            -2.78125602e-03,
+            -8.19945835e-04,
+            1.13791191e-03,
+            -1.24301372e-04,
+            -3.74808752e-04,
+            1.93997376e-04,
+            -1.72012040e-05,
+        ],
+    )
 
 @pytest.mark.parametrize(
     "nsource,beam_type,polarized",
     [
         (1, "gaussian", False),
-        (1, "PolyBeam", False),
-        (1, "PolyBeam", True),
+        (1, "polybeam", False),
+        (1, "polybeam", True),
         (100, "gaussian", False),
-        (100, "PolyBeam", False),
-        (100, "PolyBeam", True),
+        (100, "polybeam", False),
+        (100, "polybeam", True),
     ],
 )
 @pytest.mark.parametrize("simcls", [v for k, v in SIMULATORS.items() if k != "UVSim"])
-def test_compare_with_pyuvsim(uvdata_allpols, nsource, beam_type, polarized, simcls):
-    """Compare matvis and pyuvsim simulated visibilities."""
+def test_compare_with_pyuvsim(
+    uvdata_allpols, nsource, beam_type, polarized: bool, simcls, request
+):
+    """Compare simulators with pyuvsim."""
     sky_model = get_sky_model(uvdata_allpols, nsource)
 
     # Beam models
-    beams = get_beams(beam_type=beam_type, polarized=polarized)
+    beams = [request.getfixturevalue(beam_type)]
     beam_dict = {str(i): 0 for i in range(nants)}
 
     # ---------------------------------------------------------------------------
@@ -174,9 +169,6 @@ def test_compare_with_pyuvsim(uvdata_allpols, nsource, beam_type, polarized, sim
     # TODO: if we update the PolyBeam API so that it doesn't *require* 2 feeds,
     # we can get rid of this.
     vis_cpu_beams = [copy.deepcopy(beam) for beam in beams]
-    if not polarized:
-        for beam in vis_cpu_beams:
-            beam.efield_to_power()
 
     sim = VisibilitySimulation(
         data_model=ModelData(

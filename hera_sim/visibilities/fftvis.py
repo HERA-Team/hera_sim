@@ -126,10 +126,7 @@ class FFTVis(VisibilitySimulator):
             try:
                 nfeeds = uvbeam.data_array.shape[1]
             except AttributeError:
-                # TODO: the following assumes that analytic beams are 2 feeds unless
-                # otherwise specified. This should be fixed at the AnalyticBeam API
-                # level.
-                nfeeds = getattr(uvbeam, "Nfeeds", 2)
+                nfeeds = uvbeam.beam.Nfeeds
 
             assert nfeeds == 2
 
@@ -198,9 +195,7 @@ class FFTVis(VisibilitySimulator):
         if not polarized:
             return [(0, 0)]
 
-        # TODO: this can be updated to just access uvbeam.feed_array once the
-        # AnalyticBeam API has been improved.
-        feeds = list(getattr(uvbeam, "feed_array", ["x", "y"]))
+        feeds = list(uvbeam.beam.feed_array)
 
         # In order to get all 4 visibility polarizations for a dual feed system
         vispols = set()
@@ -257,7 +252,7 @@ class FFTVis(VisibilitySimulator):
         # Get pixelized beams if required
         logger.info("Preparing Beams...")
         if not polarized:
-            beam = prepare_beam_unpolarized(data_model.beams[0], use_pol=feed * 2)
+            beam = prepare_beam_unpolarized(data_model.beams[0], use_feed=feed)
         else:
             beam = data_model.beams[0]
 

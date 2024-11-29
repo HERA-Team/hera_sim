@@ -14,7 +14,7 @@ from conftest import (
     zenith_sky_model,
 )
 from copy import deepcopy
-from pyuvsim.analyticbeam import AnalyticBeam
+from pyuvdata.analytic_beam import AiryBeam
 
 from hera_sim import io
 from hera_sim.beams import PolyBeam
@@ -181,7 +181,7 @@ def test_single_source_autocorr_past_horizon(uvdata, simulator):
         (horizon_sky_model, None),
         (twin_sky_model, None),
         (half_sky_model, None),
-        (half_sky_model, [AnalyticBeam("airy", diameter=1.75)]),
+        (half_sky_model, [AiryBeam(diameter=1.75)]),
     ],
 )
 def test_comparison(simulator, uvdata2, sky_model, beam_model):
@@ -268,7 +268,7 @@ def test_pol_combos(polarization_array, xfail, simulator):
         align=False,
     )
 
-    beam = PolyBeam(polarized=False)
+    beam = PolyBeam()
     simulator = simulator()
 
     if xfail:
