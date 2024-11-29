@@ -13,7 +13,6 @@ def test_power_polsky(uvdata, sky_model):
     new_sky.stokes[1:] = 1.0 * units.Jy
 
     beams = [BeamInterface(GaussianBeam(diameter=14.0), beam_type='power')]
-    print(beams)
     with pytest.raises(
         TypeError,
         match='Cannot use power beams when the sky model contains polarized sources'
@@ -28,7 +27,6 @@ def test_bad_uvdata(sky_model):
 
 def test_str_uvdata(uvdata, sky_model, tmp_path):
     pth = tmp_path / "tmp_uvdata.uvh5"
-    print(type(pth))
     uvdata.write_uvh5(str(pth))
 
     model_data = ModelData(uvdata=pth, sky_model=sky_model)
