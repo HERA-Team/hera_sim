@@ -98,6 +98,17 @@ def run_vis_sim(args):
     data_model = ModelData.from_config(
         args.obsparam, normalize_beams=args.normalize_beams
     )
+    if args.phase_center_name is not None:
+        if len(data_model.uvdata.phase_center_catalog) > 1:
+            cprint(
+                "[bold red]:warning: Phase center catalog has length > 1. "
+                f"Cannot set phase center name to {args.phase_center_name}[/]"
+            )
+        else:
+            next(iter(data_model.uvdata.phase_center_catalog.values()))[
+                "name"
+            ] = args.phase_center_name
+            cprint(f"Phase center name set to {args.phase_center_name}")
     logger.info("Finished Setting up ModelData object")
     print_sim_config(args.obsparam)
 
@@ -310,6 +321,9 @@ def vis_cli_argparser():
     )
     parser.add_argument(
         "--run-auto-check", action="store_true", help="whether to check autos are real"
+    )
+    parser.add_argument(
+        '--phase-center-name', default=None, help="name of phase center"
     )
 
     return parser

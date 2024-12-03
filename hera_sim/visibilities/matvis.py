@@ -8,10 +8,13 @@ import logging
 import numpy as np
 from astropy.coordinates import EarthLocation
 from astropy.time import Time
-from matvis import HAVE_GPU, __version__
-from matvis import conversions as convs
-from matvis import cpu, gpu
-from matvis.cpu import _evaluate_beam_cpu, _wrangle_beams
+from matvis import HAVE_GPU, __version__, cpu
+
+if HAVE_GPU:
+    from matvis import gpu
+
+from matvis import coordinates
+from matvis.core.beams import prepare_beam_unpolarized
 from pyuvdata import UVData
 from pyuvdata import utils as uvutils
 
@@ -24,7 +27,7 @@ class MatVis(VisibilitySimulator):
     """
     matvis visibility simulator.
 
-    This is a fast, matrix-baed visibility simulator.
+    This is a fast, matrix-based visibility simulator.
 
     Parameters
     ----------
@@ -55,9 +58,6 @@ class MatVis(VisibilitySimulator):
         If specified as a string, this must either use the 'isot' format and 'utc'
         scale, or be one of "mean", "min" or "max". If any of the latter, the value
         ll be calculated from the input data directly.
-    correct_source_positions
-        Whether to correct the source positions using astropy and the reference time.
-        Default is True if `ref_time` is given otherwise False.
     check_antenna_conjugation
         Whether to check the antenna conjugation. Default is True. This is a fairly
         heavy operation if there are many antennas and/or many times, and can be
@@ -75,11 +75,9 @@ class MatVis(VisibilitySimulator):
 
     def __init__(
         self,
-        precision: int = 1,
+        precision: int = 2,
         use_gpu: bool = False,
         mpi_comm=None,
-        ref_time: str | Time | None = None,
-        correct_source_positions: bool | None = None,
         check_antenna_conjugation: bool = True,
         **kwargs,
     ):
@@ -104,14 +102,8 @@ class MatVis(VisibilitySimulator):
 
         self.use_gpu = use_gpu
         self.mpi_comm = mpi_comm
-        self.ref_time = ref_time
-        self.correct_source_positions = (
-            (ref_time is not None)
-            if correct_source_positions is None
-            else correct_source_positions
-        )
         self.check_antenna_conjugation = check_antenna_conjugation
-        self._functions_to_profile = (self._matvis, _wrangle_beams, _evaluate_beam_cpu)
+        self._functions_to_profile = (self._matvis,)
         self.kwargs = kwargs
 
     def validate(self, data_model: ModelData):
@@ -158,16 +150,7 @@ class MatVis(VisibilitySimulator):
 
         do_pol = self._check_if_polarized(data_model)
         if do_pol:
-            # Number of feeds must be two if doing polarized
-            try:
-                nfeeds = uvbeam.data_array.shape[1 if uvbeam.future_array_shapes else 2]
-            except AttributeError:
-                # TODO: the following assumes that analytic beams are 2 feeds unless
-                # otherwise specified. This should be fixed at the AnalyticBeam API
-                # level.
-                nfeeds = getattr(uvbeam, "Nfeeds", 2)
-
-            assert nfeeds == 2
+            assert uvbeam.beam.Nfeeds == 2
 
     def estimate_memory(self, data_model: ModelData) -> float:
         """
@@ -212,86 +195,10 @@ class MatVis(VisibilitySimulator):
 
         return all_floats * self._precision * 4 / 1024**3
 
-    def correct_point_source_pos(
-        self,
-        data_model: ModelData,
-        obstime: str | Time | None = None,
-        frame: str = "icrs",
-    ) -> tuple[np.ndarray, np.ndarray]:
-        """Apply correction to source RA and Dec positions to improve accuracy.
-
-        This uses an astropy-based coordinate correction, computed for a single
-        reference time, to shift the source RA and Dec coordinates to ones that
-        produce more accurate Alt/Az positions at the location of the array.
-
-        Parameters
-        ----------
-        obstime : str or astropy.Time
-            Specifies the time of the reference observation used to compute the
-            coordinate correction. If specified as a string, this must either use the
-            'isot' format and 'utc' scale, or be one of "mean", "min" or "max". If any
-            of the latter, the ``data_model`` will be used to generate the reference
-            time.
-
-        frame : str, optional
-            Which frame that the original RA and Dec positions are specified
-            in. Any system recognized by ``astropy.SkyCoord`` can be used.
-
-        Returns
-        -------
-        ra, dec
-            The updated source positions.
-        """
-        # Check input reference time
-        if self.ref_time is not None:
-            obstime = self.ref_time
-
-        if isinstance(obstime, str):
-            if obstime == "mean":
-                obstime = Time(data_model.uvdata.time_array.mean(), format="jd")
-            elif obstime == "min":
-                obstime = Time(data_model.uvdata.time_array.min(), format="jd")
-            elif obstime == "max":
-                obstime = Time(data_model.uvdata.time_array.max(), format="jd")
-            else:
-                obstime = Time(obstime, format="isot", scale="utc")
-        elif not isinstance(obstime, Time):
-            raise TypeError("`obstime` must be a string or astropy.Time object")
-
-        # Get reference location
-        # location = EarthLocation.from_geodetic(lat=lat, lon=lon, height=alt)
-        location = EarthLocation.from_geocentric(
-            *data_model.uvdata.telescope_location, unit=u.m
-        )
-
-        # Apply correction to point source positions
-        logger.info("Correcting Source Positions...")
-        ra, dec = data_model.sky_model.ra, data_model.sky_model.dec
-        return convs.equatorial_to_eci_coords(
-            ra, dec, obstime, location, unit="rad", frame=frame
-        )
-
     def _check_if_polarized(self, data_model: ModelData) -> bool:
         p = data_model.uvdata.polarization_array
         # We only do a non-polarized simulation if UVData has only XX or YY polarization
         return len(p) != 1 or uvutils.polnum2str(p[0]) not in ["xx", "yy"]
-
-    def get_eq2tops(self, uvdata: UVData, lsts: np.ndarray):
-        """
-        Calculate transformations from equatorial to topocentric coords.
-
-        Returns
-        -------
-        array_like of self._real_dtype
-            The set of 3x3 transformation matrices converting equatorial
-            to topocenteric co-ordinates at each LST.
-            Shape=(NTIMES, 3, 3).
-        """
-        latitude = uvdata.telescope_location_lat_lon_alt[0]  # rad
-        return np.array(
-            [convs.eci_to_enu_matrix(lst, latitude) for lst in lsts],
-            dtype=self._real_dtype,
-        )
 
     def get_feed(self, uvdata) -> str:
         """Get the feed to use from the beam, given the UVData object.
@@ -318,29 +225,11 @@ class MatVis(VisibilitySimulator):
             myid = self.mpi_comm.Get_rank()
             nproc = self.mpi_comm.Get_size()
 
-        if self.correct_source_positions:
-            ra, dec = self.correct_point_source_pos(data_model)
-            logger.info("Done correcting source positions.")
-        else:
-            ra, dec = data_model.sky_model.ra, data_model.sky_model.dec
-
-        logger.info("Getting Equatorial Coordinates")
-        crd_eq = convs.point_source_crd_eq(ra, dec)
-
-        # Convert equatorial to topocentric coords
-        logger.info("Getting Rotation Matrices")
-        eq2tops = self.get_eq2tops(data_model.uvdata, data_model.lsts)
-
         # The following are antenna positions in the order that they are
         # in the uvdata.data_array
         active_antpos, ant_list = data_model.uvdata.get_ENU_antpos(pick_data_ants=True)
 
-        # Get pixelized beams if required
-        logger.info("Preparing Beams...")
-        beam_list = [
-            convs.prepare_beam(beam, polarized=polarized, use_feed=feed)
-            for beam in data_model.beams
-        ]
+
         beam_ids = np.array(
             [
                 data_model.beam_ids[nm]
@@ -367,6 +256,10 @@ class MatVis(VisibilitySimulator):
                 data_model.uvdata.data_array, dtype=self._complex_dtype
             )
 
+        antpairs = data_model.uvdata.get_antpairs()
+        antlist = ant_list.tolist()
+        antpairs = np.array([[antlist.index(a), antlist.index(b)] for a,b in antpairs])
+
         for i, freq in enumerate(data_model.freqs):
             # Divide tasks between MPI workers if needed
             if self.mpi_comm is not None and i % nproc != myid:
@@ -378,14 +271,16 @@ class MatVis(VisibilitySimulator):
             vis = self._matvis(
                 antpos=active_antpos,
                 freq=freq,
-                eq2tops=eq2tops,
-                crd_eq=crd_eq,
+                times=Time(data_model.times, format="jd"),
+                skycoords=data_model.sky_model.skycoord,
+                telescope_loc=data_model.uvdata.telescope.location,
                 I_sky=data_model.sky_model.stokes[0, i].to("Jy").value,
-                beam_list=beam_list,
+                beam_list=data_model.beams,
                 beam_idx=beam_ids,
                 beam_spline_opts=data_model.beams.spline_interp_opts,
                 precision=self._precision,
                 polarized=polarized,
+                antpairs=antpairs,
                 **self.kwargs,
             )
 
@@ -406,65 +301,43 @@ class MatVis(VisibilitySimulator):
         else:
             return visfull
 
-    def _reorder_vis(self, req_pols, uvdata, visfull, vis, ant_list, polarized):
-        ant1idx, ant2idx = np.triu_indices(vis.shape[-1])
+    def _reorder_vis(self, req_pols, uvdata: UVData, visfull, vis, ant_list, polarized):
 
-        try:
-            if (
-                getattr(uvdata, "blt_order", None) == ("time", "ant1")
-                and sorted(req_pols) == req_pols
-            ):
-                logger.info("Using direct setting of data without reordering")
-                # This is the best case scenario -- no need to reorder anything.
-                # It is also MUCH MUCH faster!
-                start_shape = visfull.shape
-                visfull.shape = (np.prod(visfull.shape),)  # flatten without copying
-                n = (uvdata.Nblts // vis.shape[0]) * len(req_pols)
-                for i, vis_here in enumerate(vis):
-                    if polarized:
-                        vis_here = vis_here.transpose(2, 3, 0, 1)[
-                            ant1idx, ant2idx
-                        ].reshape((-1,))
-                    else:
-                        vis_here = vis_here[:, ant1idx, ant2idx].reshape((-1,))
-
-                    visfull[(i * n) : ((i + 1) * n)] = vis_here
-                visfull.shape = start_shape
-                return
-        except AttributeError:
-            pass
+        if (
+            uvdata.blts_are_rectangular and
+            not uvdata.time_axis_faster_than_bls and
+            sorted(req_pols) == req_pols
+        ):
+            logger.info("Using direct setting of data without reordering")
+            # This is the best case scenario -- no need to reorder anything.
+            # It is also MUCH MUCH faster!
+            vis.shape = (uvdata.Nblts, uvdata.Npols)
+            visfull[:] = vis
+            return
 
         logger.info(
             f"Reordering baselines. Pols sorted: {sorted(req_pols) == req_pols}. "
             f"Pols = {req_pols}. blt_order = {uvdata.blt_order}"
         )
-        for ant1, ant2 in zip(ant1idx, ant2idx):  # go through indices in output
-            # get official "antenna numbers" corresponding to these indices
-            antnum1, antnum2 = ant_list[ant1], ant_list[ant2]
 
+        for i, (ant1, ant2) in enumerate(uvdata.get_antpairs()):
             # get all blt indices corresponding to this antpair
-            indx = uvdata.antpair2ind(antnum1, antnum2)
-            if indx is None:
-                # maybe we chose the wrong ordering according to the data. Then
-                # we just conjugate.
-                indx = uvdata.antpair2ind(antnum2, antnum1)
-                vis_here = vis[..., ant2, ant1]
-            else:
-                vis_here = vis[..., ant1, ant2]
+            indx = uvdata.antpair2ind(ant1, ant2)
+            vis_here = vis[:, i]
 
             if polarized:
                 for p, (p1, p2) in enumerate(req_pols):
                     visfull[indx, p] = vis_here[:, p1, p2]
             else:
                 visfull[indx, 0] = vis_here
-
-    def _get_req_pols(self, uvdata, uvbeam, polarized: bool) -> list[tuple[int, int]]:
+    @staticmethod
+    def _get_req_pols(uvdata, uvbeam, polarized: bool) -> list[tuple[int, int]]:
         if not polarized:
             return [(0, 0)]
 
-        # TODO: this can be updated to just access uvbeam.feed_array once the
-        # AnalyticBeam API has been improved.
-        feeds = list(getattr(uvbeam, "feed_array", ["x", "y"]))
+        feeds = uvbeam.feed_array
+        if isinstance(feeds, np.ndarray):
+            feeds = feeds.tolist()  # convert to list if necessary
 
         # In order to get all 4 visibility polarizations for a dual feed system
         vispols = set()

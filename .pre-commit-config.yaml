@@ -17,41 +17,11 @@ repos:
   - id: requirements-txt-fixer
   - id: mixed-line-ending
     args: ['--fix=no']
--   repo: https://github.com/PyCQA/flake8
-    rev: 7.1.1  # pick a git hash / tag to point to
-    hooks:
-    -   id: flake8
-        additional_dependencies:
-          - flake8-rst-docstrings
-          #- flake8-docstrings  # not available for flake8>5
-          - flake8-builtins
-          - flake8-rst-docstrings
-          - flake8-rst
-#          - flake8-markdown    # not available for flake8>5 (check later...)
-          - flake8-bugbear
-          - flake8-comprehensions
-          - flake8-print
-
-- repo: https://github.com/psf/black-pre-commit-mirror
-  rev: 24.10.0
-  hooks:
-    - id: black
 
 - repo: https://github.com/pre-commit/pygrep-hooks
   rev: v1.10.0
   hooks:
     - id: rst-backticks
-
-- repo: https://github.com/PyCQA/isort
-  rev: 5.13.2
-  hooks:
-  - id: isort
-
-- repo: https://github.com/asottile/pyupgrade
-  rev: v3.19.0
-  hooks:
-  - id: pyupgrade
-    args: [--py39-plus]
 
 - repo: https://github.com/asottile/setup-cfg-fmt
   rev: v2.7.0

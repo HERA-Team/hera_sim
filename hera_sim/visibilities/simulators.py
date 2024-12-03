@@ -15,10 +15,9 @@ from dataclasses import dataclass
 from os import path
 from pathlib import Path
 from pyradiosky import SkyModel
-from pyuvdata import UVBeam, UVData
+from pyuvdata import UVBeam, UVData, UniformBeam
 from pyuvsim import BeamList
-from pyuvsim import __version__ as uvsimv
-from pyuvsim import analyticbeam as ab
+from pyuvdata.analytic_beam import AnalyticBeam
 from pyuvsim.simsetup import (
     _complete_uvdata,
     initialize_catalog_from_params,
@@ -31,7 +30,7 @@ from .. import __version__
 from .. import visibilities as vis
 from ..antpos import idealize_antpos
 
-BeamListType = Union[BeamList, list[Union[ab.AnalyticBeam, UVBeam]]]
+BeamListType = Union[BeamList, list[Union[AnalyticBeam, UVBeam]]]
 logger = logging.getLogger(__name__)
 
 
@@ -109,28 +108,30 @@ class ModelData:
                 f"{uvdata}, type {type(uvdata)}"
             )
 
+        # Set rectangularity if it's not already set. Required for some simulators.
+        if uvdata.blts_are_rectangular is None:
+            uvdata.set_rectangularity(force=True)
+
         return uvdata
 
     @classmethod
     def _process_beams(cls, beams: BeamListType | None, normalize_beams: bool):
         if beams is None:
-            beams = [ab.AnalyticBeam("uniform")]
+            beams = [UniformBeam()]
 
         if not isinstance(beams, BeamList):
-            beams = BeamList(beams)
+            beam_type = [b.beam_type for b in beams if hasattr(b, "beam_type")]
+            if len(beam_type) > 0 :
+                beam_type=beam_type[0]
+            else:
+                beam_type='efield'
 
-        if beams.string_mode:
-            beams.set_obj_mode()
-
-        if len({beam.beam_type for beam in beams}) != 1:
-            # TODO: replace with beam.check_consistency() when that is available in
-            # pyuvsim.
-            raise ValueError("All beams must be of the same beam_type!")
+            beams = BeamList(beams, beam_type=beam_type)
 
         if normalize_beams:
             for beam in beams:
-                if beam.data_normalization != "peak":
-                    beam.peak_normalize()
+                if beam._isuvbeam and beam.beam.data_normalization != "peak":
+                    beam.beam.peak_normalize()
 
         return beams
 
@@ -185,25 +186,16 @@ class ModelData:
         # Don't reorder the blt axis, because each simulator might do it differently.
         logger.info("Initializing UVData object...")
         uvdata, beams, beam_ids = initialize_uvdata_from_params(
-            config_file, reorder_blt_kw={}, check_kw={"run_check_acceptability": False}
+            config_file, reorder_blt_kw={},
+            check_kw={"run_check_acceptability": False, 'check_extra': False},
+            return_beams=True
         )
-
-        # Set rectangularity if it's not already set. Required for some simulators.
-        if uvdata.blts_are_rectangular is None:
-            uvdata.set_rectangularity(force=True)
 
         logger.info("Initializing Sky Model...")
-        if uvsimv > "1.2.5":
-            catalog = initialize_catalog_from_params(config_file)[0]
-        else:
-            catalog = initialize_catalog_from_params(
-                config_file, return_recarray=False
-            )[0]
+        catalog = initialize_catalog_from_params(config_file)
 
         logger.info("Completing UVData object...")
-        _complete_uvdata(
-            uvdata, inplace=True, check_kw={"run_check_acceptability": False}
-        )
+        _complete_uvdata(uvdata, inplace=True, check_kw=False)
 
         return ModelData(
             uvdata=uvdata,
@@ -219,6 +211,17 @@ class ModelData:
         # This process retrieves the unique LSTs while respecting phase wraps.
         _, unique_inds = np.unique(self.uvdata.time_array, return_index=True)
         return self.uvdata.lst_array[unique_inds]
+
+    @cached_property
+    def times(self):
+        """The *unique* times of the data."""
+        if self.uvdata.blts_are_rectangular:
+            if self.uvdata.time_axis_faster_than_bls:
+                return self.uvdata.time_array[: self.uvdata.Ntimes]
+            else:
+                return self.uvdata.time_array[:: self.uvdata.Nbls]
+        else:
+            return np.unique(self.uvdata.time_array)
 
     @cached_property
     def freqs(self) -> np.ndarray:
