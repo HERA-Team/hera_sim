@@ -6,7 +6,10 @@ from pyuvdata.analytic_beam import AnalyticBeam
 from dataclasses import dataclass, field
 from . import utils
 import numpy.typing as npt
-from typing import Self
+try:
+    from typing import Self
+except ImportError:
+    from typing_extensions import Self
 
 def modulate_with_dipole(az, za, freqs, ref_freq, beam_vals, fscale):
     """
