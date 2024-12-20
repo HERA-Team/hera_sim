@@ -6,7 +6,7 @@ from pyuvdata.analytic_beam import AnalyticBeam
 from dataclasses import dataclass, field
 from . import utils
 import numpy.typing as npt
-
+from typing import Self
 
 def modulate_with_dipole(az, za, freqs, ref_freq, beam_vals, fscale):
     """
@@ -53,11 +53,11 @@ def modulate_with_dipole(az, za, freqs, ref_freq, beam_vals, fscale):
     # phase component, shape za_scale.shape = (Nfreq, za.size)
     ph = q(za_scale) * (1.0 + p(za_scale) * 1.0j)
 
-    # shape (2, 2, 1, az.size)
-    dipole = dipole * ph[None, None]
+    # shape (2, 2, az.size)
+    dipole = dipole * ph
 
-    # shape (2, 1, 2, Nfreq, az.size)
-    pol_efield_beam = dipole * beam_vals[None, None]
+    # shape (2, 2, az.size)
+    pol_efield_beam = dipole * beam_vals
 
     # Correct it for frequency dependency.
     # extract modulus and phase of the beams
@@ -65,8 +65,9 @@ def modulate_with_dipole(az, za, freqs, ref_freq, beam_vals, fscale):
     phase = np.angle(pol_efield_beam)
     # assume linear shift of phase along frequency
     shift = -np.pi / 18e6 * (freqs - ref_freq)  # shape (Nfreq, )
+
     # shift the phase
-    phase += shift[None, None]
+    phase += shift
 
     # upscale the modulus
     modulus = np.power(modulus, 0.6)  # ad-hoc
@@ -159,6 +160,7 @@ class PolyBeam(AnalyticBeam):
     beam_coeffs: npt.NDArray[float] = field(default_factory=list)
     spectral_index: float = 0.0
     ref_freq: float = 1e8
+    polarized: bool = field(default=False)
 
     def _efield_eval(
         self,
@@ -193,15 +195,56 @@ class PolyBeam(AnalyticBeam):
         # Set beam Jones matrix values (see Eq. 5 of Kohn+ arXiv:1802.04151)
         # Axes: [phi, theta] (az and za) / Feeds: [n, e]
         # interp_data shape: (Naxes_vec, Nspws, Nfeeds or Npols, Nfreqs, Naz)
-        interp_data = modulate_with_dipole(
-            az_grid, za_grid, f_grid, self.ref_freq, beam_values, fscale
-        )
+        if self.polarized:
+            interp_data = modulate_with_dipole(
+                az_grid, za_grid, f_grid, self.ref_freq, beam_values, fscale
+            )
+        else:
+            # Empty data array
+            interp_data = np.zeros(
+                (2, 2) + f_grid.shape, dtype=np.complex128
+            )
+            interp_data[1, 0, :, :] = beam_values  # (theta, n)
+            interp_data[0, 1, :, :] = beam_values  # (phi, e)
 
-        if self.north_ind == 1:
+
+        if self.north_ind == 0:
             interp_data = np.flip(interp_data, axis=1)  # flip e/n
 
         return interp_data
 
+    @classmethod
+    def like_fagnoni19(cls, **kwargs) -> Self:
+        """Construct a :class:`PolyBeam` that approximates the HERA beam."""
+        return cls(
+            **(
+                dict(
+                    ref_freq=1.0e8,
+                    spectral_index=-0.6975,
+                    beam_coeffs=[
+                        0.29778665,
+                        -0.44821433,
+                        0.27338272,
+                        -0.10030698,
+                        -0.01195859,
+                        0.06063853,
+                        -0.04593295,
+                        0.0107879,
+                        0.01390283,
+                        -0.01881641,
+                        -0.00177106,
+                        0.01265177,
+                        -0.00568299,
+                        -0.00333975,
+                        0.00452368,
+                        0.00151808,
+                        -0.00593812,
+                        0.00351559,
+                    ],
+                )
+                | kwargs
+            )
+        )
 
 
 @dataclass
@@ -459,6 +502,47 @@ class PerturbedPolyBeam(PolyBeam):
 
         return interp_data
 
+    @classmethod
+    def like_fagnoni19(cls, **kwargs):
+        defaults = {
+            "mainlobe_width": 0.3,
+            "perturb_coeffs":np.array([
+                -0.20437532,
+                -0.4864951,
+                -0.18577532,
+                -0.38053642,
+                0.08897764,
+                0.06367166,
+                0.29634711,
+                1.40277112,
+            ]),
+            "mainlobe_scale":1.0,
+            "xstretch": 1.1,
+            "ystretch": 0.8,
+            "ref_freq": 1.0e8,
+            "spectral_index": -0.6975,
+            "beam_coeffs": [
+                0.29778665,
+                -0.44821433,
+                0.27338272,
+                -0.10030698,
+                -0.01195859,
+                0.06063853,
+                -0.04593295,
+                0.0107879,
+                0.01390283,
+                -0.01881641,
+                -0.00177106,
+                0.01265177,
+                -0.00568299,
+                -0.00333975,
+                0.00452368,
+                0.00151808,
+                -0.00593812,
+                0.00351559,
+            ],
+        }
+        return cls(**(defaults | kwargs))
 
 @dataclass
 class ZernikeBeam(AnalyticBeam):

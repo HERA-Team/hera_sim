@@ -25,7 +25,9 @@ def check_beam_is_finite(polybeam: PolyBeam, efield: bool = True):
 
 
 class TestPerturbedPolyBeam:
-    def get_perturbed_beam(self, rotation: float) -> PerturbedPolyBeam:
+    def get_perturbed_beam(
+        self, rotation: float, polarized: bool = False
+    ) -> PerturbedPolyBeam:
         """
         Elliptical PerturbedPolyBeam.
 
@@ -51,6 +53,7 @@ class TestPerturbedPolyBeam:
             ref_freq=1.0e8,
             spectral_index=-0.6975,
             mainlobe_width=0.3,
+            polarized=polarized,
             beam_coeffs=[
                 0.29778665,
                 -0.44821433,
@@ -75,8 +78,8 @@ class TestPerturbedPolyBeam:
 
     def test_rotation_180_deg(self):
         """Test that rotation by 180 degrees produces the same beam."""
-        beam_unrot = self.get_perturbed_beam(rotation=0)
-        beamrot = self.get_perturbed_beam(rotation=180.0)
+        beam_unrot = self.get_perturbed_beam(rotation=0, polarized=True)
+        beamrot = self.get_perturbed_beam(rotation=180.0, polarized=True)
         beam_unrot = evaluate_polybeam(beam_unrot)
         beamrot = evaluate_polybeam(beamrot)
         np.testing.assert_allclose(
@@ -159,7 +162,7 @@ class TestPerturbedPolyBeam:
             )
 
     def test_normalization(self):
-        beam = self.get_perturbed_beam(0.0)
+        beam = self.get_perturbed_beam(0.0, polarized=True)
         uvbeam = evaluate_polybeam(beam, nside=64)
         abs_data = np.abs(uvbeam.data_array)
         min_abs = np.min(abs_data, axis=-1)
