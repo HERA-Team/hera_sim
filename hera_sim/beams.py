@@ -202,6 +202,8 @@ class PolyBeam(AnalyticBeam):
             interp_data = modulate_with_dipole(
                 az_grid, za_grid, f_grid, self.ref_freq, beam_values, fscale
             )
+            if self.north_ind == 1:
+                interp_data = np.flip(interp_data, axis=1)  # flip e/n
         else:
             # Empty data array
             interp_data = np.zeros(
@@ -211,8 +213,6 @@ class PolyBeam(AnalyticBeam):
             interp_data[0, 1, :, :] = beam_values  # (phi, e)
 
 
-        if self.north_ind == 0:
-            interp_data = np.flip(interp_data, axis=1)  # flip e/n
 
         return interp_data
 

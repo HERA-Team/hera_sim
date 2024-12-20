@@ -23,6 +23,13 @@ def check_beam_is_finite(polybeam: PolyBeam, efield: bool = True):
     uvbeam = evaluate_polybeam(polybeam, efield)
     assert np.all(np.isfinite(uvbeam.data_array))
 
+class TestPolyBeam:
+    def get_beam(self) -> PolyBeam:
+        return PolyBeam.like_fagnoni19()
+
+    def test_beam_is_finite(self):
+        beam = self.get_beam()
+        check_beam_is_finite(beam)
 
 class TestPerturbedPolyBeam:
     def get_perturbed_beam(
@@ -160,6 +167,22 @@ class TestPerturbedPolyBeam:
                 freq_perturb_coeffs=[0.0, 0.1],
                 freq_perturb_scale=2.0,
             )
+
+    def test_swapped_pols(self):
+        ppbn = PerturbedPolyBeam.like_fagnoni19(x_orientation='north', polarized=True)
+        ppbe = PerturbedPolyBeam.like_fagnoni19(x_orientation='east', polarized=True)
+
+        vals_n = ppbn.efield_eval(
+            az_array=np.array([0, np.pi/2]),
+            za_array = np.array([0, np.pi/2]),
+            freq_array=np.array([150e6])
+        )
+        vals_e = ppbe.efield_eval(
+            az_array=np.array([0, np.pi/2]),
+            za_array = np.array([0, np.pi/2]),
+            freq_array=np.array([150e6])
+        )
+        assert np.allclose(vals_n[:, 0], vals_e[:, 1])
 
     def test_normalization(self):
         beam = self.get_perturbed_beam(0.0, polarized=True)
