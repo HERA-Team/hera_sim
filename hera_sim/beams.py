@@ -2,134 +2,14 @@
 
 import numpy as np
 from numpy.polynomial.chebyshev import chebval
-from pyuvsim import AnalyticBeam
-
+from pyuvdata.analytic_beam import AnalyticBeam
+from dataclasses import dataclass, field
 from . import utils
-
-
-def stokes_matrix(pol_index):
-    """
-    Calculate Pauli matrices for pseudo-Stokes conversion.
-
-    Source code adapted from `pyuvdata`.
-
-    Derived from https://arxiv.org/pdf/1401.2095.pdf, the Pauli
-    indices are reordered from the quantum mechanical
-    convention to an order which gives the ordering of the pseudo-Stokes vector
-    ['pI', 'pQ', 'pU, 'pV'].
-
-    Parameters
-    ----------
-    pol_index : int
-        Polarization index for which the Pauli matrix is generated, the index
-        must lie between 0 and 3 ('pI': 0, 'pQ': 1, 'pU': 2, 'pV':3).
-
-    Returns
-    -------
-    pauli_mat: array of float
-        Pauli matrix for pol_index. Shape: (2, 2)
-    """
-    if pol_index == 0:
-        pauli_mat = np.array([[1.0, 0.0], [0.0, 1.0]])
-    elif pol_index == 1:
-        pauli_mat = np.array([[1.0, 0.0], [0.0, -1.0]])
-    elif pol_index == 2:
-        pauli_mat = np.array([[0.0, 1.0], [1.0, 0.0]])
-    elif pol_index == 3:
-        pauli_mat = np.array([[0.0, -1.0j], [1.0j, 0.0]])
-    else:
-        raise ValueError("'pol_index' must be an integer between 0 and 3")
-
-    return pauli_mat
-
-
-def construct_mueller(jones, pol_index1, pol_index2):
-    """
-    Generate Mueller components. Source code adapted from `pyuvdata`.
-
-    Following https://arxiv.org/pdf/1802.04151.pdf. Using equation:
-
-            Mij = Tr(J sigma_i J^* sigma_j)
-
-    where sigma_i and sigma_j are Pauli matrices.
-
-    Parameters
-    ----------
-    jones: array of float
-        Jones matrices containing the electric field for the dipole arms
-        or linear polarizations. Shape: (Npixels, 2, 2) for Healpix beams or
-        (Naxes1 * Naxes2, 2, 2) otherwise.
-
-    pol_index1: int
-        Polarization index referring to the first index of Mij (i).
-
-    pol_index2: int
-        Polarization index referring to the second index of Mij (j).
-
-    Returns
-    -------
-    mueller: array of float
-        Mueller array containing the Mij values, shape: (Npixels,) for Healpix beams
-        or (Naxes1 * Naxes2,) otherwise.
-    """
-    pauli_mat1 = stokes_matrix(pol_index1)
-    pauli_mat2 = stokes_matrix(pol_index2)
-
-    mueller = 0.5 * np.einsum(
-        "...ab,...bc,...cd,...ad", pauli_mat1, jones, pauli_mat2, np.conj(jones)
-    )
-    mueller = np.abs(mueller)
-
-    return mueller
-
-
-def efield_to_pstokes(efield_beam, npix, Nfreqs):
-    """
-    Convert E-field to pseudo-stokes power. Source code adapted from `pyuvdata`.
-
-    Following https://arxiv.org/pdf/1802.04151.pdf, using the equation:
-
-            M_ij = Tr(sigma_i J sigma_j J^*)
-
-    where sigma_i and sigma_j are Pauli matrices.
-
-    Parameters
-    ----------
-    efield_beam: array_like, complex
-        The E-field to convert to pStokes power beam.
-        Must have shape (2, 1, 2, Nfreq, npix).
-
-    npix: int
-        The npix number of the HEALPix maps of the efield_beam.
-
-    Nfreqs: int
-        The number of frequencies of the efield_beam.
-
-    Returns
-    -------
-    power_data: array_like, complex
-        The pseudo-Stokes power beam computed from efield_beam.
-        Shape (1, 1, 4, Nfreq, npix)
-
-    """
-    # construct jones matrix containing the electric field
-
-    pol_strings = ["pI", "pQ", "pU", "pV"]
-    power_data = np.zeros((1, 1, 4, Nfreqs, npix), dtype=np.complex128)
-
-    for fq_i in range(Nfreqs):
-        jones = np.zeros((npix, 2, 2), dtype=np.complex128)
-        pol_strings = ["pI", "pQ", "pU", "pV"]
-        jones[:, 0, 0] = efield_beam[0, 0, fq_i, :]
-        jones[:, 0, 1] = efield_beam[0, 1, fq_i, :]
-        jones[:, 1, 0] = efield_beam[1, 0, fq_i, :]
-        jones[:, 1, 1] = efield_beam[1, 1, fq_i, :]
-
-        for pol_i in range(len(pol_strings)):
-            power_data[:, :, pol_i, fq_i, :] = construct_mueller(jones, pol_i, pol_i)
-
-    return power_data
-
+import numpy.typing as npt
+try:
+    from typing import Self
+except ImportError:
+    from typing_extensions import Self
 
 def modulate_with_dipole(az, za, freqs, ref_freq, beam_vals, fscale):
     """
@@ -149,41 +29,38 @@ def modulate_with_dipole(az, za, freqs, ref_freq, beam_vals, fscale):
     Parameters
     ----------
     az: array_like
-        Array of azimuth values, in radians. 1-dimensional, of same size 'Naz'
-        than za.
-
+        Array of azimuth values, in radians. Shape (Npix, Nfreq)
     za: array_like
-        Array of zenith-angle values, in radians. 1-dimensional, of same size 'Nza'
-        than az.
-
+        Array of zenith-angle values, in radians. Shape (Npix, Nfreq)
     freqs: array_like
-        Array of frequencies at which the beam pattern has been computed. Size 'Nfreqs'.
-
+        Array of frequencies at which the beam pattern has been computed.
+        Shape (Npix, Nfreq).
     ref_freq: float
         The reference frequency for the beam width scaling power law.
-
     beam_vals: array_like, complex
-        Array of beam values, with shape (Nfreqs, Naz). This will normally be the
+        Array of beam values, with shape (Npix, Nfreqs). This will normally be the
         square-root of a power beam.
 
     Returns
     -------
     pol_efield_beam : array_like, complex
-        Array of polarized beam values, with shape (2, 1, 2, Nfreqs, Naz), where 2 =
-        (phi, theta) directions, 1 = number of spectral windows, and 2 = N_feed is the
-        number of linearly-polarised feeds, assumed to be the 'n' and 'e' directions.
+        Array of polarized beam values, with shape (2, 2, Npix, Nfreq).
     """
     # Form the beam.
     # initial dipole matrix, shape (2, 2, az.size)
     dipole = np.array([[-np.sin(az), np.cos(az)], [np.cos(az), np.sin(az)]])
+
     # stretched zenith angle, shape (Nfreq, za.size)
-    za_scale = za[np.newaxis, :] / fscale[:, np.newaxis]
+    za_scale = za / fscale
+
     # phase component, shape za_scale.shape = (Nfreq, za.size)
     ph = q(za_scale) * (1.0 + p(za_scale) * 1.0j)
-    # shape (2, 2, 1, az.size)
-    dipole_mod = ph[np.newaxis, np.newaxis, ...] * dipole[:, :, np.newaxis, :]
-    # shape (2, 1, 2, Nfreq, az.size)
-    pol_efield_beam = dipole_mod[:, ...] * beam_vals[np.newaxis, np.newaxis, ...]
+
+    # shape (2, 2, az.size)
+    dipole = dipole * ph
+
+    # shape (2, 2, az.size)
+    pol_efield_beam = dipole * beam_vals
 
     # Correct it for frequency dependency.
     # extract modulus and phase of the beams
@@ -191,8 +68,10 @@ def modulate_with_dipole(az, za, freqs, ref_freq, beam_vals, fscale):
     phase = np.angle(pol_efield_beam)
     # assume linear shift of phase along frequency
     shift = -np.pi / 18e6 * (freqs - ref_freq)  # shape (Nfreq, )
+
     # shift the phase
-    phase += shift[np.newaxis, np.newaxis, :, np.newaxis]
+    phase += shift
+
     # upscale the modulus
     modulus = np.power(modulus, 0.6)  # ad-hoc
     # map the phase to [-pi; +pi]
@@ -251,6 +130,7 @@ def q(za):
     return res
 
 
+@dataclass
 class PolyBeam(AnalyticBeam):
     """
     Analytic, azimuthally-symmetric beam model based on Chebyshev polynomials.
@@ -278,83 +158,37 @@ class PolyBeam(AnalyticBeam):
         and (theta, e) elements of the Jones matrix returned by the
         `interp()` method. Default: False.
     """
+    basis_vector_type = "az_za"
 
-    def __init__(
-        self, beam_coeffs=None, spectral_index=0.0, ref_freq=1e8, polarized=False
-    ):
-        self.ref_freq = ref_freq
-        self.spectral_index = spectral_index
-        self.polarized = polarized
-        self.data_normalization = "peak"
-        self.freq_interp_kind = None
-        self.Nspws = 1
+    beam_coeffs: npt.NDArray[float] = field(default_factory=list)
+    spectral_index: float = 0.0
+    ref_freq: float = 1e8
+    polarized: bool = field(default=False)
 
-        # Polarization conventions
-        self.beam_type = "efield"
-        self.Nfeeds = 2  # n and e feeds
-        self.pixel_coordinate_system = "az_za"  # az runs from East to North
-        self.feed_array = ["n", "e"]
-        self.x_orientation = "east"
-
-        # Beam data
-        self.beam_coeffs = beam_coeffs
-
-    def peak_normalize(self):
-        """Normalize the beam to have peak of unity."""
-        # Not required
-        pass
-
-    def select(self, **kwargs):
-        """Dummy select method."""
-        pass
-
-    def interp(self, az_array, za_array, freq_array, **kwargs):
+    def _efield_eval(
+        self,
+        *,
+        az_grid: npt.NDArray[float],
+        za_grid: npt.NDArray[float],
+        f_grid: npt.NDArray[float],
+    ) -> npt.NDArray[float]:
         """
-        Evaluate the primary beam at given az, za locations (in radians).
+        Compute the E-field response of the polybeam.
 
         Parameters
         ----------
-        az_array : array_like
-            Azimuth values in radians (same length as za_array). The azimuth
-            here has the UVBeam convention: North of East(East=0, North=pi/2)
-        za_array : array_like
-            Zenith angle values in radians (same length as az_array).
-        freq_array : array_like
-            Frequency values to evaluate at.
-
-
-        Other Parameters
-        ----------------
-        All other parameters are ignored -- they are there for compatibility with
-        :class:`pyuvdata.uvbeam.UVBeam`.
-
-        Returns
-        -------
-        interp_data : array_like
-            Array of beam values, shape (Naxes_vec, Nspws, Nfeeds or Npols,
-            Nfreqs or freq_array.size if freq_array is passed,
-            Npixels/(Naxis1, Naxis2) or az_array.size if az/za_arrays are passed)
-        interp_basis_vector : array_like
-            Array of interpolated basis vectors (or self.basis_vector_array
-            if az/za_arrays are not passed), shape: (Naxes_vec, Ncomponents_vec,
-            Npixels/(Naxis1, Naxis2) or az_array.size if az/za_arrays are passed)
+        az_grid : array_like
+            Grid of azimuth, shape (n_pixels, n_freqs)
+        za_grid : array_like
+            Grid of zenith angles, shape (n_pixels, n_freqs)
+        f_grid : array_like
+            Grid of frequencies, shape (n_pixels, n_freqs)
         """
-        # Check that coordinates have same length
-        if az_array.size != za_array.size:
-            raise ValueError(
-                "Azimuth and zenith angle coordinate arrays must have same length."
-            )
-
-        # Empty data array
-        interp_data = np.zeros(
-            (2, 2, freq_array.size, az_array.size), dtype=np.complex128
-        )
-
         # Frequency scaling
-        fscale = (freq_array / self.ref_freq) ** self.spectral_index
+        fscale = (f_grid / self.ref_freq) ** self.spectral_index
 
         # Transformed zenith angle, also scaled with frequency
-        x = 2.0 * np.sin(za_array[np.newaxis, ...] / fscale[:, np.newaxis]) - 1.0
+        x = 2.0 * np.sin(za_grid / fscale) - 1.0
 
         # Primary beam values from Chebyshev polynomial
         beam_values = chebval(x, self.beam_coeffs)
@@ -366,35 +200,57 @@ class PolyBeam(AnalyticBeam):
         # interp_data shape: (Naxes_vec, Nspws, Nfeeds or Npols, Nfreqs, Naz)
         if self.polarized:
             interp_data = modulate_with_dipole(
-                az_array, za_array, freq_array, self.ref_freq, beam_values, fscale
+                az_grid, za_grid, f_grid, self.ref_freq, beam_values, fscale
             )
+            if self.north_ind == 1:
+                interp_data = np.flip(interp_data, axis=1)  # flip e/n
         else:
+            # Empty data array
+            interp_data = np.zeros(
+                (2, 2) + f_grid.shape, dtype=np.complex128
+            )
             interp_data[1, 0, :, :] = beam_values  # (theta, n)
             interp_data[0, 1, :, :] = beam_values  # (phi, e)
 
-        interp_basis_vector = None
 
-        if self.beam_type == "power":
-            # Cross-multiplying feeds, adding vector components
-            pairs = [(i, j) for i in range(2) for j in range(2)]
-            power_data = np.zeros((1, 4) + beam_values.shape, dtype=float)
-            for pol_i, pair in enumerate(pairs):
-                power_data[:, pol_i] = (
-                    interp_data[0, pair[0]] * np.conj(interp_data[0, pair[1]])
-                ) + (interp_data[1, pair[0]] * np.conj(interp_data[1, pair[1]]))
-            interp_data = power_data
 
-        return interp_data, interp_basis_vector
+        return interp_data
 
-    def __eq__(self, other):
-        """Evaluate equality with another object."""
-        return (
-            self.beam_coeffs == other.beam_coeffs
-            if isinstance(other, self.__class__)
-            else False
+    @classmethod
+    def like_fagnoni19(cls, **kwargs) -> Self:
+        """Construct a :class:`PolyBeam` that approximates the HERA beam."""
+        return cls(
+            **(
+                dict(
+                    ref_freq=1.0e8,
+                    spectral_index=-0.6975,
+                    beam_coeffs=[
+                        0.29778665,
+                        -0.44821433,
+                        0.27338272,
+                        -0.10030698,
+                        -0.01195859,
+                        0.06063853,
+                        -0.04593295,
+                        0.0107879,
+                        0.01390283,
+                        -0.01881641,
+                        -0.00177106,
+                        0.01265177,
+                        -0.00568299,
+                        -0.00333975,
+                        0.00452368,
+                        0.00151808,
+                        -0.00593812,
+                        0.00351559,
+                    ],
+                )
+                | kwargs
+            )
         )
 
 
+@dataclass
 class PerturbedPolyBeam(PolyBeam):
     """A :class:`PolyBeam` in which the shape of the beam has been modified.
 
@@ -464,46 +320,26 @@ class PerturbedPolyBeam(PolyBeam):
     **kwargs
         Any other parameters are used to initialize superclass :class:`PolyBeam`.
     """
+    beam_coeffs: npt.NDArray[float] = field(default_factory=list)
+    perturb_coeffs: npt.NDArray[float] = field(default_factory=list)
+    perturb_scale: float = 0.1
+    mainlobe_width: float = 0.3
+    mainlobe_scale: float = 1.0
+    transition_width: float = 0.05
+    xstretch: float = 1.0
+    ystretch: float = 1.0
+    rotation: float = 0.0
+    freq_perturb_coeffs: npt.NDArray[float] = field(default_factory=list)
+    freq_perturb_scale: float = 0.0
+    perturb_zeropoint: float = None
 
-    def __init__(
-        self,
-        beam_coeffs=None,
-        perturb_coeffs=None,
-        perturb_scale=0.1,
-        mainlobe_width=0.3,
-        mainlobe_scale=1.0,
-        transition_width=0.05,
-        xstretch=1.0,
-        ystretch=1.0,
-        rotation=0.0,
-        freq_perturb_coeffs=None,
-        freq_perturb_scale=0.0,
-        perturb_zeropoint=None,
-        **kwargs,
-    ):
+    def __post_init__(self, include_cross_pols: bool):
         # Initialize base class
-        super().__init__(beam_coeffs=beam_coeffs, **kwargs)
+        super().__post_init__(include_cross_pols=include_cross_pols)
 
-        # Check for valid input parameters
-        if mainlobe_width is None:
-            raise ValueError("Must specify a value for 'mainlobe_width' kwarg")
-
-        # Set sidelobe perturbation parameters
-        if perturb_coeffs is None:
-            perturb_coeffs = []
-        if freq_perturb_coeffs is None:
-            freq_perturb_coeffs = []
-        self.perturb_coeffs = np.array(perturb_coeffs)
-        self.freq_perturb_coeffs = np.array(freq_perturb_coeffs)
-
-        # Set all other parameters
-        self.perturb_scale = perturb_scale
-        self.freq_perturb_scale = freq_perturb_scale
-        self.mainlobe_width = mainlobe_width
-        self.mainlobe_scale = mainlobe_scale
-        self.transition_width = transition_width
-        self.xstretch, self.ystretch = xstretch, ystretch
-        self.rotation = rotation
+        self.beam_coeffs = np.asarray(self.beam_coeffs)
+        self.freq_perturb_coeffs = np.asarray(self.freq_perturb_coeffs)
+        self.perturb_coeffs = np.asarray(self.perturb_coeffs)
 
         # Calculate normalization of sidelobe perturbation functions on
         # fixed grid (ensures rescaling is deterministic/independent of input
@@ -522,8 +358,8 @@ class PerturbedPolyBeam(PolyBeam):
             )
 
             # Override calculated zeropoint with user-specified value
-            if perturb_zeropoint is not None:
-                self._zeropoint_pza = perturb_zeropoint
+            if self.perturb_zeropoint is not None:
+                self._zeropoint_pza = self.perturb_zeropoint
 
         # Rescale p_freq to the range [-0.5, +0.5]
         self._scale_pfreq, self._zeropoint_pfreq = 0.0, 0.0
@@ -532,6 +368,9 @@ class PerturbedPolyBeam(PolyBeam):
             self._zeropoint_pfreq = -0.5 - 2.0 * np.min(p_freq) / (
                 np.max(p_freq) - np.min(p_freq)
             )
+
+    def validate(self):
+        super().validate()
 
         # Sanity checks
         if self.perturb_scale >= 1.0:
@@ -603,69 +442,112 @@ class PerturbedPolyBeam(PolyBeam):
 
         return p_freq * scale + zeropoint
 
-    def interp(self, az_array, za_array, freq_array, reuse_spline=None):
+    def _apply_stretch(self, az_grid, za_grid):
+        # Convert sheared Cartesian coords to circular polar coords
+        # mX stretches in x direction, mY in y direction, a is angle
+        # Notation: phi = az, theta = za. Subscript 's' are transformed coords
+        a = self.rotation * np.pi / 180.0
+        X = za_grid * np.cos(az_grid)
+        Y = za_grid * np.sin(az_grid)
+        Xs = (X * np.cos(a) - Y * np.sin(a)) / self.xstretch
+        Ys = (X * np.sin(a) + Y * np.cos(a)) / self.ystretch
+
+        # Updated polar coordinates
+        theta_s = np.sqrt(Xs**2.0 + Ys**2.0)
+        phi_s = np.zeros_like(theta_s)
+        mask = theta_s == 0.0
+        phi_s[~mask] = np.arccos(Xs[~mask] / theta_s[~mask])
+        phi_s[Ys < 0.0] *= -1.0
+
+        # Fix coordinates below the horizon of the unstretched beam
+        theta_s[np.where(theta_s < 0.0)] = 0.5 * np.pi
+        theta_s[np.where(theta_s >= np.pi / 2.0)] = 0.5 * np.pi
+
+        # Update za_array and az_array
+        return phi_s, theta_s
+
+    def _efield_eval(self, az_grid, za_grid, f_grid):
         """Evaluate the primary beam after shearing/stretching/rotation."""
         # Apply shearing, stretching, or rotation
         if self.xstretch != 1.0 or self.ystretch != 1.0:
-            # Convert sheared Cartesian coords to circular polar coords
-            # mX stretches in x direction, mY in y direction, a is angle
-            # Notation: phi = az, theta = za. Subscript 's' are transformed coords
-            a = self.rotation * np.pi / 180.0
-            X = za_array * np.cos(az_array)
-            Y = za_array * np.sin(az_array)
-            Xs = (X * np.cos(a) - Y * np.sin(a)) / self.xstretch
-            Ys = (X * np.sin(a) + Y * np.cos(a)) / self.ystretch
-
-            # Updated polar coordinates
-            theta_s = np.sqrt(Xs**2.0 + Ys**2.0)
-            phi_s = np.zeros_like(theta_s)
-            mask = theta_s == 0.0
-            phi_s[~mask] = np.arccos(Xs[~mask] / theta_s[~mask])
-            phi_s[Ys < 0.0] *= -1.0
-
-            # Fix coordinates below the horizon of the unstretched beam
-            theta_s[np.where(theta_s < 0.0)] = 0.5 * np.pi
-            theta_s[np.where(theta_s >= np.pi / 2.0)] = 0.5 * np.pi
-
-            # Update za_array and az_array
-            az_array, za_array = phi_s, theta_s
+            az_grid, za_grid = self._apply_stretch(az_grid, za_grid)
 
         # Call interp() method on parent class
-        interp_data, interp_basis_vector = super().interp(
-            az_array=az_array,
-            za_array=za_array,
-            freq_array=freq_array,
-            reuse_spline=reuse_spline,
+        interp_data = super()._efield_eval(
+            az_grid=az_grid, za_grid=za_grid, f_grid=f_grid
         )
+
         # Smooth step function
         step = 0.5 * (
-            1.0 + np.tanh((za_array - self.mainlobe_width) / self.transition_width)
+            1.0 + np.tanh((za_grid - self.mainlobe_width) / self.transition_width)
         )
 
         # Construct sidelobe perturbations (angle- and frequency-dependent)
         p_za = self._sidelobe_modulation_za(
-            za_array, scale=self._scale_pza, zeropoint=self._zeropoint_pza
+            za_grid, scale=self._scale_pza, zeropoint=self._zeropoint_pza
         )
         p_freq = self._sidelobe_modulation_freq(
-            freq_array, scale=self._scale_pfreq, zeropoint=self._zeropoint_pfreq
+            f_grid, scale=self._scale_pfreq, zeropoint=self._zeropoint_pfreq
         )
         p_za = np.atleast_1d(self.perturb_scale * p_za)
         p_freq = np.atleast_1d(self.freq_perturb_scale * p_freq)
 
         # Modulate primary beam by sidelobe perturbation function
-        interp_data *= 1.0 + np.outer(1.0 + p_freq, step * p_za)
+        interp_data *= 1.0 + (1.0 + p_freq)* step * p_za
 
         # Add mainlobe stretch factor
         if self.mainlobe_scale != 1.0:
             # Subtract and re-add Gaussian normalized to 1 at za = 0
             w = self.mainlobe_width / 2.0
-            mainlobe0 = np.exp(-0.5 * (za_array / w) ** 2.0)
-            mainlobe_pert = np.exp(-0.5 * (za_array / (w * self.mainlobe_scale)) ** 2.0)
+            mainlobe0 = np.exp(-0.5 * (za_grid / w) ** 2.0)
+            mainlobe_pert = np.exp(-0.5 * (za_grid / (w * self.mainlobe_scale)) ** 2.0)
             interp_data += (1.0 - step) * (mainlobe_pert - mainlobe0)
 
-        return interp_data, interp_basis_vector
+        return interp_data
 
+    @classmethod
+    def like_fagnoni19(cls, **kwargs):
+        defaults = {
+            "mainlobe_width": 0.3,
+            "perturb_coeffs":np.array([
+                -0.20437532,
+                -0.4864951,
+                -0.18577532,
+                -0.38053642,
+                0.08897764,
+                0.06367166,
+                0.29634711,
+                1.40277112,
+            ]),
+            "mainlobe_scale":1.0,
+            "xstretch": 1.1,
+            "ystretch": 0.8,
+            "ref_freq": 1.0e8,
+            "spectral_index": -0.6975,
+            "beam_coeffs": [
+                0.29778665,
+                -0.44821433,
+                0.27338272,
+                -0.10030698,
+                -0.01195859,
+                0.06063853,
+                -0.04593295,
+                0.0107879,
+                0.01390283,
+                -0.01881641,
+                -0.00177106,
+                0.01265177,
+                -0.00568299,
+                -0.00333975,
+                0.00452368,
+                0.00151808,
+                -0.00593812,
+                0.00351559,
+            ],
+        }
+        return cls(**(defaults | kwargs))
 
+@dataclass
 class ZernikeBeam(AnalyticBeam):
     """
     Analytic beam model based on Zernike polynomials.
@@ -682,56 +564,31 @@ class ZernikeBeam(AnalyticBeam):
     peak_normalized : bool, optional
         Whether the beam should be normalized to 1 at beam center.
     """
+    beam_coeffs: npt.NDArray[float]
+    spectral_index: float = 0.0
+    ref_freq : float = 1e8
+    peak_normalized : bool = True
 
-    def __init__(
-        self, beam_coeffs, spectral_index=0.0, ref_freq=1e8, peak_normalized=True
-    ):
-        self.ref_freq = ref_freq
-        self.spectral_index = spectral_index
-        self.data_normalization = "peak"
-        self.peak_normalized = peak_normalized
-        self.freq_interp_kind = None
-        self.beam_type = "efield"
-        self.beam_coeffs = beam_coeffs
-
-    def peak_normalize(self):
-        """Normalize the beam to have peak of unity."""
-        self.peak_normalized = True
-
-    def interp(self, az_array, za_array, freq_array, reuse_spline=None):
+    def _efield_eval(self, az_grid, za_grid, f_grid):
         """
         Evaluate the primary beam at given az, za locations (in radians).
 
         Parameters
         ----------
-        az_array : array_like
-            Azimuth values in radians (same length as za_array). The azimuth
-            here has the UVBeam convention: North of East(East=0, North=pi/2)
+        az_grid : array_like
+            Azimuth values in radians, shape (Npix, Nfreq).
         za_array : array_like
-            Zenith angle values in radians (same length as az_array).
+            Zenith angle values in radians, shape (Npix, Nfreq).
         freq_array : array_like
-            Frequency values to evaluate at.
-        reuse_spline : bool, optional
-            Does nothing for analytic beams. Here for compatibility with UVBeam.
-
-        Returns
-        -------
-        interp_data : array_like
-            Array of beam values, shape (Naxes_vec, Nspws, Nfeeds or Npols,
-            Nfreqs or freq_array.size if freq_array is passed,
-            Npixels/(Naxis1, Naxis2) or az_array.size if az/za_arrays are passed)
-        interp_basis_vector : array_like
-            Array of interpolated basis vectors (or self.basis_vector_array
-            if az/za_arrays are not passed), shape: (Naxes_vec, Ncomponents_vec,
-            Npixels/(Naxis1, Naxis2) or az_array.size if az/za_arrays are passed)
+            Frequency values to evaluate at, shape (Npix, Nfreq).
         """
         # Empty data array
-        interp_data = np.zeros((2, 2, freq_array.size, az_array.size), dtype=float)
+        interp_data = self._get_empty_data_array(az_grid.shape, beam_type='efield')
 
         # Frequency scaling
-        fscale = (freq_array / self.ref_freq) ** self.spectral_index
-        radial_coord = za_array / fscale
-        axial_coord = az_array
+        fscale = (f_grid / self.ref_freq) ** self.spectral_index
+        radial_coord = za_grid / fscale
+        axial_coord = az_grid
 
         # Primary beam values from Zernike polynomial
         values = self.zernike(
@@ -739,34 +596,16 @@ class ZernikeBeam(AnalyticBeam):
             x=radial_coord * np.cos(axial_coord),
             y=radial_coord * np.sin(axial_coord),
         )
-        central_val = self.zernike(coeffs=self.beam_coeffs, x=0.0, y=0.0)
+
         if self.peak_normalized:
+            central_val = self.zernike(coeffs=self.beam_coeffs, x=0.0, y=0.0)
             values /= central_val  # ensure normalized to 1 at za=0
 
         # Set values
-        interp_data[1, 0] = values
-        interp_data[0, 1] = values
-        interp_basis_vector = None
+        interp_data[1, self.east_ind] = values
+        interp_data[0, self.north_ind] = values
 
-        if self.beam_type == "power":
-            # Cross-multiplying feeds, adding vector components
-            pairs = [(i, j) for i in range(2) for j in range(2)]
-            power_data = np.zeros((1, 4) + values.shape, dtype=float)
-            for pol_i, pair in enumerate(pairs):
-                power_data[:, pol_i] = (
-                    interp_data[0, pair[0]] * np.conj(interp_data[0, pair[1]])
-                ) + (interp_data[1, pair[0]] * np.conj(interp_data[1, pair[1]]))
-            interp_data = power_data
-
-        return interp_data, interp_basis_vector
-
-    def __eq__(self, other):
-        """Evaluate equality with another object."""
-        return (
-            self.beam_coeffs == other.beam_coeffs
-            if isinstance(other, self.__class__)
-            else False
-        )
+        return interp_data
 
     @staticmethod
     def zernike(coeffs, x, y):

@@ -1,6 +1,4 @@
 simulator: MatVis
 precision: 2
-ref_time: mean
-correct_source_positions: true
 use_gpu: true
 check_antenna_conjugation: false
