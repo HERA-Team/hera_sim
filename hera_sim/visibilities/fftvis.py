@@ -3,19 +3,21 @@
 from __future__ import annotations
 
 import fftvis
+import itertools
 import logging
 import numpy as np
 from astropy.time import Time
 from fftvis.beams import _evaluate_beam
-from matvis import conversions as convs
+from matvis.core.beams import prepare_beam_unpolarized
+from pyuvdata import utils as uvutils
 
+from .simulators import ModelData, VisibilitySimulator
 from .matvis import MatVis
-from .simulators import ModelData
 
 logger = logging.getLogger(__name__)
 
 
-class FFTVis(MatVis):
+class FFTVis(VisibilitySimulator):
     """
     fftvis visibility simulator.
 
@@ -30,18 +32,6 @@ class FFTVis(MatVis):
 
     Parameters
     ----------
-    polarized : bool, optional
-        Whether to calculate polarized visibilities or not. By default does polarization
-        iff multiple polarizations exist in the UVData object. The behaviour of the
-        simulator is that if requesting polarized output and only a subset of the
-        simulated pols are available in the UVdata object, the code will issue a warning
-        but otherwise continue happily, throwing away the simulated pols it can't store
-        in the UVdata object. Conversely, if polarization is not requested and multiple
-        polarizations are present on the UVData object, it will error unless
-        ``allow_empty_pols`` is set to True (in which case it will warn but continue).
-        The "unpolarized" output of ``fftvis`` is expected to be XX polarization, which
-        corresponds to whatever the UVData object considers to be the x-direction
-        (default East).
     precision : int, optional
         Which precision level to use for floats and complex numbers.
         Allowed values:
@@ -49,37 +39,26 @@ class FFTVis(MatVis):
         - 2: float64, complex128
     mpi_comm : MPI communicator
         MPI communicator, for parallelization.
-    ref_time
-        A reference time for computing adjustments to the co-ordinate transforms using
-        astropy. For best fidelity, set this to a mid-point of your observation times.
-        If specified as a string, this must either use the 'isot' format and 'utc'
-        scale, or be one of "mean", "min" or "max". If any of the latter, the value
-        ll be calculated from the input data directly.
-    correct_source_positions
-        Whether to correct the source positions using astropy and the reference time.
-        Default is True if `ref_time` is given otherwise False.
     check_antenna_conjugation
         Whether to check the antenna conjugation. Default is True. This is a fairly
         heavy operation if there are many antennas and/or many times, and can be
         safely ignored if the data_model was created from a config file.
     **kwargs
-        Passed through to :class:`~.simulators.VisibilitySimulator`.
+        Passed through to `:func:fftvis.simulate.simulate` function.
 
     """
 
     conjugation_convention = "ant1<ant2"
     time_ordering = "time"
-
+    _functions_to_profile = (fftvis.simulate.simulate, _evaluate_beam)
     diffuse_ability = False
     __version__ = "1.0.0"  # Fill in the version number here
 
     def __init__(
         self,
         *,
-        precision: int = 1,
+        precision: int = 2,
         mpi_comm=None,
-        ref_time: str | Time | None = None,
-        correct_source_positions: bool | None = None,
         check_antenna_conjugation: bool = True,
         **kwargs,
     ):
@@ -93,15 +72,13 @@ class FFTVis(MatVis):
             self._complex_dtype = complex
 
         self.mpi_comm = mpi_comm
-        self.ref_time = ref_time
-        self.correct_source_positions = (
-            (ref_time is not None)
-            if correct_source_positions is None
-            else correct_source_positions
-        )
         self.check_antenna_conjugation = check_antenna_conjugation
-        self._functions_to_profile = (fftvis.simulate.simulate, _evaluate_beam)
         self.kwargs = kwargs
+
+    def _check_if_polarized(self, data_model: ModelData) -> bool:
+        p = data_model.uvdata.polarization_array
+        # We only do a non-polarized simulation if UVData has only XX or YY polarization
+        return len(p) != 1 or uvutils.polnum2str(p[0]) not in ["xx", "yy"]
 
     def validate(self, data_model: ModelData):
         """Checks for correct input format."""
@@ -145,16 +122,12 @@ class FFTVis(MatVis):
                 """
             )
 
-        do_pol = self._check_if_polarized(data_model)
-        if do_pol:
+        if self._check_if_polarized(data_model):
             # Number of feeds must be two if doing polarized
             try:
-                nfeeds = uvbeam.data_array.shape[1 if uvbeam.future_array_shapes else 2]
+                nfeeds = uvbeam.data_array.shape[1]
             except AttributeError:
-                # TODO: the following assumes that analytic beams are 2 feeds unless
-                # otherwise specified. This should be fixed at the AnalyticBeam API
-                # level.
-                nfeeds = getattr(uvbeam, "Nfeeds", 2)
+                nfeeds = uvbeam.beam.Nfeeds
 
             assert nfeeds == 2
 
@@ -210,6 +183,18 @@ class FFTVis(MatVis):
 
         return all_floats * self._precision * 4 / 1024**3
 
+    def get_feed(self, uvdata) -> str:
+        """Get the feed to use from the beam, given the UVData object.
+
+        Only applies for an *unpolarized* simulation (for a polarized sim, all feeds
+        are used).
+        """
+        return uvutils.polnum2str(uvdata.polarization_array[0])[0]
+
+    @staticmethod
+    def _get_req_pols(uvdata, uvbeam, polarized: bool) -> list[tuple[int, int]]:
+        return MatVis._get_req_pols(uvdata, uvbeam, polarized)
+
     def simulate(self, data_model):
         """
         Calls :func:`fftvis` to perform the visibility calculation.
@@ -227,18 +212,7 @@ class FFTVis(MatVis):
             myid = self.mpi_comm.Get_rank()
             nproc = self.mpi_comm.Get_size()
 
-        if self.correct_source_positions:
-            ra, dec = self.correct_point_source_pos(data_model)
-            logger.info("Done correcting source positions.")
-        else:
-            ra, dec = data_model.sky_model.ra, data_model.sky_model.dec
-
-        logger.info("Getting Equatorial Coordinates")
-        crd_eq = convs.point_source_crd_eq(ra, dec)
-
-        # Convert equatorial to topocentric coords
-        logger.info("Getting Rotation Matrices")
-        eq2tops = self.get_eq2tops(data_model.uvdata, data_model.lsts)
+        ra, dec = data_model.sky_model.ra.rad, data_model.sky_model.dec.rad
 
         # The following are antenna positions in the order that they are
         # in the uvdata.data_array
@@ -247,34 +221,18 @@ class FFTVis(MatVis):
         )
         active_antpos = dict(zip(ant_list, active_antpos_array))
 
-        # Get antpairs in the order that they appear in the uvdata.data_array
-        # In certain cases, uvdata.get_antpairs() will return a different order
-        # than the order in the data_array
-        if data_model.uvdata.time_axis_faster_than_bls:
-            antpairs = list(
-                zip(
-                    data_model.uvdata.ant_1_array[:: data_model.uvdata.Ntimes],
-                    data_model.uvdata.ant_2_array[:: data_model.uvdata.Ntimes],
-                )
-            )
-        else:
-            antpairs = list(
-                zip(
-                    data_model.uvdata.ant_1_array[: data_model.uvdata.Nbls],
-                    data_model.uvdata.ant_2_array[: data_model.uvdata.Nbls],
-                )
-            )
+        # since pyuvdata v3, get_antpairs always returns antpairs in the right order.
+        antpairs = data_model.uvdata.get_antpairs()
 
         # Get pixelized beams if required
         logger.info("Preparing Beams...")
-        beam = convs.prepare_beam(
-            data_model.beams[0], polarized=polarized, use_feed=feed
-        )
+        if not polarized:
+            beam = prepare_beam_unpolarized(data_model.beams[0], use_feed=feed)
+        else:
+            beam = data_model.beams[0]
 
         # Get all the polarizations required to be simulated.
-        req_pols = self._get_req_pols(
-            data_model.uvdata, data_model.beams[0], polarized=polarized
-        )
+        req_pols = self._get_req_pols(data_model.uvdata, beam, polarized=polarized)
 
         # Empty visibility array
         if np.all(data_model.uvdata.data_array == 0):
@@ -298,8 +256,10 @@ class FFTVis(MatVis):
             vis = fftvis.simulate.simulate(
                 ants=active_antpos,
                 freqs=np.array([freq]),
-                eq2tops=eq2tops,
-                crd_eq=crd_eq,
+                ra=ra,
+                dec=dec,
+                times=data_model.times,
+                telescope_loc=data_model.uvdata.telescope.location,
                 beam=beam,
                 fluxes=data_model.sky_model.stokes[0, [i]].to("Jy").value.T,
                 beam_spline_opts=data_model.beams.spline_interp_opts,
