@@ -3,9 +3,7 @@ import pytest
 import numpy as np
 import uvtools
 from astropy import constants, units
-from pyuvdata import UVBeam
-from pyuvsim import AnalyticBeam
-
+from pyuvdata import UniformBeam, UVBeam
 import hera_sim
 from hera_sim import DATA_PATH, foregrounds, noise, sigchain
 from hera_sim.interpolators import Bandpass, Beam
@@ -434,7 +432,7 @@ def test_mutual_coupling(use_numba):
 
     # Actually simulate the coupling.
     mutual_coupling = sigchain.MutualCoupling(
-        uvbeam="uniform",
+        uvbeam=UniformBeam(),
         ant_1_array=uvdata.ant_1_array,
         ant_2_array=uvdata.ant_2_array,
         pol_array=uvdata.polarization_array,
@@ -492,7 +490,7 @@ def sample_uvdata():
 @pytest.fixture
 def sample_coupling(sample_uvdata):
     coupling = sigchain.MutualCoupling(
-        uvbeam="uniform",
+        uvbeam=UniformBeam(),
         ant_1_array=sample_uvdata.ant_1_array,
         ant_2_array=sample_uvdata.ant_2_array,
         pol_array=sample_uvdata.polarization_array,
@@ -504,55 +502,15 @@ def sample_coupling(sample_uvdata):
 @pytest.fixture
 def uvbeam(tmp_path):
     beam_fn = str(tmp_path / "test_beam.fits")
-    beam = AnalyticBeam("uniform")
+    beam = UniformBeam()
 
     # Setup some things needed to mock up the UVBeam object
     az = np.linspace(0, 2 * np.pi, 100)
     za = np.linspace(np.pi / 2 - np.pi / 6, np.pi / 2 + np.pi / 6, 15)
     freqs = np.linspace(99e6, 101e6, 20)
-    data_shape = (2, 2, freqs.size, za.size, az.size)
-    basis_shape = (2, 2, za.size, az.size)
-    az_mesh, za_mesh = np.meshgrid(az, za)
-
-    # Populate a UVBeam object with everything needed to write to disk...
-    uvb = UVBeam()
-
-    # Starting with the string-type metadata
-    uvb.antenna_type = "simple"
-    uvb.beam_type = "efield"
-    uvb.data_normalization = "peak"
-    uvb.feed_name = "test"
-    uvb.feed_version = "0.0"
-    uvb.history = ""
-    uvb.model_name = ""
-    uvb.model_version = ""
-    uvb.pixel_coordinate_system = "az_za"
-    uvb.telescope_name = "test"
-
-    # Next onto the array-like objects
-    uvb.axis1_array = az
-    uvb.axis2_array = za
-    uvb.bandpass_array = np.ones_like(freqs)
-    uvb.basis_vector_array = np.zeros(basis_shape)
-    uvb.basis_vector_array[0, 0, :, :] = 1
-    uvb.basis_vector_array[1, 1, :, :] = 1
-    uvb.data_array = (
-        beam.interp(az_mesh.flatten(), za_mesh.flatten(), freqs.flatten())[0]
-        .reshape(data_shape)
-        .astype(complex)
+    uvb = beam.to_uvbeam(
+        freq_array=freqs, beam_type='efield', axis1_array=az, axis2_array=za
     )
-    uvb.freq_array = freqs
-    uvb.feed_array = np.array(["x", "y"])
-    uvb.spw_array = np.zeros(1, dtype=int)
-
-    # Finally, all the shape parameters
-    uvb.Naxes1 = az.size
-    uvb.Naxes2 = za.size
-    uvb.Naxes_vec = 2
-    uvb.Ncomponents_vec = 2
-    uvb.Nfeeds = 2
-    uvb.Nfreqs = freqs.size
-    uvb.Nspws = 1
 
     # Finally, write it to disk.
     uvb.write_beamfits(beam_fn)
@@ -1011,3 +969,18 @@ def test_vary_gains_exception_bad_variation_mode(gains, times):
             gains=gains, times=times, parameter="amp", variation_mode="foobar"
         )
     assert err.value.args[0] == "Variation mode 'foobar' not supported."
+
+def test_mutual_coupling_handle_beam(tmp_path):
+    beam = UniformBeam()
+
+    assert sigchain.MutualCoupling._handle_beam(beam) is beam
+
+    uvbeam = beam.to_uvbeam(freq_array=np.array([150e6]), nside=64)
+    assert sigchain.MutualCoupling._handle_beam(uvbeam) is uvbeam
+
+    uvbeam.write_beamfits(tmp_path / 'a_beam.fits')
+    _read = sigchain.MutualCoupling._handle_beam(tmp_path / 'a_beam.fits')
+    assert isinstance(_read, UVBeam)
+
+    with pytest.raises(ValueError, match="uvbeam has incorrect format"):
+        sigchain.MutualCoupling._handle_beam('non.existent')

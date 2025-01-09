@@ -14,7 +14,8 @@ from astropy import constants, units
 from collections.abc import Sequence
 from pathlib import Path
 from pyuvdata import UVBeam
-from pyuvsim import AnalyticBeam
+from pyuvdata.analytic_beam import AnalyticBeam
+from pyuvdata.beam_interface import BeamInterface
 from scipy.signal.windows import blackmanharris
 from typing import Callable
 
@@ -819,8 +820,8 @@ class MutualCoupling(Crosstalk):
         The beam (i.e. Jones matrix) to be used for calculating the coupling
         matrix. This may either be a :class:`pyuvdata.UVBeam` object, a path
         to a file that may be read into a :class:`pyuvdata.UVBeam` object, or
-        a string identifying which :class:`pyuvsim.AnalyticBeam` to use. Not
-        required if providing a pre-calculated coupling matrix.
+        a string identifying which :class:`pyuvdata.analytic_beam.AnalyticBeam` to use.
+        Not required if providing a pre-calculated coupling matrix.
     reflection
         The reflection coefficient to use for calculating the coupling matrix.
         Should be either a :class:`np.ndarray` or an interpolation object that
@@ -936,7 +937,7 @@ class MutualCoupling(Crosstalk):
         """
         self._check_kwargs(**kwargs)
         (
-            uvbeam,
+            beam,
             reflection,
             omega_p,
             ant_1_array,
@@ -958,12 +959,12 @@ class MutualCoupling(Crosstalk):
 
         # Now, check that the input beam is OK in case we need to use it.
         if coupling_matrix is None:
-            uvbeam = MutualCoupling._handle_beam(uvbeam, **beam_kwargs)
+            beam = MutualCoupling._handle_beam(beam, **beam_kwargs)
 
             # This already happens in build_coupling_matrix, but the reshape
             # step is not a trivial amount of time, so it's better to do it
             # again here.
-            self._check_beam_is_ok(uvbeam)
+            self._check_beam_is_ok(beam)
 
         # Let's make sure that we're only using antennas that are in the data.
         antpos_ants = antpos_ants.intersection(data_ants)
@@ -996,7 +997,7 @@ class MutualCoupling(Crosstalk):
                 ant_1_array=ant_1_array,
                 ant_2_array=ant_2_array,
                 array_layout=array_layout,
-                uvbeam=uvbeam,
+                uvbeam=beam,
                 reflection=reflection,
                 omega_p=omega_p,
                 pixel_interp=pixel_interp,
@@ -1051,7 +1052,7 @@ class MutualCoupling(Crosstalk):
             The beam (i.e. Jones matrix) to be used for calculating the coupling
             matrix. This may either be a :class:`pyuvdata.UVBeam` object, a path
             to a file that may be read into a :class:`pyuvdata.UVBeam` object, or
-            a string identifying which :class:`pyuvsim.AnalyticBeam` to use. Not
+            an :class:`pyuvdata.analytic_beam.AnalyticBeam`. Not
             required if providing a pre-calculated coupling matrix.
         reflection
             The reflection coefficient to use for calculating the coupling matrix.
@@ -1097,25 +1098,13 @@ class MutualCoupling(Crosstalk):
                 "Calculating the power beam integral; this may take a while.",
                 stacklevel=1,
             )
-            # Since AnalyticBeam doesn't have a method for calculating the
-            # beam integral, we need to do it manually.
             if isinstance(uvbeam, AnalyticBeam):
-                power_beam = copy.deepcopy(uvbeam)
-                power_beam.efield_to_power()
-                nside = 128
-                npix = aph.nside_to_npix(nside)
-                pix_area = aph.nside_to_pixel_area(nside).to("sr").value
-                pix_inds = np.arange(npix)
-                lon, lat = aph.healpix_to_lonlat(pix_inds, nside)
-                above_horizon = lat.value > 0
-                # Just take the XX polarization
-                beam_vals = power_beam.interp(
-                    az_array=lon.to("rad").value,
-                    za_array=np.pi / 2 - lat.to("rad").value,
+                power_beam = uvbeam.to_uvbeam(
                     freq_array=freqs * units.GHz.to("Hz"),
-                )[0][0, 0]
-                beam_vals[:, ~above_horizon] = 0  # Apply horizon cut
-                omega_p = beam_vals.sum(axis=1).real * pix_area
+                    beam_type='power',
+                    pixel_coordinate_system='healpix',
+                    nside=128
+                )
             else:
                 power_beam = uvbeam.copy()
                 power_beam.efield_to_power()
@@ -1126,8 +1115,9 @@ class MutualCoupling(Crosstalk):
                     freq_interp_kind=freq_interp,
                 )  # Interpolate to the desired frequencies
                 power_beam.to_healpix()
-                power_beam.peak_normalize()
-                omega_p = power_beam.get_beam_area(pol="xx").real
+
+            power_beam.peak_normalize()
+            omega_p = power_beam.get_beam_area(pol="xx").real
             del power_beam
         elif callable(omega_p):
             omega_p = omega_p(freqs)
@@ -1150,30 +1140,16 @@ class MutualCoupling(Crosstalk):
                     axis2_inds=horizon_select, inplace=False, run_check=False
                 )
 
-        # Now make sure we're OK to interpolate the beam. AnalyticBeam makes
-        # this a little annoying... but whatever.
-        if hasattr(uvbeam, "interpolation_function"):
-            if uvbeam.interpolation_function is None:
-                uvbeam.interpolation_function = pixel_interp
-        else:
-            uvbeam.interpolation_function = pixel_interp
-        if hasattr(uvbeam, "freq_interp_kind"):
-            if uvbeam.freq_interp_kind is None:
-                uvbeam.freq_interp_kind = freq_interp
-        else:
-            uvbeam.freq_interp_kind = freq_interp
-
         # Now we'll actually interpolate the beam.
         # The end shape is (n_az, n_freq, 2, 2).
-        jones_matrices = (
-            uvbeam.interp(
-                az_array=unique_angles,
-                za_array=np.ones_like(unique_angles) * np.pi / 2,
-                freq_array=freqs * units.GHz.to("Hz"),
-            )[0]
-            .squeeze()
-            .transpose(3, 2, 1, 0)
-        )
+        uvbeam = BeamInterface(uvbeam)
+
+        jones_matrices = uvbeam.compute_response(
+            az_array=unique_angles,
+            za_array=np.ones_like(unique_angles) * np.pi / 2,
+            freq_array=freqs * units.GHz.to("Hz"),
+        ).transpose(3, 2, 1, 0)
+
         jones_matrices = {
             angle: jones_matrices[i] for i, angle in enumerate(unique_angles)
         }
@@ -1220,21 +1196,21 @@ class MutualCoupling(Crosstalk):
         return coupling_matrix
 
     @staticmethod
-    def _check_beam_is_ok(uvbeam):
-        if isinstance(uvbeam, AnalyticBeam):
+    def _check_beam_is_ok(beam):
+        if isinstance(beam, AnalyticBeam):
             return
-        if getattr(uvbeam, "pixel_coordinate_system", "") != "az_za":
+        if getattr(beam, "pixel_coordinate_system", "") != "az_za":
             raise ValueError("Beam must be given in az/za coordinates.")
-        if uvbeam.beam_type != "efield":
+        if beam.beam_type != "efield":
             raise NotImplementedError("Only E-field beams are supported.")
 
     @staticmethod
-    def _handle_beam(uvbeam, **beam_kwargs):
-        if isinstance(uvbeam, (AnalyticBeam, UVBeam)):
-            return uvbeam
-        if Path(uvbeam).exists():
-            return UVBeam.from_file(uvbeam, **beam_kwargs)
-        return AnalyticBeam(uvbeam, **beam_kwargs)
+    def _handle_beam(beam, **beam_kwargs):
+        if isinstance(beam, (AnalyticBeam, UVBeam)):
+            return beam
+        if Path(beam).exists():
+            return UVBeam.from_file(beam, **beam_kwargs)
+        raise ValueError("uvbeam has incorrect format")
 
 
 class OverAirCrossCoupling(Crosstalk):
