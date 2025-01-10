@@ -16,9 +16,10 @@ the ``config_examples`` folder in the top-level ``hera_sim`` directory.
 
 import argparse
 import copy
-import numpy as np
 import os
 import sys
+
+import numpy as np
 import yaml
 from astropy import units
 from astropy.coordinates import Angle
