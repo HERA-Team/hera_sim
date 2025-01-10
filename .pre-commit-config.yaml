@@ -23,11 +23,6 @@ repos:
   hooks:
     - id: rst-backticks
 
-- repo: https://github.com/asottile/setup-cfg-fmt
-  rev: v2.7.0
-  hooks:
-  - id: setup-cfg-fmt
-
 - repo: https://github.com/astral-sh/ruff-pre-commit
   # Ruff version.
   rev: v0.8.6
