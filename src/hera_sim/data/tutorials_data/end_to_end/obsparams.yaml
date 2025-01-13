@@ -1,0 +1,18 @@
+# Specify the frequencies sampled.
+freq:
+    Nfreqs: 100
+    start_freq: 140000000.0
+    bandwidth: 20000000.0
+# Specify the times observed.
+time:
+    Ntimes: 200
+    start_time: 2458119.5
+    integration_time: 10.7
+# Specify where to find the telescope parameters.
+telescope:
+    array_layout: 'array_layout.csv'
+    telescope_config_name: 'telescope.yaml'
+# Define the source catalog.
+sources:
+    catalog: 'sample_catalog.txt'
+    spectral_type: 'full'

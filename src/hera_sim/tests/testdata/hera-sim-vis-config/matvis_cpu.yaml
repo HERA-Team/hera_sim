@@ -1,0 +1,3 @@
+simulator: MatVis
+precision: 2
+check_antenna_conjugation: false

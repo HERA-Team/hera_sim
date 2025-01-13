@@ -1,4 +1,0 @@
-simulator: MatVis
-precision: 2
-use_gpu: true
-check_antenna_conjugation: false
