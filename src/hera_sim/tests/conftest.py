@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 from astropy.time import Time
 from astropy.utils import iers
@@ -19,3 +21,11 @@ def setup_and_teardown_package():
     yield
 
     iers.conf.auto_max_age = 30
+
+@pytest.fixture(scope='session')
+def repodir() -> Path:
+    return Path(__file__).parent.parent.parent.parent
+
+@pytest.fixture(scope='session')
+def exampledir(repodir: Path) -> Path:
+    return repodir / 'config_examples'
