@@ -133,11 +133,11 @@ def write_calfits(
         if isinstance(sim, Simulator):
             freqs = sim.freqs * 1e9
             times = sim.times
-            sim_x_orientation = sim.data.x_orientation
+            sim_x_orientation = sim.data.telescope.x_orientation
         else:
             freqs = np.unique(sim.freq_array)
             times = np.unique(sim.time_array)
-            sim_x_orientation = sim.x_orientation
+            sim_x_orientation = sim.telescope.x_orientation
         if sim_x_orientation is None:
             warnings.warn(
                 "x_orientation not specified in simulation object."

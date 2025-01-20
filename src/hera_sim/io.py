@@ -115,8 +115,8 @@ def empty_uvdata(
         uvd.fix_phase()
 
     # TODO: the following is a hack patch for pyuvsim which should be fixed there.
-    if "x_orientation" in kwargs and uvd.x_orientation is None:
-        uvd.x_orientation = kwargs["x_orientation"]
+    if "x_orientation" in kwargs and uvd.telescope.x_orientation is None:
+        uvd.telescope.x_orientation = kwargs["x_orientation"]
 
     if conjugation is not None:
         uvd.conjugate_bls(convention=conjugation)

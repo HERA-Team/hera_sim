@@ -22,13 +22,12 @@ def test_stokespol(uvdata_linear, sky_model):
         )
 
 
-def test_load_from_yaml(tmpdir):
-    example_dir = Path(__file__).parent.parent.parent.parent / "config_examples"
+def test_load_from_yaml(exampledir: Path):
 
-    simulator = load_simulator_from_yaml(example_dir / "simulator.yaml")
+    simulator = load_simulator_from_yaml(exampledir / "simulator.yaml")
     assert isinstance(simulator, MatVis)
     assert simulator._precision==2
 
-    sim2 = MatVis.from_yaml(example_dir / "simulator.yaml")
+    sim2 = MatVis.from_yaml(exampledir / "simulator.yaml")
 
     assert sim2.diffuse_ability == simulator.diffuse_ability
