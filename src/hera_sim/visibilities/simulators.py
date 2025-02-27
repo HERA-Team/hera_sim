@@ -196,7 +196,11 @@ class ModelData:
         catalog = initialize_catalog_from_params(config_file)
 
         logger.info("Completing UVData object...")
-        _complete_uvdata(uvdata, inplace=True, check_kw=False)
+        try:
+            _complete_uvdata(uvdata, inplace=True, check_kw=False)
+        except TypeError:
+            # Newer versions of pyuvsim removed check_kw.
+            _complete_uvdata(uvdata, inplace=True)
 
         return ModelData(
             uvdata=uvdata,
