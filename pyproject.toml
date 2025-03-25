@@ -76,7 +76,7 @@ tests = [
   "uvtools",
 ]
 vis = [
-  "fftvis>=0.1.0",
+  "fftvis @ git+https://github.com/tyler-a-cox/fftvis",
   "line-profiler",
   "matvis>=1.2.1",
   "mpi4py",
