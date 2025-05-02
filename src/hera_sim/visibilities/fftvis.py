@@ -156,7 +156,9 @@ class FFTVis(VisibilitySimulator):
         nf = len(data_model.freqs)
 
         # Estimate size of the FFT grid used to compute the visibilities
-        active_antpos_array, _ = data_model.uvdata.get_ENU_antpos(pick_data_ants=True)
+        active_antpos_array, _ = data_model.uvdata.telescope.get_ENU_antpos(
+            pick_data_ants=True
+        )
         # Estimate the size of the grid used to compute the visibilities
         max_blx, max_bly, _ = np.abs(
             active_antpos_array.max(axis=0) - active_antpos_array.min(axis=0)
@@ -217,7 +219,7 @@ class FFTVis(VisibilitySimulator):
 
         # The following are antenna positions in the order that they are
         # in the uvdata.data_array
-        active_antpos_array, ant_list = data_model.uvdata.get_ENU_antpos(
+        active_antpos_array, ant_list = data_model.uvdata.telescope.get_ENU_antpos(
             pick_data_ants=True
         )
         active_antpos = dict(zip(ant_list, active_antpos_array))
