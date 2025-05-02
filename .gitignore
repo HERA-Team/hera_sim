@@ -18,3 +18,4 @@ hera_sim/\.ipynb_checkpoints/
 pip-wheel-metadata/
 coverage.xml
 .vscode/
+.qodo
