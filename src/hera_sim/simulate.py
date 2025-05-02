@@ -149,7 +149,7 @@ class Simulator:
     @property
     def antpos(self):
         """Mapping between antenna numbers and ENU positions in meters."""
-        antpos, ants = self.data.get_ENU_antpos(pick_data_ants=True)
+        antpos, ants = self.data.telescope.get_ENU_antpos(pick_data_ants=True)
         return dict(zip(ants, antpos))
 
     @property

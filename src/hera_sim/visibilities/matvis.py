@@ -228,7 +228,9 @@ class MatVis(VisibilitySimulator):
 
         # The following are antenna positions in the order that they are
         # in the uvdata.data_array
-        active_antpos, ant_list = data_model.uvdata.get_ENU_antpos(pick_data_ants=True)
+        active_antpos, ant_list = data_model.uvdata.telescope.get_ENU_antpos(
+            pick_data_ants=True
+        )
 
 
         beam_ids = np.array(

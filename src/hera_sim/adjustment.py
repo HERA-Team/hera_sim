@@ -877,7 +877,7 @@ def _to_uvdata(sim):
 def _get_antpos(uvd, ENU=False):
     """Retrieve {ant: pos} dictionary from a UVData object."""
     if ENU:
-        pos, ant = uvd.get_ENU_antpos()
+        pos, ant = uvd.telescope.get_ENU_antpos()
     else:
         ant = uvd.antenna_numbers
         pos = uvd.antenna_positions
