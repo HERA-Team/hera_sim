@@ -79,7 +79,7 @@ def zenith_sky_model(uvdata2):
     return make_point_sky(
         uvdata2,
         ra=np.array([0.0]),
-        dec=np.array([uvdata2.telescope_location_lat_lon_alt[0]]),
+        dec=np.array([uvdata2.telescope.location_lat_lon_alt[0]]),
         align=True,
     )
 
@@ -88,7 +88,7 @@ def horizon_sky_model(uvdata2):
     return make_point_sky(
         uvdata2,
         ra=np.array([0.0]),
-        dec=np.array([uvdata2.telescope_location_lat_lon_alt[0] + np.pi / 2]),
+        dec=np.array([uvdata2.telescope.location_lat_lon_alt[0] + np.pi / 2]),
         align=True,
     )
 
@@ -99,8 +99,8 @@ def twin_sky_model(uvdata2):
         ra=np.array([0.0, 0.0]),
         dec=np.array(
             [
-                uvdata2.telescope_location_lat_lon_alt[0] + np.pi / 4,
-                uvdata2.telescope_location_lat_lon_alt[0],
+                uvdata2.telescope.location_lat_lon_alt[0] + np.pi / 4,
+                uvdata2.telescope.location_lat_lon_alt[0],
             ]
         ),
         align=True,
@@ -205,7 +205,7 @@ def sky_model(uvdata):
     return make_point_sky(
         uvdata,
         ra=np.array([0.0]) * rad,
-        dec=np.array(uvdata.telescope_location_lat_lon_alt[0]) * rad,
+        dec=np.array(uvdata.telescope.location_lat_lon_alt[0]) * rad,
         align=False,
     )
 
@@ -215,7 +215,7 @@ def sky_modelJD(uvdataJD):
     return make_point_sky(
         uvdataJD,
         ra=np.array([0.0]) * rad,
-        dec=np.array(uvdata.telescope_location_lat_lon_alt[0]) * rad,
+        dec=np.array(uvdata.telescope.location_lat_lon_alt[0]) * rad,
         align=False,
     )
 

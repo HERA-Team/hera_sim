@@ -2,13 +2,10 @@
 
 from __future__ import annotations
 
-import itertools
 import logging
 
 import fftvis
 import numpy as np
-from astropy.time import Time
-from fftvis.beams import _evaluate_beam
 from matvis.core.beams import prepare_beam_unpolarized
 from pyuvdata import utils as uvutils
 
@@ -51,7 +48,7 @@ class FFTVis(VisibilitySimulator):
 
     conjugation_convention = "ant1<ant2"
     time_ordering = "time"
-    _functions_to_profile = (fftvis.simulate.simulate, _evaluate_beam)
+    _functions_to_profile = (fftvis.simulate_vis)
     diffuse_ability = False
     __version__ = "1.0.0"  # Fill in the version number here
 
@@ -150,13 +147,13 @@ class FFTVis(VisibilitySimulator):
         nt = len(data_model.lsts)
         nax = getattr(bm, "Naxes_vec", 1)
         nfd = getattr(bm, "Nfeeds", 1)
-        nant = len(data_model.uvdata.antenna_names)
+        nant = len(data_model.uvdata.telescope.antenna_names)
         nsrc = len(data_model.sky_model.ra)
         nbeam = len(data_model.beams)
         nf = len(data_model.freqs)
 
         # Estimate size of the FFT grid used to compute the visibilities
-        active_antpos_array, _ = data_model.uvdata.get_ENU_antpos(pick_data_ants=True)
+        active_antpos_array, _ = data_model.uvdata.telescope.get_enu_antpos()
         # Estimate the size of the grid used to compute the visibilities
         max_blx, max_bly, _ = np.abs(
             active_antpos_array.max(axis=0) - active_antpos_array.min(axis=0)
@@ -217,9 +214,7 @@ class FFTVis(VisibilitySimulator):
 
         # The following are antenna positions in the order that they are
         # in the uvdata.data_array
-        active_antpos_array, ant_list = data_model.uvdata.get_ENU_antpos(
-            pick_data_ants=True
-        )
+        active_antpos_array, ant_list = data_model.uvdata.get_enu_data_ants()
         active_antpos = dict(zip(ant_list, active_antpos_array))
 
         # since pyuvdata v3, get_antpairs always returns antpairs in the right order.
@@ -254,7 +249,7 @@ class FFTVis(VisibilitySimulator):
             logger.info(f"Simulating Frequency {i + 1}/{len(data_model.freqs)}")
 
             # Call fftvis function to simulate visibilities
-            vis = fftvis.simulate.simulate(
+            vis = fftvis.simulate_vis(
                 ants=active_antpos,
                 freqs=np.array([freq]),
                 ra=ra,

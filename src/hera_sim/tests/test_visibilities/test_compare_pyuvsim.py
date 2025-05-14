@@ -32,8 +32,8 @@ def get_uvdata(pol_array=None):
     rng = np.random.default_rng(10)
 
     # Random antenna locations
-    x = rng.random(nants) * 400.0  # Up to 400 metres
-    y = rng.random(nants) * 400.0
+    x = rng.random(nants) * 100.0  # Up to 400 metres
+    y = rng.random(nants) * 100.0
     z = rng.random(nants) * 0.0
 
     ants = {i: (x[i], y[i], z[i]) for i in range(nants)}

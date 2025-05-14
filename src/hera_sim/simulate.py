@@ -127,7 +127,7 @@ class Simulator:
 
     @property
     def antenna_numbers(self):
-        return self.data.antenna_numbers
+        return self.data.telescope.antenna_numbers
 
     @property
     def ant_1_array(self):
@@ -149,7 +149,7 @@ class Simulator:
     @property
     def antpos(self):
         """Mapping between antenna numbers and ENU positions in meters."""
-        antpos, ants = self.data.get_ENU_antpos(pick_data_ants=True)
+        antpos, ants = self.data.get_enu_data_ants()
         return dict(zip(ants, antpos))
 
     @property
@@ -889,9 +889,6 @@ class Simulator:
                 "a UVData-compatible file may be passed as the data parameter. "
                 "Otherwise, keywords must be provided to build a UVData object."
             )
-
-        if not self.data.future_array_shapes:  # pragma: nocover
-            self.data.use_future_array_shapes()
 
     def _initialize_args_from_model(self, model):
         """

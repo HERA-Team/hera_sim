@@ -388,7 +388,7 @@ def test_mutual_coupling(use_numba):
     omega = np.array([0, 0, omega0])
     delay_width = 50e-9
     ref_freq = freqs.mean()
-    enu_antpos = dict(zip(*uvdata.get_ENU_antpos()[::-1]))
+    enu_antpos = dict(zip(*uvdata.telescope.get_enu_antpos()[::-1]))
     ecef_antpos = dict(zip(uvdata.antenna_numbers, uvdata.antenna_positions))
 
     # We'll want to keep track of where we expect the features to show up.
@@ -494,7 +494,7 @@ def sample_coupling(sample_uvdata):
         ant_1_array=sample_uvdata.ant_1_array,
         ant_2_array=sample_uvdata.ant_2_array,
         pol_array=sample_uvdata.polarization_array,
-        array_layout=dict(zip(*sample_uvdata.get_ENU_antpos()[::-1])),
+        array_layout=dict(zip(*sample_uvdata.telescope.get_enu_antpos()[::-1])),
     )
     return coupling
 
@@ -553,7 +553,7 @@ def test_mutual_coupling_input_types(
 
 
 def test_mutual_coupling_bad_ants(sample_uvdata, sample_coupling):
-    full_array = dict(zip(*sample_uvdata.get_ENU_antpos()[::-1]))
+    full_array = dict(zip(*sample_uvdata.telescope.get_enu_antpos()[::-1]))
     bad_array = {ant: full_array[ant] for ant in range(len(full_array) - 1)}
     with pytest.raises(ValueError, match="Full array layout not provided."):
         _ = sample_coupling(
