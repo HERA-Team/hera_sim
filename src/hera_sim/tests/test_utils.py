@@ -439,3 +439,8 @@ def test_tanh_window_warning():
     with pytest.warns(UserWarning, match="Insufficient information"):
         window = utils.tanh_window(np.linspace(0, 1, 100))
     assert np.all(window == 1)
+
+class TestGetAntposDict:
+    def test_bad_frame(self, uvdata):
+        with pytest.raises(ValueError, match="frame must be"):
+            utils.get_antpos_dict(uvdata, frame='bad_frame')

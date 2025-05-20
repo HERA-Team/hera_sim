@@ -131,10 +131,6 @@ class Simulator:
         return self.data.telescope
 
     @property
-    def antenna_numbers(self):
-        return self.telescope.antenna_numbers
-
-    @property
     def ant_1_array(self):
         return self.data.ant_1_array
 
