@@ -5,7 +5,7 @@ from astropy import constants, units
 from pyuvdata import UniformBeam, UVBeam
 
 import hera_sim
-from hera_sim import DATA_PATH, foregrounds, noise, sigchain
+from hera_sim import DATA_PATH, foregrounds, noise, sigchain, utils
 from hera_sim.interpolators import Bandpass, Beam
 from hera_sim.io import empty_uvdata
 
@@ -388,8 +388,8 @@ def test_mutual_coupling(use_numba):
     omega = np.array([0, 0, omega0])
     delay_width = 50e-9
     ref_freq = freqs.mean()
-    enu_antpos = dict(zip(*uvdata.telescope.get_ENU_antpos()[::-1]))
-    ecef_antpos = dict(zip(uvdata.antenna_numbers, uvdata.antenna_positions))
+    enu_antpos = utils.get_antpos_dict(uvdata)
+    ecef_antpos = utils.get_antpos_dict(uvdata, frame='ecef')
 
     # We'll want to keep track of where we expect the features to show up.
     fringe_rates = {}
@@ -436,7 +436,7 @@ def test_mutual_coupling(use_numba):
         ant_1_array=uvdata.ant_1_array,
         ant_2_array=uvdata.ant_2_array,
         pol_array=uvdata.polarization_array,
-        array_layout=dict(zip(*uvdata.telescope.get_ENU_antpos()[::-1])),
+        array_layout=utils.get_antpos_dict(uvdata),
         reflection=np.ones(uvdata.Nfreqs) * refl_amp,
         omega_p=constants.c.si.value / uvdata.freq_array,
     )
@@ -451,7 +451,7 @@ def test_mutual_coupling(use_numba):
         vis_fft = uvtools.utils.FFT(
             uvtools.utils.FFT(vis, axis=0, taper="bh"), axis=1, taper="bh"
         )
-        for ak in uvdata.antenna_numbers:
+        for ak in uvdata.telescope.antenna_numbers:
             dly_ik = delays[(ai, ak)]
             dly_kj = -delays[(ak, aj)]
             frate_ik = fringe_rates[(ai, ak)]
@@ -494,7 +494,7 @@ def sample_coupling(sample_uvdata):
         ant_1_array=sample_uvdata.ant_1_array,
         ant_2_array=sample_uvdata.ant_2_array,
         pol_array=sample_uvdata.polarization_array,
-        array_layout=dict(zip(*sample_uvdata.telescope.get_ENU_antpos()[::-1])),
+        array_layout=utils.get_antpos_dict(sample_uvdata),
     )
     return coupling
 
@@ -553,7 +553,7 @@ def test_mutual_coupling_input_types(
 
 
 def test_mutual_coupling_bad_ants(sample_uvdata, sample_coupling):
-    full_array = dict(zip(*sample_uvdata.telescope.get_ENU_antpos()[::-1]))
+    full_array = utils.get_antpos_dict(sample_uvdata)
     bad_array = {ant: full_array[ant] for ant in range(len(full_array) - 1)}
     with pytest.raises(ValueError, match="Full array layout not provided."):
         _ = sample_coupling(

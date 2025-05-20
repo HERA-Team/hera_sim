@@ -336,9 +336,9 @@ class PerturbedPolyBeam(PolyBeam):
     freq_perturb_scale: float = 0.0
     perturb_zeropoint: float = None
 
-    def __post_init__(self, include_cross_pols: bool):
+    def __post_init__(self, *args, **kwargs):
         # Initialize base class
-        super().__post_init__(include_cross_pols=include_cross_pols)
+        super().__post_init__(*args, **kwargs)
 
         self.beam_coeffs = np.asarray(self.beam_coeffs)
         self.freq_perturb_coeffs = np.asarray(self.freq_perturb_coeffs)

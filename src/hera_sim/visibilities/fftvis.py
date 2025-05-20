@@ -12,6 +12,7 @@ from fftvis.beams import _evaluate_beam
 from matvis.core.beams import prepare_beam_unpolarized
 from pyuvdata import utils as uvutils
 
+from ..utils import get_antpos_dict
 from .matvis import MatVis
 from .simulators import ModelData, VisibilitySimulator
 
@@ -108,10 +109,6 @@ class FFTVis(VisibilitySimulator):
         uvbeam = data_model.beams[0]  # Representative beam
         uvdata = data_model.uvdata
 
-        # Check that the UVData object is in the correct format
-        # if not uvdata.future_array_shapes:
-        #    uvdata.use_future_array_shapes()
-
         # Now check that we only have linear polarizations (don't allow pseudo-stokes)
         if any(pol not in [-5, -6, -7, -8] for pol in uvdata.polarization_array):
             raise ValueError(
@@ -156,9 +153,8 @@ class FFTVis(VisibilitySimulator):
         nf = len(data_model.freqs)
 
         # Estimate size of the FFT grid used to compute the visibilities
-        active_antpos_array, _ = data_model.uvdata.telescope.get_ENU_antpos(
-            pick_data_ants=True
-        )
+        active_antpos_array, _ = data_model.uvdata.get_enu_data_ants()
+
         # Estimate the size of the grid used to compute the visibilities
         max_blx, max_bly, _ = np.abs(
             active_antpos_array.max(axis=0) - active_antpos_array.min(axis=0)
@@ -219,10 +215,7 @@ class FFTVis(VisibilitySimulator):
 
         # The following are antenna positions in the order that they are
         # in the uvdata.data_array
-        active_antpos_array, ant_list = data_model.uvdata.telescope.get_ENU_antpos(
-            pick_data_ants=True
-        )
-        active_antpos = dict(zip(ant_list, active_antpos_array))
+        active_antpos = get_antpos_dict(data_model.uvdata, data_ants=True)
 
         # since pyuvdata v3, get_antpairs always returns antpairs in the right order.
         antpairs = data_model.uvdata.get_antpairs()

@@ -142,13 +142,18 @@ class ModelData:
         beams: BeamList,
     ) -> dict[str, int]:
         # beam ids maps antenna name to INDEX of the beam in the beam list.
+        antnames = self.uvdata.telescope.antenna_names
+        num2name = {
+            i: nm for i, nm in zip(self.uvdata.telescope.antenna_numbers, antnames)
+        }
+        data_ants = self.uvdata.get_ants()
 
         # Set the beam_ids.
         if beam_ids is None:
             if len(beams) == 1:
-                beam_ids = dict.fromkeys(self.uvdata.antenna_names, 0)
+                beam_ids = dict.fromkeys([num2name[i] for i in data_ants], 0)
             elif len(beams) == self.n_ant:
-                beam_ids = {nm: i for i, nm in enumerate(self.uvdata.antenna_names)}
+                beam_ids = {num2name[i]: i for i in data_ants}
             else:
                 raise ValueError(
                     "Need to give beam_ids if beams is given and not one per ant."
@@ -158,7 +163,7 @@ class ModelData:
                 raise ValueError("Number of beam_ids given must match n_ant")
 
             beam_ids = {
-                nm: int(beam_ids[i]) for i, nm in enumerate(self.uvdata.antenna_names)
+                num2name[i]: int(beam_ids[i]) for i in data_ants
             }
         elif not isinstance(beam_ids, dict):
             raise TypeError("beam_ids should be a dict or sequence of integers")
@@ -369,7 +374,7 @@ class VisibilitySimulation:
         if self.snap_antpos_to_grid:
             old_antpos = dict(
                 zip(
-                    self.data_model.uvdata.telescope.antenna_numbers,
+                    self.data_model.uvdata.telescope.telescope.antenna_numbers,
                     self.data_model.uvdata.telescope.antenna_positions,
                 )
             )

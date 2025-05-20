@@ -191,7 +191,9 @@ def test_match_antennas_default_settings(base_config, base_sim):
     assert arrays_are_equal(overlap_array, modified_sim.antpos)
 
     # Check that the antenna labels are updated correctly.
-    assert np.all(modified_sim.data.antenna_numbers == list(overlap_array.keys()))
+    assert np.all(
+        modified_sim.data.telescope.antenna_numbers == list(overlap_array.keys())
+    )
 
     # Check that the baseline integers are correct.
     assert baseline_integers_check_out(uvd=modified_sim.data, ants=overlap_array)
@@ -220,7 +222,8 @@ def test_match_antennas_all_kwargs_false(base_sim, base_config):
     # Check that the arrays are identical, with their original labels.
     assert arrays_are_equal(overlap_array, modified_sim.antpos)
     assert np.all(
-        modified_sim.data.antenna_numbers == list(target_to_ref_ant_map.keys())
+        modified_sim.data.telescope.antenna_numbers
+        == list(target_to_ref_ant_map.keys())
     )
 
     # Check that the baseline integers are correct.
@@ -249,7 +252,9 @@ def test_match_antennas_using_ENU_positions(base_sim, base_config):
     overlap_array_ENU = {ant: ref_sim.antpos[ant] for ant in (0, 1, 2)}
 
     # Check that the remaining antenna array is what's expected.
-    assert np.all(modified_sim.data.antenna_numbers == list(overlap_array_ENU.keys()))
+    assert np.all(
+        modified_sim.data.telescope.antenna_numbers == list(overlap_array_ENU.keys())
+    )
     assert arrays_are_equal(modified_sim.antpos, overlap_array_ENU)
 
     # Check that the baseline integers are correct.
@@ -284,7 +289,9 @@ def test_match_antennas_using_reference_positions_and_labels(base_sim, base_conf
 
     # Since we're using the reference positions, these should match exactly.
     assert arrays_are_equal(modified_sim.antpos, overlap_array, tol=1e-9)
-    assert np.all(modified_sim.data.antenna_numbers == list(overlap_array.keys()))
+    assert np.all(
+        modified_sim.data.telescope.antenna_numbers == list(overlap_array.keys())
+    )
 
     # Check the baseline integers.
     assert baseline_integers_check_out(uvd=modified_sim.data, ants=overlap_array)
@@ -319,7 +326,9 @@ def test_match_antennas_use_reference_positions_only(base_sim, base_config):
 
     # We're using the reference positions, so they should match exactly!
     assert arrays_are_equal(modified_sim.antpos, overlap_array, tol=1e-9)
-    assert np.all(modified_sim.data.antenna_numbers == list(overlap_array.keys()))
+    assert np.all(
+        modified_sim.data.telescope.antenna_numbers == list(overlap_array.keys())
+    )
 
     # Check that the baseline integers check out.
     assert baseline_integers_check_out(modified_sim.data, overlap_array)
