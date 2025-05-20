@@ -441,6 +441,6 @@ def test_tanh_window_warning():
     assert np.all(window == 1)
 
 class TestGetAntposDict:
-    def test_bad_frame(self, uvdata):
+    def test_bad_frame(self):
         with pytest.raises(ValueError, match="frame must be"):
-            utils.get_antpos_dict(uvdata, frame='bad_frame')
+            utils.get_antpos_dict(None, frame='bad_frame')
