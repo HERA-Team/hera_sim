@@ -51,9 +51,14 @@ def get_antpos_dict(
         ants = uvd.telescope.antenna_numbers
 
     if frame == "ecef":
-        antpos = uvd.telescope.antenna_positions[ants]
+        antpos = uvd.telescope.antenna_positions
     else:
-        antpos = uvd.telescope.get_enu_antpos()[ants]
+        antpos = uvd.telescope.get_enu_antpos()
+
+    antnums = list(uvd.telescope.antenna_numbers)
+    antpos = [
+        antpos[antnums.index(i)] for i in ants
+    ]
 
     return dict(zip(ants, antpos))
 
