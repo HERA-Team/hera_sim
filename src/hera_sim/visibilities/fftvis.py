@@ -147,7 +147,7 @@ class FFTVis(VisibilitySimulator):
         nt = len(data_model.lsts)
         nax = getattr(bm, "Naxes_vec", 1)
         nfd = getattr(bm, "Nfeeds", 1)
-        nant = len(data_model.uvdata.antenna_names)
+        nant = data_model.uvdata.Nants_data
         nsrc = len(data_model.sky_model.ra)
         nbeam = len(data_model.beams)
         nf = len(data_model.freqs)

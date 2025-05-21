@@ -374,7 +374,7 @@ class VisibilitySimulation:
         if self.snap_antpos_to_grid:
             old_antpos = dict(
                 zip(
-                    self.data_model.uvdata.telescope.telescope.antenna_numbers,
+                    self.data_model.uvdata.telescope.antenna_numbers,
                     self.data_model.uvdata.telescope.antenna_positions,
                 )
             )

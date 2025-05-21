@@ -6,7 +6,7 @@ name: Tests
 on:
   pull_request:
   push:
-    branches: [master]
+    branches: [main]
 
 jobs:
   tests:
@@ -41,7 +41,7 @@ jobs:
 
       - name: Run Tests
         run: |
-          python -m pytest --log-cli-level INFO
+          python -m pytest -n auto
 
       - name: Upload coverage report
         uses: codecov/codecov-action@v5.4.0
