@@ -8,7 +8,6 @@ import logging
 import fftvis
 import numpy as np
 from astropy.time import Time
-from fftvis.beams import _evaluate_beam
 from matvis.core.beams import prepare_beam_unpolarized
 from pyuvdata import utils as uvutils
 
@@ -46,13 +45,13 @@ class FFTVis(VisibilitySimulator):
         heavy operation if there are many antennas and/or many times, and can be
         safely ignored if the data_model was created from a config file.
     **kwargs
-        Passed through to `:func:fftvis.simulate.simulate` function.
+        Passed through to `:func:fftvis.SimulationEngine.simulate` function.
 
     """
 
     conjugation_convention = "ant1<ant2"
     time_ordering = "time"
-    _functions_to_profile = (fftvis.simulate.simulate, _evaluate_beam)
+    _functions_to_profile = (fftvis.CPUSimulationEngine.simulate, )
     diffuse_ability = False
     __version__ = "1.0.0"  # Fill in the version number here
 
@@ -249,7 +248,7 @@ class FFTVis(VisibilitySimulator):
             logger.info(f"Simulating Frequency {i + 1}/{len(data_model.freqs)}")
 
             # Call fftvis function to simulate visibilities
-            vis = fftvis.simulate.simulate(
+            vis = fftvis.CPUSimulationEngine().simulate(
                 ants=active_antpos,
                 freqs=np.array([freq]),
                 ra=ra,
