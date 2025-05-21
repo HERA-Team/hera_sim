@@ -93,13 +93,13 @@ Repository = "https://github.com/HERA-Team/hera_sim"
 script-files = ["scripts/hera-sim-simulate.py", "scripts/hera-sim-vis.py"]
 
 [tool.pytest.ini_options]
-addopts = "--cov hera_sim --cov-config=.coveragerc --cov-report xml:./coverage.xml --durations=25"
+addopts = "--cov hera_sim --cov-config=.coveragerc --cov-report xml:./coverage.xml --durations=25 -v"
 norecursedirs = [
   "dist",
   "build",
   ".tox",
 ]
-testpaths = "src/hera_sim/tests"
+testpaths = "tests"
 
 [tool.ruff]
 line-length = 88
