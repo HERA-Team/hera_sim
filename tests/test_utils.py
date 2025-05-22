@@ -409,7 +409,7 @@ def test_reshape_vis(jit, pols):
 
     if "xy" in sim.get_pols() and "yx" in sim.get_pols():
         # Need to fix these autos as well
-        for ai in sim.antenna_numbers:
+        for ai in sim.telescope.antenna_numbers:
             inds = sim.data.antpair2ind(ai, ai)
             p1 = list(sim.get_pols()).index("xy")
             p2 = list(sim.get_pols()).index("yx")
@@ -420,7 +420,7 @@ def test_reshape_vis(jit, pols):
         sim.ant_1_array,
         sim.ant_2_array,
         sim.polarization_array,
-        sim.antenna_numbers,
+        sim.telescope.antenna_numbers,
         sim.Ntimes,
         sim.Nfreqs,
         sim.Nants,
@@ -439,3 +439,8 @@ def test_tanh_window_warning():
     with pytest.warns(UserWarning, match="Insufficient information"):
         window = utils.tanh_window(np.linspace(0, 1, 100))
     assert np.all(window == 1)
+
+class TestGetAntposDict:
+    def test_bad_frame(self):
+        with pytest.raises(ValueError, match="frame must be"):
+            utils.get_antpos_dict(None, frame='bad_frame')

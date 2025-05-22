@@ -40,7 +40,7 @@ def test_empty_uvdata_basics(time_params, freq_params, sample_uvd, axis):
 def test_empty_uvdata_antenna_positions(array_layout, sample_uvd):
     assert all(
         any(np.allclose(position, expectation) for expectation in array_layout.values())
-        for position in sample_uvd.get_ENU_antpos()[0]
+        for position in sample_uvd.telescope.get_enu_antpos()[0]
     )
 
 

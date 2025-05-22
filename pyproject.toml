@@ -34,7 +34,7 @@ dependencies = [
   "deprecation",
   "hera-cli-utils>=0.1.0",
   "numpy>=2",
-  "pyuvdata>=3.1.2",
+  "pyuvdata>=3.2.0",
   "pyuvsim>=1.4",
   "pyyaml>=5.1",
   "rich",
@@ -74,6 +74,8 @@ tests = [
   "pytest>=3.5.1",
   "pytest-cov>=2.5.1",
   "uvtools",
+  "pytest-sugar",
+  "pytest-xdist",
 ]
 vis = [
   "fftvis @ git+https://github.com/tyler-a-cox/fftvis",
@@ -91,13 +93,13 @@ Repository = "https://github.com/HERA-Team/hera_sim"
 script-files = ["scripts/hera-sim-simulate.py", "scripts/hera-sim-vis.py"]
 
 [tool.pytest.ini_options]
-addopts = "--cov hera_sim --cov-config=.coveragerc --cov-report xml:./coverage.xml --durations=25 --verbose"
+addopts = "--cov hera_sim --cov-config=.coveragerc --cov-report xml:./coverage.xml --durations=25 -v"
 norecursedirs = [
   "dist",
   "build",
   ".tox",
 ]
-testpaths = "hera_sim/tests"
+testpaths = "tests"
 
 [tool.ruff]
 line-length = 88

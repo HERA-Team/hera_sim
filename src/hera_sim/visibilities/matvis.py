@@ -171,7 +171,7 @@ class MatVis(VisibilitySimulator):
         nt = len(data_model.lsts)
         nax = getattr(bm, "Naxes_vec", 1)
         nfd = getattr(bm, "Nfeeds", 1)
-        nant = len(data_model.uvdata.antenna_names)
+        nant = len(data_model.uvdata.get_ants())
         nsrc = len(data_model.sky_model.ra)
         nbeam = len(data_model.beams)
         nf = len(data_model.freqs)
@@ -228,17 +228,16 @@ class MatVis(VisibilitySimulator):
 
         # The following are antenna positions in the order that they are
         # in the uvdata.data_array
-        active_antpos, ant_list = data_model.uvdata.get_ENU_antpos(pick_data_ants=True)
-
+        active_antpos, ant_list = data_model.uvdata.get_enu_data_ants()
+        num2name = {
+            i: nm for i, nm in zip(
+                data_model.uvdata.telescope.antenna_numbers,
+                data_model.uvdata.telescope.antenna_names
+            )
+        }
 
         beam_ids = np.array(
-            [
-                data_model.beam_ids[nm]
-                for i, nm in zip(
-                    data_model.uvdata.antenna_numbers, data_model.uvdata.antenna_names
-                )
-                if i in ant_list
-            ]
+            [data_model.beam_ids[num2name[i]] for i in ant_list]
         )
 
         # Get all the polarizations required to be simulated.
