@@ -21,6 +21,7 @@ from cached_property import cached_property
 from deprecation import deprecated
 from pyuvdata import UVData
 from pyuvdata import utils as uvutils
+from pyuvdata.telescopes import Telescope
 
 from . import __version__, io, utils
 from .components import SimulationComponent, get_model, list_all_components
@@ -126,8 +127,8 @@ class Simulator:
             setattr(self, f"get_{attr}", getattr(self.data, f"get_{attr}"))
 
     @property
-    def antenna_numbers(self):
-        return self.data.antenna_numbers
+    def telescope(self) -> Telescope:
+        return self.data.telescope
 
     @property
     def ant_1_array(self):
@@ -149,8 +150,7 @@ class Simulator:
     @property
     def antpos(self):
         """Mapping between antenna numbers and ENU positions in meters."""
-        antpos, ants = self.data.get_ENU_antpos(pick_data_ants=True)
-        return dict(zip(ants, antpos))
+        return utils.get_antpos_dict(self.data, data_ants=True)
 
     @property
     def lsts(self):
@@ -889,9 +889,6 @@ class Simulator:
                 "a UVData-compatible file may be passed as the data parameter. "
                 "Otherwise, keywords must be provided to build a UVData object."
             )
-
-        if not self.data.future_array_shapes:  # pragma: nocover
-            self.data.use_future_array_shapes()
 
     def _initialize_args_from_model(self, model):
         """

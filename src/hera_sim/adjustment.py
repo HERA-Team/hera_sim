@@ -143,8 +143,6 @@ def adjust_to_reference(
     # Check if the target object is a Simulator, but work with a UVData object.
     target_is_simulator = isinstance(target, Simulator)
     target = _to_uvdata(target)
-    if not target.future_array_shapes:  # pragma: no cover
-        target.use_future_array_shapes()
 
     # Pull the reference metadata.
     if not isinstance(reference, UVData):
@@ -272,12 +270,8 @@ def match_antennas(
     # is pretty unrealistic.
     target_is_simulator = isinstance(target, Simulator)
     target = _to_uvdata(target)
-    if not target.future_array_shapes:  # pragma: nocover
-        target.use_future_array_shapes()
     target_copy = target.copy()
     reference = _to_uvdata(reference)
-    if not reference.future_array_shapes:  # pragma: nocover
-        reference.use_future_array_shapes()
     reference_metadata = reference.copy(metadata_only=True)
 
     # Find the best choice of mapping between antennas.
@@ -325,44 +319,43 @@ def match_antennas(
     if relabel_antennas:
         attrs_to_update += ("antenna_numbers", "antenna_names")
     if overwrite_telescope_metadata:
-        attrs_to_update += (
-            "telescope_location",
-            "telescope_location_lat_lon_alt",
-            "telescope_location_lat_lon_alt_degrees",
-        )
+        attrs_to_update += ("location",)
     for attr in attrs_to_update:
-        setattr(target_copy, attr, getattr(reference_metadata, attr))
+        setattr(
+            target_copy.telescope, attr, getattr(reference_metadata.telescope, attr)
+        )
 
     # Update the antenna positions; this is necessarily ugly.
     if use_reference_positions and relabel_antennas:
         # The antenna numbers and positions exactly match the reference.
-        target_copy.antenna_positions = reference_metadata.antenna_positions
+        target_copy.telescope.antenna_positions = \
+            reference_metadata.telescope.antenna_positions
     elif use_reference_positions and not relabel_antennas:
         # We need to use the reference positions but keep the target ordering.
-        target_copy.antenna_positions = np.array(
+        target_copy.telescope.antenna_positions = np.array(
             [
-                reference.antenna_positions[
-                    reference.antenna_numbers.tolist().index(
+                reference.telescope.antenna_positions[
+                    reference.telescope.antenna_numbers.tolist().index(
                         target_to_reference_map[target_ant]
                     )
                 ]
-                for target_ant in target_copy.antenna_numbers
+                for target_ant in target_copy.telescope.antenna_numbers
             ]
         )
     elif not use_reference_positions and relabel_antennas:
         # We need to shift the antennas and relabel them.
-        target_copy.antenna_positions = np.array(
+        target_copy.telescope.antenna_positions = np.array(
             [
                 array_intersection[reference_to_target_map[ref_ant]]
-                for ref_ant in reference_metadata.antenna_numbers
+                for ref_ant in reference_metadata.telescope.antenna_numbers
             ]
         )
     else:
         # We just need to shift the antenna positions.
-        target_copy.antenna_positions = np.array(
+        target_copy.telescope.antenna_positions = np.array(
             [
                 array_intersection[target_ant]
-                for target_ant in target_copy.antenna_numbers
+                for target_ant in target_copy.telescope.antenna_numbers
             ]
         )
 
@@ -766,7 +759,7 @@ def rephase_to_reference(target, reference=None, ref_times=None, ref_lsts=None):
     data.select_or_expand_times(target_times)
     antpos = data.antpos
     bls = {(ai, aj, pol): antpos[aj] - antpos[ai] for ai, aj, pol in data.bls()}
-    lat = target.telescope_location_lat_lon_alt_degrees[0]
+    lat = target.telescope.location.lat.deg
     new_Nblts = target.Nbls * target_times.size
     new_data = np.zeros((new_Nblts, target.Nfreqs, target.Npols), dtype=complex)
     new_time_array = np.empty(new_Nblts, dtype=float)
@@ -876,11 +869,12 @@ def _to_uvdata(sim):
 
 def _get_antpos(uvd, ENU=False):
     """Retrieve {ant: pos} dictionary from a UVData object."""
+    ant = uvd.telescope.antenna_numbers
+
     if ENU:
-        pos, ant = uvd.get_ENU_antpos()
+        pos = uvd.telescope.get_enu_antpos()
     else:
-        ant = uvd.antenna_numbers
-        pos = uvd.antenna_positions
+        pos = uvd.telescope.antenna_positions
 
     return dict(zip(ant, pos))
 

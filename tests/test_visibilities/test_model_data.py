@@ -45,3 +45,48 @@ def test_setting_rectangularity(uvdata, sky_model, uvbeam):
     uvdata.blts_are_rectangular = None  # mock for testing
     model_data = ModelData(uvdata=uvdata, sky_model=sky_model, beams=[uvbeam])
     assert model_data.uvdata.blts_are_rectangular  # set to True now!
+
+def test_beam_ids(uvdata, sky_model, uvbeam):
+    beam = copy.deepcopy(uvbeam)
+    beam.data_normalization='not peak'
+
+    model_data = ModelData(
+        uvdata=uvdata, sky_model=sky_model, beams=[uvbeam]
+    )
+    assert all(v==0 for v in model_data.beam_ids.values())
+
+    model_data = ModelData(
+        uvdata=uvdata, sky_model=sky_model, beams=[uvbeam]*uvdata.Nants_data
+    )
+    assert all(v==i for i, v in enumerate(model_data.beam_ids.values()))
+
+    # Try bad length of beams
+    with pytest.raises(ValueError, match="Need to give beam_ids if beams is given"):
+        model_data = ModelData(
+            uvdata=uvdata, sky_model=sky_model, beams=[uvbeam, uvbeam],
+        )
+
+    # Try bad length of beam_ids
+    with pytest.raises(ValueError, match="Number of beam_ids given must match n_ant"):
+        model_data = ModelData(
+            uvdata=uvdata, sky_model=sky_model, beams=[uvbeam],
+            beam_ids=[0, 1]
+        )
+
+    # Correct beam_ids
+    model_data = ModelData(
+        uvdata=uvdata, sky_model=sky_model, beams=[uvbeam],
+        beam_ids=[0]*uvdata.Nants_data
+    )
+
+    assert all(v==0 for v in model_data.beam_ids.values())
+
+    # Finally, just terrible beam_ids
+    with pytest.raises(
+        TypeError,
+        match="beam_ids should be a dict or sequence of integers"
+    ):
+        model_data = ModelData(
+            uvdata=uvdata, sky_model=sky_model, beams=[uvbeam],
+            beam_ids='hey there'
+        )

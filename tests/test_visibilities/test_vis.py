@@ -159,7 +159,7 @@ def test_single_source_autocorr_past_horizon(uvdata, simulator):
     sky_model = make_point_sky(
         uvdata,
         ra=np.array([0]) * rad,
-        dec=np.array(uvdata.telescope_location_lat_lon_alt[0] + 1.1 * np.pi / 2) * rad,
+        dec=np.array(uvdata.telescope.location.lat.rad + 1.1 * np.pi / 2) * rad,
         align=False,
     )
 
@@ -204,7 +204,7 @@ def test_ordering(uvdata_linear, simulator, order, conj):
     sky_model = make_point_sky(
         uvdata_linear,
         ra=np.linspace(0, 2 * np.pi, 8) * rad,
-        dec=uvdata_linear.telescope_location_lat_lon_alt[0] * np.ones(8) * rad,
+        dec=uvdata_linear.telescope.location.lat.rad * np.ones(8) * rad,
         align=False,
     )
 
@@ -264,7 +264,7 @@ def test_pol_combos(polarization_array, xfail, simulator):
     sky_model = make_point_sky(
         uvdata,
         ra=np.linspace(0, 2 * np.pi, 8) * rad,
-        dec=uvdata.telescope_location_lat_lon_alt[0] * np.ones(8) * rad,
+        dec=uvdata.telescope.location.lat.rad * np.ones(8) * rad,
         align=False,
     )
 

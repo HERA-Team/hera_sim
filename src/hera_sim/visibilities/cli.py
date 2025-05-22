@@ -244,6 +244,7 @@ def run_vis_sim(args):
                 blt_inds=None,
                 phase_center_ids=None,
                 catalog_names=None,
+                spws=None,
             )[0]
 
             np.save(args.compress, blt_inds)
@@ -256,6 +257,7 @@ def run_vis_sim(args):
             freq_inds=None,
             history_update_string="Compressed by redundancy",
             keep_all_metadata=True,
+            spw_inds=None,
         )
 
         logger.info("Done with compression.")

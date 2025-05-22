@@ -9,6 +9,7 @@ import numpy as np
 import pyuvdata.utils as uvutils
 from astropy import constants, units
 from astropy.coordinates import Longitude
+from pyuvdata import UVData
 from scipy.interpolate import RectBivariateSpline
 
 from .interpolators import Beam
@@ -20,6 +21,46 @@ try:
 except ImportError:
     HAVE_NUMBA = False
 
+def get_antpos_dict(
+    uvd: UVData,
+    *,
+    data_ants: bool = False,
+    frame: Literal[ecef, enu] = "enu",
+) -> dict[int, np.ndarray]:
+    """
+    Get a dictionary of antenna positions from a UVData object.
+
+    Parameters
+    ----------
+    uvd
+        UVData object to get antenna positions from.
+    data_ants
+        If True, return only the antennas with data. Otherwise, return all antennas.
+
+    Returns
+    -------
+    antpos_dict
+        Dictionary of antenna positions in ENU coordinates.
+    """
+    if frame not in ["ecef", "enu"]:
+        raise ValueError("frame must be 'ecef' or 'enu'")
+
+    if data_ants:
+        ants = uvd.get_ants()
+    else:
+        ants = uvd.telescope.antenna_numbers
+
+    if frame == "ecef":
+        antpos = uvd.telescope.antenna_positions
+    else:
+        antpos = uvd.telescope.get_enu_antpos()
+
+    antnums = list(uvd.telescope.antenna_numbers)
+    antpos = [
+        antpos[antnums.index(i)] for i in ants
+    ]
+
+    return dict(zip(ants, antpos))
 
 def _get_bl_len_vec(bl_len_ns: float | np.ndarray) -> np.ndarray:
     """
