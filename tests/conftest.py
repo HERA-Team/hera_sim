@@ -24,7 +24,7 @@ def setup_and_teardown_package():
 
 @pytest.fixture(scope='session')
 def repodir() -> Path:
-    return Path(__file__).parent.parent.parent.parent
+    return Path(__file__).parent.parent
 
 @pytest.fixture(scope='session')
 def exampledir(repodir: Path) -> Path:
