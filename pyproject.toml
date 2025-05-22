@@ -56,7 +56,7 @@ dev = [
   "hera-sim[docs,tests]",
 ]
 docs = [
-  "fftvis",
+  "fftvis @ git+https://github.com/tyler-a-cox/fftvis",
   "furo",
   "ipython",
   "matvis>=1.3.0",
