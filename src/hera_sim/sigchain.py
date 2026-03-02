@@ -891,6 +891,7 @@ class MutualCoupling(Crosstalk):
         freq_interp: str = "cubic",
         beam_kwargs: dict | None = None,
         use_numba: bool = True,
+        second_order: bool = False,
     ):
         super().__init__(
             uvbeam=uvbeam,
@@ -905,6 +906,7 @@ class MutualCoupling(Crosstalk):
             freq_interp=freq_interp,
             beam_kwargs=beam_kwargs or {},
             use_numba=use_numba,
+            second_order=second_order,
         )
 
     def __call__(
@@ -950,6 +952,7 @@ class MutualCoupling(Crosstalk):
             freq_interp,
             beam_kwargs,
             use_numba,
+            second_order,
         ) = self._extract_kwarg_values(**kwargs)
 
         # Do all our sanity checks up front. First, check the array.
@@ -1007,8 +1010,20 @@ class MutualCoupling(Crosstalk):
             )
 
         # Now actually calculate the mutual coupling.
-        xt_vis = utils.matmul(coupling_matrix, visibilities, use_numba=use_numba)
-        xt_vis += xt_vis.conj().transpose(0, 1, 3, 2)
+        if not second_order:
+            xt_vis = utils.matmul(coupling_matrix, visibilities, use_numba=use_numba)
+            xt_vis += xt_vis.conj().transpose(0, 1, 3, 2)
+        else:
+            coupling_matrix = np.eye(
+                coupling_matrix.shape[2]
+            )[None,None] + coupling_matrix + utils.matmul(
+                coupling_matrix, coupling_matrix, use_numba=use_numba
+            )  # E = I + X + XX
+            xt_vis = utils.matmul(coupling_matrix, visibilities, use_numba=use_numba)
+            xt_vis = utils.matmul(
+                xt_vis, coupling_matrix.conj().transpose(0,1,3,2), use_numba=use_numba
+            )  # This gives the correct second-order terms, but includes up to O(X^4)
+            xt_vis -= visibilities
 
         # Return something with the same shape as the input data array.
         return utils.reshape_vis(

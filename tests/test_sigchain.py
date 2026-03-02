@@ -361,7 +361,8 @@ def test_over_air_xtalk_skips_autos(fqs, Tsky):
 
 
 @pytest.mark.parametrize("use_numba", [False, True])
-def test_mutual_coupling(use_numba):
+@pytest.mark.parametrize("second_order", [False, True])
+def test_mutual_coupling(use_numba, second_order):
     hera_sim.defaults.deactivate()
     array_layout = {
         0: np.array([0, 0, 0]),
@@ -378,6 +379,7 @@ def test_mutual_coupling(use_numba):
         array_layout=array_layout,
         telescope_location=hera_sim.io.HERA_LAT_LON_ALT,
     )
+    taper = "bh7"
 
     # Mock up visibilities that are localized in delay/frate in the same
     # way that foregrounds are localized. First, some prep work.
@@ -422,25 +424,59 @@ def test_mutual_coupling(use_numba):
     vis_amps = {}
     for (ai, aj, _pol), vis in uvdata.antpairpol_iter():
         vis_fft = uvtools.utils.FFT(
-            uvtools.utils.FFT(vis, axis=0, taper="bh"), axis=1, taper="bh"
+            uvtools.utils.FFT(vis, axis=0, taper=taper), axis=1, taper=taper
         )
         vis_amps[(ai, aj)] = np.max(np.abs(vis_fft))
         vis_amps[(aj, ai)] = vis_amps[(ai, aj)]
 
     # Set the coupling parameters so that it's simple to check the amplitudes.
     refl_amp = 1
-
-    # Actually simulate the coupling.
-    mutual_coupling = sigchain.MutualCoupling(
+    coupling_kwds = dict(
         uvbeam=UniformBeam(),
         ant_1_array=uvdata.ant_1_array,
         ant_2_array=uvdata.ant_2_array,
-        pol_array=uvdata.polarization_array,
-        array_layout=utils.get_antpos_dict(uvdata),
-        reflection=np.ones(uvdata.Nfreqs) * refl_amp,
+        array_layout=enu_antpos,
+        reflection=np.ones(uvdata.Nfreqs, dtype=complex) * refl_amp,
         omega_p=constants.c.si.value / uvdata.freq_array,
     )
-    uvdata.data_array += mutual_coupling(
+
+    # Build the coupling matrix.
+    coupling_matrix = sigchain.MutualCoupling.build_coupling_matrix(
+        freqs / 1e9, **coupling_kwds
+    )
+
+    # Here we're only investigating coupling with a single polarization.
+    # For first order coupling, this modification does nothing. For second order
+    # coupling, however, this allows our predictions to better match up with the
+    # simulated coupling, because this prevents double counting from double
+    # cross-polarization couplings (i.e., X->Y->X).
+    coupling_matrix[:,:,::2,1::2] = 0
+    coupling_matrix[:,:,1::2,::2] = 0
+
+    # Apply the second-order coupling first if it's going to be used, since we
+    # need to apply it to a copy of the uncoupled data.
+    if second_order:
+        coupling_model = sigchain.MutualCoupling(
+            coupling_matrix=coupling_matrix,
+            pol_array=uvdata.polarization_array,
+            second_order=True,
+            **coupling_kwds,
+        )
+        second_order_uvdata = uvdata.copy()
+        second_order_uvdata.data_array += coupling_model(
+            freqs=freqs / 1e9,
+            visibilities=second_order_uvdata.data_array,
+            use_numba=use_numba,
+        )
+
+    # Now apply the first-order coupling.
+    coupling_model = sigchain.MutualCoupling(
+        coupling_matrix=coupling_matrix,
+        pol_array=uvdata.polarization_array,
+        second_order=False,
+        **coupling_kwds
+    )
+    uvdata.data_array += coupling_model(
         freqs=freqs / 1e9, visibilities=uvdata.data_array, use_numba=use_numba
     )
 
@@ -449,8 +485,83 @@ def test_mutual_coupling(use_numba):
     frate_mHz = uvtools.utils.fourier_freqs(times) * units.Hz.to("mHz")
     for (ai, aj, _pol), vis in uvdata.antpairpol_iter():
         vis_fft = uvtools.utils.FFT(
-            uvtools.utils.FFT(vis, axis=0, taper="bh"), axis=1, taper="bh"
+            uvtools.utils.FFT(vis, axis=0, taper=taper), axis=1, taper=taper
         )
+        if second_order:
+            second_order_vis_fft = uvtools.utils.FFT(
+                uvtools.utils.FFT(
+                    second_order_uvdata.get_data(ai,aj,_pol), axis=0, taper=taper
+                ), axis=1, taper=taper,
+            )
+            vis_fft = second_order_vis_fft - vis_fft
+
+            # Need to loop over array twice. There are three separate couplings
+            # to consider: i->m->n; j->m->n; i->m,j->n. We'll relax the matching
+            # condition to 30%, since the coupling algorithm actually includes
+            # up to O(X^4) terms and some bleed from FFT sidelobes is expected.
+            for am in uvdata.telescope.antenna_numbers:
+                for an in uvdata.telescope.antenna_numbers:
+                    # Calculate the baseline lengths that we may need.
+                    b_im = np.linalg.norm(enu_antpos[am] - enu_antpos[ai])
+                    b_jm = np.linalg.norm(enu_antpos[am] - enu_antpos[aj])
+                    b_jn = np.linalg.norm(enu_antpos[an] - enu_antpos[aj])
+                    b_mn = np.linalg.norm(enu_antpos[an] - enu_antpos[am])
+
+                    # Coupling from a_n -> a_m -> a_i.
+                    if (ai != am) and (am != an):
+                        dly = delays[(ai, am)] + delays[(am, an)]
+                        frate = fringe_rates[(an, aj)]  # n->m->i shows up as V_nj
+                        frdly_idx = (
+                            np.argmin(np.abs(frate - frate_mHz)),
+                            np.argmin(np.abs(dly - delay_ns)),
+                        )
+                        exp_amp = vis_amps[(an, aj)] * refl_amp**2 / (b_im * b_mn)
+                        actual_amp = np.abs(vis_fft[frdly_idx])
+                        assert np.isclose(exp_amp, actual_amp, atol=1e-7, rtol=0.3)
+
+                    # Coupling from a_n -> a_m -> a_j.
+                    if (aj != am) and (am != an):
+                        dly = -(delays[(aj, am)] + delays[(am,an)])
+                        frate = fringe_rates[(ai, an)]  # n->m->j shows up as V_in
+                        frdly_idx = (
+                            np.argmin(np.abs(frate - frate_mHz)),
+                            np.argmin(np.abs(dly - delay_ns)),
+                        )
+                        exp_amp = vis_amps[(ai, an)] * refl_amp**2 / (b_jm * b_mn)
+                        actual_amp = np.abs(vis_fft[frdly_idx])
+                        assert np.isclose(exp_amp, actual_amp, atol=1e-7, rtol=0.3)
+
+                    # Coupling from a_m -> a_i and a_n -> a_j.
+                    if (ai != am) and (aj != an) and (ai != aj):
+                        dly = delays[(ai, am)] - delays[(aj, an)]
+                        frate = fringe_rates[(am,an)]  # m->i, n->j shows up as V_mn
+                        frdly_idx = (
+                            np.argmin(np.abs(frate - frate_mHz)),
+                            np.argmin(np.abs(dly - delay_ns)),
+                        )
+                        exp_amp = vis_amps[(am, an)] * refl_amp**2 / (b_im * b_jn)
+                        actual_amp = np.abs(vis_fft[frdly_idx])
+                        assert np.isclose(exp_amp, actual_amp, atol=1e-7, rtol=0.3)
+
+            # Because the autos have multiple ways to couple back to themselves,
+            # we need to handle that check separately. (When testing for a larger
+            # array, additional care may be needed for certain North-South baselines,
+            # depending on the telescope location and full array layout.)
+            if ai == aj:
+                exp_amp = 0
+                frdly_idx = (np.argmin(np.abs(frate_mHz)), np.argmin(np.abs(delay_ns)))
+                for ant in uvdata.telescope.antenna_numbers:
+                    if ant == ai: continue  # Only couple through a second antenna
+                    bl_len = np.linalg.norm(enu_antpos[ant] - enu_antpos[ai])
+                    exp_amp += vis_amps[(ai, ai)] * refl_amp**2 / bl_len**2
+                actual_amp = np.abs(vis_fft[frdly_idx])
+                assert np.isclose(exp_amp, actual_amp, atol=1e-7, rtol=0.1)
+
+                    
+            # If we're testing the second order coupling, then we won't bother with
+            # checking the first order coupling amplitudes.
+            continue
+
         for ak in uvdata.telescope.antenna_numbers:
             dly_ik = delays[(ai, ak)]
             dly_kj = -delays[(ak, aj)]
