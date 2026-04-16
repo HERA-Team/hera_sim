@@ -32,39 +32,36 @@ In particular, for a tutorial and overview of available features, check out the
 Installation
 ------------
 
+The best and easiest way to install ``hera_sim`` is with ``uv``::
+
+  uv add hera_sim
+
+Or if you are using the pip-style interface::
+
+  uv pip install hera_sim
+
+You can install optional extras as well -- for exapmle to get all the dependencies
+required for simulating visibilities::
+
+  uv add hera_sim --extra vis
+
+Available extras are ``vis``, ``bda``, and ``cal`` (for also installing hera-calibration). 
+
 Conda users
 ~~~~~~~~~~~
 
 If you are using conda, the following command will install all
-dependencies which it can handle natively:
+dependencies which it can handle natively::
 
-``$ conda install -c conda-forge numpy scipy pyuvdata attrs h5py healpy pyyaml``
-
-If you are creating a new development environment, consider using the
-included environment file:
-
-``$ conda env create -f ci/tests.yaml``
-
-This will create a fresh environment with all required dependencies, as
-well as those required for testing. Then follow the pip-only
-instructions below to install ``hera_sim`` itself.
-
-Pip-only install
-~~~~~~~~~~~~~~~~
-
-Simply use ``pip install -e .`` or run
-``pip install git+git://github.com/HERA-Team/hera_sim``.
+  conda install -c conda-forge numpy scipy pyuvdata attrs h5py healpy pyyaml
 
 Developer install
 ~~~~~~~~~~~~~~~~~
-For a development install (tests and documentation), run
-``pip install -e .[dev]``.
+If you are planning on developing ``hera_sim``, you should use ``uv``::
 
-Other optional extras can be installed as well. To use
-baseline-dependent averaging functionality, install the extra ``[bda]``.
-For the ability to simulate redundant gains, install ``[cal]``. To
-enable GPU functionality on some of the methods (especially visibility
-simulators), install ``[gpu]``.
+  git clone git@github.com/hera-team/hera_sim.git
+  cd hera_sim
+  uv sync --all-extras
 
 As the repository is becoming quite large, you may also wish to perform
 a shallow clone to retrieve only the recent commits and history. This makes
@@ -72,8 +69,6 @@ the clone faster and avoid bottleneck in CI pipelines.
 
 Provide an argument ``--depth 1`` to the ``git clone`` command to copy only
 the latest revision of the repository.
-
-``git clone -–depth [depth] git@github.com:HERA-Team/hera_sim.git``
 
 Versioning
 ----------
