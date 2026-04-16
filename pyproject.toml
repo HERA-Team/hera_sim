@@ -44,7 +44,7 @@ dependencies = [
 
 [project.optional-dependencies]
 vis = [
-  "fftvis @ git+https://github.com/tyler-a-cox/fftvis",
+  "fftvis @ git+https://github.com/tyler-a-cox/fftvis@multibeam",
   "line-profiler",
   "matvis>=1.3.3",
   "mpi4py",
