@@ -12,7 +12,7 @@ from . import utils
 try:
     from typing import Self
 except ImportError:
-    from typing_extensions import Self
+    from typing import Self
 
 def modulate_with_dipole(az, za, freqs, ref_freq, beam_vals, fscale):
     """

@@ -102,9 +102,6 @@ class FFTVis(VisibilitySimulator):
                     "antenna order doesn't change with time!"
                 )
 
-        if len(data_model.beams) != 1:
-            raise ValueError("FFTVis only supports a single beam.")
-
         uvbeam = data_model.beams[0]  # Representative beam
         uvdata = data_model.uvdata
 
@@ -222,9 +219,9 @@ class FFTVis(VisibilitySimulator):
         # Get pixelized beams if required
         logger.info("Preparing Beams...")
         if not polarized:
-            beam = prepare_beam_unpolarized(data_model.beams[0], use_feed=feed)
+            beam = prepare_beam_unpolarized(data_model.beams, use_feed=feed)
         else:
-            beam = data_model.beams[0]
+            beam = data_model.beams
 
         # Get all the polarizations required to be simulated.
         req_pols = self._get_req_pols(data_model.uvdata, beam, polarized=polarized)

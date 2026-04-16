@@ -57,10 +57,10 @@ class NoiselikeEoR(EoR):
     def __init__(
         self,
         eor_amp: float = 1e-5,
-        min_delay: Optional[float] = None,
-        max_delay: Optional[float] = None,
+        min_delay: float | None = None,
+        max_delay: float | None = None,
         fringe_filter_type: str = "tophat",
-        fringe_filter_kwargs: Optional[dict] = None,
+        fringe_filter_kwargs: dict | None = None,
         rng: np.random.Generator | None = None,
     ):
         fringe_filter_kwargs = fringe_filter_kwargs or {}

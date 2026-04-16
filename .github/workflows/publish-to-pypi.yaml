@@ -1,0 +1,30 @@
+name: Publish Python distributions to PyPI
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  build-n-publish:
+    name: Make Release on PyPI and Github
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@master
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version-file: pyproject.toml
+
+      - name: Install Build Tools
+        run: pip install build
+
+      - name: Build a binary wheel
+        run: |
+          python -m build .
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@v1.13.0
+        with:
+          password: ${{ secrets.pypi_password }}
