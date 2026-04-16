@@ -35,7 +35,7 @@ _add_depr = deprecated(
 AntPairPol = tuple[int, int, str]
 AntPair = tuple[int, int]
 AntPol = tuple[int, str]
-Component = Union[str, type[SimulationComponent], SimulationComponent]
+Component = str | type[SimulationComponent] | SimulationComponent
 
 
 # wrapper for the run_sim method, necessary for part of the CLI
@@ -97,8 +97,8 @@ class Simulator:
     def __init__(
         self,
         *,
-        data: Optional[Union[str, UVData]] = None,
-        defaults_config: Optional[Union[str, dict]] = None,
+        data: str | UVData | None = None,
+        defaults_config: str | dict | None = None,
         redundancy_tol: float = 1.0,
         **kwargs,
     ):
@@ -184,7 +184,7 @@ class Simulator:
         """Channel width, assuming each channel is the same width."""
         return np.mean(self.data.channel_width)
 
-    def apply_defaults(self, config: Optional[Union[str, dict]], refresh: bool = True):
+    def apply_defaults(self, config: str | dict | None, refresh: bool = True):
         """
         Apply the provided default configuration.
 
@@ -205,8 +205,8 @@ class Simulator:
     def calculate_filters(
         self,
         *,
-        delay_filter_kwargs: Optional[dict[str, Union[float, str]]] = None,
-        fringe_filter_kwargs: Optional[dict[str, Union[float, str, np.ndarray]]] = None,
+        delay_filter_kwargs: dict[str, float | str] | None = None,
+        fringe_filter_kwargs: dict[str, float | str | np.ndarray] | None = None,
     ):
         """
         Pre-compute fringe-rate and delay filters for the entire array.
@@ -231,11 +231,11 @@ class Simulator:
         *,
         add_vis: bool = True,
         ret_vis: bool = False,
-        seed: Optional[Union[str, int]] = None,
-        vis_filter: Optional[Sequence] = None,
-        component_name: Optional[str] = None,
+        seed: str | int | None = None,
+        vis_filter: Sequence | None = None,
+        component_name: str | None = None,
         **kwargs,
-    ) -> Optional[Union[np.ndarray, dict[int, np.ndarray]]]:
+    ) -> np.ndarray | dict[int, np.ndarray] | None:
         """
         Simulate an effect then apply and/or return the result.
 
@@ -327,8 +327,8 @@ class Simulator:
     def get(
         self,
         component: Component,
-        key: Optional[Union[int, str, AntPair, AntPairPol]] = None,
-    ) -> Union[np.ndarray, dict[int, np.ndarray]]:
+        key: int | str | AntPair | AntPairPol | None = None,
+    ) -> np.ndarray | dict[int, np.ndarray]:
         """
         Retrieve an effect that was previously simulated.
 
@@ -778,10 +778,10 @@ class Simulator:
         self,
         *,
         standoff: float = 0.0,
-        delay_filter_type: Optional[str] = "gauss",
-        min_delay: Optional[float] = None,
-        max_delay: Optional[float] = None,
-        normalize: Optional[float] = None,
+        delay_filter_type: str | None = "gauss",
+        min_delay: float | None = None,
+        max_delay: float | None = None,
+        normalize: float | None = None,
     ):
         """
         Calculate delay filters for each redundant group.
@@ -826,7 +826,7 @@ class Simulator:
             self._filter_cache["delay"][bl_int] = delay_filter
 
     def _calculate_fringe_filters(
-        self, *, fringe_filter_type: Optional[str] = "tophat", **filter_kwargs
+        self, *, fringe_filter_type: str | None = "tophat", **filter_kwargs
     ):
         """
         Calculate fringe-rate filters for all baselines.
@@ -857,7 +857,7 @@ class Simulator:
             )
             self._filter_cache["fringe"][bl_int] = fringe_filter
 
-    def _initialize_data(self, data: Optional[Union[str, Path, UVData]], **kwargs):
+    def _initialize_data(self, data: str | Path | UVData | None, **kwargs):
         """
         Initialize the ``data`` attribute with a ``UVData`` object.
 
@@ -956,7 +956,7 @@ class Simulator:
         antpairpol_cache: Sequence[AntPairPol] | None = None,
         model_key: str | None = None,
         **kwargs,
-    ) -> Union[np.ndarray, dict[int, np.ndarray]] | None:
+    ) -> np.ndarray | dict[int, np.ndarray] | None:
         """
         Simulate an effect for an entire array.
 
@@ -1163,7 +1163,7 @@ class Simulator:
             self.data.data_array = data_copy
 
     @staticmethod
-    def _read_datafile(datafile: Union[str, Path], **kwargs) -> UVData:
+    def _read_datafile(datafile: str | Path, **kwargs) -> UVData:
         """Read a file as a ``UVData`` object.
 
         Parameters
@@ -1413,8 +1413,8 @@ class Simulator:
 
     @staticmethod
     def _get_component(
-        component: Union[str, type[SimulationComponent], SimulationComponent],
-    ) -> Union[SimulationComponent, type[SimulationComponent]]:
+        component: str | type[SimulationComponent] | SimulationComponent,
+    ) -> SimulationComponent | type[SimulationComponent]:
         """Normalize a component to be either a class or instance."""
         if isinstance(component, str):
             try:
@@ -1499,7 +1499,7 @@ class Simulator:
                 "to define new simulation components compatible with the Simulator."
             )
 
-    def _parse_key(self, key: Union[int, str, AntPair, AntPairPol]) -> AntPairPol:
+    def _parse_key(self, key: int | str | AntPair | AntPairPol) -> AntPairPol:
         """Convert a key of at-most length-3 to an (ant1, ant2, pol) tuple."""
         valid_pols = {
             k.lower()

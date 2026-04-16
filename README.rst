@@ -45,7 +45,7 @@ required for simulating visibilities::
 
   uv add hera_sim --extra vis
 
-Available extras are ``vis``, ``bda``, and ``cal`` (for also installing hera-calibration). 
+Available extras are ``vis``, ``bda``, and ``cal`` (for also installing hera-calibration).
 
 Conda users
 ~~~~~~~~~~~
