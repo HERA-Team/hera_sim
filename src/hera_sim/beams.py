@@ -1,6 +1,7 @@
 """Module defining analytic polynomial beams."""
 
 from dataclasses import dataclass, field
+from typing import Self
 
 import numpy as np
 import numpy.typing as npt
@@ -9,10 +10,6 @@ from pyuvdata.analytic_beam import AnalyticBeam
 
 from . import utils
 
-try:
-    from typing import Self
-except ImportError:
-    from typing import Self
 
 def modulate_with_dipole(az, za, freqs, ref_freq, beam_vals, fscale):
     """
