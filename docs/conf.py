@@ -11,9 +11,9 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-from pkg_resources import get_distribution
+from importlib.metadata import version
 
-__version__ = get_distribution("hera_sim").version
+__version__ = version("hera_sim")
 
 # Do the following to see if hera_sim can be imported properly, and throw a reasonable
 # error with traceback if not.

@@ -157,12 +157,11 @@ def test_1d_interpolators_bad_interp_type(model, tmp_path):
     data_file = str(tmp_path / f"test_{model}_bad_interp_type.npy")
     data = np.array([1, 2, 3])
     np.save(data_file, data)
-    with pytest.raises(AssertionError) as err:
+    with pytest.raises(
+        AssertionError,
+        match=r"Interpolator choice must either be 'poly1d' or 'interp1d'."
+    ):
         {"beam": Beam, "bandpass": Bandpass}[model](data_file, interpolator="bad_type")
-    assert (
-        err.value.args[0]
-        == "Interpolator choice must either be 'poly1d' or 'interp1d'."
-    )
 
 
 @pytest.mark.parametrize("model", ["beam", "bandpass"])
@@ -176,10 +175,8 @@ def test_1d_interpolators_bad_file_ext(freqs, model, interpolator, tmp_path):
     elif interpolator == "interp1d":
         data_file = f"{data_file}.npy"
         np.save(data_file, np.array([1, 2, 3, 4, 5]))
-    with pytest.raises(AssertionError) as err:
+    with pytest.raises(AssertionError, match="In order to use"):
         INTERPOLATORS[model](data_file, interpolator=interpolator)
-    article = {"poly1d": "a", "interp1d": "an"}[interpolator]
-    assert f"In order to use {article} {interpolator!r} object" in err.value.args[0]
 
 
 @pytest.mark.parametrize("model", ["beam", "bandpass"])

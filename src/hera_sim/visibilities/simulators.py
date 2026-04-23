@@ -31,7 +31,7 @@ from .. import __version__
 from .. import visibilities as vis
 from ..antpos import idealize_antpos
 
-BeamListType = Union[BeamList, list[Union[AnalyticBeam, UVBeam]]]
+BeamListType = BeamList | list[AnalyticBeam | UVBeam]
 logger = logging.getLogger(__name__)
 
 
