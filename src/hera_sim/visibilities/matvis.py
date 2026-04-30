@@ -330,6 +330,7 @@ class MatVis(VisibilitySimulator):
                     visfull[indx, p] = vis_here[:, p1, p2]
             else:
                 visfull[indx, 0] = vis_here
+
     @staticmethod
     def _get_req_pols(uvdata, uvbeam, polarized: bool) -> list[tuple[int, int]]:
         if not polarized:

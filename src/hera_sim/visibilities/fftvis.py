@@ -219,9 +219,9 @@ class FFTVis(VisibilitySimulator):
         # Get pixelized beams if required
         logger.info("Preparing Beams...")
         if not polarized:
-            beam = prepare_beam_unpolarized(data_model.beams, use_feed=feed)
+            beam = prepare_beam_unpolarized(data_model.beams[0], use_feed=feed)
         else:
-            beam = data_model.beams
+            beam = data_model.beams[0]
 
         # Get all the polarizations required to be simulated.
         req_pols = self._get_req_pols(data_model.uvdata, beam, polarized=polarized)
