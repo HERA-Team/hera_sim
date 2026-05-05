@@ -21,6 +21,7 @@ jobs:
         os: [ubuntu-latest, macos-latest]
         python-version: ["3.11", "3.12", "3.13", "3.14"]
         exclude:
+          # These fail for fftvis tests.
           - os: macos-latest
             python-version: "3.11"
           - os: macos-latest
@@ -59,3 +60,53 @@ jobs:
           fail_ci_if_error: true
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  tests-min-deps:
+    name: Tests (lowest-direct deps)
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@main
+      with:
+        fetch-depth: 0
+
+    - name: Setup Python
+      uses: actions/setup-python@v6
+      with:
+        python-version: "3.11"
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v7
+      with:
+        enable-cache: true
+
+    - name: Install with lowest-direct resolution
+      run: uv sync --resolution lowest-direct --all-extras --dev
+
+    - name: Run Tests
+      run: |
+        uv run pytest --no-cov -n auto
+
+  tests-upgraded:
+    name: Tests (upgraded deps)
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@main
+      with:
+        fetch-depth: 0
+
+    - name: Setup Python
+      uses: actions/setup-python@v6
+      with:
+        python-version: "3.14"
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v7
+      with:
+        enable-cache: true
+
+    - name: Install with upgraded deps
+      run: uv sync --upgrade --all-extras --dev
+
+    - name: Run Tests
+      run: |
+        uv run pytest --no-cov -n auto
