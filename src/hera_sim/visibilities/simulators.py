@@ -7,6 +7,7 @@ import logging
 from abc import ABCMeta, abstractmethod
 from collections.abc import Sequence
 from dataclasses import dataclass
+from functools import cached_property
 from os import path
 from pathlib import Path
 from typing import Union
@@ -15,7 +16,6 @@ import astropy_healpix as aph
 import numpy as np
 import yaml
 from astropy import units
-from cached_property import cached_property
 from pyradiosky import SkyModel
 from pyuvdata import UniformBeam, UVBeam, UVData
 from pyuvdata.analytic_beam import AnalyticBeam
