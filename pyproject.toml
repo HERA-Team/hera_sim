@@ -76,6 +76,8 @@ tests = [
   "uvtools",
   "pytest-sugar",
   "pytest-xdist",
+  "hera-calibration>3.6.1",
+  "mpi4py",
 ]
 
 doctest = [
