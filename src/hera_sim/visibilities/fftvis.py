@@ -221,7 +221,7 @@ class FFTVis(VisibilitySimulator):
         if not polarized:
             beams = [
                 prepare_beam_unpolarized(beam, use_feed=feed)
-                for beam in data_model.beam
+                for beam in data_model.beams
             ]
         else:
             beams = data_model.beams
