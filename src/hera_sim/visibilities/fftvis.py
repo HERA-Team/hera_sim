@@ -102,7 +102,7 @@ class FFTVis(VisibilitySimulator):
                     "antenna order doesn't change with time!"
                 )
 
-        uvbeam = data_model.beams[0]  # Representative beam
+        beam_interface = data_model.beams[0]  # Representative beam
         uvdata = data_model.uvdata
 
         # Now check that we only have linear polarizations (don't allow pseudo-stokes)
@@ -119,9 +119,9 @@ class FFTVis(VisibilitySimulator):
         if self._check_if_polarized(data_model):
             # Number of feeds must be two if doing polarized
             try:
-                nfeeds = uvbeam.data_array.shape[1]
+                nfeeds = beam_interface.beam.data_array.shape[1]
             except AttributeError:
-                nfeeds = uvbeam.beam.Nfeeds
+                nfeeds = beam_interface.beam.Nfeeds
 
             assert nfeeds == 2
 
@@ -140,9 +140,10 @@ class FFTVis(VisibilitySimulator):
             Estimated memory usage in GB.
         """
         bm = data_model.beams[0]
+        beam_obj = getattr(bm, "beam", bm)
         nt = len(data_model.lsts)
-        nax = getattr(bm, "Naxes_vec", 1)
-        nfd = getattr(bm, "Nfeeds", 1)
+        nax = getattr(beam_obj, "Naxes_vec", 1)
+        nfd = getattr(beam_obj, "Nfeeds", 1)
         nant = data_model.uvdata.Nants_data
         nsrc = len(data_model.sky_model.ra)
         nbeam = len(data_model.beams)
@@ -160,7 +161,7 @@ class FFTVis(VisibilitySimulator):
         n_gridy = int(8 * avg_freq * max_bly / 3e8)  # number of grid points in v/m axis
 
         try:
-            nbmpix = bm.data_array[..., 0, :].size
+            nbmpix = beam_obj.data_array[..., 0, :].size
         except AttributeError:
             nbmpix = 0
 

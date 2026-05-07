@@ -39,12 +39,28 @@ def test_peak_normalize(uvdata, sky_model, uvbeam: UVBeam):
     model_data = ModelData(
         uvdata=uvdata, sky_model=sky_model, beams=[uvbeam], normalize_beams=True
     )
+    assert isinstance(model_data.beams[0], BeamInterface)
     assert model_data.beams[0].beam.data_normalization == 'peak'
 
 def test_setting_rectangularity(uvdata, sky_model, uvbeam):
     uvdata.blts_are_rectangular = None  # mock for testing
     model_data = ModelData(uvdata=uvdata, sky_model=sky_model, beams=[uvbeam])
+    assert isinstance(model_data.beams[0], BeamInterface)
     assert model_data.uvdata.blts_are_rectangular  # set to True now!
+
+
+def test_default_beam_is_beam_interface(uvdata, sky_model):
+    model_data = ModelData(uvdata=uvdata, sky_model=sky_model)
+    assert all(isinstance(beam, BeamInterface) for beam in model_data.beams)
+
+
+def test_accepts_raw_analytic_beam_and_wraps(uvdata, sky_model):
+    model_data = ModelData(
+        uvdata=uvdata,
+        sky_model=sky_model,
+        beams=[GaussianBeam(diameter=14.0)],
+    )
+    assert all(isinstance(beam, BeamInterface) for beam in model_data.beams)
 
 def test_beam_ids(uvdata, sky_model, uvbeam):
     beam = copy.deepcopy(uvbeam)
