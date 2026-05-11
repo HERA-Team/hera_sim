@@ -905,8 +905,8 @@ wheels = [
 
 [[package]]
 name = "fftvis"
-version = "1.0.1.dev29+ge2a5a4608"
-source = { git = "https://github.com/tyler-a-cox/fftvis#e2a5a4608f52328d253ef10e19684f1dc4e85d6b" }
+version = "1.0.1.dev36+g62ab5ea4f"
+source = { git = "https://github.com/tyler-a-cox/fftvis?rev=multibeam#62ab5ea4f385e71e0cc2950e0621c710339e1425" }
 dependencies = [
     { name = "finufft" },
     { name = "matvis" },
@@ -1397,7 +1397,7 @@ requires-dist = [
     { name = "bda", marker = "extra == 'bda'" },
     { name = "cached-property" },
     { name = "deprecation" },
-    { name = "fftvis", marker = "extra == 'vis'", git = "https://github.com/tyler-a-cox/fftvis" },
+    { name = "fftvis", marker = "extra == 'vis'", git = "https://github.com/tyler-a-cox/fftvis?rev=multibeam" },
     { name = "hera-calibration", marker = "extra == 'cal'", specifier = ">3.6.1" },
     { name = "hera-cli-utils", specifier = ">=0.1.0" },
     { name = "line-profiler", marker = "extra == 'vis'" },

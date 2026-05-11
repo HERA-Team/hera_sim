@@ -135,7 +135,7 @@ class MatVis(VisibilitySimulator):
                     "antenna order doesn't change with time!"
                 )
 
-        uvbeam = data_model.beams[0]  # Representative beam
+        beam_interface = data_model.beams[0]  # Representative beam
         uvdata = data_model.uvdata
 
         # Now check that we only have linear polarizations (don't allow pseudo-stokes)
@@ -151,7 +151,7 @@ class MatVis(VisibilitySimulator):
 
         do_pol = self._check_if_polarized(data_model)
         if do_pol:
-            assert uvbeam.beam.Nfeeds == 2
+            assert beam_interface.beam.Nfeeds == 2
 
     def estimate_memory(self, data_model: ModelData) -> float:
         """
@@ -168,16 +168,17 @@ class MatVis(VisibilitySimulator):
             Estimated memory usage in GB.
         """
         bm = data_model.beams[0]
+        beam_obj = getattr(bm, "beam", bm)
         nt = len(data_model.lsts)
-        nax = getattr(bm, "Naxes_vec", 1)
-        nfd = getattr(bm, "Nfeeds", 1)
+        nax = getattr(beam_obj, "Naxes_vec", 1)
+        nfd = getattr(beam_obj, "Nfeeds", 1)
         nant = len(data_model.uvdata.get_ants())
         nsrc = len(data_model.sky_model.ra)
         nbeam = len(data_model.beams)
         nf = len(data_model.freqs)
 
         try:
-            nbmpix = bm.data_array[..., 0, :].size
+            nbmpix = beam_obj.data_array[..., 0, :].size
         except AttributeError:
             nbmpix = 0
 
@@ -330,14 +331,19 @@ class MatVis(VisibilitySimulator):
                     visfull[indx, p] = vis_here[:, p1, p2]
             else:
                 visfull[indx, 0] = vis_here
+
     @staticmethod
     def _get_req_pols(uvdata, uvbeam, polarized: bool) -> list[tuple[int, int]]:
         if not polarized:
             return [(0, 0)]
 
-        feeds = uvbeam.feed_array
+        beam_obj = getattr(uvbeam, "beam", uvbeam)
+        feeds = getattr(uvbeam, "feed_array", None)
+        if feeds is None:
+            feeds = beam_obj.feed_array
         if isinstance(feeds, np.ndarray):
             feeds = feeds.tolist()  # convert to list if necessary
+        feed_set = {str(feed).lower() for feed in feeds}
 
         # In order to get all 4 visibility polarizations for a dual feed system
         vispols = set()
@@ -349,8 +355,16 @@ class MatVis(VisibilitySimulator):
             for vispol in vispols
         }
         # Get the mapping from uvdata pols to uvbeam pols
+        if feed_set.issubset({"x", "y"}):
+            x_orientation = None
+        else:
+            x_orientation = getattr(
+                uvbeam,
+                "x_orientation",
+                getattr(beam_obj, "x_orientation", None),
+            )
         uvdata_pols = [
-            uvutils.polnum2str(polnum, getattr(uvbeam, "x_orientation", None))
+            uvutils.polnum2str(polnum, x_orientation)
             for polnum in uvdata.polarization_array
         ]
         if any(pol not in avail_pols for pol in uvdata_pols):

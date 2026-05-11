@@ -19,6 +19,7 @@ from cached_property import cached_property
 from pyradiosky import SkyModel
 from pyuvdata import UniformBeam, UVBeam, UVData
 from pyuvdata.analytic_beam import AnalyticBeam
+from pyuvdata.beam_interface import BeamInterface
 from pyuvsim import BeamList
 from pyuvsim.simsetup import (
     _complete_uvdata,
@@ -31,7 +32,7 @@ from .. import __version__
 from .. import visibilities as vis
 from ..antpos import idealize_antpos
 
-BeamListType = BeamList | list[AnalyticBeam | UVBeam]
+BeamInputType = BeamList | Sequence[AnalyticBeam | UVBeam | BeamInterface]
 logger = logging.getLogger(__name__)
 
 
@@ -47,7 +48,12 @@ class ModelData:
     sky_model
         A model for the sky to simulate.
     beams
-        UVBeam models for as many antennae as have unique beams.
+        Beam models for as many antennae as have unique beams.
+        Inputs can be :class:`pyuvsim.BeamList`,
+        :class:`pyuvdata.beam_interface.BeamInterface`,
+        :class:`pyuvdata.UVBeam`, or
+        :class:`pyuvdata.analytic_beam.AnalyticBeam` objects.
+        Internally, all beams are stored as BeamInterface objects in a BeamList.
         Initialized from `obsparams`, if included. Defaults to a
         single uniform beam which is applied for every antenna. Each beam
         is the response of an individual antenna and NOT a per-baseline response.
@@ -77,7 +83,7 @@ class ModelData:
         uvdata: UVData | str | Path,
         sky_model: SkyModel,
         beam_ids: dict[str, int] | Sequence[int] | None = None,
-        beams: BeamListType | None = None,
+        beams: BeamInputType | None = None,
         normalize_beams: bool = False,
     ):
         self.uvdata = self._process_uvdata(uvdata)
@@ -86,6 +92,7 @@ class ModelData:
         self.n_ant = self.uvdata.Nants_data
 
         self.beams = self._process_beams(beams, normalize_beams)
+        self._validate_beams(self.beams)
         self.beam_ids = self._process_beam_ids(beam_ids, self.beams)
         self._validate_beam_ids(self.beam_ids, self.beams)
 
@@ -116,18 +123,25 @@ class ModelData:
         return uvdata
 
     @classmethod
-    def _process_beams(cls, beams: BeamListType | None, normalize_beams: bool):
+    def _process_beams(cls, beams: BeamInputType | None, normalize_beams: bool):
         if beams is None:
-            beams = [UniformBeam()]
-
-        if not isinstance(beams, BeamList):
-            beam_type = [b.beam_type for b in beams if hasattr(b, "beam_type")]
-            if len(beam_type) > 0 :
-                beam_type=beam_type[0]
+            beam_models = [BeamInterface(UniformBeam())]
+            beam_type = "efield"
+        else:
+            if isinstance(beams, BeamList):
+                beam_models = [cls._ensure_beam_interface(beam) for beam in beams]
             else:
-                beam_type='efield'
+                beam_models = [cls._ensure_beam_interface(beam) for beam in beams]
 
-            beams = BeamList(beams, beam_type=beam_type)
+            if not beam_models:
+                raise ValueError("beams must contain at least one beam model")
+
+            beam_type = beam_models[0].beam_type
+
+        beams = BeamList(beam_models, beam_type=beam_type)
+
+        if any(beam.beam_type != beam_type for beam in beams):
+            raise ValueError("All beams must have the same beam_type.")
 
         if normalize_beams:
             for beam in beams:
@@ -135,6 +149,26 @@ class ModelData:
                     beam.beam.peak_normalize()
 
         return beams
+
+    @staticmethod
+    def _ensure_beam_interface(
+        beam: AnalyticBeam | UVBeam | BeamInterface,
+    ) -> BeamInterface:
+        if isinstance(beam, BeamInterface):
+            return beam
+
+        if isinstance(beam, (AnalyticBeam, UVBeam)):
+            return BeamInterface(beam)
+
+        raise TypeError(
+            "Each beam must be a BeamInterface, UVBeam, or AnalyticBeam instance. "
+            f"Got type {type(beam)}"
+        )
+
+    @staticmethod
+    def _validate_beams(beams: BeamList):
+        if any(not isinstance(beam, BeamInterface) for beam in beams):
+            raise TypeError("ModelData.beams must contain only BeamInterface objects")
 
     def _process_beam_ids(
         self,
