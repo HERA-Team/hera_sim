@@ -255,7 +255,7 @@ class FFTVis(VisibilitySimulator):
                 dec=dec,
                 times=data_model.times,
                 telescope_loc=data_model.uvdata.telescope.location,
-                beam=beam,
+                beam_list=beam,
                 fluxes=data_model.sky_model.stokes[0, [i]].to("Jy").value.T,
                 beam_spline_opts=data_model.beams.spline_interp_opts,
                 precision=self._precision,
