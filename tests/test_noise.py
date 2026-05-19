@@ -146,11 +146,10 @@ def test_thermal_noise_with_provided_autos(lsts, freqs):
 
     rng_1 = np.random.default_rng(0)
     rng_2 = np.random.default_rng(0)
-    
+
     np.testing.assert_allclose(
         noise.ThermalNoise(autovis=avg_auto, rng=rng_1)(lsts=lsts, freqs=freqs),
         noise.ThermalNoise(
             autovis_i=xx_auto, autovis_j=yy_auto, rng=rng_2
         )(lsts=lsts, freqs=freqs)
     )
-    
