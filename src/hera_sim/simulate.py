@@ -1327,10 +1327,12 @@ class Simulator:
         # TODO: review this and see if there's a smarter way to do it.
         new_params = {}
         for param, attr in model.attrs_to_pull.items():
-            if param in ("autovis", "autovis_i"):
+            if param == "autovis":
                 new_params[param] = self.data.get_data(ant1, ant1, pol)
+            elif param == "autovis_i":
+                new_params[param] = self.data.get_data(ant1, ant1, pol[:1]*2)
             elif param == "autovis_j":
-                new_params[param] = self.data.get_data(ant2, ant2, pol)
+                new_params[param] = self.data.get_data(ant2, ant2, pol[1:]*2)
             elif param == "bl_vec":
                 bl_vec = self.antpos[ant2] - self.antpos[ant1]
                 new_params[param] = bl_vec / const.c.to("m/ns").value
