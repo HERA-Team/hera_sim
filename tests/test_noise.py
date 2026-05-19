@@ -34,7 +34,7 @@ def omega_p(freqs):
 
 @pytest.fixture(scope="function")
 def Jy2T(freqs, omega_p):
-    return utils.Jy2T(freqs, omega_p).reshape(1, -1)
+    return utils.jansky_to_kelvin(freqs, omega_p).reshape(1, -1)
 
 
 @pytest.fixture(scope="function")
