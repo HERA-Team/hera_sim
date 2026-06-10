@@ -42,8 +42,11 @@ class ThermalNoise(Noise):
         Channel width in Hz, by default the mean difference between frequencies.
     Trx : float, optional
         Receiver temperature in K
-    autovis : float, optional
+    autovis : array-like of float, optional
         Autocorrelation visibility amplitude. Used if provided instead of ``Tsky_mdl``.
+    autovis_i/j: array-like of float, optional
+        Autocorrelations for each antenna in the baseline. If both of these are
+        provided, then `autovis` is updated to the geometric mean of the two autos.
     antpair : tuple of int, optional
         Antenna numbers for the baseline that noise is being simulated for. This is
         just used to determine whether to simulate noise via the radiometer equation
@@ -60,7 +63,7 @@ class ThermalNoise(Noise):
     _alias = ("thermal_noise",)
     is_randomized = True
     return_type = "per_baseline"
-    attrs_to_pull = dict(autovis=None, antpair=None)
+    attrs_to_pull = dict(autovis=None, autovis_i=None, autovis_j=None, antpair=None)
 
     def __init__(
         self,
@@ -70,6 +73,8 @@ class ThermalNoise(Noise):
         channel_width=None,
         Trx=0,
         autovis=None,
+        autovis_i=None,
+        autovis_j=None,
         antpair=None,
         rng=None,
     ):
@@ -80,6 +85,8 @@ class ThermalNoise(Noise):
             channel_width=channel_width,
             Trx=Trx,
             autovis=autovis,
+            autovis_i=autovis_i,
+            autovis_j=autovis_j,
             antpair=antpair,
             rng=rng,
         )
@@ -119,6 +126,8 @@ class ThermalNoise(Noise):
             channel_width,
             Trx,
             autovis,
+            autovis_i,
+            autovis_j,
             antpair,
             rng,
         ) = self._extract_kwarg_values(**kwargs)
@@ -157,8 +166,12 @@ class ThermalNoise(Noise):
             if antpair[0] == antpair[1]:
                 return Trx / utils.jansky_to_kelvin(freqs, omega_p).reshape(1, -1)
 
+        # Replace autovis with the geometric mean of the two autos if provided
+        if autovis_i is not None and autovis_j is not None:
+            autovis = np.sqrt(autovis_i * autovis_j)
+
         # get the sky temperature; use an autocorrelation if provided
-        if autovis is not None and not np.all(np.isclose(autovis, 0)):
+        if autovis is not None and not np.allclose(autovis, 0):
             Tsky = autovis * utils.jansky_to_kelvin(freqs, omega_p).reshape(1, -1)
         else:
             Tsky = self.resample_Tsky(lsts, freqs, Tsky_mdl=Tsky_mdl)

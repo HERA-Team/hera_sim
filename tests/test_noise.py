@@ -34,7 +34,7 @@ def omega_p(freqs):
 
 @pytest.fixture(scope="function")
 def Jy2T(freqs, omega_p):
-    return utils.Jy2T(freqs, omega_p).reshape(1, -1)
+    return utils.jansky_to_kelvin(freqs, omega_p).reshape(1, -1)
 
 
 @pytest.fixture(scope="function")
@@ -137,3 +137,19 @@ def test_thermal_noise_with_phase_wrap(freqs, omega_p, autovis, expectation):
         np.testing.assert_allclose(
             np.std(vis), 1 / expected_SNR, rtol=1 / np.sqrt(vis.size)
         )
+
+
+def test_thermal_noise_with_provided_autos(lsts, freqs):
+    xx_auto = noise.resample_Tsky(lsts, freqs, noise.HERA_Tsky_mdl['xx'])
+    yy_auto = noise.resample_Tsky(lsts, freqs, noise.HERA_Tsky_mdl['yy'])
+    avg_auto = np.sqrt(xx_auto * yy_auto)
+
+    rng_1 = np.random.default_rng(0)
+    rng_2 = np.random.default_rng(0)
+
+    np.testing.assert_allclose(
+        noise.ThermalNoise(autovis=avg_auto, rng=rng_1)(lsts=lsts, freqs=freqs),
+        noise.ThermalNoise(
+            autovis_i=xx_auto, autovis_j=yy_auto, rng=rng_2
+        )(lsts=lsts, freqs=freqs)
+    )
