@@ -137,7 +137,18 @@ class ModelData:
             if len(beams) == 0:
                 raise ValueError("beams must contain at least one beam model")
 
-            beam_type = beams[0].beam_type
+            # We need to set the beam_type for the BeamList (which converts all
+            # beams to have the same beam_type). This only applies to UVBeams, since
+            # AnalyticBeams can often compute both efield and power beams with different
+            # methods. If any of the UVBeams are power beams, then by necessity all of
+            # them must be. Otherwise, we set the beam type to efield since it can
+            # always be converted to power if needed, but not the other way around.
+            if any(
+                isinstance(beam, UVBeam) and beam.beam_type == "power" for beam in beams
+            ):
+                beam_type = "power"
+            else:
+                beam_type = "efield"
 
         return BeamList(beams, beam_type=beam_type, peak_normalize=normalize_beams)
 
