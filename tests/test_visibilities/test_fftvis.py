@@ -18,6 +18,18 @@ def test_stokespol(uvdata_linear, sky_model):
             simulator=FFTVis(),
         )
 
+def test_error_on_polarized_one_feed(uvdata_linear, sky_model, uvbeam):
+    uvb = uvbeam.select(feeds=['x'], inplace=False)
+    with pytest.raises(
+        ValueError,
+        match="FFTVis requires that the beams have two feeds"
+    ):
+        VisibilitySimulation(
+            data_model=ModelData(
+                uvdata=uvdata_linear, sky_model=sky_model, beams=[uvb]
+            ),
+            simulator=FFTVis(),
+        )
 
 def test_snap_positions():
     rng = np.random.default_rng(123)
