@@ -5,18 +5,14 @@ from __future__ import annotations
 import itertools
 import logging
 
-import astropy.units as u
 import numpy as np
-from astropy.coordinates import EarthLocation
 from astropy.time import Time
 from matvis import HAVE_GPU, __version__, cpu
 
 if HAVE_GPU:
     from matvis import gpu
 
-from matvis import coordinates
-from matvis.core.beams import prepare_beam_unpolarized
-from pyuvdata import UVData
+from pyuvdata import BeamInterface, UVData
 from pyuvdata import utils as uvutils
 
 from .simulators import ModelData, VisibilitySimulator
@@ -287,7 +283,7 @@ class MatVis(VisibilitySimulator):
 
             logger.info("... re-ordering visibilities...")
             self._reorder_vis(
-                req_pols, data_model.uvdata, visfull[:, i], vis, ant_list, polarized
+                req_pols, data_model.uvdata, visfull[:, i], vis, polarized
             )
 
         # Reduce visfull array if in MPI mode
@@ -302,7 +298,11 @@ class MatVis(VisibilitySimulator):
         else:
             return visfull
 
-    def _reorder_vis(self, req_pols, uvdata: UVData, visfull, vis, ant_list, polarized):
+    def _reorder_vis(
+        self, req_pols: list[tuple[int, int]],
+        uvdata: UVData,
+        visfull: np.ndarray, vis: np.ndarray, polarized: bool
+    ):
 
         if (
             uvdata.blts_are_rectangular and
@@ -312,7 +312,7 @@ class MatVis(VisibilitySimulator):
             logger.info("Using direct setting of data without reordering")
             # This is the best case scenario -- no need to reorder anything.
             # It is also MUCH MUCH faster!
-            vis.shape = (uvdata.Nblts, uvdata.Npols)
+            vis = vis.reshape((uvdata.Nblts, uvdata.Npols))
             visfull[:] = vis
             return
 
@@ -333,14 +333,16 @@ class MatVis(VisibilitySimulator):
                 visfull[indx, 0] = vis_here
 
     @staticmethod
-    def _get_req_pols(uvdata, uvbeam, polarized: bool) -> list[tuple[int, int]]:
+    def _get_req_pols(
+        uvdata: UVData,
+        uvbeam: BeamInterface,
+        polarized: bool
+    ) -> list[tuple[int, int]]:
         if not polarized:
             return [(0, 0)]
 
-        beam_obj = getattr(uvbeam, "beam", uvbeam)
-        feeds = getattr(uvbeam, "feed_array", None)
-        if feeds is None:
-            feeds = beam_obj.feed_array
+        beam_obj = uvbeam.beam
+        feeds = uvbeam.feed_array
         if isinstance(feeds, np.ndarray):
             feeds = feeds.tolist()  # convert to list if necessary
         feed_set = {str(feed).lower() for feed in feeds}
@@ -358,11 +360,8 @@ class MatVis(VisibilitySimulator):
         if feed_set.issubset({"x", "y"}):
             x_orientation = None
         else:
-            x_orientation = getattr(
-                uvbeam,
-                "x_orientation",
-                getattr(beam_obj, "x_orientation", None),
-            )
+            x_orientation = beam_obj.get_x_orientation_from_feeds()
+
         uvdata_pols = [
             uvutils.polnum2str(polnum, x_orientation)
             for polnum in uvdata.polarization_array

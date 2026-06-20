@@ -92,7 +92,6 @@ class ModelData:
         self.n_ant = self.uvdata.Nants_data
 
         self.beams = self._process_beams(beams, normalize_beams)
-        self._validate_beams(self.beams)
         self.beam_ids = self._process_beam_ids(beam_ids, self.beams)
         self._validate_beam_ids(self.beam_ids, self.beams)
 
@@ -123,52 +122,24 @@ class ModelData:
         return uvdata
 
     @classmethod
-    def _process_beams(cls, beams: BeamInputType | None, normalize_beams: bool):
+    def _process_beams(
+        cls,
+        beams: BeamInputType | None,
+        normalize_beams: bool
+    ) -> BeamList:
+        if isinstance(beams, BeamList):
+            return beams
+
         if beams is None:
-            beam_models = [BeamInterface(UniformBeam())]
+            beams = [BeamInterface(UniformBeam())]
             beam_type = "efield"
         else:
-            if isinstance(beams, BeamList):
-                beam_models = [cls._ensure_beam_interface(beam) for beam in beams]
-            else:
-                beam_models = [cls._ensure_beam_interface(beam) for beam in beams]
-
-            if not beam_models:
+            if len(beams) == 0:
                 raise ValueError("beams must contain at least one beam model")
 
-            beam_type = beam_models[0].beam_type
+            beam_type = beams[0].beam_type
 
-        beams = BeamList(beam_models, beam_type=beam_type)
-
-        if any(beam.beam_type != beam_type for beam in beams):
-            raise ValueError("All beams must have the same beam_type.")
-
-        if normalize_beams:
-            for beam in beams:
-                if beam._isuvbeam and beam.beam.data_normalization != "peak":
-                    beam.beam.peak_normalize()
-
-        return beams
-
-    @staticmethod
-    def _ensure_beam_interface(
-        beam: AnalyticBeam | UVBeam | BeamInterface,
-    ) -> BeamInterface:
-        if isinstance(beam, BeamInterface):
-            return beam
-
-        if isinstance(beam, (AnalyticBeam, UVBeam)):
-            return BeamInterface(beam)
-
-        raise TypeError(
-            "Each beam must be a BeamInterface, UVBeam, or AnalyticBeam instance. "
-            f"Got type {type(beam)}"
-        )
-
-    @staticmethod
-    def _validate_beams(beams: BeamList):
-        if any(not isinstance(beam, BeamInterface) for beam in beams):
-            raise TypeError("ModelData.beams must contain only BeamInterface objects")
+        return BeamList(beams, beam_type=beam_type, peak_normalize=normalize_beams)
 
     def _process_beam_ids(
         self,
@@ -250,14 +221,14 @@ class ModelData:
         )
 
     @cached_property
-    def lsts(self):
+    def lsts(self) -> np.ndarray:
         """Local Sidereal Times in radians."""
         # This process retrieves the unique LSTs while respecting phase wraps.
         _, unique_inds = np.unique(self.uvdata.time_array, return_index=True)
         return self.uvdata.lst_array[unique_inds]
 
     @cached_property
-    def times(self):
+    def times(self) -> np.ndarray:
         """The *unique* times of the data."""
         if self.uvdata.blts_are_rectangular:
             if self.uvdata.time_axis_faster_than_bls:

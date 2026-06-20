@@ -106,3 +106,13 @@ def test_beam_ids(uvdata, sky_model, uvbeam):
             uvdata=uvdata, sky_model=sky_model, beams=[uvbeam],
             beam_ids='hey there'
         )
+
+def test_process_beam_errors():
+    with pytest.raises(ValueError, match="beams must contain at least one"):
+        ModelData._process_beams(beams=[], normalize_beams=True)
+
+    with pytest.raises(ValueError, match="Each beam must be a BeamInterface"):
+        ModelData._process_beams(
+            beams=["not a beam"],
+            normalize_beams=True
+        )
