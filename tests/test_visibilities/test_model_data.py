@@ -9,11 +9,11 @@ from pyuvdata.beam_interface import BeamInterface
 from hera_sim.visibilities import ModelData
 
 
-def test_power_polsky(uvdata, sky_model):
+def test_power_polsky(uvdata, uvbeam, sky_model):
     new_sky = copy.deepcopy(sky_model)
     new_sky.stokes[1:] = 1.0 * units.Jy
 
-    beams = [BeamInterface(GaussianBeam(diameter=14.0), beam_type='power')]
+    beams = [BeamInterface(uvbeam, beam_type='power')]
     with pytest.raises(
         TypeError,
         match='Cannot use power beams when the sky model contains polarized sources'

@@ -144,7 +144,8 @@ class ModelData:
             # them must be. Otherwise, we set the beam type to efield since it can
             # always be converted to power if needed, but not the other way around.
             if any(
-                isinstance(beam, UVBeam) and beam.beam_type == "power" for beam in beams
+                isinstance(beam.beam, UVBeam) and
+                beam.beam_type == "power" for beam in beams
             ):
                 beam_type = "power"
             else:
@@ -301,9 +302,8 @@ class ModelData:
         and sky model, checking for inconsistencies that would be wrong for _any_
         simulator.
         """
-        if any(b.beam_type == "power" for b in self.beams) and np.any(
-            self.sky_model.stokes[1:] != 0
-        ):
+        print(self.beams)
+        if self.beams.beam_type=='power' and np.any(self.sky_model.stokes[1:] != 0):
             raise TypeError(
                 "Cannot use power beams when the sky model contains polarized sources."
             )
