@@ -144,8 +144,8 @@ class ModelData:
             # them must be. Otherwise, we set the beam type to efield since it can
             # always be converted to power if needed, but not the other way around.
             if any(
-                isinstance(beam.beam, UVBeam) and
-                beam.beam_type == "power" for beam in beams
+                getattr(getattr(beam, "beam", beam), "beam_type", None) == "power"
+                for beam in beams
             ):
                 beam_type = "power"
             else:
