@@ -15,11 +15,15 @@ from importlib.metadata import version
 
 __version__ = version("hera_sim")
 
+autodoc_mock_imports = [
+    "mpi4py"
+]
+
 # Do the following to see if hera_sim can be imported properly, and throw a reasonable
 # error with traceback if not.
-import hera_sim
+# import hera_sim
 
-del hera_sim
+# del hera_sim
 # -- Project information -----------------------------------------------------
 
 project = "hera_sim"
@@ -186,7 +190,7 @@ intersphinx_mapping = {
     "python": ("https://docs.python.org/3/", None),
     "pyuvdata": ("https://pyuvdata.readthedocs.io/en/latest/", None),
     "pyuvsim": ("https://pyuvsim.readthedocs.io/en/latest/", None),
-    "vis_cpu": ("https://vis-cpu.readthedocs.io/en/latest/", None),
+    "matvis": ("https://matvis.readthedocs.io/en/latest/", None),
     "numpy": ("https://numpy.org/doc/stable/", None),
 }
 

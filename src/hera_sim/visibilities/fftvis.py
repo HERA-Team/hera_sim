@@ -2,12 +2,9 @@
 
 from __future__ import annotations
 
-import itertools
 import logging
 
-import fftvis
 import numpy as np
-from astropy.time import Time
 from matvis.core.beams import prepare_beam_unpolarized
 from pyuvdata import BeamInterface
 from pyuvdata import utils as uvutils
@@ -17,6 +14,13 @@ from .matvis import MatVis
 from .simulators import ModelData, VisibilitySimulator
 
 logger = logging.getLogger(__name__)
+
+try:
+    import fftvis
+    HAVE_FFTVIS = True
+except ImportError:
+    HAVE_FFTVIS = False
+    fftvis = None
 
 
 class FFTVis(VisibilitySimulator):
@@ -52,7 +56,9 @@ class FFTVis(VisibilitySimulator):
 
     conjugation_convention = "ant1<ant2"
     time_ordering = "time"
-    _functions_to_profile = (fftvis.CPUSimulationEngine.simulate, )
+    _functions_to_profile = (
+        fftvis.CPUSimulationEngine.simulate if HAVE_FFTVIS else None,
+    )
     diffuse_ability = False
     __version__ = "1.0.0"  # Fill in the version number here
 
@@ -64,6 +70,11 @@ class FFTVis(VisibilitySimulator):
         check_antenna_conjugation: bool = True,
         **kwargs,
     ):
+        if not HAVE_FFTVIS:
+            raise ImportError(
+                "fftvis is not installed. Please install fftvis to use FFTVis."
+            )
+
         assert precision in {1, 2}
         self._precision = precision
         if precision == 1:

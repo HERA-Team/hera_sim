@@ -43,14 +43,14 @@ name = "aiohttp"
 version = "3.14.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "aiohappyeyeballs", marker = "python_full_version >= '3.12' and python_full_version < '3.14'" },
-    { name = "aiosignal", marker = "python_full_version >= '3.12' and python_full_version < '3.14'" },
-    { name = "attrs", marker = "python_full_version >= '3.12' and python_full_version < '3.14'" },
-    { name = "frozenlist", marker = "python_full_version >= '3.12' and python_full_version < '3.14'" },
-    { name = "multidict", marker = "python_full_version >= '3.12' and python_full_version < '3.14'" },
-    { name = "propcache", marker = "python_full_version >= '3.12' and python_full_version < '3.14'" },
+    { name = "aiohappyeyeballs", marker = "python_full_version == '3.12.*'" },
+    { name = "aiosignal", marker = "python_full_version == '3.12.*'" },
+    { name = "attrs", marker = "python_full_version == '3.12.*'" },
+    { name = "frozenlist", marker = "python_full_version == '3.12.*'" },
+    { name = "multidict", marker = "python_full_version == '3.12.*'" },
+    { name = "propcache", marker = "python_full_version == '3.12.*'" },
     { name = "typing-extensions", marker = "python_full_version == '3.12.*'" },
-    { name = "yarl", marker = "python_full_version >= '3.12' and python_full_version < '3.14'" },
+    { name = "yarl", marker = "python_full_version == '3.12.*'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/82/78/8ea7308cac6934de8c74a14f3d5f65d1c89287426688be79538d0e5c013d/aiohttp-3.14.1.tar.gz", hash = "sha256:307f2cff90a764d329e77040603fa032db89c5c24fdad50c4c15334cba744035", size = 7955794, upload-time = "2026-06-07T21:09:35.529Z" }
 wheels = [
@@ -161,7 +161,7 @@ name = "aiosignal"
 version = "1.4.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "frozenlist", marker = "python_full_version >= '3.12' and python_full_version < '3.14'" },
+    { name = "frozenlist", marker = "python_full_version == '3.12.*'" },
     { name = "typing-extensions", marker = "python_full_version == '3.12.*'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/61/62/06741b579156360248d1ec624842ad0edf697050bbaf7c3e46394e106ad1/aiosignal-1.4.0.tar.gz", hash = "sha256:f47eecd9468083c2029cc99945502cb7708b082c232f9aca65da147157b251c7", size = 25007, upload-time = "2025-07-03T22:54:43.528Z" }
@@ -1323,6 +1323,7 @@ dependencies = [
     { name = "astropy" },
     { name = "astropy-healpix" },
     { name = "deprecation" },
+    { name = "hera-calibration" },
     { name = "hera-cli-utils" },
     { name = "numpy", version = "2.3.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.14'" },
     { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.14'" },
@@ -1332,14 +1333,12 @@ dependencies = [
     { name = "rich" },
     { name = "scipy", version = "1.17.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "scipy", version = "1.18.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+    { name = "uvtools" },
 ]
 
 [package.optional-dependencies]
 bda = [
     { name = "bda" },
-]
-cal = [
-    { name = "hera-calibration" },
 ]
 vis = [
     { name = "fftvis" },
@@ -1352,12 +1351,9 @@ vis = [
 [package.dev-dependencies]
 dev = [
     { name = "coverage" },
-    { name = "fftvis" },
     { name = "furo" },
-    { name = "hera-calibration" },
     { name = "ipython" },
     { name = "matplotlib" },
-    { name = "mpi4py" },
     { name = "nbsphinx" },
     { name = "numpydoc" },
     { name = "prek" },
@@ -1369,10 +1365,8 @@ dev = [
     { name = "sphinx", version = "9.0.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "sphinx", version = "9.1.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "sphinx-autorun" },
-    { name = "uvtools" },
 ]
 docs = [
-    { name = "fftvis" },
     { name = "furo" },
     { name = "ipython" },
     { name = "nbsphinx" },
@@ -1383,27 +1377,21 @@ docs = [
 ]
 doctest = [
     { name = "coverage" },
-    { name = "hera-calibration" },
     { name = "ipykernel" },
     { name = "matplotlib" },
-    { name = "mpi4py" },
     { name = "papermill" },
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "pytest-sugar" },
     { name = "pytest-xdist" },
-    { name = "uvtools" },
 ]
 tests = [
     { name = "coverage" },
-    { name = "hera-calibration" },
     { name = "matplotlib" },
-    { name = "mpi4py" },
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "pytest-sugar" },
     { name = "pytest-xdist" },
-    { name = "uvtools" },
 ]
 
 [package.metadata]
@@ -1413,11 +1401,11 @@ requires-dist = [
     { name = "bda", marker = "extra == 'bda'", specifier = ">=0.1.1" },
     { name = "deprecation", specifier = ">=2.0" },
     { name = "fftvis", marker = "extra == 'vis'", specifier = ">=1.1.0" },
-    { name = "hera-calibration", marker = "extra == 'cal'", specifier = ">3.6.1" },
+    { name = "hera-calibration", specifier = ">3.6.1" },
     { name = "hera-cli-utils", specifier = ">=0.1.0" },
     { name = "line-profiler", marker = "extra == 'vis'", specifier = ">=5.0" },
     { name = "matvis", marker = "extra == 'vis'", specifier = ">=1.3.3" },
-    { name = "mpi4py", marker = "extra == 'vis'", specifier = ">=4.0" },
+    { name = "mpi4py", marker = "extra == 'vis'", specifier = ">=4.1.1" },
     { name = "numpy", specifier = ">=2" },
     { name = "pyradiosky", marker = "extra == 'vis'", specifier = ">=0.1.2" },
     { name = "pyuvdata", specifier = ">=3.2.6" },
@@ -1426,18 +1414,16 @@ requires-dist = [
     { name = "rich", specifier = ">=12.0.0" },
     { name = "scipy", specifier = ">=1.15.0" },
     { name = "typing-extensions", marker = "python_full_version < '3.11'" },
+    { name = "uvtools", specifier = ">=0.2.0" },
 ]
-provides-extras = ["vis", "bda", "cal"]
+provides-extras = ["vis", "bda"]
 
 [package.metadata.requires-dev]
 dev = [
     { name = "coverage", specifier = ">=4.5.1" },
-    { name = "fftvis", specifier = ">=1.1.0" },
     { name = "furo", specifier = ">=2025.12.19" },
-    { name = "hera-calibration", specifier = ">3.6.1" },
     { name = "ipython", specifier = ">=9.13.0" },
     { name = "matplotlib", specifier = ">=3.8" },
-    { name = "mpi4py", specifier = ">=4.1.1" },
     { name = "nbsphinx", specifier = ">=0.9.8" },
     { name = "numpydoc", specifier = ">=0.9" },
     { name = "prek", specifier = ">=0.3.9" },
@@ -1448,10 +1434,8 @@ dev = [
     { name = "ruff", specifier = ">=0.15.10" },
     { name = "sphinx", specifier = ">=9.0" },
     { name = "sphinx-autorun", specifier = ">=2.0.0" },
-    { name = "uvtools", specifier = ">=0.2.0" },
 ]
 docs = [
-    { name = "fftvis", specifier = ">=1.1.0" },
     { name = "furo", specifier = ">=2025.12.19" },
     { name = "ipython", specifier = ">=9.13.0" },
     { name = "nbsphinx", specifier = ">=0.9.8" },
@@ -1461,27 +1445,21 @@ docs = [
 ]
 doctest = [
     { name = "coverage", specifier = ">=4.5.1" },
-    { name = "hera-calibration", specifier = ">3.6.1" },
     { name = "ipykernel", specifier = ">=7.2.0" },
     { name = "matplotlib", specifier = ">=3.8" },
-    { name = "mpi4py", specifier = ">=4.1.1" },
     { name = "papermill", specifier = ">=2.7.0" },
     { name = "pytest", specifier = ">=3.5.1" },
     { name = "pytest-cov", specifier = ">=2.5.1" },
     { name = "pytest-sugar", specifier = ">=1.1.1" },
     { name = "pytest-xdist", specifier = ">=3.8.0" },
-    { name = "uvtools", specifier = ">=0.2.0" },
 ]
 tests = [
     { name = "coverage", specifier = ">=4.5.1" },
-    { name = "hera-calibration", specifier = ">3.6.1" },
     { name = "matplotlib", specifier = ">=3.8" },
-    { name = "mpi4py", specifier = ">=4.1.1" },
     { name = "pytest", specifier = ">=3.5.1" },
     { name = "pytest-cov", specifier = ">=2.5.1" },
     { name = "pytest-sugar", specifier = ">=1.1.1" },
     { name = "pytest-xdist", specifier = ">=3.8.0" },
-    { name = "uvtools", specifier = ">=0.2.0" },
 ]
 
 [[package]]
@@ -4420,9 +4398,9 @@ name = "yarl"
 version = "1.24.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "idna", marker = "python_full_version >= '3.12' and python_full_version < '3.14'" },
-    { name = "multidict", marker = "python_full_version >= '3.12' and python_full_version < '3.14'" },
-    { name = "propcache", marker = "python_full_version >= '3.12' and python_full_version < '3.14'" },
+    { name = "idna", marker = "python_full_version == '3.12.*'" },
+    { name = "multidict", marker = "python_full_version == '3.12.*'" },
+    { name = "propcache", marker = "python_full_version == '3.12.*'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/79/12/1e8f37460ea0f7eb59c221fdaf0ed75e7ac43e97f8093b9c6f411df50a78/yarl-1.24.2.tar.gz", hash = "sha256:9ac374123c6fd7abf64d1fec93962b0bd4ee2c19751755a762a72dd96c0378f8", size = 210798, upload-time = "2026-05-19T21:31:05.599Z" }
 wheels = [

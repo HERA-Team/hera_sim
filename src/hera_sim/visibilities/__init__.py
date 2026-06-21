@@ -9,6 +9,10 @@ maps etc. This package intends to unify the interfaces of these various kinds
 of simulators.
 """
 
+from .fftvis import HAVE_FFTVIS, FFTVis
+
+# Always import these, because we need them for docs to compile.
+from .matvis import HAVE_MATVIS, MatVis
 from .pyuvsim_wrapper import UVSim
 from .simulators import (
     ModelData,
@@ -20,16 +24,7 @@ from .simulators import (
 # Registered Simulators
 SIMULATORS = {"UVSim": UVSim}
 
-try:
-    from .matvis import MatVis
-
+if HAVE_MATVIS:
     SIMULATORS["MatVis"] = MatVis
-except (ImportError, NameError):  # pragma: no cover
-    pass
-
-try:
-    from .fftvis import FFTVis
-
+if HAVE_FFTVIS:
     SIMULATORS["FFTVis"] = FFTVis
-except (ImportError, NameError):  # pragma: no cover
-    pass
