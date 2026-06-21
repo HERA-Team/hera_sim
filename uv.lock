@@ -1428,7 +1428,7 @@ dev = [
     { name = "numpydoc", specifier = ">=0.9" },
     { name = "prek", specifier = ">=0.3.9" },
     { name = "pytest", specifier = ">=3.5.1" },
-    { name = "pytest-cov", specifier = ">=2.5.1" },
+    { name = "pytest-cov", specifier = ">=2.7.0" },
     { name = "pytest-sugar", specifier = ">=1.1.1" },
     { name = "pytest-xdist", specifier = ">=3.8.0" },
     { name = "ruff", specifier = ">=0.15.10" },
@@ -1449,7 +1449,7 @@ doctest = [
     { name = "matplotlib", specifier = ">=3.8" },
     { name = "papermill", specifier = ">=2.7.0" },
     { name = "pytest", specifier = ">=3.5.1" },
-    { name = "pytest-cov", specifier = ">=2.5.1" },
+    { name = "pytest-cov", specifier = ">=2.7.0" },
     { name = "pytest-sugar", specifier = ">=1.1.1" },
     { name = "pytest-xdist", specifier = ">=3.8.0" },
 ]
@@ -1457,7 +1457,7 @@ tests = [
     { name = "coverage", specifier = ">=4.5.1" },
     { name = "matplotlib", specifier = ">=3.8" },
     { name = "pytest", specifier = ">=3.5.1" },
-    { name = "pytest-cov", specifier = ">=2.5.1" },
+    { name = "pytest-cov", specifier = ">=2.7.0" },
     { name = "pytest-sugar", specifier = ">=1.1.1" },
     { name = "pytest-xdist", specifier = ">=3.8.0" },
 ]
