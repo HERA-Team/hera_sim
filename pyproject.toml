@@ -71,7 +71,7 @@ tests = [
   "coverage>=4.5.1",
   "matplotlib>=3.8",
   "pytest>=3.5.1",
-  "pytest-cov>=2.5.1",
+  "pytest-cov>=2.7.0",
   "pytest-sugar>=1.1.1",
   "pytest-xdist>=3.8.0",
 ]
