@@ -21,9 +21,17 @@ from .simulators import (
     load_simulator_from_yaml,
 )
 
-# Registered Simulators
-SIMULATORS = {"UVSim": UVSim}
+try:
+    import mpi4py
+    HAVE_MPI4PY = True
+except ImportError:  # pragma: no cover
+    HAVE_MPI4PY = False
 
+# Registered Simulators
+SIMULATORS = {}
+
+if HAVE_MPI:
+    SIMULATORS["UVSim"] = UVSim
 if HAVE_MATVIS:
     SIMULATORS["MatVis"] = MatVis
 if HAVE_FFTVIS:

@@ -5,10 +5,15 @@ from pyuvdata.analytic_beam import GaussianBeam
 
 from hera_sim import io
 from hera_sim.antpos import hex_array
-from hera_sim.visibilities import ModelData, VisibilitySimulation
+from hera_sim.visibilities import (
+    HAVE_FFTVIS,
+    FFTVis,
+    ModelData,
+    VisibilitySimulation,
+    fftvis,
+)
 
-fftvis = pytest.importorskip("hera_sim.visibilities.fftvis")
-FFTVis = fftvis.FFTVis
+pytest.importorskip("fftvis", reason="fftvis is not installed, skipping FFTVis tests")
 
 def test_stokespol(uvdata_linear, sky_model):
     uvdata_linear.polarization_array = [0, 1, 2, 3]
