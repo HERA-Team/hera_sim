@@ -13,7 +13,7 @@ try:
     HAVE_MATVIS = True
     if HAVE_GPU:
         from matvis import gpu
-except ImportError:
+except ImportError:  # pragma: no cover
     HAVE_GPU = False
     HAVE_MATVIS = False
     __version__ = None

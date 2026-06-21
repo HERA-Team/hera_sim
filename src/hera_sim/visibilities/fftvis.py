@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 
 import numpy as np
-from matvis.core.beams import prepare_beam_unpolarized
 from pyuvdata import BeamInterface
 from pyuvdata import utils as uvutils
 
@@ -17,8 +16,9 @@ logger = logging.getLogger(__name__)
 
 try:
     import fftvis
+    from matvis.core.beams import prepare_beam_unpolarized
     HAVE_FFTVIS = True
-except ImportError:
+except ImportError:  # pragma: no cover
     HAVE_FFTVIS = False
     fftvis = None
 
