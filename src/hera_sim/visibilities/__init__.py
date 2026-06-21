@@ -23,9 +23,10 @@ from .simulators import (
 
 try:
     import mpi4py
-    HAVE_MPI4PY = True
+    HAVE_MPI = True
+    del mpi4py
 except ImportError:  # pragma: no cover
-    HAVE_MPI4PY = False
+    HAVE_MPI = False
 
 # Registered Simulators
 SIMULATORS = {}
