@@ -9,6 +9,7 @@ import fftvis
 import numpy as np
 from astropy.time import Time
 from matvis.core.beams import prepare_beam_unpolarized
+from pyuvdata import BeamInterface
 from pyuvdata import utils as uvutils
 
 from ..utils import get_antpos_dict
@@ -102,10 +103,7 @@ class FFTVis(VisibilitySimulator):
                     "antenna order doesn't change with time!"
                 )
 
-        if len(data_model.beams) != 1:
-            raise ValueError("FFTVis only supports a single beam.")
-
-        uvbeam = data_model.beams[0]  # Representative beam
+        beam_interface = data_model.beams[0]  # Representative beam
         uvdata = data_model.uvdata
 
         # Now check that we only have linear polarizations (don't allow pseudo-stokes)
@@ -119,14 +117,11 @@ class FFTVis(VisibilitySimulator):
                 """
             )
 
-        if self._check_if_polarized(data_model):
-            # Number of feeds must be two if doing polarized
-            try:
-                nfeeds = uvbeam.data_array.shape[1]
-            except AttributeError:
-                nfeeds = uvbeam.beam.Nfeeds
-
-            assert nfeeds == 2
+        if self._check_if_polarized(data_model) and beam_interface.Nfeeds != 2:
+            raise ValueError(
+                "FFTVis requires that the beams have two feeds if simulating polarized "
+                "visibilities."
+            )
 
     def estimate_memory(self, data_model: ModelData) -> float:
         """
@@ -142,10 +137,10 @@ class FFTVis(VisibilitySimulator):
         float
             Estimated memory usage in GB.
         """
-        bm = data_model.beams[0]
+        bm: BeamInterface = data_model.beams[0]
         nt = len(data_model.lsts)
-        nax = getattr(bm, "Naxes_vec", 1)
-        nfd = getattr(bm, "Nfeeds", 1)
+        nax = 2 if bm.beam_type=="efield" else 1
+        nfd = bm.Nfeeds
         nant = data_model.uvdata.Nants_data
         nsrc = len(data_model.sky_model.ra)
         nbeam = len(data_model.beams)
@@ -163,7 +158,7 @@ class FFTVis(VisibilitySimulator):
         n_gridy = int(8 * avg_freq * max_bly / 3e8)  # number of grid points in v/m axis
 
         try:
-            nbmpix = bm.data_array[..., 0, :].size
+            nbmpix = bm.beam.data_array[..., 0, :].size
         except AttributeError:
             nbmpix = 0
 
@@ -222,12 +217,15 @@ class FFTVis(VisibilitySimulator):
         # Get pixelized beams if required
         logger.info("Preparing Beams...")
         if not polarized:
-            beam = prepare_beam_unpolarized(data_model.beams[0], use_feed=feed)
+            beams = [
+                prepare_beam_unpolarized(beam, use_feed=feed)
+                for beam in data_model.beams
+            ]
         else:
-            beam = data_model.beams[0]
+            beams = data_model.beams
 
         # Get all the polarizations required to be simulated.
-        req_pols = self._get_req_pols(data_model.uvdata, beam, polarized=polarized)
+        req_pols = self._get_req_pols(data_model.uvdata, beams[0], polarized=polarized)
 
         # Empty visibility array
         if np.all(data_model.uvdata.data_array == 0):
@@ -255,7 +253,7 @@ class FFTVis(VisibilitySimulator):
                 dec=dec,
                 times=data_model.times,
                 telescope_loc=data_model.uvdata.telescope.location,
-                beam_list=beam,
+                beam_list=beams,
                 fluxes=data_model.sky_model.stokes[0, [i]].to("Jy").value.T,
                 beam_spline_opts=data_model.beams.spline_interp_opts,
                 precision=self._precision,
