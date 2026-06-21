@@ -43,8 +43,8 @@ dependencies = [
 
 [project.optional-dependencies]
 vis = [
-  "fftvis @ git+https://github.com/tyler-a-cox/fftvis",
   "line-profiler>=5.0",
+  "fftvis>=1.1.0",
   "matvis>=1.3.3",
   "mpi4py>=4.0",
   "pyradiosky>=0.1.2",

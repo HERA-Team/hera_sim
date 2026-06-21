@@ -19,6 +19,7 @@ from astropy import units
 from pyradiosky import SkyModel
 from pyuvdata import UniformBeam, UVBeam, UVData
 from pyuvdata.analytic_beam import AnalyticBeam
+from pyuvdata.beam_interface import BeamInterface
 from pyuvsim import BeamList
 from pyuvsim.simsetup import (
     _complete_uvdata,
@@ -31,7 +32,7 @@ from .. import __version__
 from .. import visibilities as vis
 from ..antpos import idealize_antpos
 
-BeamListType = BeamList | list[AnalyticBeam | UVBeam]
+BeamInputType = BeamList | Sequence[AnalyticBeam | UVBeam | BeamInterface]
 logger = logging.getLogger(__name__)
 
 
@@ -47,7 +48,12 @@ class ModelData:
     sky_model
         A model for the sky to simulate.
     beams
-        UVBeam models for as many antennae as have unique beams.
+        Beam models for as many antennae as have unique beams.
+        Inputs can be :class:`pyuvsim.BeamList`,
+        :class:`pyuvdata.beam_interface.BeamInterface`,
+        :class:`pyuvdata.UVBeam`, or
+        :class:`pyuvdata.analytic_beam.AnalyticBeam` objects.
+        Internally, all beams are stored as BeamInterface objects in a BeamList.
         Initialized from `obsparams`, if included. Defaults to a
         single uniform beam which is applied for every antenna. Each beam
         is the response of an individual antenna and NOT a per-baseline response.
@@ -77,7 +83,7 @@ class ModelData:
         uvdata: UVData | str | Path,
         sky_model: SkyModel,
         beam_ids: dict[str, int] | Sequence[int] | None = None,
-        beams: BeamListType | None = None,
+        beams: BeamInputType | None = None,
         normalize_beams: bool = False,
     ):
         self.uvdata = self._process_uvdata(uvdata)
@@ -116,25 +122,36 @@ class ModelData:
         return uvdata
 
     @classmethod
-    def _process_beams(cls, beams: BeamListType | None, normalize_beams: bool):
+    def _process_beams(
+        cls,
+        beams: BeamInputType | None,
+        normalize_beams: bool
+    ) -> BeamList:
+        if isinstance(beams, BeamList):
+            return beams
+
         if beams is None:
-            beams = [UniformBeam()]
+            beams = [BeamInterface(UniformBeam())]
+            beam_type = "efield"
+        else:
+            if len(beams) == 0:
+                raise ValueError("beams must contain at least one beam model")
 
-        if not isinstance(beams, BeamList):
-            beam_type = [b.beam_type for b in beams if hasattr(b, "beam_type")]
-            if len(beam_type) > 0 :
-                beam_type=beam_type[0]
+            # We need to set the beam_type for the BeamList (which converts all
+            # beams to have the same beam_type). This only applies to UVBeams, since
+            # AnalyticBeams can often compute both efield and power beams with different
+            # methods. If any of the UVBeams are power beams, then by necessity all of
+            # them must be. Otherwise, we set the beam type to efield since it can
+            # always be converted to power if needed, but not the other way around.
+            if any(
+                getattr(getattr(beam, "beam", beam), "beam_type", None) == "power"
+                for beam in beams
+            ):
+                beam_type = "power"
             else:
-                beam_type='efield'
+                beam_type = "efield"
 
-            beams = BeamList(beams, beam_type=beam_type)
-
-        if normalize_beams:
-            for beam in beams:
-                if beam._isuvbeam and beam.beam.data_normalization != "peak":
-                    beam.beam.peak_normalize()
-
-        return beams
+        return BeamList(beams, beam_type=beam_type, peak_normalize=normalize_beams)
 
     def _process_beam_ids(
         self,
@@ -216,14 +233,14 @@ class ModelData:
         )
 
     @cached_property
-    def lsts(self):
+    def lsts(self) -> np.ndarray:
         """Local Sidereal Times in radians."""
         # This process retrieves the unique LSTs while respecting phase wraps.
         _, unique_inds = np.unique(self.uvdata.time_array, return_index=True)
         return self.uvdata.lst_array[unique_inds]
 
     @cached_property
-    def times(self):
+    def times(self) -> np.ndarray:
         """The *unique* times of the data."""
         if self.uvdata.blts_are_rectangular:
             if self.uvdata.time_axis_faster_than_bls:
@@ -285,9 +302,8 @@ class ModelData:
         and sky model, checking for inconsistencies that would be wrong for _any_
         simulator.
         """
-        if any(b.beam_type == "power" for b in self.beams) and np.any(
-            self.sky_model.stokes[1:] != 0
-        ):
+        print(self.beams)
+        if self.beams.beam_type=='power' and np.any(self.sky_model.stokes[1:] != 0):
             raise TypeError(
                 "Cannot use power beams when the sky model contains polarized sources."
             )
