@@ -29,10 +29,10 @@ requires-python = ">=3.11"
 
 dependencies = [
   "astropy>=6.2",
-  "astropy-healpix>=1.0",
+  "astropy-healpix>=1.1",
   "deprecation>=2.0",
   "hera-cli-utils>=0.1.0",
-  "numpy>=2",
+  "numpy>=2.0.0",
   "pyuvdata>=3.2.6",
   "pyuvsim>=1.4",
   "pyyaml>=6.0.3",
@@ -40,7 +40,7 @@ dependencies = [
   "scipy>=1.15.0",
   "typing-extensions;python_version<'3.11'",
   "uvtools>=0.2.0",
-  "hera-calibration>3.6.1",
+  "hera-calibration>3.7.0",
 ]
 
 [project.optional-dependencies]
@@ -68,7 +68,7 @@ docs = [
 ]
 
 tests = [
-  "coverage>=4.5.1",
+  "coverage>=7.6.1",
   "matplotlib>=3.8",
   "pytest>=3.5.1",
   "pytest-cov>=2.7.0",
