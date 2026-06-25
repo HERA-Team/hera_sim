@@ -521,7 +521,7 @@ class VisibilitySimulator(metaclass=ABCMeta):
 def load_simulator_from_yaml(config: Path | str) -> VisibilitySimulator:
     """Construct a visibility simulator from a YAML file."""
     with open(config) as fl:
-        cfg = yaml.safe_load(fl)
+        cfg = yaml.load(fl, Loader=yaml.FullLoader)
 
     simulator_cls = cfg.pop("simulator")
 
