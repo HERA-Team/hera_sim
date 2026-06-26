@@ -477,7 +477,7 @@ class VisibilitySimulator(metaclass=ABCMeta):
         """Generate the simulator from a YAML file or dictionary."""
         if not isinstance(yaml_config, dict):
             with open(yaml_config) as fl:
-                yaml_config = yaml.safe_load(fl)
+                yaml_config = yaml.load(fl, Loader=yaml.FullLoader)
 
         # In general, we allow to specify which simulator to use in the config,
         # but that shouldn't be passed on to the constructor of a particular simulator.
