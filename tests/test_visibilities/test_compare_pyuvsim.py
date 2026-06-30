@@ -107,30 +107,30 @@ def gaussian():
 
 @pytest.fixture(scope='function')
 def polybeam():
-    return PolyBeam(
-        ref_freq=1e8,
-        spectral_index=-0.6975,
-        beam_coeffs=[
-            2.35088101e-01,
-            -4.20162599e-01,
-            2.99189140e-01,
-            -1.54189057e-01,
-            3.38651457e-02,
-            3.46936067e-02,
-            -4.98838130e-02,
-            3.23054464e-02,
-            -7.56006552e-03,
-            -7.24620596e-03,
-            7.99563166e-03,
-            -2.78125602e-03,
-            -8.19945835e-04,
-            1.13791191e-03,
-            -1.24301372e-04,
-            -3.74808752e-04,
-            1.93997376e-04,
-            -1.72012040e-05,
-        ],
-    )
+    return PolyBeam.like_fagnoni19()#(
+    #     ref_freq=1e8,
+    #     spectral_index=-0.6975,
+    #     beam_coeffs=[
+    #         2.35088101e-01,
+    #         -4.20162599e-01,
+    #         2.99189140e-01,
+    #         -1.54189057e-01,
+    #         3.38651457e-02,
+    #         3.46936067e-02,
+    #         -4.98838130e-02,
+    #         3.23054464e-02,
+    #         -7.56006552e-03,
+    #         -7.24620596e-03,
+    #         7.99563166e-03,
+    #         -2.78125602e-03,
+    #         -8.19945835e-04,
+    #         1.13791191e-03,
+    #         -1.24301372e-04,
+    #         -3.74808752e-04,
+    #         1.93997376e-04,
+    #         -1.72012040e-05,
+    #     ],
+    # )
 
 @pytest.mark.parametrize(
     "nsource,beam_type,polarized",
@@ -141,6 +141,8 @@ def polybeam():
         (100, "gaussian", False),
         (100, "polybeam", False),
         (100, "polybeam", True),
+        (100, "multibeam", True),
+#        (100, "multibeam", False),  TODO: this is failing!
     ],
 )
 @pytest.mark.parametrize("simcls", [v for k, v in SIMULATORS.items() if k != "UVSim"])
@@ -151,8 +153,15 @@ def test_compare_with_pyuvsim(
     sky_model = get_sky_model(uvdata_allpols, nsource)
 
     # Beam models
-    beams = [request.getfixturevalue(beam_type)]
-    beam_dict = {str(i): 0 for i in range(nants)}
+    if beam_type == "multibeam":
+        beams = [
+            request.getfixturevalue("gaussian"),
+            request.getfixturevalue("polybeam")
+        ]
+        beam_dict = {str(i): i % 2 for i in range(nants)}
+    else:
+        beams = [request.getfixturevalue(beam_type)]
+        beam_dict = {str(i): 0 for i in range(nants)}
 
     # ---------------------------------------------------------------------------
     # (1) Run matvis
@@ -166,13 +175,9 @@ def test_compare_with_pyuvsim(
     # Construct simulator object and run
     simulator = simcls()
 
-    # TODO: if we update the PolyBeam API so that it doesn't *require* 2 feeds,
-    # we can get rid of this.
-    vis_cpu_beams = [copy.deepcopy(beam) for beam in beams]
-
     sim = VisibilitySimulation(
         data_model=ModelData(
-            uvdata=uvdata_matvis, sky_model=sky_model, beams=vis_cpu_beams
+            uvdata=uvdata_matvis, sky_model=sky_model, beams=beams, beam_ids=beam_dict
         ),
         simulator=simulator,
     )

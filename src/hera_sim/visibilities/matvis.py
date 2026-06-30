@@ -198,7 +198,8 @@ class MatVis(VisibilitySimulator):
         # We only do a non-polarized simulation if UVData has only XX or YY polarization
         return len(p) != 1 or uvutils.polnum2str(p[0]) not in ["xx", "yy"]
 
-    def get_feed(self, uvdata) -> str:
+    @staticmethod
+    def get_feed(uvdata) -> str:
         """Get the feed to use from the beam, given the UVData object.
 
         Only applies for an *unpolarized* simulation (for a polarized sim, all feeds
@@ -216,7 +217,6 @@ class MatVis(VisibilitySimulator):
             Visibilities. Shape=self.uvdata.data_array.shape.
         """
         polarized = self._check_if_polarized(data_model)
-        feed = self.get_feed(data_model.uvdata)
 
         # Setup MPI info if enabled
         if self.mpi_comm is not None:
@@ -338,9 +338,6 @@ class MatVis(VisibilitySimulator):
         uvbeam: BeamInterface,
         polarized: bool
     ) -> list[tuple[int, int]]:
-        if not polarized:
-            return [(0, 0)]
-
         beam_obj = uvbeam.beam
         feeds = uvbeam.feed_array
         if isinstance(feeds, np.ndarray):
@@ -366,6 +363,11 @@ class MatVis(VisibilitySimulator):
             uvutils.polnum2str(polnum, x_orientation)
             for polnum in uvdata.polarization_array
         ]
+
+        if not polarized:
+            feed = MatVis.get_feed(uvdata)
+            return [(feeds.index(feed),feeds.index(feed))]
+
         if any(pol not in avail_pols for pol in uvdata_pols):
             raise ValueError(
                 "Not all polarizations in UVData object are in your beam. "
