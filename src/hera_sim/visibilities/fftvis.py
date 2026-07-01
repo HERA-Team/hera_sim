@@ -207,9 +207,13 @@ class FFTVis(VisibilitySimulator):
 
         ra, dec = data_model.sky_model.ra.rad, data_model.sky_model.dec.rad
 
-        # The following are antenna positions in the order that they are
-        # in the uvdata.data_array
         active_antpos = get_antpos_dict(data_model.uvdata, data_ants=True)
+        num2name = {
+            i: nm for i, nm in zip(
+                data_model.uvdata.telescope.antenna_numbers,
+                data_model.uvdata.telescope.antenna_names
+            )
+        }
 
         # since pyuvdata v3, get_antpairs always returns antpairs in the right order.
         antpairs = data_model.uvdata.get_antpairs()
@@ -223,6 +227,8 @@ class FFTVis(VisibilitySimulator):
             ]
         else:
             beams = data_model.beams
+
+        beam_ids = [data_model.beam_ids[num2name[i]] for i in active_antpos.keys()]
 
         # Get all the polarizations required to be simulated.
         req_pols = self._get_req_pols(data_model.uvdata, beams[0], polarized=polarized)
@@ -254,6 +260,7 @@ class FFTVis(VisibilitySimulator):
                 times=data_model.times,
                 telescope_loc=data_model.uvdata.telescope.location,
                 beam_list=beams,
+                beam_idx=beam_ids,
                 fluxes=data_model.sky_model.stokes[0, [i]].to("Jy").value.T,
                 beam_spline_opts=data_model.beams.spline_interp_opts,
                 precision=self._precision,
