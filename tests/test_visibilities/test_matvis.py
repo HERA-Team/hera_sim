@@ -3,13 +3,14 @@ from pathlib import Path
 import pytest
 
 from hera_sim.visibilities import (
+    MatVis,
     ModelData,
     VisibilitySimulation,
     load_simulator_from_yaml,
 )
 
-matvis = pytest.importorskip("hera_sim.visibilities.matvis")
-MatVis = matvis.MatVis
+pytest.importorskip("matvis")
+
 
 
 

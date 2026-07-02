@@ -11,13 +11,13 @@ import functools
 import inspect
 import warnings
 from collections.abc import Sequence
+from functools import cached_property
 from pathlib import Path
 from typing import Optional, Union
 
 import numpy as np
 import yaml
 from astropy import constants as const
-from cached_property import cached_property
 from deprecation import deprecated
 from pyuvdata import UVData
 from pyuvdata import utils as uvutils

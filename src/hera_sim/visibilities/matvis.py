@@ -7,10 +7,18 @@ import logging
 
 import numpy as np
 from astropy.time import Time
-from matvis import HAVE_GPU, __version__, cpu
 
-if HAVE_GPU:
-    from matvis import gpu
+try:
+    from matvis import HAVE_GPU, __version__, cpu
+    HAVE_MATVIS = True
+    if HAVE_GPU:
+        from matvis import gpu
+except ImportError:  # pragma: no cover
+    HAVE_GPU = False
+    HAVE_MATVIS = False
+    __version__ = None
+    cpu = None
+    gpu = None
 
 from pyuvdata import BeamInterface, UVData
 from pyuvdata import utils as uvutils
@@ -78,6 +86,11 @@ class MatVis(VisibilitySimulator):
         check_antenna_conjugation: bool = True,
         **kwargs,
     ):
+        if not HAVE_MATVIS:
+            raise ImportError(
+                "matvis is not installed. Please install matvis to use MatVis."
+            )
+
         assert precision in {1, 2}
         self._precision = precision
         if precision == 1:

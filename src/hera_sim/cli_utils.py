@@ -7,6 +7,7 @@ import os
 import warnings
 
 import numpy as np
+from hera_cal.io import jnum2str, jstr2num, write_cal
 from pyuvdata import UVData
 
 from .defaults import SEASON_CONFIGS
@@ -122,7 +123,6 @@ def write_calfits(
         Whether to overwrite existing file in the case of a name conflict.
         Default is to *not* overwrite conflicting files.
     """
-    from hera_cal.io import write_cal
 
     gains = gains.copy()
 
@@ -199,7 +199,6 @@ def _format_gain_dict(gains, x_orientation):
         strings, whereas the input gains may have ordinary linear polarization
         strings.
     """
-    from hera_cal.io import jnum2str, jstr2num
 
     pol_array = list({antpol[1] for antpol in gains})
     jones_array = [
