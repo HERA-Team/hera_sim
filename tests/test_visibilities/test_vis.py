@@ -28,6 +28,8 @@ from hera_sim.visibilities import (
     load_simulator_from_yaml,
 )
 
+pytestmark = pytest.mark.skipif(len(SIMULATORS)==0, reason="no simulators installed")
+
 if "MatVis" in SIMULATORS:
     from hera_sim.visibilities.matvis import HAVE_GPU
 

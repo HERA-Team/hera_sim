@@ -6,27 +6,17 @@ import pathlib
 from warnings import warn
 
 import numpy as np
+
+# Import hera_cal functions.
+from hera_cal.abscal import get_d2m_time_map
+from hera_cal.io import to_HERAData
+from hera_cal.utils import lst_rephase
 from pyuvdata import UVData
 from pyuvdata.utils import polnum2str
 from scipy.interpolate import RectBivariateSpline, interp1d
 
 from .simulate import Simulator
 from .utils import _listify
-
-try:
-    # Import hera_cal functions.
-    from hera_cal.abscal import get_d2m_time_map
-    from hera_cal.io import to_HERAData
-    from hera_cal.utils import lst_rephase
-
-    HERA_CAL = True
-except (ModuleNotFoundError, FileNotFoundError) as err:  # pragma: no cover
-    if err is ModuleNotFoundError:
-        missing = "hera-calibration"
-    else:
-        missing = "git"
-    HERA_CAL = False
-
 
 logger = logging.getLogger(__name__)
 
@@ -676,11 +666,6 @@ def rephase_to_reference(target, reference=None, ref_times=None, ref_lsts=None):
         The times in this object are relabeled to be the reference times with
         LSTs sufficiently close to target LSTs for rephasing.
     """
-    if not HERA_CAL:  # pragma: no cover
-        raise NotImplementedError(
-            "You must have ``hera-calibration`` installed to use this function."
-        )
-
     # Convert target to a HERAData object.
     target_is_simulator = isinstance(target, Simulator)
     target = _to_uvdata(target)

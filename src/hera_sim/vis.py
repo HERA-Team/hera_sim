@@ -3,6 +3,7 @@
 from copy import deepcopy
 
 import numpy as np
+from hera_cal.utils import split_bl
 
 from . import noise
 
@@ -42,8 +43,6 @@ def sim_red_data(
     dict
         simulated visibilities in the {(ind1,ind2,pol): np.array} format
     """
-    from hera_cal.utils import split_bl
-
     if rng is None:
         rng = np.random.default_rng()
 
