@@ -8,6 +8,7 @@ import inspect
 import warnings
 
 import astropy.units as u
+import numpy as np
 import yaml
 
 from . import antpos, interpolators
@@ -70,3 +71,20 @@ def antpos_constructor(loader, node):
 
 
 yaml.add_constructor("!antpos", antpos_constructor, yaml.FullLoader)
+
+def npz_constructor(loader, node):
+    """Construct a numpy array from an .npz file."""
+    path = loader.construct_scalar(node)
+    return np.load(path, allow_pickle=True)
+
+
+yaml.add_constructor("!npz", npz_constructor, yaml.FullLoader)
+
+def npy_constructor(loader, node):
+    """Construct a numpy array from an .npy file."""
+    path = loader.construct_scalar(node)
+    return np.load(path, allow_pickle=True)
+
+yaml.add_constructor("!npy", npy_constructor, yaml.FullLoader)
+
+yaml.add_constructor("!npz", npz_constructor, yaml.FullLoader)

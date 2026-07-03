@@ -7,7 +7,7 @@ from pyuvdata import UVData
 
 from hera_sim.visibilities.cli import run_vis_sim, vis_cli_argparser
 
-pytest.importorskip("hera_sim.visibilities.matvis")
+pytest.importorskip("matvis")
 
 DATA_PATH = Path(__file__).parent.parent / "testdata" / "hera-sim-vis-config"
 

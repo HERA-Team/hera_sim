@@ -5,22 +5,15 @@ from pyuvdata.analytic_beam import GaussianBeam
 
 from hera_sim import io
 from hera_sim.antpos import hex_array
-from hera_sim.visibilities import ModelData, VisibilitySimulation
+from hera_sim.visibilities import (
+    HAVE_FFTVIS,
+    FFTVis,
+    ModelData,
+    VisibilitySimulation,
+    fftvis,
+)
 
-fftvis = pytest.importorskip("hera_sim.visibilities.fftvis")
-FFTVis = fftvis.FFTVis
-
-
-def test_fftvis_beam_error(uvdata2, sky_model):
-    beams = [GaussianBeam(diameter=14.0), GaussianBeam(diameter=14.0)]
-    beam_ids = [0, 1]
-    simulator = FFTVis()
-    data_model = ModelData(
-        uvdata=uvdata2, sky_model=sky_model, beams=beams, beam_ids=beam_ids
-    )
-    with pytest.raises(ValueError):
-        simulator.validate(data_model)
-
+pytest.importorskip("fftvis", reason="fftvis is not installed, skipping FFTVis tests")
 
 def test_stokespol(uvdata_linear, sky_model):
     uvdata_linear.polarization_array = [0, 1, 2, 3]
@@ -30,6 +23,18 @@ def test_stokespol(uvdata_linear, sky_model):
             simulator=FFTVis(),
         )
 
+def test_error_on_polarized_one_feed(uvdata_linear, sky_model, uvbeam):
+    uvb = uvbeam.select(feeds=['x'], inplace=False)
+    with pytest.raises(
+        ValueError,
+        match="FFTVis requires that the beams have two feeds"
+    ):
+        VisibilitySimulation(
+            data_model=ModelData(
+                uvdata=uvdata_linear, sky_model=sky_model, beams=[uvb]
+            ),
+            simulator=FFTVis(),
+        )
 
 def test_snap_positions():
     rng = np.random.default_rng(123)

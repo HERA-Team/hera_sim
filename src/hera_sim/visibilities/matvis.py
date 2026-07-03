@@ -5,18 +5,22 @@ from __future__ import annotations
 import itertools
 import logging
 
-import astropy.units as u
 import numpy as np
-from astropy.coordinates import EarthLocation
 from astropy.time import Time
-from matvis import HAVE_GPU, __version__, cpu
 
-if HAVE_GPU:
-    from matvis import gpu
+try:
+    from matvis import HAVE_GPU, __version__, cpu
+    HAVE_MATVIS = True
+    if HAVE_GPU:
+        from matvis import gpu
+except ImportError:  # pragma: no cover
+    HAVE_GPU = False
+    HAVE_MATVIS = False
+    __version__ = None
+    cpu = None
+    gpu = None
 
-from matvis import coordinates
-from matvis.core.beams import prepare_beam_unpolarized
-from pyuvdata import UVData
+from pyuvdata import BeamInterface, UVData
 from pyuvdata import utils as uvutils
 
 from .simulators import ModelData, VisibilitySimulator
@@ -82,6 +86,11 @@ class MatVis(VisibilitySimulator):
         check_antenna_conjugation: bool = True,
         **kwargs,
     ):
+        if not HAVE_MATVIS:
+            raise ImportError(
+                "matvis is not installed. Please install matvis to use MatVis."
+            )
+
         assert precision in {1, 2}
         self._precision = precision
         if precision == 1:
@@ -135,7 +144,7 @@ class MatVis(VisibilitySimulator):
                     "antenna order doesn't change with time!"
                 )
 
-        uvbeam = data_model.beams[0]  # Representative beam
+        beam_interface = data_model.beams[0]  # Representative beam
         uvdata = data_model.uvdata
 
         # Now check that we only have linear polarizations (don't allow pseudo-stokes)
@@ -151,7 +160,7 @@ class MatVis(VisibilitySimulator):
 
         do_pol = self._check_if_polarized(data_model)
         if do_pol:
-            assert uvbeam.beam.Nfeeds == 2
+            assert beam_interface.beam.Nfeeds == 2
 
     def estimate_memory(self, data_model: ModelData) -> float:
         """
@@ -168,16 +177,17 @@ class MatVis(VisibilitySimulator):
             Estimated memory usage in GB.
         """
         bm = data_model.beams[0]
+        beam_obj = getattr(bm, "beam", bm)
         nt = len(data_model.lsts)
-        nax = getattr(bm, "Naxes_vec", 1)
-        nfd = getattr(bm, "Nfeeds", 1)
+        nax = getattr(beam_obj, "Naxes_vec", 1)
+        nfd = getattr(beam_obj, "Nfeeds", 1)
         nant = len(data_model.uvdata.get_ants())
         nsrc = len(data_model.sky_model.ra)
         nbeam = len(data_model.beams)
         nf = len(data_model.freqs)
 
         try:
-            nbmpix = bm.data_array[..., 0, :].size
+            nbmpix = beam_obj.data_array[..., 0, :].size
         except AttributeError:
             nbmpix = 0
 
@@ -201,7 +211,8 @@ class MatVis(VisibilitySimulator):
         # We only do a non-polarized simulation if UVData has only XX or YY polarization
         return len(p) != 1 or uvutils.polnum2str(p[0]) not in ["xx", "yy"]
 
-    def get_feed(self, uvdata) -> str:
+    @staticmethod
+    def get_feed(uvdata) -> str:
         """Get the feed to use from the beam, given the UVData object.
 
         Only applies for an *unpolarized* simulation (for a polarized sim, all feeds
@@ -219,7 +230,6 @@ class MatVis(VisibilitySimulator):
             Visibilities. Shape=self.uvdata.data_array.shape.
         """
         polarized = self._check_if_polarized(data_model)
-        feed = self.get_feed(data_model.uvdata)
 
         # Setup MPI info if enabled
         if self.mpi_comm is not None:
@@ -286,7 +296,7 @@ class MatVis(VisibilitySimulator):
 
             logger.info("... re-ordering visibilities...")
             self._reorder_vis(
-                req_pols, data_model.uvdata, visfull[:, i], vis, ant_list, polarized
+                req_pols, data_model.uvdata, visfull[:, i], vis, polarized
             )
 
         # Reduce visfull array if in MPI mode
@@ -301,7 +311,11 @@ class MatVis(VisibilitySimulator):
         else:
             return visfull
 
-    def _reorder_vis(self, req_pols, uvdata: UVData, visfull, vis, ant_list, polarized):
+    def _reorder_vis(
+        self, req_pols: list[tuple[int, int]],
+        uvdata: UVData,
+        visfull: np.ndarray, vis: np.ndarray, polarized: bool
+    ):
 
         if (
             uvdata.blts_are_rectangular and
@@ -311,7 +325,7 @@ class MatVis(VisibilitySimulator):
             logger.info("Using direct setting of data without reordering")
             # This is the best case scenario -- no need to reorder anything.
             # It is also MUCH MUCH faster!
-            vis.shape = (uvdata.Nblts, uvdata.Npols)
+            vis = vis.reshape((uvdata.Nblts, uvdata.Npols))
             visfull[:] = vis
             return
 
@@ -330,14 +344,18 @@ class MatVis(VisibilitySimulator):
                     visfull[indx, p] = vis_here[:, p1, p2]
             else:
                 visfull[indx, 0] = vis_here
-    @staticmethod
-    def _get_req_pols(uvdata, uvbeam, polarized: bool) -> list[tuple[int, int]]:
-        if not polarized:
-            return [(0, 0)]
 
+    @staticmethod
+    def _get_req_pols(
+        uvdata: UVData,
+        uvbeam: BeamInterface,
+        polarized: bool
+    ) -> list[tuple[int, int]]:
+        beam_obj = uvbeam.beam
         feeds = uvbeam.feed_array
         if isinstance(feeds, np.ndarray):
             feeds = feeds.tolist()  # convert to list if necessary
+        feed_set = {str(feed).lower() for feed in feeds}
 
         # In order to get all 4 visibility polarizations for a dual feed system
         vispols = set()
@@ -349,10 +367,20 @@ class MatVis(VisibilitySimulator):
             for vispol in vispols
         }
         # Get the mapping from uvdata pols to uvbeam pols
+        if feed_set.issubset({"x", "y"}):
+            x_orientation = None
+        else:
+            x_orientation = beam_obj.get_x_orientation_from_feeds()
+
         uvdata_pols = [
-            uvutils.polnum2str(polnum, getattr(uvbeam, "x_orientation", None))
+            uvutils.polnum2str(polnum, x_orientation)
             for polnum in uvdata.polarization_array
         ]
+
+        if not polarized:
+            feed = MatVis.get_feed(uvdata)
+            return [(feeds.index(feed),feeds.index(feed))]
+
         if any(pol not in avail_pols for pol in uvdata_pols):
             raise ValueError(
                 "Not all polarizations in UVData object are in your beam. "
