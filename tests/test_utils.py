@@ -471,8 +471,10 @@ def test_precompute_antpair_index_cache(uvdata, conj, slow_axis):
         conj = np.argwhere(uvdata.time_array == t0).flatten()
         uvdata.blts_are_rectangular = False  # UVData should do this, but it doesn't.
 
-    # Tinker with the ordering of things.
+    # Tinker with the ordering of things; conjugate *then* reorder.
+    # Swapping the order means the wrong baselines get conjugated.
     uvdata.conjugate_bls(conj)
+    uvdata.reorder_blts(slow_axis)
     utils.precompute_antpair_index_cache(uvdata)
     antpair2ind_cache = uvdata._UVData__antpair2ind_cache.copy()
     uvdata._clear_antpair2ind_cache(uvdata)
