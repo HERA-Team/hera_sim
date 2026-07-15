@@ -7,7 +7,8 @@ from pyuvdata import utils as uvutils
 
 from hera_sim import DATA_PATH, Simulator, defaults, utils
 from hera_sim.interpolators import Beam
-
+from hera_sim.io import empty_uvdata
+from hera_sim.antpos import hex_array
 
 @pytest.fixture(scope="function")
 def lsts():
@@ -30,6 +31,20 @@ def freqs():
 def delays(freqs):
     df = np.mean(np.diff(freqs))
     return np.fft.fftfreq(freqs.size, df)
+
+
+@pytest.fixture(scope="function")
+def uvdata():
+    array_layout = hex_array(3, split_core=False, outriggers=0)
+    return empty_uvdata(
+        array_layout=array_layout,
+        Ntimes=3,
+        start_time=2458210.0496,
+        integration_time=10,
+        Nfreqs=1,
+        start_freq=150e6,
+        channel_width=100e3,
+    )
 
 
 @pytest.mark.parametrize("bl_len_ns", [50, 100])
@@ -444,3 +459,34 @@ class TestGetAntposDict:
     def test_bad_frame(self):
         with pytest.raises(ValueError, match="frame must be"):
             utils.get_antpos_dict(None, frame='bad_frame')
+
+@pytest.mark.parametrize(
+    "conj", ["ant1<ant2", "ant2<ant1", "u<0", "v<0", "u>0", "v>0", "nontrivial"]
+)
+@pytest.mark.parametrize("slow_axis", ["time", "baseline"])
+def test_precompute_antpair_index_cache(uvdata, conj, slow_axis):
+    # Conjugate baselines at one particular time.
+    if conj == "nontrivial":
+        t0 = np.unique(uvdata.time_array)[1]
+        conj = np.argwhere(uvdata.time_array == t0).flatten()
+        uvdata.blts_are_rectangular = False  # UVData should do this, but it doesn't.
+
+    # Tinker with the ordering of things.
+    uvdata.conjugate_bls(conj)
+    utils.precompute_antpair_index_cache(uvdata)
+    antpair2ind_cache = uvdata._UVData__antpair2ind_cache.copy()
+    uvdata._clear_antpair2ind_cache(uvdata)
+
+    # Now check that the slices are correct.
+    all_correct = True
+    ant_1_array = uvdata.ant_1_array
+    ant_2_array = uvdata.ant_2_array
+    for ai, aj in uvdata.get_antpairs():
+        cache_slice = antpair2ind_cache[(ai, aj, True)]
+        uvdata_slice = uvdata.antpair2ind(ai, aj)
+        all_correct &= (
+            np.all(ant_1_array[cache_slice] == ant_1_array[uvdata_slice])
+        ) and (
+            np.all(ant_2_array[cache_slice] == ant_2_array[uvdata_slice])
+        )
+    assert all_correct
