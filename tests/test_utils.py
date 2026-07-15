@@ -6,9 +6,10 @@ from astropy import units
 from pyuvdata import utils as uvutils
 
 from hera_sim import DATA_PATH, Simulator, defaults, utils
+from hera_sim.antpos import hex_array
 from hera_sim.interpolators import Beam
 from hera_sim.io import empty_uvdata
-from hera_sim.antpos import hex_array
+
 
 @pytest.fixture(scope="function")
 def lsts():
