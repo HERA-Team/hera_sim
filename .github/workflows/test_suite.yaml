@@ -45,11 +45,24 @@ jobs:
           enable-cache: true
 
       - name: Install dependencies
-        run: uv sync --all-extras --locked --dev
+        run: uv sync --all-extras --locked --group tests
 
       - name: Run Tests
         run: |
-          uv run pytest -n auto
+          # pytest-xdist workers occasionally get OOM-killed mid-collection on the
+          # 2-core ubuntu-latest runners (all imports for the full scientific stack
+          # happen redundantly in each worker + the controller). That shows up as
+          # pytest exiting 5 with zero tests collected, not a real test failure, so
+          # retry only on that specific signature.
+          n=0
+          until uv run pytest -n auto; do
+            code=$?
+            n=$((n + 1))
+            if [ "$code" -ne 5 ] || [ "$n" -ge 3 ]; then
+              exit "$code"
+            fi
+            echo "::warning::pytest exited with code 5 (worker crash during collection) on attempt $n; retrying..."
+          done
 
       - name: Upload coverage report
         uses: codecov/codecov-action@v7.0.0
@@ -107,8 +120,17 @@ jobs:
         enable-cache: true
 
     - name: Install with upgraded deps
-      run: uv sync --upgrade --all-extras --dev
+      run: uv sync --upgrade --all-extras --group tests
 
     - name: Run Tests
       run: |
-        uv run --frozen pytest --no-cov -n auto
+        # See the "tests" job above for why this retries on exit code 5 only.
+        n=0
+        until uv run --frozen pytest --no-cov -n auto; do
+          code=$?
+          n=$((n + 1))
+          if [ "$code" -ne 5 ] || [ "$n" -ge 3 ]; then
+            exit "$code"
+          fi
+          echo "::warning::pytest exited with code 5 (worker crash during collection) on attempt $n; retrying..."
+        done
