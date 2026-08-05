@@ -564,6 +564,8 @@ class ZernikeBeam(AnalyticBeam):
     peak_normalized : bool, optional
         Whether the beam should be normalized to 1 at beam center.
     """
+    basis_vector_type = "az_za"
+
     beam_coeffs: npt.NDArray[float]
     spectral_index: float = 0.0
     ref_freq : float = 1e8
