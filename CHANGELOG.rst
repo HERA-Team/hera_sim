@@ -33,6 +33,8 @@ Deprecated
 Fixed
 -----
 - API calls for pyuvdata v2.4.0.
+- ``ZernikeBeam`` now defines ``basis_vector_type``, silencing a ``UserWarning``
+  from pyuvdata raised whenever ``hera_sim.beams`` was imported.
 
 v4.1.0 [2023.06.26]
 ===================
