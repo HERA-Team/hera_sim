@@ -222,3 +222,25 @@ def sky_modelJD(uvdataJD):
 @pytest.fixture(scope='module')
 def uvbeam() -> UVBeam:
     return UVBeam.from_file(DATA_PATH / "NF_HERA_Dipole_small.fits")
+
+
+@pytest.hookimpl(tryfirst=True)
+def pytest_collection_modifyitems(items):
+    """Pin all FFTVis-backed tests to a single xdist worker.
+
+    FFTVis triggers numba JIT-compilation of its beam-evaluation kernels the
+    first time it runs in a process. When pytest-xdist's default "load"
+    distribution scatters these tests across many workers, each worker pays
+    that (CPU- and memory-heavy) compilation cost independently and
+    concurrently, which has caused workers to crash under memory pressure in
+    CI (e.g. on ubuntu + Python 3.14, see PR #424). Grouping them together
+    (requires `--dist=loadgroup`) means only one worker ever compiles, and it
+    reuses its warm JIT cache for the rest of the group.
+
+    Must run before pytest-xdist's own `pytest_collection_modifyitems` (hence
+    `tryfirst`), since that's what turns the `xdist_group` marker into the
+    nodeid suffix the scheduler actually groups on.
+    """
+    for item in items:
+        if "FFTVis" in item.nodeid or "test_fftvis.py" in item.nodeid:
+            item.add_marker(pytest.mark.xdist_group(name="fftvis"))
