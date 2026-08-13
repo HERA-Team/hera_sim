@@ -23,8 +23,8 @@ except ImportError:  # pragma: no cover
 from pyuvdata import BeamInterface, UVData
 from pyuvdata import utils as uvutils
 
-from .simulators import ModelData, VisibilitySimulator
 from .. import utils
+from .simulators import ModelData, VisibilitySimulator
 
 logger = logging.getLogger(__name__)
 
