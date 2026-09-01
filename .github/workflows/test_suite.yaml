@@ -35,7 +35,7 @@ jobs:
       - uses: mpi4py/setup-mpi@v1
 
       - name: Setup Python
-        uses: actions/setup-python@v6.3.0
+        uses: actions/setup-python@v7.0.0
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -83,7 +83,7 @@ jobs:
         fetch-depth: 0
 
     - name: Setup Python
-      uses: actions/setup-python@v6.3.0
+      uses: actions/setup-python@v7.0.0
       with:
         python-version: "3.11"
 
@@ -110,7 +110,7 @@ jobs:
     - uses: mpi4py/setup-mpi@v1
 
     - name: Setup Python
-      uses: actions/setup-python@v6.3.0
+      uses: actions/setup-python@v7.0.0
       with:
         python-version: "3.14"
 
