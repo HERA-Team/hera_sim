@@ -35,21 +35,44 @@ jobs:
       - uses: mpi4py/setup-mpi@v1
 
       - name: Setup Python
-        uses: actions/setup-python@v6.2.0
+        uses: actions/setup-python@v7.0.0
         with:
           python-version: ${{ matrix.python-version }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@v10.0.1
         with:
           enable-cache: true
 
       - name: Install dependencies
-        run: uv sync --all-extras --locked --dev
+        run: uv sync --all-extras --locked --group tests
 
       - name: Run Tests
+        env:
+          # numba's config module calls llvmlite's get_host_cpu_name() as soon as
+          # it's imported (to pick a default for NUMBA_ENABLE_AVX), and some
+          # GitHub-hosted runners have CPUs that misreport their AVX/AVX-512
+          # support to virtualized guests, which crashes that call outright.
+          # Forcing a generic target sidesteps the host CPU probe entirely; see
+          # the disabled_cpus comment in numba/core/config.py referencing
+          # numba/numba#9582 for the same class of issue. This looks like the
+          # real cause of the worker crashes the retry loop below guards
+          # against (previously assumed to be OOM on the 2-core runners).
+          NUMBA_CPU_NAME: generic
         run: |
-          uv run pytest -n auto
+          # pytest-xdist workers occasionally crash mid-collection (see the
+          # NUMBA_CPU_NAME comment above), which shows up as pytest exiting 5
+          # with zero tests collected, not a real test failure, so retry only
+          # on that specific signature.
+          n=0
+          until uv run pytest -n auto; do
+            code=$?
+            n=$((n + 1))
+            if [ "$code" -ne 5 ] || [ "$n" -ge 3 ]; then
+              exit "$code"
+            fi
+            echo "::warning::pytest exited with code 5 (worker crash during collection) on attempt $n; retrying..."
+          done
 
       - name: Upload coverage report
         uses: codecov/codecov-action@v7.0.0
@@ -70,12 +93,12 @@ jobs:
         fetch-depth: 0
 
     - name: Setup Python
-      uses: actions/setup-python@v6.2.0
+      uses: actions/setup-python@v7.0.0
       with:
         python-version: "3.11"
 
     - name: Install uv
-      uses: astral-sh/setup-uv@v7
+      uses: astral-sh/setup-uv@v10.0.1
       with:
         enable-cache: true
 
@@ -97,18 +120,36 @@ jobs:
     - uses: mpi4py/setup-mpi@v1
 
     - name: Setup Python
-      uses: actions/setup-python@v6.2.0
+      uses: actions/setup-python@v7.0.0
       with:
         python-version: "3.14"
 
     - name: Install uv
-      uses: astral-sh/setup-uv@v7
+      uses: astral-sh/setup-uv@v10.0.1
       with:
         enable-cache: true
 
     - name: Install with upgraded deps
-      run: uv sync --upgrade --all-extras --dev
+      run: uv sync --upgrade --all-extras --group tests
 
     - name: Run Tests
+      env:
+        # numba's config module calls llvmlite's get_host_cpu_name() as soon as
+        # it's imported (to pick a default for NUMBA_ENABLE_AVX), and some
+        # GitHub-hosted runners have CPUs that misreport their AVX/AVX-512
+        # support to virtualized guests, which crashes that call outright.
+        # Forcing a generic target sidesteps the host CPU probe entirely; see
+        # the disabled_cpus comment in numba/core/config.py referencing
+        # numba/numba#9582 for the same class of issue.
+        NUMBA_CPU_NAME: generic
       run: |
-        uv run --frozen pytest --no-cov -n auto
+        # See the "tests" job above for why this retries on exit code 5 only.
+        n=0
+        until uv run --frozen pytest --no-cov -n auto; do
+          code=$?
+          n=$((n + 1))
+          if [ "$code" -ne 5 ] || [ "$n" -ge 3 ]; then
+            exit "$code"
+          fi
+          echo "::warning::pytest exited with code 5 (worker crash during collection) on attempt $n; retrying..."
+        done

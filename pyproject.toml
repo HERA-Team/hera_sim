@@ -97,7 +97,7 @@ Repository = "https://github.com/HERA-Team/hera_sim"
 script-files = ["scripts/hera-sim-simulate.py", "scripts/hera-sim-vis.py"]
 
 [tool.pytest.ini_options]
-addopts = "--cov hera_sim --cov-config=.coveragerc --cov-report xml:./coverage.xml --durations=25 -v"
+addopts = "--cov hera_sim --cov-config=.coveragerc --cov-report xml:./coverage.xml --durations=25 -v --dist=loadgroup"
 norecursedirs = [
   "dist",
   "build",
