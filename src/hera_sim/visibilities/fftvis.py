@@ -101,14 +101,8 @@ class FFTVis(VisibilitySimulator):
 
         if self.check_antenna_conjugation:
             logger.info("Checking antenna conjugation")
-            # TODO: the following is extremely slow. If possible, it would be good to
-            # find a better way to do it.
-            if any(
-                data_model.uvdata.antpair2ind(ai, aj) is not None
-                and data_model.uvdata.antpair2ind(aj, ai) is not None
-                for ai, aj in data_model.uvdata.get_antpairs()
-                if ai != aj
-            ):
+            antpairs = set(data_model.uvdata.get_antpairs())
+            if any((aj, ai) in antpairs for (ai, aj) in antpairs if ai != aj):
                 raise ValueError(
                     "FFTVis requires that baselines be in a conjugation in which "
                     "antenna order doesn't change with time!"
