@@ -1,4 +1,6 @@
 import os
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -129,3 +131,15 @@ def test_vis_cli_phase_center_name(tmp_path_factory):
     uvd = UVData.from_file(outdir / 'out.uvh5')
     print(uvd.phase_center_catalog[0].keys())
     assert uvd.phase_center_catalog[0]['name'] == 'zenith'
+
+
+def test_import_does_not_init_mpi():
+    """Importing the CLI module must not initialise MPI as a side effect."""
+    pytest.importorskip("mpi4py")
+
+    code = (
+        "import hera_sim.visibilities.cli\n"
+        "from mpi4py import MPI\n"
+        "assert not MPI.Is_initialized()\n"
+    )
+    subprocess.run([sys.executable, "-c", code], check=True)

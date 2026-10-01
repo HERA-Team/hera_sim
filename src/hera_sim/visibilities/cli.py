@@ -23,6 +23,11 @@ import yaml
 import hera_sim
 
 try:
+    import mpi4py
+
+    # Don't let mpi4py initialise MPI on import; we do it lazily in run_vis_sim.
+    mpi4py.rc.initialize = False
+    mpi4py.rc.finalize = False
     from mpi4py import MPI
 
     HAVE_MPI = True
@@ -60,19 +65,37 @@ logging.basicConfig(
     ],
 )
 
-if HAVE_MPI:
+
+def _init_mpi():
+    """Initialise MPI (if available and not already initialised).
+
+    This is deliberately not done at import time, so that importing this module
+    (e.g. during test collection) does not have the side effect of initialising MPI.
+
+    Returns
+    -------
+    comm
+        The MPI world communicator, or None if MPI is not available.
+    """
+    if not HAVE_MPI:  # pragma: no cover
+        return None
+
     if not MPI.Is_initialized():
         MPI.Init()
         atexit.register(MPI.Finalize)
-    comm = MPI.COMM_WORLD
-    myid = comm.Get_rank()
-else:  # pragma: no cover
-    myid = 0
+    return MPI.COMM_WORLD
+
+
+def _get_rank() -> int:
+    """Get the MPI rank of this process (0 if MPI is unavailable/uninitialised)."""
+    if HAVE_MPI and MPI.Is_initialized():
+        return MPI.COMM_WORLD.Get_rank()
+    return 0
 
 
 def cprint(*args, **kwargs):
     """Print only if root worker."""
-    if myid == 0:
+    if _get_rank() == 0:
         cns.print(*args, **kwargs)
 
 
@@ -88,6 +111,9 @@ def print_sim_config(obsparam):
 
 
 def run_vis_sim(args):
+    comm = _init_mpi()
+    myid = _get_rank()
+
     cprint(Panel("hera-sim-vis: Simulating Visibilities"))
 
     logger.info("Initializing VisibilitySimulator object... ")
@@ -282,7 +308,7 @@ def run_vis_sim(args):
     logger.info("Done Writing.")
 
     # Sync with other workers and finalise
-    if HAVE_MPI:
+    if comm is not None:
         comm.Barrier()
 
     cprint("[green][bold]Complete![/][/]")
