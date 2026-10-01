@@ -40,7 +40,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v10.0.1
+        uses: astral-sh/setup-uv@v10.1.0
         with:
           enable-cache: true
 
@@ -75,7 +75,7 @@ jobs:
           done
 
       - name: Upload coverage report
-        uses: codecov/codecov-action@v7.0.0
+        uses: codecov/codecov-action@v7.1.1
         with:
           files: ./coverage.xml
           flags: unittests
@@ -98,7 +98,7 @@ jobs:
         python-version: "3.11"
 
     - name: Install uv
-      uses: astral-sh/setup-uv@v10.0.1
+      uses: astral-sh/setup-uv@v10.1.0
       with:
         enable-cache: true
 
@@ -125,7 +125,7 @@ jobs:
         python-version: "3.14"
 
     - name: Install uv
-      uses: astral-sh/setup-uv@v10.0.1
+      uses: astral-sh/setup-uv@v10.1.0
       with:
         enable-cache: true
 
