@@ -45,6 +45,7 @@ if "MatVis" in SIMULATORS:
         SIMULATORS["MatVisGPU"] = MatVisGPU
 
 
+@pytest.mark.mpi
 def test_JD(uvdata, uvdataJD, sky_model):
     model_data = ModelData(sky_model=sky_model, uvdata=uvdata)
 
@@ -175,7 +176,10 @@ def test_single_source_autocorr_past_horizon(uvdata, simulator):
     assert np.abs(np.mean(v)) == 0
 
 
-@pytest.mark.parametrize("simulator", list(SIMULATORS.values())[1:])
+@pytest.mark.mpi
+@pytest.mark.parametrize(
+    "simulator", [v for k, v in SIMULATORS.items() if k != "UVSim"]
+)
 @pytest.mark.parametrize(
     "sky_model, beam_model",
     [

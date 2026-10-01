@@ -17,6 +17,9 @@ from hera_sim import io
 from hera_sim.beams import PolyBeam
 from hera_sim.visibilities import SIMULATORS, ModelData, VisibilitySimulation
 
+# All tests here compare against pyuvsim, which needs mpi4py.
+pytestmark = pytest.mark.mpi
+
 nfreq = 3
 ntime = 20
 nants = 4

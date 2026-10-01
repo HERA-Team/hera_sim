@@ -7,6 +7,7 @@ import pytest
 from hera_cli_utils import parse_args
 from pyuvdata import UVData
 
+from hera_sim.visibilities import cli
 from hera_sim.visibilities.cli import run_vis_sim, vis_cli_argparser
 
 pytest.importorskip("matvis")
@@ -133,13 +134,19 @@ def test_vis_cli_phase_center_name(tmp_path_factory):
     assert uvd.phase_center_catalog[0]['name'] == 'zenith'
 
 
+@pytest.mark.mpi
 def test_import_does_not_init_mpi():
     """Importing the CLI module must not initialise MPI as a side effect."""
-    pytest.importorskip("mpi4py")
-
     code = (
         "import hera_sim.visibilities.cli\n"
         "from mpi4py import MPI\n"
         "assert not MPI.Is_initialized()\n"
     )
     subprocess.run([sys.executable, "-c", code], check=True)
+
+
+@pytest.mark.parametrize("rank", [0, 1])
+def test_cprint_only_on_root(monkeypatch, capsys, rank):
+    monkeypatch.setattr(cli, "_get_rank", lambda: rank)
+    cli.cprint("hello from cprint")
+    assert ("hello from cprint" in capsys.readouterr().out) == (rank == 0)

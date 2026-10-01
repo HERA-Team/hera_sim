@@ -104,6 +104,9 @@ norecursedirs = [
   ".tox",
 ]
 testpaths = "tests"
+markers = [
+  "mpi: tests that require mpi4py (deselect with '-m \"not mpi\"')",
+]
 
 [tool.ruff]
 line-length = 88

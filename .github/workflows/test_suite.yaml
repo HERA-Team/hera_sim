@@ -84,6 +84,63 @@ jobs:
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
+  tests-no-mpi:
+    # Everything except mpi4py, to check that hera_sim works without MPI and to
+    # cover the code paths that only run when MPI isn't available.
+    name: Tests (no MPI)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@main
+        with:
+          fetch-depth: 1
+
+      - name: Setup Python
+        uses: actions/setup-python@v7.0.0
+        with:
+          python-version: "3.14"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.1.0
+        with:
+          enable-cache: true
+
+      - name: Install dependencies (without mpi4py)
+        run: uv sync --all-extras --locked --group tests --no-install-package mpi4py
+
+      - name: Check mpi4py is not installed
+        run: |
+          if uv run --no-sync python -c "import mpi4py" 2>/dev/null; then
+            echo "::error::mpi4py is installed, but this job should run without it"
+            exit 1
+          fi
+
+      - name: Run Tests
+        env:
+          # See the "tests" job above.
+          NUMBA_CPU_NAME: generic
+        run: |
+          # --no-sync so that uv doesn't reinstall mpi4py. See the "tests" job
+          # above for why this retries on exit code 5 only.
+          n=0
+          until uv run --no-sync pytest -n auto -m "not mpi"; do
+            code=$?
+            n=$((n + 1))
+            if [ "$code" -ne 5 ] || [ "$n" -ge 3 ]; then
+              exit "$code"
+            fi
+            echo "::warning::pytest exited with code 5 (worker crash during collection) on attempt $n; retrying..."
+          done
+
+      - name: Upload coverage report
+        uses: codecov/codecov-action@v7.1.1
+        with:
+          files: ./coverage.xml
+          flags: unittests
+          name: codecov-no-mpi
+          fail_ci_if_error: true
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
   tests-min-deps:
     name: Tests (lowest-direct deps)
     runs-on: ubuntu-latest

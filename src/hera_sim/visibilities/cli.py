@@ -77,7 +77,7 @@ def _init_mpi():
     comm
         The MPI world communicator, or None if MPI is not available.
     """
-    if not HAVE_MPI:  # pragma: no cover
+    if not HAVE_MPI:
         return None
 
     if not MPI.Is_initialized():
