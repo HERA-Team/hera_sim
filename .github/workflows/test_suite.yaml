@@ -104,12 +104,12 @@ jobs:
         with:
           enable-cache: true
 
-      - name: Install dependencies (without mpi4py)
-        run: uv sync --all-extras --locked --group tests --no-install-package mpi4py
+      - name: Install dependencies (without the mpi extra)
+        run: uv sync --all-extras --no-extra mpi --locked --group tests
 
       - name: Check mpi4py is not installed
         run: |
-          if uv run --no-sync python -c "import mpi4py" 2>/dev/null; then
+          if uv run python -c "import mpi4py" 2>/dev/null; then
             echo "::error::mpi4py is installed, but this job should run without it"
             exit 1
           fi
@@ -119,10 +119,11 @@ jobs:
           # See the "tests" job above.
           NUMBA_CPU_NAME: generic
         run: |
-          # --no-sync so that uv doesn't reinstall mpi4py. See the "tests" job
-          # above for why this retries on exit code 5 only.
+          # MPI tests would be skipped anyway (see tests/conftest.py), but
+          # deselecting them keeps the output clean. See the "tests" job above
+          # for why this retries on exit code 5 only.
           n=0
-          until uv run --no-sync pytest -n auto -m "not mpi"; do
+          until uv run pytest -n auto -m "not mpi"; do
             code=$?
             n=$((n + 1))
             if [ "$code" -ne 5 ] || [ "$n" -ge 3 ]; then

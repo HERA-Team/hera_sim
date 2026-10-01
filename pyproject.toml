@@ -48,8 +48,13 @@ vis = [
   "fftvis>=1.1.0",
   "line-profiler>=5.0",
   "matvis>=1.3.3",
-  "mpi4py>=4.1.1",
   "pyradiosky>=0.1.2",
+]
+
+# MPI support: needed for the UVSim (pyuvsim) simulator, and for running the
+# visibility simulators/CLI in parallel under mpirun.
+mpi = [
+  "mpi4py>=4.1.1",
 ]
 
 bda = [

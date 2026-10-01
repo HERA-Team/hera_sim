@@ -25,6 +25,12 @@ Changed
   - The Simulator API has remained virtually unchanged, but the internal logic
     that handles random state management has received a significant update.
 
+- ``mpi4py`` has moved from the ``vis`` extra to a new ``mpi`` extra. Install
+  ``hera_sim[vis,mpi]`` to get the previous behaviour (which is needed to use the
+  ``UVSim`` simulator).
+- Importing ``hera_sim.visibilities.cli`` no longer initialises MPI; this is now
+  done when the simulation is run.
+
 Deprecated
 ----------
 
