@@ -110,3 +110,19 @@ def test_beam_ids(uvdata, sky_model, uvbeam):
 def test_process_beam_errors():
     with pytest.raises(ValueError, match="beams must contain at least one"):
         ModelData._process_beams(beams=[], normalize_beams=True)
+
+
+def test_from_config_accepts_path():
+    from hera_sim import DATA_PATH
+
+    cfg = (
+        DATA_PATH
+        / "tutorials_data/visibility_simulator/obsparam_hera_phase1_gleam_top50.yaml"
+    )
+    from_path = ModelData.from_config(cfg)
+    from_str = ModelData.from_config(str(cfg))
+
+    # The history contains a creation timestamp, so ignore it.
+    from_path.uvdata.history = from_str.uvdata.history
+    assert from_path.uvdata == from_str.uvdata
+    assert from_path.sky_model == from_str.sky_model

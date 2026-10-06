@@ -80,6 +80,7 @@ doctest = [
   {include-group="tests"},
   "ipykernel>=7.2.0",
   "papermill>=2.7.0",
+  "pygdsm>=1.7.1",
 ]
 
 dev = [

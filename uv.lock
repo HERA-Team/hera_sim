@@ -1380,6 +1380,7 @@ doctest = [
     { name = "ipykernel" },
     { name = "matplotlib" },
     { name = "papermill" },
+    { name = "pygdsm" },
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "pytest-sugar" },
@@ -1448,6 +1449,7 @@ doctest = [
     { name = "ipykernel", specifier = ">=7.2.0" },
     { name = "matplotlib", specifier = ">=3.8" },
     { name = "papermill", specifier = ">=2.7.0" },
+    { name = "pygdsm", specifier = ">=1.7.1" },
     { name = "pytest", specifier = ">=3.5.1" },
     { name = "pytest-cov", specifier = ">=2.7.0" },
     { name = "pytest-sugar", specifier = ">=1.1.1" },
@@ -3212,6 +3214,15 @@ wheels = [
 ]
 
 [[package]]
+name = "pyephem"
+version = "9.99"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "ephem" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/8e/02/1eade827452880961bc4657df24f72e7a76d764abff3e666433e1c8d1980/pyephem-9.99.tar.gz", hash = "sha256:70836d7eab7824ef1fcfe102b751d97800d4a0ff6836d2e594ddb1c11e608b1f", size = 1449, upload-time = "2021-01-08T20:59:25.091Z" }
+
+[[package]]
 name = "pyerfa"
 version = "2.0.1.5"
 source = { registry = "https://pypi.org/simple" }
@@ -3229,6 +3240,24 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/2c/56/b22b35c8551d2228ff8d445e63787112927ca13f6dc9e2c04f69d742c95b/pyerfa-2.0.1.5-cp39-abi3-win32.whl", hash = "sha256:d30b9b0df588ed5467e529d851ea324a67239096dd44703125072fd11b351ea2", size = 339955, upload-time = "2024-11-11T15:22:23.087Z" },
     { url = "https://files.pythonhosted.org/packages/b4/11/97233cf23ad5411ac6f13b1d6ee3888f90ace4f974d9bf9db887aa428912/pyerfa-2.0.1.5-cp39-abi3-win_amd64.whl", hash = "sha256:66292d437dcf75925b694977aa06eb697126e7b86553e620371ed3e48b5e0ad0", size = 349410, upload-time = "2024-11-11T15:22:24.817Z" },
 ]
+
+[[package]]
+name = "pygdsm"
+version = "1.7.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "astropy" },
+    { name = "h5py" },
+    { name = "healpy" },
+    { name = "matplotlib" },
+    { name = "numpy", version = "2.3.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.14'" },
+    { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.14'" },
+    { name = "pyephem" },
+    { name = "pytest" },
+    { name = "scipy", version = "1.17.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "scipy", version = "1.18.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/74/96/56e1c805499c775cacec4c4b1485450329baf218be6d87f82d1292e25bc3/pygdsm-1.7.1.tar.gz", hash = "sha256:b71d621c0f9a847b1a583f37126318f79198b28211f2bf2e27059433ade15729", size = 28567, upload-time = "2026-05-01T06:18:08.769Z" }
 
 [[package]]
 name = "pygments"
