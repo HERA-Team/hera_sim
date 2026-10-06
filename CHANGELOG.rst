@@ -35,6 +35,8 @@ Fixed
 - API calls for pyuvdata v2.4.0.
 - ``ZernikeBeam`` now defines ``basis_vector_type``, silencing a ``UserWarning``
   from pyuvdata raised whenever ``hera_sim.beams`` was imported.
+- ``hera-sim-vis`` now prints the estimated memory usage in red only when it is
+  close to or exceeds the available memory (the colour condition was inverted).
 
 v4.1.0 [2023.06.26]
 ===================
