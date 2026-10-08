@@ -79,6 +79,11 @@ tests = [
   "pytest-cov>=2.7.0",
   "pytest-sugar>=1.1.1",
   "pytest-xdist>=3.8.0",
+  # mpi4py (from the `vis` extra) does not bundle an MPI runtime -- its PyPI
+  # wheels bind at import to whatever libmpi the host provides. Ship a
+  # self-contained, version-locked MPICH so the MPI stack under test is pinned
+  # like every other dependency instead of varying with the host.
+  "mpich; sys_platform != 'win32'",
 ]
 
 doctest = [
