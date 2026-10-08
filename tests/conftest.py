@@ -1,4 +1,13 @@
+import os
 from pathlib import Path
+
+# Restrict UCX to shared-memory/loopback transports before anything can
+# initialise MPI (hera_sim.visibilities.cli calls MPI.Init() at import, so this
+# happens in every xdist worker during collection). On runners exposing an
+# RDMA-capable NIC (e.g. Azure's MANA), UCX fails to open the verbs transport
+# and aborts the interpreter from C. These tests are single-rank, so no network
+# transport is needed.
+os.environ.setdefault("UCX_TLS", "self,sm,tcp")
 
 import pytest
 from astropy.time import Time

@@ -32,7 +32,10 @@ jobs:
         with:
           fetch-depth: 1
 
-      - uses: mpi4py/setup-mpi@v1
+      # NOTE: no system MPI is installed here. mpi4py's PyPI wheels bind to
+      # whatever libmpi the host provides; the MPI runtime is instead pinned in
+      # uv.lock (see the `mpich` entry in the `tests` dependency group) so every
+      # job runs an identical MPI stack.
 
       - name: Setup Python
         uses: actions/setup-python@v7.0.0
@@ -65,7 +68,7 @@ jobs:
           # with zero tests collected, not a real test failure, so retry only
           # on that specific signature.
           n=0
-          until uv run pytest -n auto; do
+          until uv run pytest -n auto --capture=tee-sys; do
             code=$?
             n=$((n + 1))
             if [ "$code" -ne 5 ] || [ "$n" -ge 3 ]; then
@@ -117,7 +120,7 @@ jobs:
       with:
         fetch-depth: 0
 
-    - uses: mpi4py/setup-mpi@v1
+    # No system MPI: see the note in the "tests" job above.
 
     - name: Setup Python
       uses: actions/setup-python@v7.0.0
@@ -145,7 +148,7 @@ jobs:
       run: |
         # See the "tests" job above for why this retries on exit code 5 only.
         n=0
-        until uv run --frozen pytest --no-cov -n auto; do
+        until uv run --frozen pytest --no-cov -n auto --capture=tee-sys; do
           code=$?
           n=$((n + 1))
           if [ "$code" -ne 5 ] || [ "$n" -ge 3 ]; then
