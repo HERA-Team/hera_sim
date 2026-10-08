@@ -7,6 +7,7 @@ jobs:
     name: Run Demo
     runs-on: ubuntu-latest
     env:
+      ENV_NAME: testing
       # Keep UCX off the host's RDMA devices: on the Azure runners that expose a
       # MANA NIC, opening the verbs transport fails and aborts the interpreter
       # from C. Only shared-memory/loopback transports are ever needed here.
@@ -14,12 +15,10 @@ jobs:
     defaults:
       run:
         shell: bash -l {0}
-    env:
-      ENV_NAME: testing
     strategy:
       fail-fast: false
       matrix:
-        demo: ["end_to_end_example", "hera_sim_defaults", "hera_sim_simulator", "hera_sim_tour", "mutual_coupling_example", "polybeam_simulation", "visibility_simulator"]
+        demo: ["end_to_end_example", "getting_started_visibilities", "hera_sim_defaults", "hera_sim_simulator", "hera_sim_tour", "mutual_coupling_example", "polybeam_simulation", "visibility_simulator"]
     steps:
       - uses: actions/checkout@master
         with:
