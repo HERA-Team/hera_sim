@@ -40,12 +40,14 @@ Or if you are using the pip-style interface::
 
   uv pip install hera_sim
 
-You can install optional extras as well -- for exapmle to get all the dependencies
+You can install optional extras as well -- for example to get all the dependencies
 required for simulating visibilities::
 
   uv add hera_sim --extra vis
 
-Available extras are ``vis``, ``bda``, and ``cal`` (for also installing hera-calibration).
+Available extras are ``vis`` (visibility simulators), ``mpi`` (``mpi4py``, required
+for the ``UVSim`` simulator and for running simulations in parallel with MPI),
+and ``bda``.
 
 Conda users
 ~~~~~~~~~~~
@@ -62,6 +64,14 @@ If you are planning on developing ``hera_sim``, you should use ``uv``::
   git clone git@github.com/hera-team/hera_sim.git
   cd hera_sim
   uv sync --all-extras
+
+To develop without MPI (e.g. if you don't have an MPI library installed), leave out
+the ``mpi`` extra::
+
+  uv sync --all-extras --no-extra mpi
+
+Tests that need MPI are marked with ``@pytest.mark.mpi``, and are automatically
+skipped if ``mpi4py`` is not installed.
 
 As the repository is becoming quite large, you may also wish to perform
 a shallow clone to retrieve only the recent commits and history. This makes

@@ -1340,11 +1340,13 @@ dependencies = [
 bda = [
     { name = "bda" },
 ]
+mpi = [
+    { name = "mpi4py" },
+]
 vis = [
     { name = "fftvis" },
     { name = "line-profiler" },
     { name = "matvis" },
-    { name = "mpi4py" },
     { name = "pyradiosky" },
 ]
 
@@ -1408,7 +1410,7 @@ requires-dist = [
     { name = "hera-cli-utils", specifier = ">=0.1.0" },
     { name = "line-profiler", marker = "extra == 'vis'", specifier = ">=5.0" },
     { name = "matvis", marker = "extra == 'vis'", specifier = ">=1.3.3" },
-    { name = "mpi4py", marker = "extra == 'vis'", specifier = ">=4.1.1" },
+    { name = "mpi4py", marker = "extra == 'mpi'", specifier = ">=4.1.1" },
     { name = "numpy", specifier = ">=2.0.0" },
     { name = "pyradiosky", marker = "extra == 'vis'", specifier = ">=0.1.2" },
     { name = "pyuvdata", specifier = ">=3.2.6" },
@@ -1419,7 +1421,7 @@ requires-dist = [
     { name = "typing-extensions", marker = "python_full_version < '3.11'" },
     { name = "uvtools", specifier = ">=0.2.0" },
 ]
-provides-extras = ["vis", "bda"]
+provides-extras = ["vis", "mpi", "bda"]
 
 [package.metadata.requires-dev]
 dev = [
