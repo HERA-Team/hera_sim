@@ -84,7 +84,6 @@ class MatVis(VisibilitySimulator):
         precision: int = 2,
         use_gpu: bool = False,
         mpi_comm=None,
-        check_antenna_conjugation: bool = True,
         **kwargs,
     ):
         if not HAVE_MATVIS:
@@ -113,7 +112,6 @@ class MatVis(VisibilitySimulator):
 
         self.use_gpu = use_gpu
         self.mpi_comm = mpi_comm
-        self.check_antenna_conjugation = check_antenna_conjugation
         self._functions_to_profile = (self._matvis,)
         self.kwargs = kwargs
 
@@ -129,15 +127,6 @@ class MatVis(VisibilitySimulator):
         logger.info("Checking baseline-time axis shape")
         if not data_model.uvdata.blts_are_rectangular:
             raise ValueError("MatVis requires that every baseline uses the same LSTS.")
-
-        if self.check_antenna_conjugation:
-            logger.info("Checking antenna conjugation")
-            antpairs = set(data_model.uvdata.get_antpairs())
-            if any((aj, ai) in antpairs for (ai, aj) in antpairs if ai != aj):
-                raise ValueError(
-                    "MatVis requires that baselines be in a conjugation in which "
-                    "antenna order doesn't change with time!"
-                )
 
         beam_interface = data_model.beams[0]  # Representative beam
         uvdata = data_model.uvdata
