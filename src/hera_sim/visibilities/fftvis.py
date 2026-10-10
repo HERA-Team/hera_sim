@@ -45,10 +45,6 @@ class FFTVis(VisibilitySimulator):
         - 2: float64, complex128
     mpi_comm : MPI communicator
         MPI communicator, for parallelization.
-    check_antenna_conjugation
-        Whether to check the antenna conjugation. Default is True. This is a fairly
-        heavy operation if there are many antennas and/or many times, and can be
-        safely ignored if the data_model was created from a config file.
     **kwargs
         Passed through to `:func:fftvis.SimulationEngine.simulate` function.
 

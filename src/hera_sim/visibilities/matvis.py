@@ -64,10 +64,6 @@ class MatVis(VisibilitySimulator):
         If specified as a string, this must either use the 'isot' format and 'utc'
         scale, or be one of "mean", "min" or "max". If any of the latter, the value
         ll be calculated from the input data directly.
-    check_antenna_conjugation
-        Whether to check the antenna conjugation. Default is True. This is a fairly
-        heavy operation if there are many antennas and/or many times, and can be
-        safely ignored if the data_model was created from a config file.
     **kwargs
         Passed through to :class:`~.simulators.VisibilitySimulator`.
 
