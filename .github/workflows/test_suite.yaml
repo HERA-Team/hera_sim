@@ -32,7 +32,10 @@ jobs:
         with:
           fetch-depth: 1
 
-      - uses: mpi4py/setup-mpi@v1
+      # NOTE: no system MPI is installed here. mpi4py's PyPI wheels bind to
+      # whatever libmpi the host provides; the MPI runtime is instead pinned in
+      # uv.lock (see the `mpich` entry in the `tests` dependency group) so every
+      # job runs an identical MPI stack.
 
       - name: Setup Python
         uses: actions/setup-python@v7.0.0
@@ -40,7 +43,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v10.0.1
+        uses: astral-sh/setup-uv@v10.1.0
         with:
           enable-cache: true
 
@@ -65,7 +68,7 @@ jobs:
           # with zero tests collected, not a real test failure, so retry only
           # on that specific signature.
           n=0
-          until uv run pytest -n auto; do
+          until uv run pytest -n auto --capture=tee-sys; do
             code=$?
             n=$((n + 1))
             if [ "$code" -ne 5 ] || [ "$n" -ge 3 ]; then
@@ -75,7 +78,7 @@ jobs:
           done
 
       - name: Upload coverage report
-        uses: codecov/codecov-action@v7.0.0
+        uses: codecov/codecov-action@v7.1.1
         with:
           files: ./coverage.xml
           flags: unittests
@@ -98,7 +101,7 @@ jobs:
         python-version: "3.11"
 
     - name: Install uv
-      uses: astral-sh/setup-uv@v10.0.1
+      uses: astral-sh/setup-uv@v10.1.0
       with:
         enable-cache: true
 
@@ -117,7 +120,7 @@ jobs:
       with:
         fetch-depth: 0
 
-    - uses: mpi4py/setup-mpi@v1
+    # No system MPI: see the note in the "tests" job above.
 
     - name: Setup Python
       uses: actions/setup-python@v7.0.0
@@ -125,7 +128,7 @@ jobs:
         python-version: "3.14"
 
     - name: Install uv
-      uses: astral-sh/setup-uv@v10.0.1
+      uses: astral-sh/setup-uv@v10.1.0
       with:
         enable-cache: true
 
@@ -145,7 +148,7 @@ jobs:
       run: |
         # See the "tests" job above for why this retries on exit code 5 only.
         n=0
-        until uv run --frozen pytest --no-cov -n auto; do
+        until uv run --frozen pytest --no-cov -n auto --capture=tee-sys; do
           code=$?
           n=$((n + 1))
           if [ "$code" -ne 5 ] || [ "$n" -ge 3 ]; then

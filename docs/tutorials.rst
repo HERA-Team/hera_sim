@@ -1,6 +1,15 @@
 Tutorials and FAQs
 ==================
 
+New to simulating visibilities with ``hera_sim``? Start here. This tutorial walks through
+a complete simulation of the diffuse sky with a small HERA-style array, first
+interactively and then reproducibly using configuration files and the command line:
+
+.. toctree::
+   :maxdepth: 2
+
+   tutorials/getting_started_visibilities
+
 The following introductory tutorial will help you get started with ``hera_sim``:
 
 .. toctree::
