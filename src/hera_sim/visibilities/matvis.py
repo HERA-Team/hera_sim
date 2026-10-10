@@ -23,6 +23,7 @@ except ImportError:  # pragma: no cover
 from pyuvdata import BeamInterface, UVData
 from pyuvdata import utils as uvutils
 
+from .. import utils
 from .simulators import ModelData, VisibilitySimulator
 
 logger = logging.getLogger(__name__)
@@ -63,10 +64,6 @@ class MatVis(VisibilitySimulator):
         If specified as a string, this must either use the 'isot' format and 'utc'
         scale, or be one of "mean", "min" or "max". If any of the latter, the value
         ll be calculated from the input data directly.
-    check_antenna_conjugation
-        Whether to check the antenna conjugation. Default is True. This is a fairly
-        heavy operation if there are many antennas and/or many times, and can be
-        safely ignored if the data_model was created from a config file.
     **kwargs
         Passed through to :class:`~.simulators.VisibilitySimulator`.
 
@@ -83,7 +80,6 @@ class MatVis(VisibilitySimulator):
         precision: int = 2,
         use_gpu: bool = False,
         mpi_comm=None,
-        check_antenna_conjugation: bool = True,
         **kwargs,
     ):
         if not HAVE_MATVIS:
@@ -112,7 +108,6 @@ class MatVis(VisibilitySimulator):
 
         self.use_gpu = use_gpu
         self.mpi_comm = mpi_comm
-        self.check_antenna_conjugation = check_antenna_conjugation
         self._functions_to_profile = (self._matvis,)
         self.kwargs = kwargs
 
@@ -128,21 +123,6 @@ class MatVis(VisibilitySimulator):
         logger.info("Checking baseline-time axis shape")
         if not data_model.uvdata.blts_are_rectangular:
             raise ValueError("MatVis requires that every baseline uses the same LSTS.")
-
-        if self.check_antenna_conjugation:
-            logger.info("Checking antenna conjugation")
-            # TODO: the following is extremely slow. If possible, it would be good to
-            # find a better way to do it.
-            if any(
-                data_model.uvdata.antpair2ind(ai, aj) is not None
-                and data_model.uvdata.antpair2ind(aj, ai) is not None
-                for ai, aj in data_model.uvdata.get_antpairs()
-                if ai != aj
-            ):
-                raise ValueError(
-                    "MatVis requires that baselines be in a conjugation in which "
-                    "antenna order doesn't change with time!"
-                )
 
         beam_interface = data_model.beams[0]  # Representative beam
         uvdata = data_model.uvdata
@@ -334,6 +314,9 @@ class MatVis(VisibilitySimulator):
             f"Pols = {req_pols}. blt_order = {uvdata.blt_order}"
         )
 
+        # Repeatedly calling antpair2ind is expensive if the cache hasn't
+        # yet been built. So we precompute it to speed this part up.
+        utils.precompute_antpair_index_cache(uvdata)
         for i, (ant1, ant2) in enumerate(uvdata.get_antpairs()):
             # get all blt indices corresponding to this antpair
             indx = uvdata.antpair2ind(ant1, ant2)

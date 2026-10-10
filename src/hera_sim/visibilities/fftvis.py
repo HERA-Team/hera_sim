@@ -45,10 +45,6 @@ class FFTVis(VisibilitySimulator):
         - 2: float64, complex128
     mpi_comm : MPI communicator
         MPI communicator, for parallelization.
-    check_antenna_conjugation
-        Whether to check the antenna conjugation. Default is True. This is a fairly
-        heavy operation if there are many antennas and/or many times, and can be
-        safely ignored if the data_model was created from a config file.
     **kwargs
         Passed through to `:func:fftvis.SimulationEngine.simulate` function.
 
@@ -67,7 +63,6 @@ class FFTVis(VisibilitySimulator):
         *,
         precision: int = 2,
         mpi_comm=None,
-        check_antenna_conjugation: bool = True,
         **kwargs,
     ):
         if not HAVE_FFTVIS:
@@ -85,7 +80,6 @@ class FFTVis(VisibilitySimulator):
             self._complex_dtype = complex
 
         self.mpi_comm = mpi_comm
-        self.check_antenna_conjugation = check_antenna_conjugation
         self.kwargs = kwargs
 
     def _check_if_polarized(self, data_model: ModelData) -> bool:
@@ -98,21 +92,6 @@ class FFTVis(VisibilitySimulator):
         logger.info("Checking baseline-time axis shape")
         if not data_model.uvdata.blts_are_rectangular:
             raise ValueError("FFTVis requires that every baseline uses the same LSTS.")
-
-        if self.check_antenna_conjugation:
-            logger.info("Checking antenna conjugation")
-            # TODO: the following is extremely slow. If possible, it would be good to
-            # find a better way to do it.
-            if any(
-                data_model.uvdata.antpair2ind(ai, aj) is not None
-                and data_model.uvdata.antpair2ind(aj, ai) is not None
-                for ai, aj in data_model.uvdata.get_antpairs()
-                if ai != aj
-            ):
-                raise ValueError(
-                    "FFTVis requires that baselines be in a conjugation in which "
-                    "antenna order doesn't change with time!"
-                )
 
         beam_interface = data_model.beams[0]  # Representative beam
         uvdata = data_model.uvdata
