@@ -1,10 +1,12 @@
 import os
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from hera_cli_utils import parse_args
 from pyuvdata import UVData
 
+from hera_sim.visibilities import MatVis, cli
 from hera_sim.visibilities.cli import run_vis_sim, vis_cli_argparser
 
 pytest.importorskip("matvis")
@@ -129,3 +131,30 @@ def test_vis_cli_phase_center_name(tmp_path_factory):
     uvd = UVData.from_file(outdir / 'out.uvh5')
     print(uvd.phase_center_catalog[0].keys())
     assert uvd.phase_center_catalog[0]['name'] == 'zenith'
+
+
+@pytest.mark.parametrize(
+    ("ram", "ram_avail", "colour"),
+    [(0.1, 100.0, "green"), (10.0, 12.0, "red"), (20.0, 10.0, "red")],
+)
+def test_vis_cli_memory_warning_colour(
+    tmp_path_factory, monkeypatch, ram, ram_avail, colour
+):
+    outdir = tmp_path_factory.mktemp("vis-sim")
+    cfg = get_config_files(outdir, 5, 2)
+
+    monkeypatch.setattr(MatVis, "estimate_memory", lambda self, data_model: ram)
+    monkeypatch.setattr(
+        cli.psutil,
+        "virtual_memory",
+        lambda: SimpleNamespace(available=ram_avail * 1024**3),
+    )
+    printed = []
+    monkeypatch.setattr(cli, "cprint", lambda *a, **kw: printed.extend(map(str, a)))
+
+    parser = vis_cli_argparser()
+    args = parse_args(parser, [str(cfg), str(DATA_PATH / "matvis_cpu.yaml"), "--dry"])
+    run_vis_sim(args)
+
+    msg = next(p for p in printed if "This simulation will use" in p)
+    assert msg.startswith(f"[bold {colour}]")
