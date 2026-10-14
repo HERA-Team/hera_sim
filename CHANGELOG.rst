@@ -16,6 +16,9 @@ Added
 - New simulator class ``FFTVis`` that uses the ``fftvis`` package to simulate
   visibilities. This is a CPU-based visibility simulator that is faster than
   ``MatVis`` for large, compact arrays.
+- New "getting started" tutorial for simulating visibilities with the unified
+  ``hera_sim.visibilities`` interface, both interactively and from configuration
+  files (``docs/tutorials/getting_started_visibilities.ipynb``).
 
 Changed
 -------
@@ -37,6 +40,10 @@ Fixed
   from pyuvdata raised whenever ``hera_sim.beams`` was imported.
 - ``hera-sim-vis`` now prints the estimated memory usage in red only when it is
   close to or exceeds the available memory (the colour condition was inverted).
+- Removed a stray debugging ``print`` of the full beam list in
+  ``ModelData._validate``, which ran every time a ``ModelData`` was created.
+- ``ModelData.from_config`` now accepts a ``pathlib.Path`` (previously only a
+  ``str`` worked, despite the type hint).
 
 v4.1.0 [2023.06.26]
 ===================
