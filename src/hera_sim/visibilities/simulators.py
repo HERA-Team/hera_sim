@@ -206,6 +206,10 @@ class ModelData:
         cls, config_file: str | Path, normalize_beams: bool = False
     ) -> ModelData:
         """Initialize the :class:`ModelData` from a pyuvsim-compatible config."""
+        # pyuvsim treats anything that isn't a str as an already-parsed dict.
+        if isinstance(config_file, Path):
+            config_file = str(config_file)
+
         # Don't reorder the blt axis, because each simulator might do it differently.
         logger.info("Initializing UVData object...")
         uvdata, beams, beam_ids = initialize_uvdata_from_params(
@@ -302,7 +306,6 @@ class ModelData:
         and sky model, checking for inconsistencies that would be wrong for _any_
         simulator.
         """
-        print(self.beams)
         if self.beams.beam_type=='power' and np.any(self.sky_model.stokes[1:] != 0):
             raise TypeError(
                 "Cannot use power beams when the sky model contains polarized sources."

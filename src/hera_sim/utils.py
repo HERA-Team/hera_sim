@@ -751,6 +751,46 @@ def tanh_window(x, x_min=None, x_max=None, scale_low=1, scale_high=1):
     return window
 
 
+def precompute_antpair_index_cache(uvdata):
+    """Precompute the antpair2ind cache to reduce simulation setup costs.
+
+    The validation step performed during the initialization of a
+    ``visibilities.VisibilitySimulation`` object performs a check that the
+    baseline conjugation convention does not change with time. Under the hood,
+    this involves repeatedly calling ``UVData.antpair2ind``, which is very
+    inefficient for large N arrays---for the full HERA core, this can take
+    roughly 10 minutes. Precomputing the cache mapping antenna pairs to
+    blt-axis slices, which this function does, can drastically reduce that cost.
+    For non-rectangular baseline-times, the overall cost of precomputing the
+    cache and then validating the simulation parameters is expected to not be
+    reduced relative to validating the simulation without cache precomputation.
+
+    Parameters
+    ----------
+    uvdata
+        The UVData object whose antpair2ind cache should be updated.
+    """
+    antpair2ind_cache = uvdata._UVData__antpair2ind_cache
+    all_antpairs = set(uvdata.get_antpairs())  # set lookup is faster than list
+    for idx, (ai, aj) in enumerate(uvdata.get_antpairs()):
+        if uvdata.blts_are_rectangular:
+            if uvdata.time_axis_faster_than_bls:
+                antpair2ind_cache[(ai,aj,True)] = slice(
+                    idx*uvdata.Ntimes, (idx+1) * uvdata.Ntimes
+                )
+            else:
+                antpair2ind_cache[(ai,aj,True)] = slice(idx, None, uvdata.Nbls)
+        else:
+            idx = np.where(
+                (uvdata.ant_1_array == ai) & (uvdata.ant_2_array == aj)
+            )[0]
+            uvdata._UVData__antpair2ind_cache[(ai,aj,True)] = uvutils.tools.slicify(idx)
+        if ai != aj and (aj,ai) not in all_antpairs:
+            uvdata._UVData__antpair2ind_cache[(aj,ai,True)] = None
+
+    return
+
+
 # Just some numba-fied helpful functions.
 # Note that coverage can't see that these are run without disabling JIT,
 # which kind of defeats the purpose of testing it.
