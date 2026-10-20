@@ -27,7 +27,10 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v7.0.0
         with:
-          python-version-file: pyproject.toml
+          # Pin explicitly (max of the Tests matrix) rather than floating to the
+          # newest CPython allowed by requires-python, which may lack wheels
+          # for compiled deps such as jaxlib.
+          python-version: "3.14"
 
       # No system MPI: the MPI runtime is pinned in uv.lock (the `mpich` entry
       # in the `tests` dependency group) so every job runs an identical MPI stack.
