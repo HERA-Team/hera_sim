@@ -1,3 +1,4 @@
+import importlib.util
 import os
 from pathlib import Path
 
@@ -12,6 +13,17 @@ os.environ.setdefault("UCX_TLS", "self,sm,tcp")
 import pytest
 from astropy.time import Time
 from astropy.utils import iers
+
+
+def pytest_collection_modifyitems(config, items):
+    """Skip tests marked with ``mpi`` if mpi4py isn't installed."""
+    if importlib.util.find_spec("mpi4py") is not None:
+        return
+
+    skip_mpi = pytest.mark.skip(reason="mpi4py is not installed")
+    for item in items:
+        if "mpi" in item.keywords:
+            item.add_marker(skip_mpi)
 
 
 @pytest.fixture(autouse=True, scope="session")
