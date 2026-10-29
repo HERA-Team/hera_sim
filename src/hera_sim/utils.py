@@ -761,9 +761,8 @@ def precompute_antpair_index_cache(uvdata):
     inefficient for large N arrays---for the full HERA core, this can take
     roughly 10 minutes. Precomputing the cache mapping antenna pairs to
     blt-axis slices, which this function does, can drastically reduce that cost.
-    For non-rectangular baseline-times, the overall cost of precomputing the
-    cache and then validating the simulation parameters is expected to not be
-    reduced relative to validating the simulation without cache precomputation.
+    For non-rectangular baseline-times, the blt indices are grouped by antenna
+    pair in one pass over the blt axis.
 
     Parameters
     ----------
@@ -772,6 +771,14 @@ def precompute_antpair_index_cache(uvdata):
     """
     antpair2ind_cache = uvdata._UVData__antpair2ind_cache
     all_antpairs = set(uvdata.get_antpairs())  # set lookup is faster than list
+    if not uvdata.blts_are_rectangular:
+        # Group the blt indices by antpair, rather than searching the blt axis
+        # once per antpair.
+        baselines, inverse = np.unique(uvdata.baseline_array, return_inverse=True)
+        blt_order = np.argsort(inverse, kind="stable")
+        bl_ends = np.cumsum(np.bincount(inverse))[:-1]
+        ant1s, ant2s = uvdata.baseline_to_antnums(baselines)
+        antpair_blt_inds = dict(zip(zip(ant1s, ant2s), np.split(blt_order, bl_ends)))
     for idx, (ai, aj) in enumerate(uvdata.get_antpairs()):
         if uvdata.blts_are_rectangular:
             if uvdata.time_axis_faster_than_bls:
@@ -781,9 +788,7 @@ def precompute_antpair_index_cache(uvdata):
             else:
                 antpair2ind_cache[(ai,aj,True)] = slice(idx, None, uvdata.Nbls)
         else:
-            idx = np.where(
-                (uvdata.ant_1_array == ai) & (uvdata.ant_2_array == aj)
-            )[0]
+            idx = antpair_blt_inds[(ai, aj)]
             uvdata._UVData__antpair2ind_cache[(ai,aj,True)] = uvutils.tools.slicify(idx)
         if ai != aj and (aj,ai) not in all_antpairs:
             uvdata._UVData__antpair2ind_cache[(aj,ai,True)] = None
