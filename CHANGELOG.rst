@@ -32,6 +32,9 @@ Changed
   channels, thermal noise takes 4.5 s instead of 74 s, ``Bandpass`` 0.8 s
   instead of 99 s, ``noiselike_eor`` 25 s instead of 191 s and
   ``diffuse_foreground`` 27 s instead of 169 s.
+- ``Simulator.integration_time`` and ``Simulator.channel_width`` are no longer
+  cached, so like the other ``Simulator`` properties they follow changes to
+  ``Simulator.data``.
 
 Deprecated
 ----------

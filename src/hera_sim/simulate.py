@@ -11,7 +11,6 @@ import functools
 import inspect
 import warnings
 from collections.abc import Sequence
-from functools import cached_property
 from pathlib import Path
 from typing import Optional, Union
 
@@ -174,12 +173,12 @@ class Simulator:
         """Array of polarization strings."""
         return self.data.get_pols()
 
-    @cached_property
+    @property
     def integration_time(self):
         """Integration time, assuming it's identical across baselines."""
         return np.mean(self.data.integration_time)
 
-    @cached_property
+    @property
     def channel_width(self):
         """Channel width, assuming each channel is the same width."""
         return np.mean(self.data.channel_width)

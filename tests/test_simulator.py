@@ -521,6 +521,15 @@ def test_params_ok_after_select(select_param):
         assert np.all(select_pols == sim.polarization_array)
 
 
+def test_integration_time_and_channel_width_follow_data(base_sim):
+    assert np.isclose(base_sim.integration_time, 10.7)
+    assert np.isclose(base_sim.channel_width, 1e8 / 1024)
+    base_sim.data.integration_time[:] = 5.0
+    base_sim.data.channel_width[:] = 1e5
+    assert np.isclose(base_sim.integration_time, 5.0)
+    assert np.isclose(base_sim.channel_width, 1e5)
+
+
 def test_bad_yaml_config(base_sim, tmp_path):
     # make a bad config file
     tmp_sim_file = tmp_path / "bad_config.yaml"
