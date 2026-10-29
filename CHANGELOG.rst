@@ -29,8 +29,9 @@ Changed
     that handles random state management has received a significant update.
 - ``Simulator.add`` is much faster for per-baseline and per-antenna components
   on large arrays, with bit-identical results. For 217 antennas, 2 times and 64
-  channels, thermal noise takes 4.5 s instead of 74 s and ``Bandpass`` 0.8 s
-  instead of 99 s.
+  channels, thermal noise takes 4.5 s instead of 74 s, ``Bandpass`` 0.8 s
+  instead of 99 s, ``noiselike_eor`` 25 s instead of 191 s and
+  ``diffuse_foreground`` 27 s instead of 169 s.
 
 Deprecated
 ----------

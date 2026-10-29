@@ -1101,6 +1101,8 @@ class Simulator:
                 args["rng"] = rng
             data_copy += model(**args)
         else:
+            # Each read of self.antpos rebuilds it from the data, so read it once.
+            antpos = self.antpos
             # Iterate over the array and simulate the effect as-needed.
             for ant1, ant2, pol, blt_inds, pol_ind in self._iterate_antpair_pols():
                 # Determine whether or not to filter the result.
@@ -1121,7 +1123,9 @@ class Simulator:
                 # Prepare the actual arguments to be used. Gains were simulated
                 # above, so only visibilities need them.
                 if not is_multiplicative:
-                    use_args = self._update_args(base_args, model, ant1, ant2, pol)
+                    use_args = self._update_args(
+                        base_args, model, ant1, ant2, pol, antpos=antpos
+                    )
                     use_args.update(kwargs)
                     if model.is_randomized:
                         use_args["rng"] = rng
@@ -1311,7 +1315,7 @@ class Simulator:
         else:
             raise ValueError("Seeding mode not supported.")
 
-    def _update_args(self, args, model, ant1=None, ant2=None, pol=None):
+    def _update_args(self, args, model, ant1=None, ant2=None, pol=None, antpos=None):
         """
         Scan the provided arguments and pull data as necessary.
 
@@ -1338,6 +1342,9 @@ class Simulator:
             Required parameter if a baseline vector is in the keys of ``args``.
         pol: str, optional
             Polarization string. Currently not used.
+        antpos: dict, optional
+            Antenna positions to use for the baseline vector. Defaults to
+            ``self.antpos``.
         """
         # TODO: review this and see if there's a smarter way to do it.
         new_params = {}
@@ -1349,7 +1356,8 @@ class Simulator:
             elif param == "autovis_j":
                 new_params[param] = self.data.get_data(ant2, ant2, pol[1:]*2)
             elif param == "bl_vec":
-                bl_vec = self.antpos[ant2] - self.antpos[ant1]
+                antpos = self.antpos if antpos is None else antpos
+                bl_vec = antpos[ant2] - antpos[ant1]
                 new_params[param] = bl_vec / const.c.to("m/ns").value
             elif param == "antpair":
                 new_params[param] = (ant1, ant2)
