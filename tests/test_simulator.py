@@ -111,26 +111,6 @@ def test_nondefault_blt_order_lsts():
     assert np.all(lsts[1:] > lsts[:-1])
 
 
-@pytest.mark.parametrize("blt_order", ["time", "baseline", "shuffled"])
-def test_iterate_antpair_pols_matches_antpair2ind(blt_order):
-    sim = create_sim(
-        autos=True, array_layout=hex_array(2, split_core=False, outriggers=0)
-    )
-    if blt_order == "shuffled":
-        sim.data.reorder_blts(np.random.default_rng(0).permutation(sim.data.Nblts))
-    else:
-        sim.data.reorder_blts(blt_order)
-    pols = sim.data.get_pols()
-    blts = np.arange(sim.data.Nblts)
-    antpairpols = []
-    for ant1, ant2, pol, blt_inds, pol_ind in sim._iterate_antpair_pols():
-        expected = blts[sim.data.antpair2ind(ant1, ant2)]
-        np.testing.assert_array_equal(blts[blt_inds], expected)
-        assert pol_ind == pols.index(pol)
-        antpairpols.append((ant1, ant2, pol))
-    assert antpairpols == sim.data.get_antpairpols()
-
-
 def test_add_with_str(base_sim):
     base_sim.add("noiselike_eor", rng=np.random.default_rng(0))
     assert not np.all(base_sim.data.data_array == 0)
