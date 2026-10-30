@@ -11,7 +11,6 @@ import functools
 import inspect
 import warnings
 from collections.abc import Sequence
-from functools import cached_property
 from pathlib import Path
 from typing import Optional, Union
 
@@ -174,12 +173,12 @@ class Simulator:
         """Array of polarization strings."""
         return self.data.get_pols()
 
-    @cached_property
+    @property
     def integration_time(self):
         """Integration time, assuming it's identical across baselines."""
         return np.mean(self.data.integration_time)
 
-    @cached_property
+    @property
     def channel_width(self):
         """Channel width, assuming each channel is the same width."""
         return np.mean(self.data.channel_width)
@@ -281,7 +280,7 @@ class Simulator:
         if not isinstance(model, SimulationComponent):
             model = model(**kwargs)
         self._sanity_check(model)  # Check for component ordering issues.
-        self._antpairpol_cache[model_key] = []  # Initialize this model's cache.
+        self._antpairpol_cache[model_key] = set()  # Initialize this model's cache.
         if seed is None and add_vis:
             warnings.warn(
                 "You have not specified how to seed the random state. "
@@ -939,9 +938,15 @@ class Simulator:
 
     def _iterate_antpair_pols(self):
         """Loop through all baselines and polarizations."""
+        # Fill the antpair2ind cache for every antpair at once, unless it already
+        # is: a first lookup of an antpair is slow for large arrays.
+        cache = self.data._UVData__antpair2ind_cache
+        if any((ai, aj, True) not in cache for ai, aj in self.data.get_antpairs()):
+            utils.precompute_antpair_index_cache(self.data)
+        pols = self.data.get_pols()
         for ant1, ant2, pol in self.data.get_antpairpols():
             blt_inds = self.data.antpair2ind((ant1, ant2))
-            pol_ind = self.data.get_pols().index(pol)
+            pol_ind = pols.index(pol)
             if blt_inds is not None:
                 yield ant1, ant2, pol, blt_inds, pol_ind
 
@@ -953,7 +958,7 @@ class Simulator:
         ret_vis: bool = False,
         seed: str | int | None = None,
         vis_filter: Sequence | None = None,
-        antpairpol_cache: Sequence[AntPairPol] | None = None,
+        antpairpol_cache: set[AntPairPol] | None = None,
         model_key: str | None = None,
         **kwargs,
     ) -> np.ndarray | dict[int, np.ndarray] | None:
@@ -988,7 +993,7 @@ class Simulator:
             does not have the effect applied to it. See :meth:`_apply_filter`
             for more details.
         antpairpol_cache
-            List of (ant1, ant2, pol) tuples specifying which antpairpols have
+            Set of (ant1, ant2, pol) tuples specifying which antpairpols have
             already had the effect simulated. Not intended for use by the
             typical end-user.
         model_key
@@ -1018,7 +1023,7 @@ class Simulator:
 
         # Initialize the antpairpol cache if we need to.
         if antpairpol_cache is None:
-            antpairpol_cache = []
+            antpairpol_cache = set()
 
         # Pull relevant parameters from Simulator.
         # Also make placeholders for antenna/baseline dependent parameters.
@@ -1089,6 +1094,8 @@ class Simulator:
                 args["rng"] = rng
             data_copy += model(**args)
         else:
+            # Each read of self.antpos rebuilds it from the data, so read it once.
+            antpos = self.antpos
             # Iterate over the array and simulate the effect as-needed.
             for ant1, ant2, pol, blt_inds, pol_ind in self._iterate_antpair_pols():
                 # Determine whether or not to filter the result.
@@ -1106,23 +1113,9 @@ class Simulator:
                 key = (ant2, ant1, pol) if conj_in_cache else (ant1, ant2, pol)
                 seed, rng = self._seed_rng(seed, model, *key, model_key=model_key)
 
-                # Prepare the actual arguments to be used.
-                use_args = self._update_args(base_args, model, ant1, ant2, pol)
-                use_args.update(kwargs)
-                if model.is_randomized:
-                    use_args["rng"] = rng
-                if use_cached_filters:
-                    filter_kwargs = self._get_filters(
-                        ant1,
-                        ant2,
-                        get_delay_filter=get_delay_filter,
-                        get_fringe_filter=get_fringe_filter,
-                    )
-                    use_args.update(filter_kwargs)
-
                 # Cache simulated antpairpols if not filtered out.
                 if not (bl_in_cache or conj_in_cache or apply_filter):
-                    antpairpol_cache.append((ant1, ant2, pol))
+                    antpairpol_cache.add((ant1, ant2, pol))
 
                 # Check whether we're simulating a gain or a visibility.
                 if is_multiplicative:
@@ -1137,6 +1130,20 @@ class Simulator:
                             conj_blts, :, pol_ind
                         ].conj()
                     else:
+                        use_args = self._update_args(
+                            base_args, model, ant1, ant2, pol, antpos=antpos
+                        )
+                        use_args.update(kwargs)
+                        if model.is_randomized:
+                            use_args["rng"] = rng
+                        if use_cached_filters:
+                            filter_kwargs = self._get_filters(
+                                ant1,
+                                ant2,
+                                get_delay_filter=get_delay_filter,
+                                get_fringe_filter=get_fringe_filter,
+                            )
+                            use_args.update(filter_kwargs)
                         vis = model(**use_args)
 
                     # and add it in
@@ -1296,7 +1303,7 @@ class Simulator:
         else:
             raise ValueError("Seeding mode not supported.")
 
-    def _update_args(self, args, model, ant1=None, ant2=None, pol=None):
+    def _update_args(self, args, model, ant1=None, ant2=None, pol=None, antpos=None):
         """
         Scan the provided arguments and pull data as necessary.
 
@@ -1323,6 +1330,9 @@ class Simulator:
             Required parameter if a baseline vector is in the keys of ``args``.
         pol: str, optional
             Polarization string. Currently not used.
+        antpos: dict, optional
+            Antenna positions to use for the baseline vector. Defaults to
+            ``self.antpos``.
         """
         # TODO: review this and see if there's a smarter way to do it.
         new_params = {}
@@ -1334,7 +1344,8 @@ class Simulator:
             elif param == "autovis_j":
                 new_params[param] = self.data.get_data(ant2, ant2, pol[1:]*2)
             elif param == "bl_vec":
-                bl_vec = self.antpos[ant2] - self.antpos[ant1]
+                antpos = self.antpos if antpos is None else antpos
+                bl_vec = antpos[ant2] - antpos[ant1]
                 new_params[param] = bl_vec / const.c.to("m/ns").value
             elif param == "antpair":
                 new_params[param] = (ant1, ant2)

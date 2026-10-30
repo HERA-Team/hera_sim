@@ -27,6 +27,14 @@ Changed
     with whatever random seed is desired.
   - The Simulator API has remained virtually unchanged, but the internal logic
     that handles random state management has received a significant update.
+- ``Simulator.add`` is much faster for per-baseline and per-antenna components
+  on large arrays, with bit-identical results. For 217 antennas, 2 times and 64
+  channels, thermal noise takes 4.5 s instead of 74 s, ``Bandpass`` 0.8 s
+  instead of 99 s, ``noiselike_eor`` 25 s instead of 191 s and
+  ``diffuse_foreground`` 27 s instead of 169 s.
+- ``Simulator.integration_time`` and ``Simulator.channel_width`` are no longer
+  cached, so like the other ``Simulator`` properties they follow changes to
+  ``Simulator.data``.
 
 Deprecated
 ----------
